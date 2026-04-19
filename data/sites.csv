@@ -1,0 +1,6 @@
+﻿site_id,site_label,latitude,longitude,modern_country,former_entity,region_category,source_title,year,metal,exposure_duration,pdf_url,notes
+RU001,Vladivostok,43.15,131.88,Russia,USSR,Coastal,Atmospheric Corrosion of Metals in Regions of Cold and Extremely Cold Climate (a Review),2008,"Steel, zinc, copper, aluminum",varies,papers/s001.pdf,
+RU002,Moscow,55.698,37.57,Russia,USSR,Urban,Corrosiveness of the Atmosphere in Various Climatic Regions of the Russian Federation,2021,"Steel, zinc, copper, aluminum",varies,papers/s002.pdf,
+RU003,Murmansk,69.15,35.97,Russia,USSR,Coastal,Atmospheric Corrosion of Metals in Regions of Cold and Extremely Cold Climate (a Review),2008,"Steel, zinc, copper, aluminum",varies,papers/s001.pdf,
+NO001,Oslo,59.92,10.69,Norway,Norway,"Coastal, Urban",European Federation of Corrosion Exposure Sites,1980-2026,"Steel, zinc, copper, aluminum",varies,https://www.corrosion-sites.com/index.php,
+CZ001,Prague,50.11,14.45,Czech Republic,Czechoslovakia,Urban,European Federation of Corrosion Exposure Sites,1980-2026,"Steel, zinc, copper, aluminum",varies,https://www.corrosion-sites.com/index.php,

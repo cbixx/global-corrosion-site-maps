@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Corrosion Test Sites Map</title>
+
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+  />
+
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+    }
+
+    header {
+      padding: 12px 16px;
+      background: #f5f5f5;
+      border-bottom: 1px solid #ddd;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 20px;
+    }
+
+    #map {
+      width: 100%;
+      height: calc(100vh - 58px);
+    }
+
+    .popup-title {
+      font-weight: bold;
+      font-size: 16px;
+      margin-bottom: 6px;
+    }
+
+    .popup-row {
+      margin: 3px 0;
+      line-height: 1.35;
+    }
+
+    .pdf-link {
+      display: inline-block;
+      margin-top: 8px;
+      padding: 6px 10px;
+      background: #1f6feb;
+      color: white;
+      text-decoration: none;
+      border-radius: 4px;
+    }
+
+    .pdf-link:hover {
+      background: #174ea6;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Corrosion Test Sites Map</h1>
+  </header>
+
+  <div id="map"></div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+
+  <script>
+    const map = L.map('map').setView([58, 60], 3);
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; OpenStreetMap contributors'
+    }).addTo(map);
+
+    Papa.parse('data/sites.csv', {
+      download: true,
+      header: true,
+      skipEmptyLines: true,
+      complete: function(results) {
+        const rows = results.data;
+        const bounds = [];
+
+        rows.forEach(row => {
+          const lat = parseFloat(row.latitude);
+          const lon = parseFloat(row.longitude);
+
+          if (isNaN(lat) || isNaN(lon)) return;
+
+          let popupContent = `
+            <div class="popup-title">${row.site_label || 'Unnamed site'}</div>
+            <div class="popup-row"><strong>Site ID:</strong> ${row.site_id || ''}</div>
+            <div class="popup-row"><strong>Source ID:</strong> ${row.source_id || ''}</div>
+            <div class="popup-row"><strong>Country:</strong> ${row.modern_country || ''}</div>
+            <div class="popup-row"><strong>Former entity:</strong> ${row.former_entity || ''}</div>
+            <div class="popup-row"><strong>Region:</strong> ${row.region_category || ''}</div>
+            <div class="popup-row"><strong>Title:</strong> ${row.source_title || ''}</div>
+            <div class="popup-row"><strong>Year:</strong> ${row.year || ''}</div>
+            <div class="popup-row"><strong>Metal:</strong> ${row.metal || ''}</div>
+            <div class="popup-row"><strong>Exposure:</strong> ${row.exposure_duration || ''}</div>
+          `;
+
+          if (row.notes) {
+            popupContent += `<div class="popup-row"><strong>Notes:</strong> ${row.notes}</div>`;
+          }
+
+          if (row.pdf_url) {
+            popupContent += `<a class="pdf-link" href="${row.pdf_url}" target="_blank">Open PDF</a>`;
+          }
+
+          const marker = L.marker([lat, lon]).addTo(map);
+          marker.bindTooltip(row.site_label || 'Unnamed site');
+          marker.bindPopup(popupContent);
+
+          bounds.push([lat, lon]);
+        });
+
+        if (bounds.length > 0) {
+          map.fitBounds(bounds, { padding: [30, 30] });
+        }
+      }
+    });
+  </script>
+</body>
+</html>
