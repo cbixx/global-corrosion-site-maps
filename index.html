@@ -69,10 +69,19 @@
   <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
 
   <script>
-    const map = L.map('map').setView([58, 60], 3);
+    const southWest = L.latLng(-85, -180);
+    const northEast = L.latLng(85, 180);
+    const worldBounds = L.latLngBounds(southWest, northEast);
+
+    const map = L.map('map', {
+      maxBounds: worldBounds,
+      maxBoundsViscosity: 1.0,
+      minZoom: 2
+    }).setView([58, 60], 3);
 
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '&copy; OpenStreetMap contributors'
+      attribution: '&copy; OpenStreetMap contributors',
+      noWrap: true
     }).addTo(map);
 
     Papa.parse('data/sites.csv', {
@@ -81,7 +90,7 @@
       skipEmptyLines: true,
       complete: function(results) {
         const rows = results.data;
-        const bounds = [];
+        const siteBounds = [];
 
         rows.forEach(row => {
           const lat = parseFloat(row.latitude);
@@ -114,11 +123,11 @@
           marker.bindTooltip(row.site_label || 'Unnamed site');
           marker.bindPopup(popupContent);
 
-          bounds.push([lat, lon]);
+          siteBounds.push([lat, lon]);
         });
 
-        if (bounds.length > 0) {
-          map.fitBounds(bounds, { padding: [30, 30] });
+        if (siteBounds.length > 0) {
+          map.fitBounds(siteBounds, { padding: [30, 30] });
         }
       }
     });
