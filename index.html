@@ -11,25 +11,111 @@
   />
 
   <style>
-    body {
+    html, body {
       margin: 0;
+      height: 100%;
       font-family: Arial, sans-serif;
     }
 
-    header {
-      padding: 12px 16px;
-      background: #f5f5f5;
-      border-bottom: 1px solid #ddd;
+    .app {
+      display: flex;
+      height: 100vh;
+      width: 100%;
+      overflow: hidden;
     }
 
-    h1 {
-      margin: 0;
-      font-size: 20px;
+    .sidebar {
+      width: 340px;
+      min-width: 340px;
+      max-width: 340px;
+      background: #f7f7f7;
+      border-right: 1px solid #d9d9d9;
+      box-sizing: border-box;
+      padding: 18px 16px;
+      overflow-y: auto;
+    }
+
+    .sidebar h1 {
+      margin: 0 0 18px 0;
+      font-size: 18px;
+      line-height: 1.25;
+    }
+
+    .control-group {
+      margin-bottom: 14px;
+    }
+
+    .control-label {
+      display: block;
+      font-size: 13px;
+      font-weight: 600;
+      margin-bottom: 6px;
+      color: #333;
+    }
+
+    .control-input,
+    .control-select {
+      width: 100%;
+      box-sizing: border-box;
+      padding: 9px 10px;
+      border: 1px solid #bdbdbd;
+      border-radius: 6px;
+      font-size: 14px;
+      background: #fff;
+    }
+
+    .button-row {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 16px;
+    }
+
+    .panel-button {
+      padding: 9px 12px;
+      font-size: 14px;
+      border: 1px solid #bdbdbd;
+      border-radius: 6px;
+      background: #fff;
+      cursor: pointer;
+    }
+
+    .panel-button:hover {
+      background: #efefef;
+    }
+
+    .result-box {
+      margin-top: 18px;
+      padding: 10px 12px;
+      background: #fff;
+      border: 1px solid #dddddd;
+      border-radius: 6px;
+      font-size: 13px;
+      line-height: 1.4;
+      color: #333;
+    }
+
+    .result-box strong {
+      font-size: 14px;
+    }
+
+    .sidebar-note {
+      margin-top: 18px;
+      font-size: 12px;
+      line-height: 1.45;
+      color: #666;
+    }
+
+    .map-panel {
+      flex: 1;
+      min-width: 0;
+      position: relative;
+      background: #e9e9e9;
     }
 
     #map {
       width: 100%;
-      height: calc(100vh - 58px);
+      height: 100%;
     }
 
     .popup-title {
@@ -116,11 +202,61 @@
   </style>
 </head>
 <body>
-  <header>
-    <h1>Corrosion Test Sites Map</h1>
-  </header>
+  <div class="app">
+    <aside class="sidebar">
+      <h1>Corrosion Test Sites Map</h1>
 
-  <div id="map"></div>
+      <div class="control-group">
+        <label class="control-label" for="searchBox">Search</label>
+        <input
+          id="searchBox"
+          class="control-input"
+          type="text"
+          placeholder="Site label, site ID, country, region, site type, metal..."
+        />
+      </div>
+
+      <div class="control-group">
+        <label class="control-label" for="countryFilter">Country / location</label>
+        <select id="countryFilter" class="control-select">
+          <option value="">All</option>
+        </select>
+      </div>
+
+      <div class="control-group">
+        <label class="control-label" for="regionFilter">Region category</label>
+        <select id="regionFilter" class="control-select">
+          <option value="">All</option>
+        </select>
+      </div>
+
+      <div class="control-group">
+        <label class="control-label" for="typeFilter">Site type</label>
+        <select id="typeFilter" class="control-select">
+          <option value="">All</option>
+        </select>
+      </div>
+
+      <div class="button-row">
+        <button id="clearFilters" class="panel-button" type="button">Clear filters</button>
+        <button id="fitVisible" class="panel-button" type="button">Fit visible sites</button>
+      </div>
+
+      <div class="result-box">
+        <strong id="resultCount">Loading...</strong><br />
+        <span id="resultDetail">Please wait while the dataset loads.</span>
+      </div>
+
+      <div class="sidebar-note">
+        Search works across site label, site ID, site type, country/location, administering country,
+        former entity, region category, exposure period, metal, and notes.
+      </div>
+    </aside>
+
+    <main class="map-panel">
+      <div id="map"></div>
+    </main>
+  </div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
@@ -132,13 +268,20 @@
 
     const map = L.map('map', {
       maxBounds: worldBounds,
-      maxBoundsViscosity: 1.0
-    }).setView([58, 60], 3);
+      maxBoundsViscosity: 1.0,
+      minZoom: 2,
+      zoomSnap: 0.25
+    }).setView([20, 20], 2);
 
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '&copy; OpenStreetMap contributors',
       noWrap: true
     }).addTo(map);
+
+    const markersLayer = L.layerGroup().addTo(map);
+
+    let allRows = [];
+    let visibleRows = [];
 
     function escapeHtml(value) {
       if (value === null || value === undefined) return '';
@@ -154,15 +297,12 @@
       const resources = [];
 
       for (let i = 1; i <= 3; i++) {
-        const labelKey = `source_label_${i}`;
         const urlKey = `source_${i}`;
-
-        const label = row[labelKey] ? row[labelKey].trim() : '';
         const url = row[urlKey] ? row[urlKey].trim() : '';
 
         if (url) {
           resources.push({
-            label: label || `Open Source ${i}`,
+            label: `Open Source ${i}`,
             url: url
           });
         }
@@ -171,83 +311,219 @@
       return resources;
     }
 
+    function buildSearchText(row) {
+      return [
+        row.site_id,
+        row.site_label,
+        row.site_type,
+        row.modern_country_location,
+        row.administering_country,
+        row.former_entity,
+        row.region_category,
+        row.exposure_period,
+        row.metal,
+        row.notes
+      ]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase();
+    }
+
+    function buildPopup(row) {
+      const resources = collectResources(row);
+      const notes = row.notes ? row.notes.trim() : '';
+
+      let popupContent = `
+        <div class="popup-title">${escapeHtml(row.site_label || 'Unnamed site')}</div>
+        <div class="popup-row"><strong>Site ID:</strong> ${escapeHtml(row.site_id || '')}</div>
+        <div class="popup-row"><strong>Site type:</strong> ${escapeHtml(row.site_type || '')}</div>
+        <div class="popup-row"><strong>Country/location:</strong> ${escapeHtml(row.modern_country_location || '')}</div>
+      `;
+
+      if (row.administering_country && row.administering_country.trim() !== '') {
+        popupContent += `<div class="popup-row"><strong>Administering country:</strong> ${escapeHtml(row.administering_country)}</div>`;
+      }
+
+      if (row.former_entity && row.former_entity.trim() !== '') {
+        popupContent += `<div class="popup-row"><strong>Former entity:</strong> ${escapeHtml(row.former_entity)}</div>`;
+      }
+
+      if (row.region_category && row.region_category.trim() !== '') {
+        popupContent += `<div class="popup-row"><strong>Region:</strong> ${escapeHtml(row.region_category)}</div>`;
+      }
+
+      if (row.exposure_period && row.exposure_period.trim() !== '') {
+        popupContent += `<div class="popup-row"><strong>Exposure period:</strong> ${escapeHtml(row.exposure_period)}</div>`;
+      }
+
+      if (row.metal && row.metal.trim() !== '') {
+        popupContent += `<div class="popup-row"><strong>Metal:</strong> ${escapeHtml(row.metal)}</div>`;
+      }
+
+      if (resources.length > 0 || notes) {
+        popupContent += `<div class="action-row">`;
+
+        resources.forEach(resource => {
+          popupContent += `
+            <a class="resource-link" href="${escapeHtml(resource.url)}" target="_blank" rel="noopener noreferrer">
+              ${escapeHtml(resource.label)}
+            </a>
+          `;
+        });
+
+        if (notes) {
+          popupContent += `
+            <div class="notes-wrap">
+              <span class="notes-button">Notes</span>
+              <div class="notes-tooltip">${escapeHtml(notes)}</div>
+            </div>
+          `;
+        }
+
+        popupContent += `</div>`;
+      }
+
+      return popupContent;
+    }
+
+    function populateSelect(selectId, values) {
+      const select = document.getElementById(selectId);
+      const currentValue = select.value;
+
+      select.innerHTML = `<option value="">All</option>`;
+
+      values.forEach(value => {
+        const option = document.createElement('option');
+        option.value = value;
+        option.textContent = value;
+        select.appendChild(option);
+      });
+
+      if ([...select.options].some(option => option.value === currentValue)) {
+        select.value = currentValue;
+      }
+    }
+
+    function updateDropdowns(rows) {
+      const uniqueCountries = [...new Set(rows.map(r => (r.modern_country_location || '').trim()).filter(Boolean))].sort();
+      const uniqueRegions = [...new Set(rows.map(r => (r.region_category || '').trim()).filter(Boolean))].sort();
+      const uniqueTypes = [...new Set(rows.map(r => (r.site_type || '').trim()).filter(Boolean))].sort();
+
+      populateSelect('countryFilter', uniqueCountries);
+      populateSelect('regionFilter', uniqueRegions);
+      populateSelect('typeFilter', uniqueTypes);
+    }
+
+    function updateResultPanel(count, total) {
+      document.getElementById('resultCount').textContent = `${count} site${count === 1 ? '' : 's'} shown`;
+      document.getElementById('resultDetail').textContent = `Filtered from ${total} total site${total === 1 ? '' : 's'}.`;
+    }
+
+    function renderMarkers(rows) {
+      markersLayer.clearLayers();
+
+      rows.forEach(row => {
+        const lat = parseFloat(row.latitude);
+        const lon = parseFloat(row.longitude);
+
+        if (isNaN(lat) || isNaN(lon)) return;
+
+        const marker = L.marker([lat, lon]);
+        marker.bindTooltip(row.site_label || 'Unnamed site');
+        marker.bindPopup(buildPopup(row));
+        marker.addTo(markersLayer);
+      });
+    }
+
+    function fitRows(rows) {
+      const bounds = [];
+
+      rows.forEach(row => {
+        const lat = parseFloat(row.latitude);
+        const lon = parseFloat(row.longitude);
+
+        if (!isNaN(lat) && !isNaN(lon)) {
+          bounds.push([lat, lon]);
+        }
+      });
+
+      if (bounds.length === 0) return;
+
+      if (bounds.length === 1) {
+        map.setView(bounds[0], 4);
+      } else {
+        map.fitBounds(bounds, {
+          padding: [30, 30],
+          maxZoom: 4
+        });
+      }
+    }
+
+    function applyFilters(autoFit = true) {
+      const query = document.getElementById('searchBox').value.trim().toLowerCase();
+      const countryValue = document.getElementById('countryFilter').value.trim().toLowerCase();
+      const regionValue = document.getElementById('regionFilter').value.trim().toLowerCase();
+      const typeValue = document.getElementById('typeFilter').value.trim().toLowerCase();
+
+      visibleRows = allRows.filter(row => {
+        const searchText = buildSearchText(row);
+
+        const matchesSearch = !query || searchText.includes(query);
+        const matchesCountry = !countryValue || (row.modern_country_location || '').trim().toLowerCase() === countryValue;
+        const matchesRegion = !regionValue || (row.region_category || '').trim().toLowerCase() === regionValue;
+        const matchesType = !typeValue || (row.site_type || '').trim().toLowerCase() === typeValue;
+
+        return matchesSearch && matchesCountry && matchesRegion && matchesType;
+      });
+
+      renderMarkers(visibleRows);
+      updateResultPanel(visibleRows.length, allRows.length);
+
+      const filtersAreActive = Boolean(query || countryValue || regionValue || typeValue);
+
+      if (filtersAreActive && autoFit) {
+        fitRows(visibleRows);
+      } else if (!filtersAreActive) {
+        map.setView([20, 20], 2);
+      }
+    }
+
     Papa.parse('data/sites.csv', {
       download: true,
       header: true,
       skipEmptyLines: true,
       complete: function(results) {
-        const rows = results.data;
-        const siteBounds = [];
-
-        rows.forEach(row => {
+        allRows = results.data.filter(row => {
           const lat = parseFloat(row.latitude);
           const lon = parseFloat(row.longitude);
-
-          if (isNaN(lat) || isNaN(lon)) return;
-
-          const resources = collectResources(row);
-          const notes = row.notes ? row.notes.trim() : '';
-
-          let popupContent = `
-            <div class="popup-title">${escapeHtml(row.site_label || 'Unnamed site')}</div>
-            <div class="popup-row"><strong>Site ID:</strong> ${escapeHtml(row.site_id || '')}</div>
-            <div class="popup-row"><strong>Site type:</strong> ${escapeHtml(row.site_type || '')}</div>
-            <div class="popup-row"><strong>Country/location:</strong> ${escapeHtml(row.modern_country_location || '')}</div>
-          `;
-
-          if (row.administering_country && row.administering_country.trim() !== '') {
-            popupContent += `<div class="popup-row"><strong>Administering country:</strong> ${escapeHtml(row.administering_country)}</div>`;
-          }
-
-          if (row.former_entity && row.former_entity.trim() !== '') {
-            popupContent += `<div class="popup-row"><strong>Former entity:</strong> ${escapeHtml(row.former_entity)}</div>`;
-          }
-
-          if (row.region_category && row.region_category.trim() !== '') {
-            popupContent += `<div class="popup-row"><strong>Region:</strong> ${escapeHtml(row.region_category)}</div>`;
-          }
-
-          if (row.exposure_period && row.exposure_period.trim() !== '') {
-            popupContent += `<div class="popup-row"><strong>Exposure period:</strong> ${escapeHtml(row.exposure_period)}</div>`;
-          }
-
-          if (row.metal && row.metal.trim() !== '') {
-            popupContent += `<div class="popup-row"><strong>Metal:</strong> ${escapeHtml(row.metal)}</div>`;
-          }
-
-          if (resources.length > 0 || notes) {
-            popupContent += `<div class="action-row">`;
-
-            resources.forEach(resource => {
-              popupContent += `
-                <a class="resource-link" href="${escapeHtml(resource.url)}" target="_blank" rel="noopener noreferrer">
-                  ${escapeHtml(resource.label)}
-                </a>
-              `;
-            });
-
-            if (notes) {
-              popupContent += `
-                <div class="notes-wrap">
-                  <span class="notes-button">Notes</span>
-                  <div class="notes-tooltip">${escapeHtml(notes)}</div>
-                </div>
-              `;
-            }
-
-            popupContent += `</div>`;
-          }
-
-          const marker = L.marker([lat, lon]).addTo(map);
-          marker.bindTooltip(row.site_label || 'Unnamed site');
-          marker.bindPopup(popupContent);
-
-          siteBounds.push([lat, lon]);
+          return !isNaN(lat) && !isNaN(lon);
         });
 
-        if (siteBounds.length > 0) {
-          map.fitBounds(siteBounds, { padding: [30, 30] });
-        }
+        updateDropdowns(allRows);
+        visibleRows = [...allRows];
+        renderMarkers(allRows);
+        updateResultPanel(allRows.length, allRows.length);
+
+        document.getElementById('searchBox').addEventListener('input', () => applyFilters(true));
+        document.getElementById('countryFilter').addEventListener('change', () => applyFilters(true));
+        document.getElementById('regionFilter').addEventListener('change', () => applyFilters(true));
+        document.getElementById('typeFilter').addEventListener('change', () => applyFilters(true));
+
+        document.getElementById('clearFilters').addEventListener('click', function() {
+          document.getElementById('searchBox').value = '';
+          document.getElementById('countryFilter').value = '';
+          document.getElementById('regionFilter').value = '';
+          document.getElementById('typeFilter').value = '';
+          applyFilters(false);
+        });
+
+        document.getElementById('fitVisible').addEventListener('click', function() {
+          fitRows(visibleRows);
+        });
+
+        setTimeout(() => {
+          map.invalidateSize();
+        }, 100);
       }
     });
   </script>
