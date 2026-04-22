@@ -323,14 +323,40 @@
 
   <script>
     const map = L.map('map', {
-      worldCopyJump: true,
-      minZoom: 2,
+      minZoom: 2.25,
       zoomSnap: 0.25
-    }).setView([20, 20], 2);
+    }).setView([20, 20], 2.25);
 
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '&copy; OpenStreetMap contributors',
+      attribution: '&copy; OpenStreetMap contributors'
     }).addTo(map);
+
+    function wrapLongitude(lng) {
+      return ((lng + 180) % 360 + 360) % 360 - 180;
+    }
+
+    function clampLatitude(lat) {
+      return Math.max(-80, Math.min(80, lat));
+    }
+
+    function normalizeMapCenter() {
+      const center = map.getCenter();
+      const wrappedLng = wrapLongitude(center.lng);
+      const clampedLat = clampLatitude(center.lat);
+
+      const needsReset =
+        Math.abs(center.lng - wrappedLng) > 1e-7 ||
+        Math.abs(center.lat - clampedLat) > 1e-7;
+
+      if (needsReset) {
+        map.setView([clampedLat, wrappedLng], map.getZoom(), {
+          animate: false
+        });
+      }
+    }
+
+    map.on('dragend', normalizeMapCenter);
+    map.on('zoomend', normalizeMapCenter);
 
     const markersLayer = L.markerClusterGroup({
       showCoverageOnHover: false,
@@ -561,7 +587,7 @@
       } else {
         map.fitBounds(bounds, {
           padding: [30, 30],
-          maxZoom: 4
+          maxZoom: 5
         });
       }
 
@@ -609,7 +635,7 @@
       if (filtersAreActive && autoFit) {
         fitRows(visibleRows);
       } else if (!filtersAreActive) {
-        map.setView([20, 20], 2);
+        map.setView([20, 20], 2.25);
       }
     }
 
