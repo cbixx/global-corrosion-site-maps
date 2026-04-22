@@ -172,11 +172,63 @@
       padding: 6px 10px;
       background: #6c757d;
       color: #ffffff;
+      border: 0;
       border-radius: 4px;
       font-weight: 600;
       font-size: 13px;
-      cursor: default;
+      cursor: pointer;
       user-select: none;
+    }
+
+    .notes-button:hover {
+      background: #5c636a;
+    }
+
+    .notes-panel {
+      display: none;
+      position: absolute;
+      top: 115%;
+      left: 0;
+      z-index: 1000;
+      width: 320px;
+      max-width: min(320px, 70vw);
+      max-height: 220px;
+      overflow-y: auto;
+      padding: 10px 12px;
+      background: #222;
+      color: #fff;
+      border-radius: 6px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+      line-height: 1.4;
+      font-size: 12px;
+      white-space: normal;
+    }
+
+    .notes-wrap.open .notes-panel {
+      display: block;
+    }
+
+    .leaflet-popup-content {
+      min-width: 260px;
+    }
+
+    @media (max-width: 900px) {
+      .app {
+        flex-direction: column;
+      }
+
+      .sidebar {
+        width: 100%;
+        min-width: 0;
+        max-width: none;
+        max-height: 38vh;
+        border-right: none;
+        border-bottom: 1px solid #d9d9d9;
+      }
+      
+      .map-panel {
+        min-height: 62vh;
+      }
     }
 
     .notes-tooltip {
@@ -270,20 +322,14 @@
   <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
 
   <script>
-    const southWest = L.latLng(-85, -180);
-    const northEast = L.latLng(85, 180);
-    const worldBounds = L.latLngBounds(southWest, northEast);
-
     const map = L.map('map', {
-      maxBounds: worldBounds,
-      maxBoundsViscosity: 1.0,
+      worldCopyJump: true,
       minZoom: 2,
       zoomSnap: 0.25
     }).setView([20, 20], 2);
 
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '&copy; OpenStreetMap contributors',
-      noWrap: true
     }).addTo(map);
 
     const markersLayer = L.markerClusterGroup({
@@ -297,6 +343,24 @@
     let allRows = [];
     let visibleRows = [];
 
+    document.addEventListener('click', function(event) {
+      const clickedButton = event.target.closest('.notes-button');
+
+      if (clickedButton) {
+        const wrap = clickedButton.closest('.notes-wrap');
+        const isOpen = wrap.classList.toggle('open');
+        clickedButton.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+        event.stopPropagation();
+        return;
+      }
+
+      document.querySelectorAll('.notes-wrap.open').forEach(wrap => {
+        wrap.classList.remove('open');
+        const button = wrap.querySelector('.notes-button');
+        if (button) button.setAttribute('aria-expanded', 'false');
+      });
+    });
+
     function escapeHtml(value) {
       if (value === null || value === undefined) return '';
       return String(value)
@@ -307,35 +371,62 @@
         .replace(/'/g, '&#039;');
     }
 
-    function collectResources(row) {
-      return Object.keys(row)
-        .filter(key => /^source_\d+$/i.test(key))
-        .sort((a, b) => {
-          const aNum = parseInt(a.split('_')[1], 10);
-          const bNum = parseInt(b.split('_')[1], 10);
-          return aNum - bNum;
-        })
-        .map(key => {
-          const url = row[key] ? row[key].trim() : '';
-          if (!url) return null;
+    function sanitizeUrl(value) {
+      if (!value) return '';
 
-          const sourceNumber = key.split('_')[1];
+      const raw = String(value).trim();
+      if (!raw) return '';
 
-          return {
-            label: `Source ${sourceNumber}`,
-            url: url
-          };
-        })
-        .filter(Boolean);
+      try {
+        const parsed = new URL(raw, window.location.href);
+        return /^https?:$/i.test(parsed.protocol) ? parsed.href : '';
+      } catch {
+        return '';
       }
+    }
+
+    function normalizeText(value) {
+      return value === null || value === undefined ? '' : String(value).trim();
+     }
+
+     function collectResources(row) {
+      return Object.keys(row)
+      .filter(key => /^source_\d+$/i.test(key))
+      .sort((a, b) => {
+        const aNum = parseInt(a.split('_')[1], 10);
+        const bNum = parseInt(b.split('_')[1], 10);
+        return aNum - bNum;
+      })
+      .map(key => {
+        const url = sanitizeUrl(row[key]);
+        if (!url) return null;
+
+        const sourceNumber = key.split('_')[1];
+        const labelKey = `source_label_${sourceNumber}`;
+        const label = row[labelKey]
+          ? normalizeText(row[labelKey])
+          : `Source ${sourceNumber}`;
         
+        return {
+          label: label || `Source ${sourceNumber}`,
+          url
+        };
+      })
+      .filter(Boolean);
+     }
 
-    function buildSearchText(row) {
-        const sourceValues = Object.keys(row)
-          .filter(key => /^source_\d+$/i.test(key))
-          .map(key => row[key]);
+     function normalizeRow(rawRow) {
+      const row = {};
 
-      return [
+      Object.keys(rawRow).forEach(key => {
+        row[key] = normalizeText(rawRow[key]);
+      });
+
+      row._lat = parseFloat(row.latitude);
+      row._lon = parseFloat(row.longitude);
+      row._notes = row.notes || '';
+      row._resources = collectResources(row);
+      row._searchText = [
         row.site_id,
         row.site_label,
         row.site_type,
@@ -345,42 +436,44 @@
         row.region_category,
         row.exposure_period,
         row.metal,
-        row.notes,
-        ...sourceValues
+        row._notes,
+        ...row._resources.map(resource => `${resource.label} ${resource.url}`)
       ]
         .filter(Boolean)
         .join(' ')
         .toLowerCase();
-    }
+
+      return row;
+     }
 
     function buildPopup(row) {
-      const resources = collectResources(row);
-      const notes = row.notes ? row.notes.trim() : '';
+      const resources = row._resources || [];
+      const notes = row.notes || '';
 
       let popupContent = `
         <div class="popup-title">${escapeHtml(row.site_label || 'Unnamed site')}</div>
         <div class="popup-row"><strong>Site ID:</strong> ${escapeHtml(row.site_id || '')}</div>
         <div class="popup-row"><strong>Site type:</strong> ${escapeHtml(row.site_type || '')}</div>
         <div class="popup-row"><strong>Country/location:</strong> ${escapeHtml(row.modern_country_location || '')}</div>
-      `;
+     `;
 
-      if (row.administering_country && row.administering_country.trim() !== '') {
+      if (row.administering_country) {
         popupContent += `<div class="popup-row"><strong>Administering country:</strong> ${escapeHtml(row.administering_country)}</div>`;
       }
 
-      if (row.former_entity && row.former_entity.trim() !== '') {
+      if (row.former_entity) {
         popupContent += `<div class="popup-row"><strong>Former entity:</strong> ${escapeHtml(row.former_entity)}</div>`;
       }
 
-      if (row.region_category && row.region_category.trim() !== '') {
+      if (row.region_category) {
         popupContent += `<div class="popup-row"><strong>Region:</strong> ${escapeHtml(row.region_category)}</div>`;
       }
 
-      if (row.exposure_period && row.exposure_period.trim() !== '') {
+      if (row.exposure_period) {
         popupContent += `<div class="popup-row"><strong>Exposure period:</strong> ${escapeHtml(row.exposure_period)}</div>`;
       }
 
-      if (row.metal && row.metal.trim() !== '') {
+      if (row.metal) {
         popupContent += `<div class="popup-row"><strong>Metal:</strong> ${escapeHtml(row.metal)}</div>`;
       }
 
@@ -398,8 +491,8 @@
         if (notes) {
           popupContent += `
             <div class="notes-wrap">
-              <span class="notes-button">Notes</span>
-              <div class="notes-tooltip">${escapeHtml(notes)}</div>
+              <button class="notes-button" type="button" aria-expanded="false">Notes</button>
+              <div class="notes-panel">${escapeHtml(notes)}</div>
             </div>
           `;
         }
@@ -447,20 +540,30 @@
       markersLayer.clearLayers();
 
       rows.forEach(row => {
-        const lat = parseFloat(row.latitude);
-        const lon = parseFloat(row.longitude);
+        if (isNaN(row._lat) || isNaN(row._lon)) return;
 
-        if (isNaN(lat) || isNaN(lon)) return;
-
-        const marker = L.marker([lat, lon]);
+        const marker = L.marker([row._lat, row._lon]);
         marker.bindTooltip(row.site_label || 'Unnamed site');
         marker.bindPopup(buildPopup(row));
-        marker.addTo(markersLayer);
+        marker.addTo(markersLayer);        
       });
     }
 
     function fitRows(rows) {
-      const bounds = [];
+      const bounds = rows
+        .filter(row => !isNaN(row._lat) && !isNaN(row._lon))
+        .map(row => [row._lat, row._lon]);
+
+      if (bounds.length === 0) return;
+
+      if (bounds.length === 1) {
+        map.setView(bounds[0], 4);
+      } else {
+        map.fitBounds(bounds, {
+          padding: [30, 30],
+          maxZoom: 4
+        });
+      }
 
       rows.forEach(row => {
         const lat = parseFloat(row.latitude);
@@ -490,12 +593,10 @@
       const typeValue = document.getElementById('typeFilter').value.trim().toLowerCase();
 
       visibleRows = allRows.filter(row => {
-        const searchText = buildSearchText(row);
-
-        const matchesSearch = !query || searchText.includes(query);
-        const matchesCountry = !countryValue || (row.modern_country_location || '').trim().toLowerCase() === countryValue;
-        const matchesRegion = !regionValue || (row.region_category || '').trim().toLowerCase() === regionValue;
-        const matchesType = !typeValue || (row.site_type || '').trim().toLowerCase() === typeValue;
+        const matchesSearch = !query || row._searchText.includes(query);
+        const matchesCountry = !countryValue || row.modern_country_location.toLowerCase() === countryValue;
+        const matchesRegion = !regionValue || row.region_category.toLowerCase() === regionValue;
+        const matchesType = !typeValue || row.site_type.toLowerCase() === typeValue;
 
         return matchesSearch && matchesCountry && matchesRegion && matchesType;
       });
@@ -517,12 +618,10 @@
       header: true,
       skipEmptyLines: true,
       complete: function(results) {
-        allRows = results.data.filter(row => {
-          const lat = parseFloat(row.latitude);
-          const lon = parseFloat(row.longitude);
-          return !isNaN(lat) && !isNaN(lon);
-        });
-
+        allRows = results.data
+          .map(normalizeRow)
+          .filter(row => !isNaN(row._lat) && !isNaN(row._lon));
+        
         updateDropdowns(allRows);
         visibleRows = [...allRows];
         renderMarkers(allRows);
