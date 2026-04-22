@@ -308,24 +308,33 @@
     }
 
     function collectResources(row) {
-      const resources = [];
+      return Object.keys(row)
+        .filter(key => /^source_\d+$/i.test(key))
+        .sort((a, b) => {
+          const aNum = parseInt(a.split('_')[1], 10);
+          const bNum = parseInt(b.split('_')[1], 10);
+          return aNum - bNum;
+        })
+        .map(key => {
+          const url = row[key] ? row[key].trim() : '';
+          if (!url) return null;
 
-      for (let i = 1; i <= 3; i++) {
-        const urlKey = `source_${i}`;
-        const url = row[urlKey] ? row[urlKey].trim() : '';
+          const sourceNumber = key.split('_')[1];
 
-        if (url) {
-          resources.push({
-            label: `Open Source ${i}`,
+          return {
+            label: `Source ${sourceNumber}`,
             url: url
-          });
-        }
+          };
+        })
+        .filter(Boolean);
       }
-
-      return resources;
-    }
+        
 
     function buildSearchText(row) {
+        const sourceValues = Object.keys(row)
+          .filter(key => /^source_\d+$/i.test(key))
+          .map(key => row[key]);
+
       return [
         row.site_id,
         row.site_label,
@@ -336,7 +345,8 @@
         row.region_category,
         row.exposure_period,
         row.metal,
-        row.notes
+        row.notes,
+        ...sourceValues
       ]
         .filter(Boolean)
         .join(' ')
