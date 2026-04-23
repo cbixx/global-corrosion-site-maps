@@ -36,35 +36,68 @@
       min-width: 56px;
       max-width: 56px;
       flex-shrink: 0;
-      background: #111827;
-      border-right: 1px solid #273244;
+      background: #d7e7ee;
+      border-right: 1px solid #b7cfd9;
       display: flex;
       flex-direction: column;
       align-items: center;
       padding: 10px 0;
       gap: 8px;
       box-sizing: border-box;
+      transition:
+        width 0.22s ease,
+        min-width 0.22s ease,
+        max-width 0.22s ease,
+        padding 0.22s ease,
+        opacity 0.22s ease,
+        border-color 0.22s ease;
+    }
+
+    .app.sidebar-open .sidebar-rail {
+      width: 0;
+      min-width: 0;
+      max-width: 0;
+      padding: 0;
+      border-right-color: transparent;
+      overflow: hidden;
+      opacity: 0;
     }
 
     .rail-button {
       width: 38px;
       height: 38px;
       border: 0;
-      border-radius: 8px;
+      border-radius: 10px;
       background: transparent;
-      color: #cbd5e1;
+      color: #3f6472;
       display: flex;
       align-items: center;
       justify-content: center;
       cursor: pointer;
-      font-size: 18px;
+      padding: 0;
       line-height: 1;
     }
 
+    .rail-button:hover {
+      background: rgba(63, 100, 114, 0.10);
+      color: #23414d;
+    }
+
     .rail-button.active {
-      background: rgba(59, 130, 246, 0.18);
-      color: #ffffff;
-      outline: 1px solid rgba(59, 130, 246, 0.45);
+      background: #ffffff;
+      color: #23414d;
+      outline: 1px solid rgba(111, 154, 170, 0.65);
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+    }
+
+    .rail-icon {
+      width: 20px;
+      height: 20px;
+      stroke: currentColor;
+      stroke-width: 2;
+      fill: none;
+      stroke-linecap: round;
+      stroke-linejoin: round;
     }
 
     .sidebar {
@@ -302,7 +335,7 @@
   </style>
 </head>
 <body>
-  <div class="app">
+  <div class="app sidebar-open" id="appShell">
     <aside class="sidebar-rail">
       <button
         id="railSearchButton"
@@ -312,7 +345,10 @@
         aria-pressed="true"
         title="Search and filters"
       >
-        🔎
+        <svg class="rail-icon" viewBox="0 0 24 24" aria-hidden="true">
+          <circle cx="11" cy="11" r="6"></circle>
+          <path d="M20 201-4.2-4.2"></path>
+        </svg>
       </button>
     </aside>
 
@@ -429,17 +465,19 @@
     let allRows = [];
     let visibleRows = [];
 
+    const appShell = document.getElementById('appShell');
     const sidebar = document.getElementById('sidebar');
     const toggleSidebarButton = document.getElementById('toggleSidebar');
     const railSearchButton = document.getElementById('railSearchButton');
 
-    function setRailState(isOpen) {
-      railSearchButton.classList.toggle('active', isOpen);
-      railSearchButton.setAttribute('aria-pressed', isOpen ? 'true' : 'false');
+    function setRailState(isSidebarOpen) {
+      railSearchButton.classList.toggle('active', !isSidebarOpen);
+      railSearchButton.setAttribute('aria-pressed', isSidebarOpen ? 'false' : 'true');
     }
 
     function closeSidebar() {
       sidebar.classList.add('sidebar-collapsed');
+      appShell.classList.remove('sidebar-open');
       toggleSidebarButton.setAttribute('aria-expanded', 'false');
       setRailState(false);
       setTimeout(() => map.invalidateSize(), 230);
@@ -447,6 +485,7 @@
 
     function openSidebar() {
       sidebar.classList.remove('sidebar-collapsed');
+      appShell.classList.add('sidebar-open');
       toggleSidebarButton.setAttribute('aria-expanded', 'true');
       setRailState(true);
       setTimeout(() => map.invalidateSize(), 230);
@@ -461,7 +500,7 @@
       }
     });
 
-    setRailState(true);
+    setRailState(!sidebar.classList.contains('sidebar-collapsed'));
 
     document.addEventListener('click', function(event) {
       const clickedButton = event.target.closest('.notes-button');
