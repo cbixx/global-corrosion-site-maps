@@ -155,6 +155,19 @@
       background: #fff;
     }
 
+    .checkbox-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      color: #333;
+      cursor: pointer;
+    }
+
+    .checkbox-row input[type="checkbox"] {
+      margin: 0;
+    }
+
     .button-row {
       display: flex;
       gap: 8px;
@@ -188,6 +201,63 @@
 
     .result-box strong {
       font-size: 14px;
+    }
+
+    .filter-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .filter-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 10px;
+      border: 1px solid #cfd8dc;
+      border-radius: 999px;
+      background: #f3f7fa;
+      color: #29434e;
+      font-size: 12px;
+      cursor: pointer;
+    }
+
+    .filter-chip:hover {
+      background: #e8f0f4;
+    }
+
+    .filter-chip-x {
+      font-weight: 700;
+      line-height: 1;
+    }
+
+    .stats-strip {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      margin-top: 14px;
+    }
+
+    .stat-card {
+      background: #fff;
+      border: 1px solid #dddddd;
+      border-radius: 6px;
+      padding: 10px 8px;
+      text-align: center;
+    }
+
+    .stat-value {
+      font-size: 18px;
+      font-weight: 700;
+      color: #23414d;
+      line-height: 1.1;
+    }
+
+    .stat-label {
+      font-size: 11px;
+      color: #666;
+      margin-top: 4px;
     }
 
     .results-list-box {
@@ -288,6 +358,7 @@
       padding: 8px 10px;
       cursor: pointer;
       box-sizing: border-box;
+      font: inherit;
     }
 
     .results-item:hover {
@@ -324,6 +395,56 @@
       min-width: 0;
       position: relative;
       background: #e9e9e9;
+    }
+
+    .hover-summary-card {
+      position: absolute;
+      right: 14px;
+      bottom: 14px;
+      z-index: 1000;
+      width: 280px;
+      max-width: min(280px, 75vw);
+      background: rgba(255, 255, 255, 0.96);
+      border: 1px solid #d7dee3;
+      border-radius: 10px;
+      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12);
+      padding: 12px 14px;
+      box-sizing: border-box;
+      backdrop-filter: blur(4px);
+    }
+
+    .hover-summary-title {
+      font-size: 14px;
+      font-weight: 700;
+      color: #1f2937;
+      margin-bottom: 6px;
+    }
+
+    .hover-summary-meta {
+      font-size: 12px;
+      color: #4b5563;
+      line-height: 1.45;
+    }
+
+    .hover-summary-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 8px;
+    }
+
+    .hover-summary-tag {
+      display: inline-block;
+      padding: 3px 8px;
+      border-radius: 999px;
+      background: #eef4f7;
+      color: #2f4f5c;
+      font-size: 11px;
+      font-weight: 600;
+    }
+
+    .hover-summary-card[hidden] {
+      display: none !important;
     }
     
     .sidebar-toggle {
@@ -452,6 +573,16 @@
       min-width: 0 !important;
       max-width: 0 !important;
     }
+
+    .stats-strip {
+      grid-template-columns: 1fr;
+    }
+
+    .hover-summary-card {
+      right: 10px;
+      bottom: 10px;
+      width: min(260px, 78vw);
+    }
    }
 
   </style>
@@ -514,11 +645,20 @@
         </select>
       </div>
 
+      <div class="control-group">
+        <label class="checkbox-row" for="sourceOnlyFilter">
+          <input id="sourceOnlyFilter" type="checkbox" />
+          <span>Only show sites with linked sources</span>
+        </label>
+      </div>
+
       <div class="button-row">
         <button id="clearFilters" class="panel-button" type="button">Clear filters</button>
         <button id="fitVisible" class="panel-button" type="button">Fit visible sites</button>
         <button id="resetView" class="panel-button" type="button">Reset map</button>
       </div>
+
+      <div id="activeFilterChips" class="filter-chips" hidden></div>
 
       <div class="result-box">
         <strong id="resultCount">Loading...</strong><br />
@@ -528,6 +668,21 @@
       <div class="results-list-box">
         <div class="results-list-title">Visible sites</div>
         <div id="resultsList" class="results-list"></div>
+      </div>
+
+      <div class="stats-strip">
+        <div class="stat-card">
+          <div id="statVisibleSites" class="stat-value">0</div>
+          <div class="stat-label">Visible sites</div>
+        </div>
+        <div class="stat-card">
+          <div id="statCountries" class="stat-value">0</div>
+          <div class="stat-label">Countries</div>
+        </div>
+        <div class="stat-card">
+          <div id="statSources" class="stat-value">0</div>
+          <div class="stat-label">Linked sources</div>
+        </div>
       </div>
 
       <div class="legend-box">
@@ -567,6 +722,7 @@
 
     <main class="map-panel">
       <div id="map"></div>
+      <div id="hoverSummaryCard" class="hover-summary-card" hidden></div>
     </main>
   </div>
 
@@ -625,6 +781,10 @@
     let allRows = [];
     let visibleRows = [];
 
+    const activeFilterChipsContainer = document.getElementById('activeFilterChips');
+    const hoverSummaryCard = document.getElementById('hoverSummaryCard');
+    let hoverHalo = null;
+
     const appShell = document.getElementById('appShell');
     const sidebar = document.getElementById('sidebar');
     const toggleSidebarButton = document.getElementById('toggleSidebar');
@@ -658,6 +818,21 @@
       } else {
         closeSidebar();
       }
+    });
+
+    activeFilterChipsContainer.addEventListener('click', function(event) {
+      const chip = event.target.closest('.filter-chip');
+      if (!chip) return;
+
+      const key = chip.getAttribute('data-filter-key');
+
+      if (key === 'query') document.getElementById('searchBox').value = '';
+      if (key === 'country') document.getElementById('countryFilter').value = '';
+      if (key === 'region') document.getElementById('regionFilter').value = '';
+      if (key === 'type') document.getElementById('typeFilter').value = '';
+      if (key === 'sources') document.getElementById('sourceOnlyFilter').checked = false;
+
+      applyFilters(true);
     });
 
     setRailState(!sidebar.classList.contains('sidebar-collapsed'));
@@ -855,8 +1030,102 @@
       document.getElementById('resultDetail').textContent = `Filtered from ${total} total site${total === 1 ? '' : 's'}.`;
     }
 
+    function clearHoverSummary() {
+      hoverSummaryCard.hidden = true;
+      hoverSummaryCard.innerHTML = '';
+
+      if (hoverHalo) {
+        map.removeLayer(hoverHalo);
+        hoverHalo = null;
+      }
+    }
+    function showHoverSummary(row) {
+      if (!row) return;
+
+      const sourceCount = (row._resources || []).length;
+
+      hoverSummaryCard.innerHTML = `
+        <div class="hover-summary-title">${escapeHtml(row.site_label || 'Unnamed site')}</div>
+        <div class="hover-summary-meta">
+          ${escapeHtml(row.modern_country_location || 'Unknown location')}<br />
+          ${escapeHtml(row.site_type || 'Unknown type')}
+          ${row.region_category ? `<br />${escapeHtml(row.region_category)}` : ''}
+        </div>
+        <div class="hover-summary-tags">
+          ${row.metal ? `<span class="hover-summary-tag">${escapeHtml(row.metal)}</span>` : ''}
+          ${row.exposure_period ? `<span class="hover-summary-tag">${escapeHtml(row.exposure_period)}</span>` : ''}
+          <span class="hover-summary-tag">${sourceCount} source${sourceCount === 1 ? '' : 's'}</span>
+        </div>
+      `;
+
+      hoverSummaryCard.hidden = false;
+
+      if (hoverHalo) {
+        map.removeLayer(hoverHalo);
+        hoverHalo = null;
+      }
+
+      if (!isNaN(row._lat) && !isNaN(row._lon)) {
+        hoverHalo = L.circleMarker([row._lat, row._lon], {
+          radius: 10,
+          color: '#1f6feb',
+          weight: 2,
+          fillColor: '#1f6feb',
+          fillOpacity: 0.10,
+          interactive: false
+        }).addTo(map);
+      }
+    }
+
+    function updateStats(rows) {
+      const visibleCount = rows.length;
+      const countryCount = new Set(
+        rows.map(row => (row.modern_country_location || '').trim()).filter(Boolean)
+      ).size;
+
+      const sourceCount = new Set(
+        rows.flatMap(row => (row._resources || []).map(resource => resource.url))
+      ).size;
+
+      document.getElementById('statVisibleSites').textContent = visibleCount.toLocaleString();
+      document.getElementById('statCountries').textContent = countryCount.toLocaleString();
+      document.getElementById('statSources').textContent = sourceCount.toLocaleString();
+    }
+
+    function renderActiveFilterChips() {
+      const query = document.getElementById('searchBox').value.trim();
+      const country = document.getElementById('countryFilter').value.trim();
+      const region = document.getElementById('regionFilter').value.trim();
+      const type = document.getElementById('typeFilter').value.trim();
+      const onlySources = document.getElementById('sourceOnlyFilter').checked;
+
+      const chips = [];
+
+      if (query) chips.push({ key: 'query', label: `Search: ${query}` });
+      if (country) chips.push({ key: 'country', label: `Country: ${country}` });
+      if (region) chips.push({ key: 'region', label: `Region: ${region}` });
+      if (type) chips.push({ key: 'type', label: `Type: ${type}` });
+      if (onlySources) chips.push({ key: 'sources', label: `Linked sources only` });
+
+      if (chips.length === 0) {
+        activeFilterChipsContainer.hidden = true;
+        activeFilterChipsContainer.innerHTML = '';
+        return;
+      }
+
+      activeFilterChipsContainer.hidden = false;
+      activeFilterChipsContainer.innerHTML = chips.map(chip => `
+        <button type="button" class="filter-chip" data-filter-key="${escapeHtml(chip.key)}">
+          <span>${escapeHtml(chip.label)}</span>
+          <span class="filter-chip-x">×</span>
+        </button>
+      `).join('');
+    }
+
     function focusRow(row) {
       if (!row || !row._marker) return;
+
+      showHoverSummary(row);
 
       markersLayer.zoomToShowLayer(row._marker, function() {
         const targetZoom = Math.max(map.getZoom(), 5);
@@ -885,20 +1154,36 @@
         button.type = 'button';
         button.className = 'results-item';
 
-      button.innerHTML = `
-        <div class="results-item-title">${escapeHtml(row.site_label || 'Unnamed site')}</div>
-        <div class="results-item-meta">
-          ${escapeHtml(row.modern_country_location || 'Unknown location')} · ${escapeHtml(row.site_type || 'Unknown type')}
-        </div>
-      `;
+        button.innerHTML = `
+          <div class="results-item-title">${escapeHtml(row.site_label || 'Unnamed site')}</div>
+          <div class="results-item-meta">
+            ${escapeHtml(row.modern_country_location || 'Unknown location')} · ${escapeHtml(row.site_type || 'Unknown type')}
+          </div>
+        `;
 
-      button.addEventListener('click', function() {
-        focusRow(row);
+        button.addEventListener('click', function() {
+          focusRow(row);
+        });
+
+        button.addEventListener('mouseenter', function() {
+          showHoverSummary(row);
+        });
+
+        button.addEventListener('mouseleave', function() {
+          clearHoverSummary();
+        });
+
+        button.addEventListener('focus', function() {
+          showHoverSummary(row);
+        });
+
+        button.addEventListener('blur', function() {
+          clearHoverSummary();
+        });
+
+        container.appendChild(button);
       });
-
-      container.appendChild(button);
-    });
-  }
+    }
 
     function renderMarkers(rows) {
       markersLayer.clearLayers();
@@ -910,6 +1195,13 @@
         row._marker = marker;
         marker.bindTooltip(row.site_label || 'Unnamed site');
         marker.bindPopup(buildPopup(row));
+        marker.on('mouseover', function() {
+          showHoverSummary(row);
+        });
+
+        marker.on('mouseout', function() {
+          clearHoverSummary();
+        });
         marker.addTo(markersLayer);
       });
     }
@@ -932,6 +1224,7 @@
     }
 
     function applyFilters(autoFit = true) {
+      const onlySources = document.getElementById('sourceOnlyFilter').checked;
       const query = document.getElementById('searchBox').value.trim().toLowerCase();
       const countryValue = document.getElementById('countryFilter').value.trim().toLowerCase();
       const regionValue = document.getElementById('regionFilter').value.trim().toLowerCase();
@@ -942,15 +1235,19 @@
         const matchesCountry = !countryValue || row.modern_country_location.toLowerCase() === countryValue;
         const matchesRegion = !regionValue || row.region_category.toLowerCase() === regionValue;
         const matchesType = !typeValue || row.site_type.toLowerCase() === typeValue;
+        const matchesSources = !onlySources || (row._resources && row._resources.length > 0);
 
-        return matchesSearch && matchesCountry && matchesRegion && matchesType;
+        return matchesSearch && matchesCountry && matchesRegion && matchesType && matchesSources;
       });
 
       renderMarkers(visibleRows);
       updateResultPanel(visibleRows.length, allRows.length);
       renderResultsList(visibleRows);
 
-      const filtersAreActive = Boolean(query || countryValue || regionValue || typeValue);
+      updateStats(visibleRows);
+      renderActiveFilterChips();
+
+      const filtersAreActive = Boolean(query || countryValue || regionValue || typeValue || onlySources);
 
       if (filtersAreActive && autoFit) {
         fitRows(visibleRows);
@@ -974,6 +1271,10 @@
         updateResultPanel(allRows.length, allRows.length);
         renderResultsList(allRows);
 
+        updateStats(allRows);
+        renderActiveFilterChips();
+
+        document.getElementById('sourceOnlyFilter').addEventListener('change', () => applyFilters(true));
         document.getElementById('searchBox').addEventListener('input', () => applyFilters(true));
         document.getElementById('countryFilter').addEventListener('change', () => applyFilters(true));
         document.getElementById('regionFilter').addEventListener('change', () => applyFilters(true));
@@ -984,6 +1285,7 @@
           document.getElementById('countryFilter').value = '';
           document.getElementById('regionFilter').value = '';
           document.getElementById('typeFilter').value = '';
+          document.getElementById('sourceOnlyFilter').checked = false;
           applyFilters(false);
         });
 
