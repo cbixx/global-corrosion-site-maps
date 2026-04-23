@@ -347,7 +347,7 @@
       >
         <svg class="rail-icon" viewBox="0 0 24 24" aria-hidden="true">
           <circle cx="11" cy="11" r="6"></circle>
-          <path d="M20 201-4.2-4.2"></path>
+          <path d="M20 20l-4.2-4.2"></path>
         </svg>
       </button>
     </aside>
@@ -422,7 +422,7 @@
     const HORIZONTAL_WORLDS = 3;
 
     const map = L.map('map', {
-      minZoom: 2.25,
+      minZoom: 2.5,
       zoomSnap: 0.25,
       inertia: true,
       maxBounds: L.latLngBounds(
@@ -430,7 +430,7 @@
         [ TILE_LAT_LIMIT,  180 * HORIZONTAL_WORLDS]
       ),
       maxBoundsViscosity: 1.0
-    }).setView([20, 20], 2.25);
+    }).setView([20, 20], 2.5);
 
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '&copy; OpenStreetMap contributors'
@@ -748,7 +748,7 @@
       if (filtersAreActive && autoFit) {
         fitRows(visibleRows);
       } else if (!filtersAreActive) {
-        map.setView([20, 20], 2.25);
+        map.setView([20, 20], 2.5);
       }
     }
 
