@@ -31,6 +31,42 @@
       overflow: hidden;
     }
 
+    .sidebar-rail {
+      width: 56px;
+      min-width: 56px;
+      max-width: 56px;
+      flex-shrink: 0;
+      background: #111827;
+      border-right: 1px solid #273244;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 10px 0;
+      gap: 8px;
+      box-sizing: border-box;
+    }
+
+    .rail-button {
+      width: 38px;
+      height: 38px;
+      border: 0;
+      border-radius: 8px;
+      background: transparent;
+      color: #cbd5e1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-size: 18px;
+      line-height: 1;
+    }
+
+    .rail-button.active {
+      background: rgba(59, 130, 246, 0.18);
+      color: #ffffff;
+      outline: 1px solid rgba(59, 130, 246, 0.45);
+    }
+
     .sidebar {
       width: 340px;
       min-width: 340px;
@@ -135,8 +171,7 @@
       background: #e9e9e9;
     }
     
-    .sidebar-toggle,
-    .floating-sidebar-toggle {
+    .sidebar-toggle {
       border: 1px solid #bdbdbd;
       background: #fff;
       border-radius: 6px;
@@ -145,8 +180,7 @@
       padding: 8px 10px;
     }
 
-    .sidebar-toggle-hover,
-    .floating-sidebar-toggle:hover{
+    .sidebar-toggle:hover {
       background: #efefef;
     }
 
@@ -157,18 +191,6 @@
       padding: 0 !important;
       border-right-color: transparent !important;
       overflow: hidden !important;
-    }
-
-    .floating-sidebar-toggle {
-      position: absolute;
-      top: 14px;
-      left: 14px;
-      z-index: 1200;
-      display: none;
-    }
-
-    .sidebar-collapsed + .map-panel .floating-sidebar-toggle {
-      display: inline-block;
     }
 
     #map {
@@ -263,38 +285,39 @@
       min-width: 260px;
     }
 
-    @media (max-width: 900px) {
-      .app {
-        flex-direction: column;
-      }
-
-      .sidebar {
-        width: 100%;
-        min-width: 0;
-        max-width: none;
-        max-height: 38vh;
-        border-right: none;
-        border-bottom: 1px solid #d9d9d9;
-      }
-      
-      .sidebar-collapsed {
-        width: 100% !important;
-        max-width: none !important;
-        min-width: 0 !important;
-        max-height: 0 !important;
-        border-bottom-color: transparent !important;
-      }
-
-      .map-panel {
-        min-height: 62vh;
-      }
+   @media (max-width: 900px) {
+    .sidebar {
+      width: 300px;
+      min-width: 300px;
+      max-width: 300px;
     }
+
+    .sidebar-collapsed {
+      width: 0 !important;
+      min-width: 0 !important;
+      max-width: 0 !important;
+    }
+   }
 
   </style>
 </head>
 <body>
   <div class="app">
+    <aside class="sidebar-rail">
+      <button
+        id="railSearchButton"
+        class="rail-button active"
+        type="button"
+        aria-label="Search and filters"
+        aria-pressed="true"
+        title="Search and filters"
+      >
+        🔎
+      </button>
+    </aside>
+
     <aside class="sidebar" id="sidebar">
+    
       <div class="sidebar-header">
         <h1>Corrosion Test Sites Map</h1>
         <button id="toggleSidebar" class="sidebar-toggle" type="button" aria-expanded="true" title="Hide search panel">
@@ -350,9 +373,6 @@
     </aside>
 
     <main class="map-panel">
-      <button id="openSidebar" class="floating-sidebar-toggle" type="button" aria-label="Show search panel">
-        ☰ Filters
-      </button>
       <div id="map"></div>
     </main>
   </div>
@@ -370,8 +390,8 @@
       zoomSnap: 0.25,
       inertia: true,
       maxBounds: L.latLngBounds(
-        [-TILE_LAT_LIMIT, -180 * HORIZONTAL_WORLDS]
-        [TILE_LAT_LIMIT, 180 * HORIZONTAL_WORLDS]
+        [-TILE_LAT_LIMIT, -180 * HORIZONTAL_WORLDS],
+        [ TILE_LAT_LIMIT,  180 * HORIZONTAL_WORLDS]
       ),
       maxBoundsViscosity: 1.0
     }).setView([20, 20], 2.25);
@@ -411,22 +431,37 @@
 
     const sidebar = document.getElementById('sidebar');
     const toggleSidebarButton = document.getElementById('toggleSidebar');
-    const openSidebarButton = document.getElementById('OpenSidebar');
+    const railSearchButton = document.getElementById('railSearchButton');
+
+    function setRailState(isOpen) {
+      railSearchButton.classList.toggle('active', isOpen);
+      railSearchButton.setAttribute('aria-pressed', isOpen ? 'true' : 'false');
+    }
 
     function closeSidebar() {
       sidebar.classList.add('sidebar-collapsed');
       toggleSidebarButton.setAttribute('aria-expanded', 'false');
+      setRailState(false);
       setTimeout(() => map.invalidateSize(), 230);
     }
-    
+
     function openSidebar() {
       sidebar.classList.remove('sidebar-collapsed');
       toggleSidebarButton.setAttribute('aria-expanded', 'true');
+      setRailState(true);
       setTimeout(() => map.invalidateSize(), 230);
     }
 
     toggleSidebarButton.addEventListener('click', closeSidebar);
-    openSidebarButton.addEventListener('click', openSidebar);
+    railSearchButton.addEventListener('click', function() {
+      if (sidebar.classList.contains('sidebar-collapsed')) {
+        openSidebar();
+      } else {
+        closeSidebar();
+      }
+    });
+
+    setRailState(true);
 
     document.addEventListener('click', function(event) {
       const clickedButton = event.target.closest('.notes-button');
