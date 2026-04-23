@@ -40,10 +40,25 @@
       box-sizing: border-box;
       padding: 18px 16px;
       overflow-y: auto;
+      transition:
+        width 0.22s ease,
+        min-width 0.22s ease,
+        max-width 0.22s ease,
+        padding 0.22s ease,
+        border-color 0.22s ease,
+        max-height 0.22s ease;
+    }
+
+    .sidebar-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 18px;
     }
 
     .sidebar h1 {
-      margin: 0 0 18px 0;
+      margin: 0;
       font-size: 18px;
       line-height: 1.25;
     }
@@ -118,6 +133,42 @@
       min-width: 0;
       position: relative;
       background: #e9e9e9;
+    }
+    
+    .sidebar-toggle,
+    .floating-sidebar-toggle {
+      border: 1px solid #bdbdbd;
+      background: #fff;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 14px;
+      padding: 8px 10px;
+    }
+
+    .sidebar-toggle-hover,
+    .floating-sidebar-toggle:hover{
+      background: #efefef;
+    }
+
+    .sidebar-collapsed {
+      width: 0 !important;
+      min-width: 0 !important;
+      max-width: 0 !important;
+      padding: 0 !important;
+      border-right-color: transparent !important;
+      overflow: hidden !important;
+    }
+
+    .floating-sidebar-toggle {
+      position: absolute;
+      top: 14px;
+      left: 14px;
+      z-index: 1200;
+      display: none;
+    }
+
+    .sidebar-collapsed + .map-panel .floating-sidebar-toggle {
+      display: inline-block;
     }
 
     #map {
@@ -226,44 +277,30 @@
         border-bottom: 1px solid #d9d9d9;
       }
       
+      .sidebar-collapsed {
+        width: 100% !important;
+        max-width: none !important;
+        min-width: 0 !important;
+        max-height: 0 !important;
+        border-bottom-color: transparent !important;
+      }
+
       .map-panel {
         min-height: 62vh;
       }
     }
 
-    .notes-tooltip {
-      display: none;
-      position: absolute;
-      top: 115%;
-      left: 0;
-      z-index: 1000;
-      width: 320px;
-      max-width: 320px;
-      max-height: 220px;
-      overflow-y: auto;
-      padding: 10px 12px;
-      background: #222;
-      color: #fff;
-      border-radius: 6px;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
-      line-height: 1.4;
-      font-size: 12px;
-      white-space: normal;
-    }
-
-    .notes-wrap:hover .notes-tooltip {
-      display: block;
-    }
-
-    .leaflet-popup-content {
-      min-width: 260px;
-    }
   </style>
 </head>
 <body>
   <div class="app">
-    <aside class="sidebar">
-      <h1>Corrosion Test Sites Map</h1>
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-header">
+        <h1>Corrosion Test Sites Map</h1>
+        <button id="toggleSidebar" class="sidebar-toggle" type="button" aria-expanded="true" title="Hide search panel">
+          ✕
+        </button>
+      </div>
 
       <div class="control-group">
         <label class="control-label" for="searchBox">Search</label>
@@ -313,6 +350,9 @@
     </aside>
 
     <main class="map-panel">
+      <button id="openSidebar" class="floating-sidebar-toggle" type="button" aria-label="Show search panel">
+        ☰ Filters
+      </button>
       <div id="map"></div>
     </main>
   </div>
@@ -322,41 +362,41 @@
   <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
 
   <script>
+    const TILE_LAT_LIMIT = 85.0511;
+    const HORIZONTAL_WORLDS = 3;
+
     const map = L.map('map', {
       minZoom: 2.25,
-      zoomSnap: 0.25
+      zoomSnap: 0.25,
+      inertia: true,
+      maxBounds: L.latLngBounds(
+        [-TILE_LAT_LIMIT, -180 * HORIZONTAL_WORLDS]
+        [TILE_LAT_LIMIT, 180 * HORIZONTAL_WORLDS]
+      ),
+      maxBoundsViscosity: 1.0
     }).setView([20, 20], 2.25);
 
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '&copy; OpenStreetMap contributors'
     }).addTo(map);
 
-    function wrapLongitude(lng) {
-      return ((lng + 180) % 360 + 360) % 360 - 180;
-    }
+    function updatePanFeel() {
+      const z = map.getZoom();
 
-    function clampLatitude(lat) {
-      return Math.max(-80, Math.min(80, lat));
-    }
-
-    function normalizeMapCenter() {
-      const center = map.getCenter();
-      const wrappedLng = wrapLongitude(center.lng);
-      const clampedLat = clampLatitude(center.lat);
-
-      const needsReset =
-        Math.abs(center.lng - wrappedLng) > 1e-7 ||
-        Math.abs(center.lat - clampedLat) > 1e-7;
-
-      if (needsReset) {
-        map.setView([clampedLat, wrappedLng], map.getZoom(), {
-          animate: false
-        });
+      if (z <= 2.5){
+        map.options.inertiaDeceleration = 5000;
+        map.options.inertiaMaxSpeed = 700;
+      } else if (z <= 4) {
+        map.options.inertiaDeceleration = 3500;
+        map.options.inertiaMaxSpeed = 1400;
+      } else {
+        map.options.inertiaDeceleration = 2500;
+        map.options.inertiaMaxSpeed = 2800;
       }
     }
 
-    map.on('dragend', normalizeMapCenter);
-    map.on('zoomend', normalizeMapCenter);
+    updatePanFeel();
+    map.on('zoomend', updatePanFeel);
 
     const markersLayer = L.markerClusterGroup({
       showCoverageOnHover: false,
@@ -368,6 +408,25 @@
 
     let allRows = [];
     let visibleRows = [];
+
+    const sidebar = document.getElementById('sidebar');
+    const toggleSidebarButton = document.getElementById('toggleSidebar');
+    const openSidebarButton = document.getElementById('OpenSidebar');
+
+    function closeSidebar() {
+      sidebar.classList.add('sidebar-collapsed');
+      toggleSidebarButton.setAttribute('aria-expanded', 'false');
+      setTimeout(() => map.invalidateSize(), 230);
+    }
+    
+    function openSidebar() {
+      sidebar.classList.remove('sidebar-collapsed');
+      toggleSidebarButton.setAttribute('aria-expanded', 'true');
+      setTimeout(() => map.invalidateSize(), 230);
+    }
+
+    toggleSidebarButton.addEventListener('click', closeSidebar);
+    openSidebarButton.addEventListener('click', openSidebar);
 
     document.addEventListener('click', function(event) {
       const clickedButton = event.target.closest('.notes-button');
@@ -588,26 +647,6 @@
         map.fitBounds(bounds, {
           padding: [30, 30],
           maxZoom: 5
-        });
-      }
-
-      rows.forEach(row => {
-        const lat = parseFloat(row.latitude);
-        const lon = parseFloat(row.longitude);
-
-        if (!isNaN(lat) && !isNaN(lon)) {
-          bounds.push([lat, lon]);
-        }
-      });
-
-      if (bounds.length === 0) return;
-
-      if (bounds.length === 1) {
-        map.setView(bounds[0], 4);
-      } else {
-        map.fitBounds(bounds, {
-          padding: [30, 30],
-          maxZoom: 4
         });
       }
     }
