@@ -190,6 +190,128 @@
       font-size: 14px;
     }
 
+    .results-list-box {
+      margin-top: 14px;
+      padding: 10px 12px;
+      background: #fff;
+      border: 1px solid #dddddd;
+      border-radius: 6px;
+    }
+
+    .results-list-title {
+      font-size: 13px;
+      font-weight: 700;
+      margin-bottom: 8px;
+      color: #333;
+    }
+
+    .results-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      max-height: 220px;
+      overflow-y: auto;
+    }
+
+    .legend-box {
+      margin-top: 14px;
+      padding: 10px 12px;
+      background: #fff;
+      border: 1px solid #dddddd;
+      border-radius: 6px;
+    }
+
+    .legend-title {
+      font-size: 13px;
+      font-weight: 700;
+      margin-bottom: 8px;
+      color: #333;
+    }
+
+    .legend-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      color: #444;
+      margin-top: 8px;
+    }
+
+    .legend-pin {
+      font-size: 16px;
+      line-height: 1;
+    }
+
+    .legend-cluster {
+      min-width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      font-weight: 700;
+      color: #1f1f1f;
+    }
+
+    .legend-cluster-green {
+      background: #a7d96b;
+    }
+
+    .legend-cluster-yellow {
+      background: #f0c74a;
+    }
+
+    .legend-pill {
+      display: inline-block;
+      padding: 3px 8px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 600;
+      color: #fff;
+    }
+
+    .legend-pill-source {
+      background: #1f6feb;
+    }
+
+    .legend-pill-notes {
+      background: #6c757d;
+    }
+
+    .results-item {
+      width: 100%;
+      text-align: left;
+      background: #fff;
+      border: 1px solid #e1e1e1;
+      border-radius: 6px;
+      padding: 8px 10px;
+      cursor: pointer;
+      box-sizing: border-box;
+    }
+
+    .results-item:hover {
+      background: #f3f7fa;
+      border-color: #b7cfd9;
+    }
+
+    .results-item-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: #1f2937;
+    }
+
+    .results-item-meta {
+      font-size: 12px;
+      color: #666;
+      margin-top: 3px;
+    }
+
+    .results-empty {
+      font-size: 12px;
+      color: #666;
+    }
+
     .sidebar-note {
       margin-top: 18px;
       font-size: 12px;
@@ -395,11 +517,46 @@
       <div class="button-row">
         <button id="clearFilters" class="panel-button" type="button">Clear filters</button>
         <button id="fitVisible" class="panel-button" type="button">Fit visible sites</button>
+        <button id="resetView" class="panel-button" type="button">Reset map</button>
       </div>
 
       <div class="result-box">
         <strong id="resultCount">Loading...</strong><br />
         <span id="resultDetail">Please wait while the dataset loads.</span>
+      </div>
+
+      <div class="results-list-box">
+        <div class="results-list-title">Visible sites</div>
+        <div id="resultsList" class="results-list"></div>
+      </div>
+
+      <div class="legend-box">
+        <div class="legend-title">Map guide</div>
+
+        <div class="legend-row">
+          <span class="legend-pin">📍</span>
+          <span>Blue pin = single site</span>
+        </div>
+
+        <div class="legend-row">
+          <span class="legend-cluster legend-cluster-green">3</span>
+          <span>Green cluster = smaller cluster</span>
+        </div>
+
+        <div class="legend-row">
+          <span class="legend-cluster legend-cluster-yellow">12</span>
+          <span>Yellow cluster = larger cluster</span>
+        </div>
+
+        <div class="legend-row">
+          <span class="legend-pill legend-pill-source">Source</span>
+          <span>Linked reference / document</span>
+        </div>
+
+        <div class="legend-row">
+          <span class="legend-pill legend-pill-notes">Notes</span>
+          <span>Site-specific comment</span>
+        </div>
       </div>
 
       <div class="sidebar-note">
@@ -420,6 +577,9 @@
   <script>
     const TILE_LAT_LIMIT = 85.0511;
     const HORIZONTAL_WORLDS = 3;
+    const DEFAULT_CENTER = [20, 20];
+    const DEFAULT_ZOOM = 2.5;
+
 
     const map = L.map('map', {
       minZoom: 2.5,
@@ -430,7 +590,7 @@
         [ TILE_LAT_LIMIT,  180 * HORIZONTAL_WORLDS]
       ),
       maxBoundsViscosity: 1.0
-    }).setView([20, 20], 2.5);
+    }).setView(DEFAULT_CENTER, DEFAULT_ZOOM);
 
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '&copy; OpenStreetMap contributors'
@@ -695,6 +855,51 @@
       document.getElementById('resultDetail').textContent = `Filtered from ${total} total site${total === 1 ? '' : 's'}.`;
     }
 
+    function focusRow(row) {
+      if (!row || !row._marker) return;
+
+      markersLayer.zoomToShowLayer(row._marker, function() {
+        const targetZoom = Math.max(map.getZoom(), 5);
+        map.setView([row._lat, row._lon], targetZoom, { animate: true });
+        row._marker.openPopup();
+      });
+    }
+
+    function renderResultsList(rows) {
+      const container = document.getElementById('resultsList');
+      if (!container) return;
+
+      if (!rows || rows.length === 0) {
+        container.innerHTML = `<div class="results-empty">No sites match the current filters.</div>`;
+        return;
+      }
+
+      const sortedRows = [...rows].sort((a, b) =>
+        (a.site_label || '').localeCompare(b.site_label || '')
+      );
+
+      container.innerHTML = '';
+
+      sortedRows.forEach(row => {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'results-item';
+
+      button.innerHTML = `
+        <div class="results-item-title">${escapeHtml(row.site_label || 'Unnamed site')}</div>
+        <div class="results-item-meta">
+          ${escapeHtml(row.modern_country_location || 'Unknown location')} · ${escapeHtml(row.site_type || 'Unknown type')}
+        </div>
+      `;
+
+      button.addEventListener('click', function() {
+        focusRow(row);
+      });
+
+      container.appendChild(button);
+    });
+  }
+
     function renderMarkers(rows) {
       markersLayer.clearLayers();
 
@@ -702,9 +907,10 @@
         if (isNaN(row._lat) || isNaN(row._lon)) return;
 
         const marker = L.marker([row._lat, row._lon]);
+        row._marker = marker;
         marker.bindTooltip(row.site_label || 'Unnamed site');
         marker.bindPopup(buildPopup(row));
-        marker.addTo(markersLayer);        
+        marker.addTo(markersLayer);
       });
     }
 
@@ -742,13 +948,14 @@
 
       renderMarkers(visibleRows);
       updateResultPanel(visibleRows.length, allRows.length);
+      renderResultsList(visibleRows);
 
       const filtersAreActive = Boolean(query || countryValue || regionValue || typeValue);
 
       if (filtersAreActive && autoFit) {
         fitRows(visibleRows);
       } else if (!filtersAreActive) {
-        map.setView([20, 20], 2.5);
+        map.setView(DEFAULT_CENTER, DEFAULT_ZOOM);
       }
     }
 
@@ -765,6 +972,7 @@
         visibleRows = [...allRows];
         renderMarkers(allRows);
         updateResultPanel(allRows.length, allRows.length);
+        renderResultsList(allRows);
 
         document.getElementById('searchBox').addEventListener('input', () => applyFilters(true));
         document.getElementById('countryFilter').addEventListener('change', () => applyFilters(true));
@@ -781,6 +989,9 @@
 
         document.getElementById('fitVisible').addEventListener('click', function() {
           fitRows(visibleRows);
+        });
+        document.getElementById('resetView').addEventListener('click', function() {
+          map.setView(DEFAULT_CENTER, DEFAULT_ZOOM);
         });
 
         setTimeout(() => {
