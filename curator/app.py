@@ -103,27 +103,41 @@ def search_locations(query: str, limit: int = 5) -> list[dict[str, Any]]:
     return suggestions
 
 REGION_TAG_OPTIONS = [
+    "Marine",
     "Coastal",
+    "Near-coastal",
     "Inland",
     "Island",
-    "Marine",
+    "Industrial",
     "Urban",
     "Rural",
-    "Industrial",
     "Sub-arctic",
     "Sub-Antarctic",
+    "Antarctic",
+    "Tropical",
+    "Hot-arid",
+    "Temperate",
+    "Cold",
+    "Extreme cold",
 ]
 
 REGION_TAG_ORDER = {
-    "Coastal": 1,
-    "Inland": 2,
-    "Island": 3,
-    "Marine": 4,
-    "Urban": 5,
-    "Rural": 6,
-    "Industrial": 7,
-    "Sub-arctic": 8,
-    "Sub-Antarctic": 9,
+    "Marine": 1,
+    "Coastal": 2,
+    "Near-coastal": 3,
+    "Inland": 4,
+    "Island": 5,
+    "Industrial": 6,
+    "Urban": 7,
+    "Rural": 8,
+    "Sub-arctic": 9,
+    "Sub-Antarctic": 10,
+    "Antarctic": 11,
+    "Tropical": 12,
+    "Hot-arid": 13,
+    "Temperate": 14,
+    "Cold": 15,
+    "Extreme cold": 16,
 }
 
 def normalize_region_category(selected_tags: list[str]) -> str:
@@ -440,8 +454,6 @@ def build_row_label(row: dict, table_name: str) -> str:
 
 SITE_FORM_KEYS = [
     "site_label_input",
-    "site_type_select",
-    "custom_site_type_input",
     "site_latitude",
     "site_longitude",
     "site_modern_country_location",
@@ -1043,8 +1055,130 @@ st.set_page_config(
     layout="wide",
 )
 
-st.title("Corrosion Map Curator")
-st.caption("Local curation app for managing sites, sources, and site-source links.")
+manual_col_title, manual_col_button = st.columns([0.82, 0.18], vertical_alignment="center")
+
+with manual_col_title:
+    st.title("Corrosion Map Curator")
+    st.caption("Local curation app for managing sites, sources, and site-source links.")
+
+with manual_col_button:
+    with st.popover("📘 User Manual", use_container_width=True):
+        manual_language = st.segmented_control(
+            "Manual language",
+            options=["English", "中文"],
+            default="English",
+            key="manual_language_selector",
+        )
+
+        if manual_language == "English":
+            st.markdown(
+                """
+                ## Corrosion Map Curator — User Manual
+
+                ### 1. What this app can do
+
+                The Corrosion Map Curator is a local database-management tool for building and maintaining a structured corrosion exposure-site dataset. It helps users:
+
+                - register corrosion-related sources, including local PDF files and external URLs;
+                - add exposure sites with coordinates, country/location information, region tags, metals, exposure periods, and notes;
+                - link one or more sources to one or more sites;
+                - assign source-level metadata such as programme, metals, and exposure periods;
+                - edit, delete, and bulk-update existing site and source records;
+                - auto-suggest region categories from coordinates and contextual information;
+                - import site datasets from CSV files and review them before saving;
+                - export selected curated records into the website-ready `data/sites.csv` file;
+                - maintain a clean separation between the curator database and the public website dataset.
+
+                ### 2. Basic workflow
+
+                **Step 1 — Add or register sources**
+
+                Go to **Sources**. You can either register existing PDFs from the `source_pdfs/` folder or manually add a new source with a source code, title, programme, metals, exposure periods, PDF, URL, and notes.
+
+                **Step 2 — Add sites**
+
+                Go to **Sites**. Search a location, confirm or manually enter latitude and longitude, fill in the site label, country/location, region category, exposure period, metal, and notes, then click **Add site**.
+
+                **Step 3 — Link sources to sites**
+
+                In **Sites → Source evidence for existing site(s)**, select one or more sites and one or more sources. Then assign the relevant metals and exposure periods for that site-source relationship and click **Attach selected source(s)**.
+
+                **Step 4 — Review and edit records**
+
+                Go to **Manage Records**. Choose either `sites` or `sources`. You can edit table cells directly, delete selected records, or use the bulk-edit tools. For sites, you can also preview and apply automatic region-category suggestions.
+
+                **Step 5 — Import CSV data**
+
+                Go to **Import**. Upload a CSV file, review the parsed site/source/link preview, correct fields if needed, then confirm the selected import. No database changes are made until you confirm.
+
+                **Step 6 — Export to the website dataset**
+
+                Go to **Export / Publish**. Select the sites that should appear on the public website dataset, review the selection, then confirm publishing. The app updates `data/sites.csv` and creates a dated batch snapshot.
+
+                ### 3. Important notes
+
+                - Nothing is saved to the database until you click the relevant save, attach, import, or publish button.
+                - Deleting a site or source should be done carefully, especially if it is already linked to other records.
+                - Region-category auto-assignment is a suggestion, not an unquestionable classification. Review the preview before applying it.
+                - The local curation database is for editing and management; the exported CSV is the website-facing dataset.
+                - Source PDFs should be placed in or uploaded to `source_pdfs/` when possible, so the website can later link to them consistently.
+                """
+            )
+
+        else:
+            st.markdown(
+                """
+                ## 腐蚀地图数据管理器 — 用户手册
+
+                ### 1. 本程序可以做什么
+
+                腐蚀地图数据管理器是一个用于整理和维护腐蚀暴露站点数据库的本地管理工具。它可以帮助用户：
+
+                - 注册腐蚀相关资料来源，包括本地 PDF 文件和外部网页链接；
+                - 添加暴露站点信息，包括坐标、国家/地区、区域标签、金属材料、暴露时间和备注；
+                - 将一个或多个资料来源关联到一个或多个站点；
+                - 为资料来源分配元数据，例如研究计划、金属材料和暴露时间；
+                - 编辑、删除和批量更新已有的站点和资料来源记录；
+                - 根据坐标和上下文信息自动建议区域分类标签；
+                - 从 CSV 文件导入站点数据，并在写入数据库前进行预览和检查；
+                - 将选定的整理后数据导出为网站使用的 `data/sites.csv` 文件；
+                - 将本地整理数据库与公开网站数据集分开管理。
+
+                ### 2. 基本使用流程
+
+                **步骤 1 — 添加或注册资料来源**
+
+                进入 **Sources** 页面。可以从 `source_pdfs/` 文件夹自动注册已有 PDF，也可以手动添加新的资料来源，包括 source code、标题、研究计划、金属材料、暴露时间、PDF、网页链接和备注。
+
+                **步骤 2 — 添加站点**
+
+                进入 **Sites** 页面。搜索地点，确认或手动输入纬度和经度，填写站点名称、国家/地区、区域标签、暴露时间、金属材料和备注，然后点击 **Add site**。
+
+                **步骤 3 — 将资料来源关联到站点**
+
+                在 **Sites → Source evidence for existing site(s)** 中，选择一个或多个站点以及一个或多个资料来源。然后为该站点-资料关系指定对应的金属材料和暴露时间，并点击 **Attach selected source(s)**。
+
+                **步骤 4 — 检查和编辑记录**
+
+                进入 **Manage Records** 页面。选择 `sites` 或 `sources`。可以直接编辑表格单元格、删除选定记录，或使用批量编辑工具。对于站点记录，还可以预览并应用自动区域分类建议。
+
+                **步骤 5 — 导入 CSV 数据**
+
+                进入 **Import** 页面。上传 CSV 文件，检查解析后的站点、资料来源和关联关系预览，必要时修改字段，然后确认导入。只有在确认后，数据才会写入数据库。
+
+                **步骤 6 — 导出到网站数据集**
+
+                进入 **Export / Publish** 页面。选择需要发布到公开网站数据集的站点，检查选择结果，然后确认发布。程序会更新 `data/sites.csv`，并生成带日期的批次快照。
+
+                ### 3. 注意事项
+
+                - 只有点击相应的保存、关联、导入或发布按钮后，修改才会写入数据库。
+                - 删除站点或资料来源时应谨慎，特别是当该记录已经与其他记录建立关联时。
+                - 自动区域分类只是建议，不应直接视为最终结论。应用前应检查预览结果。
+                - 本地 curation database 用于数据整理和管理；导出的 CSV 文件才是网站读取的数据集。
+                - 建议尽量将资料 PDF 放入或上传到 `source_pdfs/` 文件夹，以便后续网站能够稳定链接。
+                """
+            )
 
 show_flash_message()
 
@@ -1693,33 +1827,18 @@ if active_page == "Sites":
             key="site_label_input",
         )
 
-        col1, col2, col3 = st.columns(3)
+        site_type = ""
+
+        col1, col2 = st.columns(2)
 
         with col1:
-            selected_site_type = st.selectbox(
-                "Site type",
-                options=SITE_TYPE_OPTIONS,
-                key="site_type_select",
-            )
-
-            custom_site_type = ""
-            if selected_site_type == "Other / custom":
-                custom_site_type = st.text_input(
-                    "Custom site type",
-                    placeholder="Enter custom site type",
-                    key="custom_site_type_input",
-                )
-
-            site_type = resolve_option_value(selected_site_type, custom_site_type)
-
-        with col2:
             latitude = st.text_input(
                 "Latitude",
                 key="site_latitude",
                 placeholder="e.g. 50.0755",
             )
 
-        with col3:
+        with col2:
             longitude = st.text_input(
                 "Longitude",
                 key="site_longitude",
@@ -1887,16 +2006,53 @@ if active_page == "Sites":
                 for row in source_options
             }
 
+            site_link_labels = list(site_label_to_id.keys())
+            source_link_labels = list(source_label_to_id.keys())
+
+            if "link_sites_selected" not in st.session_state:
+                st.session_state["link_sites_selected"] = []
+
+            if "link_sources_selected" not in st.session_state:
+                st.session_state["link_sources_selected"] = []
+
+            st.write("##### Site selection")
+
+            col_link_sites_all, col_link_sites_none = st.columns(2)
+
+            with col_link_sites_all:
+                if st.button("Select all sites", key="select_all_link_sites"):
+                    st.session_state["link_sites_selected"] = site_link_labels
+                    st.rerun()
+
+            with col_link_sites_none:
+                if st.button("Deselect all sites", key="deselect_all_link_sites"):
+                    st.session_state["link_sites_selected"] = []
+                    st.rerun()
+
             selected_site_labels = st.multiselect(
                 "Choose site(s)",
-                options=list(site_label_to_id.keys()),
+                options=site_link_labels,
                 help="Choose one or more sites. Multiple selection allows bulk source linking.",
                 key="link_sites_selected",
             )
 
+            st.write("##### Source selection")
+
+            col_link_sources_all, col_link_sources_none = st.columns(2)
+
+            with col_link_sources_all:
+                if st.button("Select all sources", key="select_all_link_sources"):
+                    st.session_state["link_sources_selected"] = source_link_labels
+                    st.rerun()
+
+            with col_link_sources_none:
+                if st.button("Deselect all sources", key="deselect_all_link_sources"):
+                    st.session_state["link_sources_selected"] = []
+                    st.rerun()
+
             selected_source_labels = st.multiselect(
                 "Choose source(s)",
-                options=list(source_label_to_id.keys()),
+                options=source_link_labels,
                 help="Choose one or more sources to attach to the selected site(s).",
                 key="link_sources_selected",
             )
@@ -2105,7 +2261,6 @@ if active_page == "Manage Records":
             editable_columns = [
                 "site_id",
                 "site_label",
-                "site_type",
                 "latitude",
                 "longitude",
                 "modern_country_location",
@@ -2137,6 +2292,7 @@ if active_page == "Manage Records":
 
             df_editor["source_codes"] = df_editor["source_codes"].apply(split_chip_values)
             df_editor["programmes"] = df_editor["programmes"].apply(split_chip_values)
+            df_editor["region_category"] = df_editor["region_category"].apply(split_chip_values)
             df_editor["metal"] = df_editor["metal"].apply(split_chip_values)
             df_editor["exposure_period"] = df_editor["exposure_period"].apply(split_chip_values)
 
@@ -2146,7 +2302,6 @@ if active_page == "Manage Records":
                 "site_label",
                 "source_codes",
                 "programmes",
-                "site_type",
                 "latitude",
                 "longitude",
                 "modern_country_location",
@@ -2211,11 +2366,26 @@ if active_page == "Manage Records":
                 ],
             )
 
+            region_options = merge_option_values(
+                REGION_TAG_OPTIONS,
+                [
+                    item
+                    for value in df_editor.get("region_category", [])
+                    for item in split_chip_values(value)
+                ],
+            )
+
             column_config = {
                 "id": None,
                 "source_codes": st.column_config.MultiselectColumn(
                     "Source codes",
                     options=source_code_options,
+                    accept_new_options=True,
+                    width="large",
+                ),
+                "region_category": st.column_config.MultiselectColumn(
+                    "Region category",
+                    options=region_options,
                     accept_new_options=True,
                     width="large",
                 ),
@@ -2375,7 +2545,10 @@ if active_page == "Manage Records":
                             )
                             new_value = edited_df.iloc[row_position].get(column, "")
 
-                            if column in {"programme", "metals", "exposure_periods"}:
+                            if column == "region_category":
+                                old_normalised = normalize_region_category(split_chip_values(old_value))
+                                new_normalised = normalize_region_category(split_chip_values(new_value))
+                            elif column in {"metal", "exposure_period"}:
                                 old_normalised = join_chip_values(old_value)
                                 new_normalised = join_chip_values(new_value)
                             else:
@@ -2417,7 +2590,7 @@ if active_page == "Manage Records":
                             old_value = clean_editor_value(original_by_id.loc[row_id, column])
                             new_value = edited_by_id.loc[row_id, column]
 
-                            if column in {"metal", "exposure_period"}:
+                            if column in {"region_category", "metal", "exposure_period"}:
                                 old_normalised = join_chip_values(old_value)
                                 new_normalised = join_chip_values(new_value)
                             else:
@@ -2476,10 +2649,34 @@ if active_page == "Manage Records":
             for row in rows
         }
 
+        row_labels = list(row_label_to_id.keys())
+        bulk_selection_key = f"bulk_rows_{manage_table}"
+
+        if bulk_selection_key not in st.session_state:
+            st.session_state[bulk_selection_key] = []
+
+        col_bulk_select_all, col_bulk_deselect_all = st.columns(2)
+
+        with col_bulk_select_all:
+            if st.button(
+                "Select all records for bulk edit",
+                key=f"select_all_bulk_rows_{manage_table}",
+            ):
+                st.session_state[bulk_selection_key] = row_labels
+                st.rerun()
+
+        with col_bulk_deselect_all:
+            if st.button(
+                "Deselect all records for bulk edit",
+                key=f"deselect_all_bulk_rows_{manage_table}",
+            ):
+                st.session_state[bulk_selection_key] = []
+                st.rerun()
+
         selected_row_labels = st.multiselect(
             "Choose records to update",
-            options=list(row_label_to_id.keys()),
-            key=f"bulk_rows_{manage_table}",
+            options=row_labels,
+            key=bulk_selection_key,
         )
 
         selected_row_ids = [
