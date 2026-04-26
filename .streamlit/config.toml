@@ -1,0 +1,28 @@
+[theme]
+base = "dark"
+
+# Accent colour: muted cyan-blue, not neon
+primaryColor = "#6BA6B8"
+
+# Main page background: warm graphite
+backgroundColor = "#24272E"
+
+# Widget/card background: slightly lifted graphite
+secondaryBackgroundColor = "#30343C"
+
+# Text: soft warm off-white
+textColor = "#ECE7DD"
+
+# Links: calm desaturated blue
+linkColor = "#8FBAC8"
+
+# Code blocks: deeper graphite
+codeBackgroundColor = "#1B1D22"
+
+# Borders: subtle, not too bright
+borderColor = "#4A4F59"
+
+showWidgetBorder = true
+baseRadius = "0.75rem"
+buttonRadius = "0.75rem"
+font = "sans serif"
