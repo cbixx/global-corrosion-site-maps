@@ -871,9 +871,18 @@
       const raw = String(value).trim();
       if (!raw) return '';
 
+      // Block obviously unsafe URL schemes.
+      if (/^(javascript|data|vbscript):/i.test(raw)) return '';
+
       try {
         const parsed = new URL(raw, window.location.href);
-        return /^https?:$/i.test(parsed.protocol) ? parsed.href : '';
+
+        // Allow normal website URLs and local file-preview URLs.
+        if (['http:', 'https:', 'file:'].includes(parsed.protocol)) {
+          return parsed.href;
+        }
+
+        return '';
       } catch {
         return '';
       }
@@ -1256,7 +1265,7 @@
       }
     }
 
-    Papa.parse('data/sites.csv', {
+    Papa.parse(`data/sites.csv?v=${Date.now()}`, {
       download: true,
       header: true,
       skipEmptyLines: true,
