@@ -44,6 +44,7 @@ from exporter import (
     get_publishable_sites,
     publish_selected_sites_csv,
 )
+from region_classifier import classify_region_category
 
 def get_geolocator() -> Nominatim:
     return Nominatim(user_agent="corrosion_map_curator")
@@ -1569,11 +1570,22 @@ if active_page == "Sources":
                     st.error("Choose at least one update type.")
                 elif apply_programme_update and not programme_to_apply.strip():
                     st.error("Select or enter a programme.")
-                elif apply_material_exposure_update and (
-                    not source_metals.strip() or not source_exposure_periods.strip()
+                elif (
+                    apply_material_exposure_update
+                    and update_mode == "merge"
+                    and not (source_metals.strip() or source_exposure_periods.strip())
                 ):
                     st.error(
-                        "To update metals/exposure periods, select at least one metal and at least one exposure period."
+                        "To add missing source metadata, select at least one metal or at least one exposure period."
+                    )
+                elif (
+                    apply_material_exposure_update
+                    and update_mode == "replace"
+                    and (not source_metals.strip() or not source_exposure_periods.strip())
+                ):
+                    st.error(
+                        "Replace mode requires at least one metal and at least one exposure period. "
+                        "Use merge mode if you only want to add metals or only exposure periods."
                     )
                 else:
                     try:
@@ -2129,6 +2141,7 @@ if active_page == "Manage Records":
             df_editor["exposure_period"] = df_editor["exposure_period"].apply(split_chip_values)
 
             preferred_site_columns = [
+                "id",
                 "site_id",
                 "site_label",
                 "source_codes",
@@ -2199,6 +2212,7 @@ if active_page == "Manage Records":
             )
 
             column_config = {
+                "id": None,
                 "source_codes": st.column_config.MultiselectColumn(
                     "Source codes",
                     options=source_code_options,
@@ -2233,6 +2247,7 @@ if active_page == "Manage Records":
         else:
             editable_columns = [
                 "source_code",
+                "source_title",
                 "programme",
                 "metals",
                 "exposure_periods",
@@ -2242,6 +2257,7 @@ if active_page == "Manage Records":
 
             required_source_columns = [
                 "source_code",
+                "source_title",
                 "programme",
                 "metals",
                 "exposure_periods",
@@ -2270,6 +2286,14 @@ if active_page == "Manage Records":
                     accept_new_options=True,
                     help="Programme(s) associated with this source.",
                     width="medium",
+                ),
+                "source_code": st.column_config.TextColumn(
+                    "Source code",
+                    width="small",
+                ),
+                "source_title": st.column_config.TextColumn(
+                    "Source title",
+                    width="large",
                 ),
                 "metals": st.column_config.MultiselectColumn(
                     "Metals",
@@ -2462,6 +2486,120 @@ if active_page == "Manage Records":
             row_label_to_id[label]
             for label in selected_row_labels
         ]
+
+        if manage_table == "sites":
+            st.write("#### Auto-assign region category for selected sites")
+
+            if st.button(
+                "Preview automatic region categories",
+                key="preview_auto_region_categories",
+                disabled=not selected_row_ids,
+            ):
+                selected_rows = [
+                    row for row in rows
+                    if int(row["id"]) in selected_row_ids
+                ]
+
+                preview_rows = []
+
+                for row in selected_rows:
+                    result = classify_region_category(
+                        latitude=row.get("latitude"),
+                        longitude=row.get("longitude"),
+                        current_region_category=row.get("region_category", ""),
+                        modern_country_location=row.get("modern_country_location", ""),
+                        site_type=row.get("site_type", ""),
+                    )
+
+                    preview_rows.append(
+                        {
+                            "apply": True,
+                            "id": int(row["id"]),
+                            "site_id": row.get("site_id", ""),
+                            "site_label": row.get("site_label", ""),
+                            "latitude": row.get("latitude", ""),
+                            "longitude": row.get("longitude", ""),
+                            "current_region_category": row.get("region_category", ""),
+                            "suggested_region_category": result.region_category,
+                            "notes": result.notes,
+                        }
+                    )
+
+                st.session_state["auto_region_preview_df"] = pd.DataFrame(preview_rows)
+
+            auto_region_preview_df = st.session_state.get("auto_region_preview_df")
+
+            if auto_region_preview_df is not None and not auto_region_preview_df.empty:
+                edited_auto_region_df = st.data_editor(
+                    auto_region_preview_df,
+                    hide_index=True,
+                    width="stretch",
+                    num_rows="fixed",
+                    key="auto_region_preview_editor",
+                    disabled=[
+                        "id",
+                        "site_id",
+                        "site_label",
+                        "latitude",
+                        "longitude",
+                        "current_region_category",
+                        "notes",
+                    ],
+                    column_config={
+                        "apply": st.column_config.CheckboxColumn(
+                            "Apply",
+                            help="Tick rows to update.",
+                            default=True,
+                        ),
+                        "id": None,
+                        "suggested_region_category": st.column_config.TextColumn(
+                            "Suggested region category",
+                            help="You can edit the suggestion before applying.",
+                        ),
+                    },
+                )
+
+                apply_auto_region_df = edited_auto_region_df[
+                    edited_auto_region_df["apply"].astype(bool)
+                ].copy()
+
+                col_apply_auto_region, col_clear_auto_region = st.columns(2)
+
+                with col_apply_auto_region:
+                    if st.button(
+                        "Apply automatic region categories",
+                        key="apply_auto_region_categories",
+                        disabled=apply_auto_region_df.empty,
+                    ):
+                        updated_count = 0
+
+                        for _, row in apply_auto_region_df.iterrows():
+                            suggested_value = str(
+                                row.get("suggested_region_category", "")
+                            ).strip()
+
+                            if not suggested_value:
+                                continue
+
+                            updated_count += update_table_row(
+                                "sites",
+                                int(row["id"]),
+                                {"region_category": suggested_value},
+                            )
+
+                        st.session_state.pop("auto_region_preview_df", None)
+                        set_flash_message(
+                            f"Updated region_category for {updated_count} site row(s)."
+                        )
+                        st.rerun()
+
+                with col_clear_auto_region:
+                    if st.button(
+                        "Clear automatic region preview",
+                        key="clear_auto_region_preview",
+                    ):
+                        st.session_state.pop("auto_region_preview_df", None)
+                        st.rerun()    
 
         bulk_field = st.selectbox(
             "Field to bulk update",
