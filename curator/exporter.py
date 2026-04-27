@@ -2,15 +2,15 @@ from __future__ import annotations
 
 from pathlib import Path
 import csv
-import sqlite3
 import re
 from typing import Any
 from datetime import datetime
 
+from db import get_connection
+
 
 BASE_DIR = Path(__file__).resolve().parent
 REPO_ROOT = BASE_DIR.parent
-DB_PATH = BASE_DIR / "curation.db"
 
 OUTPUT_CSV_PATH = REPO_ROOT / "data" / "sites.csv"
 PUBLISH_BATCH_DIR = REPO_ROOT / "data" / "publish_batches"
@@ -29,14 +29,6 @@ BASE_SITE_COLUMNS = [
     "exposure_period",
     "metal",
 ]
-
-
-def get_connection() -> sqlite3.Connection:
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA foreign_keys = ON;")
-    return conn
-
 
 def clean_value(value: Any) -> str:
     if value is None:
@@ -92,7 +84,7 @@ def write_website_csv(
         writer.writerows(export_rows)
 
 
-def source_export_value(row: sqlite3.Row) -> str:
+def source_export_value(row: Any) -> str:
     source_url = clean_value(row["source_url"])
     local_file_name = clean_value(row["local_file_name"])
     source_code = clean_value(row["source_code"])
@@ -164,7 +156,7 @@ def get_publishable_sites() -> list[dict[str, Any]]:
     return publishable_sites
 
 
-def get_site_rows_for_publish(site_db_ids: list[int]) -> list[sqlite3.Row]:
+def get_site_rows_for_publish(site_db_ids: list[int]) -> list[Any]:
     if not site_db_ids:
         return []
 
@@ -197,7 +189,7 @@ def get_site_rows_for_publish(site_db_ids: list[int]) -> list[sqlite3.Row]:
     return rows
 
 
-def get_site_sources_by_site_id(site_db_ids: list[int]) -> dict[int, list[sqlite3.Row]]:
+def get_site_sources_by_site_id(site_db_ids: list[int]) -> dict[int, list[Any]]:
     if not site_db_ids:
         return {}
 
@@ -223,7 +215,7 @@ def get_site_sources_by_site_id(site_db_ids: list[int]) -> dict[int, list[sqlite
             [int(site_db_id) for site_db_id in site_db_ids],
         ).fetchall()
 
-    grouped: dict[int, list[sqlite3.Row]] = {}
+    grouped: dict[int, list[Any]] = {}
 
     for row in rows:
         site_db_id = int(row["site_db_id"])
