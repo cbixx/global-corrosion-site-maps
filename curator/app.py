@@ -45,6 +45,7 @@ from exporter import (
     publish_selected_sites_csv,
 )
 from region_classifier import classify_region_category
+from git_tools import commit_and_push_website_dataset, get_git_status_text
 
 def get_geolocator() -> Nominatim:
     return Nominatim(user_agent="corrosion_map_curator")
@@ -557,6 +558,452 @@ def merge_unique_text_values(values) -> str:
 
     return ", ".join(merged)
 
+def normalize_site_match_text(value: str | None) -> str:
+    value = str(value or "").strip().lower()
+    value = re.sub(r"\s+", " ", value)
+    return value
+
+
+def first_nonempty_value(existing_value, incoming_value):
+    existing_text = str(existing_value or "").strip()
+    incoming_text = str(incoming_value or "").strip()
+
+    if existing_text:
+        return existing_value
+
+    return incoming_value
+
+
+def merge_note_values(existing_notes: str | None, incoming_notes: str | None) -> str:
+    existing = str(existing_notes or "").strip()
+    incoming = str(incoming_notes or "").strip()
+
+    if not incoming:
+        return existing
+
+    if not existing:
+        return incoming
+
+    if incoming in existing:
+        return existing
+
+    return f"{existing}\n{incoming}"
+
+
+def find_existing_site_for_upsert(
+    conn,
+    site_id: str,
+    site_label: str,
+    latitude: float,
+    longitude: float,
+    modern_country_location: str,
+):
+    """
+    Find an existing site using increasingly soft matching rules.
+
+    Priority:
+    1. Exact site_id match.
+    2. Same site label + same modern country/location.
+    3. Very close coordinates plus matching label or country/location.
+    """
+
+    clean_site_id = str(site_id or "").strip()
+    clean_label = normalize_site_match_text(site_label)
+    clean_location = normalize_site_match_text(modern_country_location)
+
+    if clean_site_id:
+        existing = conn.execute(
+            """
+            select *
+            from sites
+            where lower(trim(site_id)) = lower(trim(?))
+            limit 1
+            """,
+            (clean_site_id,),
+        ).fetchone()
+
+        if existing:
+            return existing, "site_id"
+
+    if clean_label and clean_location:
+        existing = conn.execute(
+            """
+            select *
+            from sites
+            where lower(trim(site_label)) = ?
+              and lower(trim(modern_country_location)) = ?
+            order by id
+            limit 1
+            """,
+            (clean_label, clean_location),
+        ).fetchone()
+
+        if existing:
+            return existing, "site_label + modern_country_location"
+
+    coordinate_tolerance = 0.0005
+
+    if clean_label or clean_location:
+        existing = conn.execute(
+            """
+            select *
+            from sites
+            where abs(latitude - ?) <= ?
+              and abs(longitude - ?) <= ?
+              and (
+                    lower(trim(site_label)) = ?
+                    or lower(trim(modern_country_location)) = ?
+                  )
+            order by id
+            limit 1
+            """,
+            (
+                latitude,
+                coordinate_tolerance,
+                longitude,
+                coordinate_tolerance,
+                clean_label,
+                clean_location,
+            ),
+        ).fetchone()
+
+        if existing:
+            return existing, "coordinates + label/location"
+
+    return None, ""
+
+
+def upsert_site_record(values: dict) -> tuple[int, str, str]:
+    """
+    Create a new site if it is genuinely new.
+
+    If the site already exists, merge missing metadata into the existing row
+    instead of creating a duplicate site row.
+
+    Returns
+    -------
+    tuple[int, str, str]
+        site database id, action label, match reason
+    """
+
+    latitude = float(values["latitude"])
+    longitude = float(values["longitude"])
+
+    with get_connection() as conn:
+        existing, match_reason = find_existing_site_for_upsert(
+            conn=conn,
+            site_id=str(values.get("site_id", "")).strip(),
+            site_label=str(values.get("site_label", "")).strip(),
+            latitude=latitude,
+            longitude=longitude,
+            modern_country_location=str(values.get("modern_country_location", "")).strip(),
+        )
+
+        if existing:
+            site_db_id = int(existing["id"])
+
+            merged_values = {
+                "site_id": first_nonempty_value(existing["site_id"], values.get("site_id", "")),
+                "site_label": first_nonempty_value(existing["site_label"], values.get("site_label", "")),
+                "site_type": first_nonempty_value(existing["site_type"], values.get("site_type", "")),
+                "latitude": first_nonempty_value(existing["latitude"], latitude),
+                "longitude": first_nonempty_value(existing["longitude"], longitude),
+                "modern_country_location": first_nonempty_value(
+                    existing["modern_country_location"],
+                    values.get("modern_country_location", ""),
+                ),
+                "administering_country": first_nonempty_value(
+                    existing["administering_country"],
+                    values.get("administering_country", ""),
+                ),
+                "former_entity": first_nonempty_value(
+                    existing["former_entity"],
+                    values.get("former_entity", ""),
+                ),
+                "region_category": merge_unique_text_values(
+                    [
+                        existing["region_category"],
+                        values.get("region_category", ""),
+                    ]
+                ),
+                "exposure_period": merge_unique_text_values(
+                    [
+                        existing["exposure_period"],
+                        values.get("exposure_period", ""),
+                    ]
+                ),
+                "metal": merge_unique_text_values(
+                    [
+                        existing["metal"],
+                        values.get("metal", ""),
+                    ]
+                ),
+                "notes": merge_note_values(
+                    existing["notes"],
+                    values.get("notes", ""),
+                ),
+            }
+
+            conn.execute(
+                """
+                update sites
+                set site_id = ?,
+                    site_label = ?,
+                    site_type = ?,
+                    latitude = ?,
+                    longitude = ?,
+                    modern_country_location = ?,
+                    administering_country = ?,
+                    former_entity = ?,
+                    region_category = ?,
+                    exposure_period = ?,
+                    metal = ?,
+                    notes = ?
+                where id = ?
+                """,
+                (
+                    merged_values["site_id"],
+                    merged_values["site_label"],
+                    merged_values["site_type"],
+                    merged_values["latitude"],
+                    merged_values["longitude"],
+                    merged_values["modern_country_location"],
+                    merged_values["administering_country"],
+                    merged_values["former_entity"],
+                    merged_values["region_category"],
+                    merged_values["exposure_period"],
+                    merged_values["metal"],
+                    merged_values["notes"],
+                    site_db_id,
+                ),
+            )
+
+            conn.commit()
+            return site_db_id, "merged", match_reason
+
+        cursor = conn.execute(
+            """
+            insert into sites (
+                site_id,
+                site_label,
+                site_type,
+                latitude,
+                longitude,
+                modern_country_location,
+                administering_country,
+                former_entity,
+                region_category,
+                exposure_period,
+                metal,
+                notes
+            )
+            values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                str(values.get("site_id", "")).strip(),
+                str(values.get("site_label", "")).strip(),
+                str(values.get("site_type", "")).strip(),
+                latitude,
+                longitude,
+                str(values.get("modern_country_location", "")).strip(),
+                str(values.get("administering_country", "")).strip(),
+                str(values.get("former_entity", "")).strip(),
+                str(values.get("region_category", "")).strip(),
+                str(values.get("exposure_period", "")).strip(),
+                str(values.get("metal", "")).strip(),
+                str(values.get("notes", "")).strip(),
+            ),
+        )
+
+        inserted_site_id = cursor.lastrowid
+
+        if inserted_site_id is None:
+            raise RuntimeError("Could not determine inserted site ID.")
+
+        conn.commit()
+        return int(inserted_site_id), "created", ""
+    
+def append_warning_text(existing_warning: str | None, new_warning: str | None) -> str:
+    existing = str(existing_warning or "").strip()
+    new = str(new_warning or "").strip()
+
+    if not new:
+        return existing
+
+    if not existing:
+        return new
+
+    if new in existing:
+        return existing
+
+    return f"{existing}; {new}"
+
+def add_import_warning(
+    df: pd.DataFrame,
+    row_index,
+    warning_text: str,
+) -> None:
+    current_warning = str(df.loc[row_index, "warnings"] or "").strip()
+
+    df.loc[row_index, "warnings"] = append_warning_text(
+        current_warning,
+        warning_text,
+    )
+
+def preview_site_upsert_match(
+    site_id: str,
+    site_label: str,
+    latitude,
+    longitude,
+    modern_country_location: str,
+) -> dict[str, Any]:
+    """
+    Preview whether a submitted/imported site would create a new site row
+    or merge into an existing site row.
+    """
+    if not str(site_label or "").strip():
+        return {
+            "checked": False,
+            "will_merge": False,
+            "message": "",
+            "match_reason": "",
+        }
+
+    if latitude in ("", None) or longitude in ("", None):
+        return {
+            "checked": False,
+            "will_merge": False,
+            "message": "",
+            "match_reason": "",
+        }
+
+    try:
+        lat = float(latitude)
+        lon = float(longitude)
+    except (TypeError, ValueError):
+        return {
+            "checked": False,
+            "will_merge": False,
+            "message": "Existing-site check skipped: latitude/longitude are not valid numbers.",
+            "match_reason": "",
+        }
+
+    with get_connection() as conn:
+        existing, match_reason = find_existing_site_for_upsert(
+            conn=conn,
+            site_id=str(site_id or "").strip(),
+            site_label=str(site_label or "").strip(),
+            latitude=lat,
+            longitude=lon,
+            modern_country_location=str(modern_country_location or "").strip(),
+        )
+
+    if existing:
+        existing_site_id = str(existing["site_id"] or "").strip()
+        existing_site_label = str(existing["site_label"] or "").strip()
+        existing_country = str(existing["modern_country_location"] or "").strip()
+
+        return {
+            "checked": True,
+            "will_merge": True,
+            "existing_site_id": existing_site_id,
+            "existing_site_label": existing_site_label,
+            "existing_country": existing_country,
+            "match_reason": match_reason,
+            "message": (
+                f"Existing site likely found: {existing_site_id} — "
+                f"{existing_site_label} ({existing_country}). "
+                f"Adding this record will update the existing site row instead of creating a duplicate. "
+                f"Match basis: {match_reason}."
+            ),
+        }
+
+    return {
+        "checked": True,
+        "will_merge": False,
+        "message": "No existing site match found. This will create a new site row.",
+        "match_reason": "",
+    }
+
+
+def annotate_import_preview_for_upsert(preview_df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Add user-facing import-preview columns showing:
+    - whether each imported site will be created or merged into an existing site;
+    - whether each source already exists or will be created.
+    """
+    if preview_df.empty:
+        return preview_df
+
+    annotated_df = preview_df.copy()
+
+    existing_source_codes = {
+        str(code).strip()
+        for code in get_existing_source_codes()
+        if str(code).strip()
+    }
+
+    for column in [
+        "site_upsert_status",
+        "site_upsert_match",
+        "source_status",
+        "new_source_code",
+        "warnings",
+    ]:
+        if column not in annotated_df.columns:
+            annotated_df[column] = ""
+
+    for row_index, row in annotated_df.iterrows():
+        site_preview = preview_site_upsert_match(
+            site_id=str(row.get("site_id", "")).strip(),
+            site_label=str(row.get("site_label", "")).strip(),
+            latitude=row.get("latitude", ""),
+            longitude=row.get("longitude", ""),
+            modern_country_location=str(row.get("modern_country_location", "")).strip(),
+        )
+
+        if site_preview.get("will_merge"):
+            annotated_df.at[row_index, "site_upsert_status"] = (
+                "Existing site — source/metadata will be added"
+            )
+            annotated_df.at[row_index, "site_upsert_match"] = str(
+                site_preview.get("match_reason", "")
+            )
+            add_import_warning(
+                annotated_df,
+                row_index,
+                str(site_preview.get("message", "")),
+            )
+        elif site_preview.get("checked"):
+            annotated_df.at[row_index, "site_upsert_status"] = (
+                "New site — will be created"
+            )
+            annotated_df.at[row_index, "site_upsert_match"] = ""
+        else:
+            annotated_df.at[row_index, "site_upsert_status"] = (
+                "Site match not checked"
+            )
+            annotated_df.at[row_index, "site_upsert_match"] = ""
+
+        source_code = str(row.get("source_code", "")).strip()
+
+        if source_code:
+            if source_code in existing_source_codes:
+                annotated_df.at[row_index, "source_status"] = (
+                    "Existing source — will be linked/updated"
+                )
+            else:
+                annotated_df.at[row_index, "source_status"] = (
+                    "New source — will be created"
+                )
+                annotated_df.at[row_index, "new_source_code"] = source_code
+                add_import_warning(
+                    annotated_df,
+                    row_index,
+                    f"Source code {source_code} does not exist yet and will be created during import.",
+                )
+
+    return annotated_df
 
 def get_source_order_from_column(source_column: str) -> int:
     match = re.search(r"(\d+)$", str(source_column or ""))
@@ -587,6 +1034,8 @@ def build_site_level_import_preview(detail_df: pd.DataFrame) -> pd.DataFrame:
                 "import_selected": bool(group["import_selected"].astype(bool).any()),
                 "csv_rows": merge_unique_text_values(group["csv_row"].astype(str).tolist()),
                 "site_action": first.get("site_action", ""),
+                "site_upsert_status": first.get("site_upsert_status", ""),
+                "site_upsert_match": first.get("site_upsert_match", ""),
                 "site_id": first.get("site_id", ""),
                 "site_label": first.get("site_label", ""),
                 "site_type": first.get("site_type", ""),
@@ -598,6 +1047,8 @@ def build_site_level_import_preview(detail_df: pd.DataFrame) -> pd.DataFrame:
                 "region_category": first.get("region_category", ""),
                 "source_count": len(list(dict.fromkeys(source_codes))),
                 "source_codes": merge_unique_text_values(group.get("source_code", [])),
+                "source_statuses": merge_unique_text_values(group.get("source_status", [])),
+                "new_sources": merge_unique_text_values(group.get("new_source_code", [])),
                 "programmes": merge_unique_text_values(group.get("programme", [])),
                 "link_actions": merge_unique_text_values(group.get("link_action", [])),
                 "metadata_basis": merge_unique_text_values(group.get("metadata_source", [])),
@@ -665,106 +1116,24 @@ def upsert_site_from_import_row(row: pd.Series) -> int:
     latitude = float(str(row.get("latitude", "")).strip())
     longitude = float(str(row.get("longitude", "")).strip())
 
-    values = {
-        "site_id": site_id,
-        "site_label": str(row.get("site_label", "")).strip(),
-        "site_type": str(row.get("site_type", "")).strip(),
-        "latitude": latitude,
-        "longitude": longitude,
-        "modern_country_location": str(row.get("modern_country_location", "")).strip(),
-        "administering_country": str(row.get("administering_country", "")).strip(),
-        "former_entity": str(row.get("former_entity", "")).strip(),
-        "region_category": str(row.get("region_category", "")).strip(),
-        "exposure_period": str(row.get("exposure_period", "")).strip(),
-        "metal": str(row.get("metal", "")).strip(),
-        "notes": str(row.get("notes", "")).strip(),
-    }
+    site_db_id, _, _ = upsert_site_record(
+        {
+            "site_id": site_id,
+            "site_label": str(row.get("site_label", "")).strip(),
+            "site_type": str(row.get("site_type", "")).strip(),
+            "latitude": latitude,
+            "longitude": longitude,
+            "modern_country_location": str(row.get("modern_country_location", "")).strip(),
+            "administering_country": str(row.get("administering_country", "")).strip(),
+            "former_entity": str(row.get("former_entity", "")).strip(),
+            "region_category": str(row.get("region_category", "")).strip(),
+            "exposure_period": str(row.get("exposure_period", "")).strip(),
+            "metal": str(row.get("metal", "")).strip(),
+            "notes": str(row.get("notes", "")).strip(),
+        }
+    )
 
-    with get_connection() as conn:
-        existing = conn.execute(
-            "select id from sites where site_id = ?",
-            (site_id,),
-        ).fetchone()
-
-        if existing:
-            site_db_id = int(existing["id"])
-
-            conn.execute(
-                """
-                update sites
-                set site_label = ?,
-                    site_type = ?,
-                    latitude = ?,
-                    longitude = ?,
-                    modern_country_location = ?,
-                    administering_country = ?,
-                    former_entity = ?,
-                    region_category = ?,
-                    exposure_period = ?,
-                    metal = ?,
-                    notes = ?
-                where id = ?
-                """,
-                (
-                    values["site_label"],
-                    values["site_type"],
-                    values["latitude"],
-                    values["longitude"],
-                    values["modern_country_location"],
-                    values["administering_country"],
-                    values["former_entity"],
-                    values["region_category"],
-                    values["exposure_period"],
-                    values["metal"],
-                    values["notes"],
-                    site_db_id,
-                ),
-            )
-
-            conn.commit()
-            return site_db_id
-
-        cursor = conn.execute(
-            """
-            insert into sites (
-                site_id,
-                site_label,
-                site_type,
-                latitude,
-                longitude,
-                modern_country_location,
-                administering_country,
-                former_entity,
-                region_category,
-                exposure_period,
-                metal,
-                notes
-            )
-            values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-            (
-                values["site_id"],
-                values["site_label"],
-                values["site_type"],
-                values["latitude"],
-                values["longitude"],
-                values["modern_country_location"],
-                values["administering_country"],
-                values["former_entity"],
-                values["region_category"],
-                values["exposure_period"],
-                values["metal"],
-                values["notes"],
-            ),
-        )
-
-        inserted_site_id = cursor.lastrowid
-
-        if inserted_site_id is None:
-            raise RuntimeError("Could not determine inserted site ID after import.")
-
-        conn.commit()
-        return int(inserted_site_id)
+    return site_db_id
 
 
 def upsert_source_from_import_row(row: pd.Series) -> int | None:
@@ -773,6 +1142,7 @@ def upsert_source_from_import_row(row: pd.Series) -> int | None:
     if not source_code:
         return None
 
+    source_title = str(row.get("source_title", "") or source_code).strip()
     programme = str(row.get("programme", "")).strip()
     source_url = str(row.get("source_url", "")).strip()
     local_file_name = str(row.get("local_file_name", "")).strip()
@@ -782,7 +1152,14 @@ def upsert_source_from_import_row(row: pd.Series) -> int | None:
     with get_connection() as conn:
         existing = conn.execute(
             """
-            select id, programme, metals, exposure_periods, source_url, local_file_name
+            select
+                id,
+                source_title,
+                programme,
+                metals,
+                exposure_periods,
+                source_url,
+                local_file_name
             from sources
             where source_code = ?
             """,
@@ -792,10 +1169,32 @@ def upsert_source_from_import_row(row: pd.Series) -> int | None:
         if existing:
             source_db_id = int(existing["id"])
 
+            merged_programme = merge_unique_text_values(
+                [
+                    existing["programme"],
+                    programme,
+                ]
+            )
+
+            merged_metals = merge_unique_text_values(
+                [
+                    existing["metals"],
+                    metals,
+                ]
+            )
+
+            merged_exposure_periods = merge_unique_text_values(
+                [
+                    existing["exposure_periods"],
+                    exposure_periods,
+                ]
+            )
+
             conn.execute(
                 """
                 update sources
-                set programme = ?,
+                set source_title = ?,
+                    programme = ?,
                     metals = ?,
                     exposure_periods = ?,
                     source_url = ?,
@@ -803,9 +1202,10 @@ def upsert_source_from_import_row(row: pd.Series) -> int | None:
                 where id = ?
                 """,
                 (
-                    existing["programme"] or programme,
-                    existing["metals"] or metals,
-                    existing["exposure_periods"] or exposure_periods,
+                    first_nonempty_value(existing["source_title"], source_title),
+                    merged_programme,
+                    merged_metals,
+                    merged_exposure_periods,
                     existing["source_url"] or source_url,
                     existing["local_file_name"] or local_file_name,
                     source_db_id,
@@ -831,7 +1231,7 @@ def upsert_source_from_import_row(row: pd.Series) -> int | None:
             """,
             (
                 source_code,
-                source_code,
+                source_title,
                 programme,
                 metals,
                 exposure_periods,
@@ -1205,6 +1605,15 @@ if "site_longitude" not in st.session_state:
 
 if "site_modern_country_location" not in st.session_state:
     st.session_state.site_modern_country_location = ""
+
+if "website_publish_ready_for_git" not in st.session_state:
+    st.session_state.website_publish_ready_for_git = False
+
+if "last_git_publish_output" not in st.session_state:
+    st.session_state.last_git_publish_output = ""
+
+if "last_git_publish_message" not in st.session_state:
+    st.session_state.last_git_publish_message = ""
     
 def apply_selected_location() -> None:
     selected_label = st.session_state.get("selected_location_label")
@@ -1820,7 +2229,7 @@ if active_page == "Sites":
 
     st.write("### Add site")
 
-    with st.form("add_site_form", clear_on_submit=False):
+    with st.container():
         site_label = st.text_input(
             "Site label",
             placeholder="e.g. Berlin",
@@ -1936,7 +2345,22 @@ if active_page == "Sites":
             key="site_notes_input",
         )
 
-        submit_site = st.form_submit_button("Add site")
+        submit_site = st.button("Add site", key="add_site_button")
+
+        site_match_preview = preview_site_upsert_match(
+            site_id=site_id,
+            site_label=site_label,
+            latitude=latitude,
+            longitude=longitude,
+            modern_country_location=modern_country_location,
+        )
+
+        if site_match_preview.get("will_merge"):
+            st.warning(site_match_preview["message"])
+        elif site_match_preview.get("checked"):
+            st.success(site_match_preview["message"])
+        elif site_match_preview.get("message"):
+            st.info(site_match_preview["message"])
 
         if submit_site:
             if not site_id.strip():
@@ -1952,22 +2376,36 @@ if active_page == "Sites":
                     latitude_value = float(latitude)
                     longitude_value = float(longitude)
 
-                    insert_site(
-                        site_id=site_id,
-                        site_label=site_label,
-                        site_type=site_type,
-                        latitude=latitude_value,
-                        longitude=longitude_value,
-                        modern_country_location=modern_country_location,
-                        administering_country=administering_country,
-                        former_entity=former_entity,
-                        region_category=region_category,
-                        exposure_period=exposure_period,
-                        metal=metal,
-                        notes=site_notes,
+                    site_db_id, site_action, match_reason = upsert_site_record(
+                        {
+                            "site_id": site_id,
+                            "site_label": site_label,
+                            "site_type": site_type,
+                            "latitude": latitude_value,
+                            "longitude": longitude_value,
+                            "modern_country_location": modern_country_location,
+                            "administering_country": administering_country,
+                            "former_entity": former_entity,
+                            "region_category": region_category,
+                            "exposure_period": exposure_period,
+                            "metal": metal,
+                            "notes": site_notes,
+                        }
                     )
+
+                    merge_metadata_for_multiple_sites([site_db_id])
+
                     st.session_state.clear_site_form_after_success = True
-                    set_flash_message(f"Site '{site_label.strip()}' added successfully.")
+
+                    if site_action == "created":
+                        set_flash_message(f"Site '{site_label.strip()}' added successfully.")
+                    else:
+                        set_flash_message(
+                            f"Site '{site_label.strip()}' already existed. "
+                            f"The existing site row was updated instead of creating a duplicate. "
+                            f"Match basis: {match_reason}."
+                        )
+
                     st.rerun()
                 except ValueError:
                     st.error("Latitude and longitude must be valid numbers.")
@@ -2891,6 +3329,8 @@ if active_page == "Import":
                 site_id_generator=make_import_site_id_generator(),
             )
 
+            preview_df = annotate_import_preview_for_upsert(preview_df)
+
             if preview_df.empty:
                 st.warning("The uploaded file did not produce any importable preview rows.")
             else:
@@ -2912,6 +3352,8 @@ if active_page == "Import":
                     "import_selected",
                     "csv_rows",
                     "site_action",
+                    "site_upsert_status",
+                    "site_upsert_match",
                     "site_id",
                     "site_label",
                     "site_type",
@@ -2923,6 +3365,8 @@ if active_page == "Import":
                     "region_category",
                     "source_count",
                     "source_codes",
+                    "source_statuses",
+                    "new_sources",
                     "programmes",
                     "metals",
                     "exposure_periods",
@@ -2937,7 +3381,14 @@ if active_page == "Import":
 
                 site_preview_display_df = site_preview_df[visible_site_preview_columns].copy()
 
-                for chip_column in ["source_codes", "programmes", "metals", "exposure_periods"]:
+                for chip_column in [
+                    "source_codes",
+                    "source_statuses",
+                    "new_sources",
+                    "programmes",
+                    "metals",
+                    "exposure_periods",
+                ]:
                     if chip_column in site_preview_display_df.columns:
                         site_preview_display_df[chip_column] = site_preview_display_df[
                             chip_column
@@ -3023,6 +3474,10 @@ if active_page == "Import":
                         "metals",
                         "exposure_periods",
                         "warnings",
+                        "site_upsert_status",
+                        "site_upsert_match",
+                        "source_statuses",
+                        "new_sources",
                     ],
                 )
 
@@ -3050,6 +3505,23 @@ if active_page == "Import":
 
                 with metric3:
                     st.metric("Selected site-source links", selected_link_count)
+
+                new_source_codes: list[str] = []
+
+                if "new_sources" in edited_site_preview_df.columns:
+                    for value in edited_site_preview_df["new_sources"].dropna().tolist():
+                        for item in split_chip_values(value):
+                            if item not in new_source_codes:
+                                new_source_codes.append(item)
+
+                new_source_codes = sorted(new_source_codes)
+
+                if new_source_codes:
+                    st.warning(
+                        "New source code(s) detected in the imported CSV and not currently registered "
+                        "in the Streamlit database. They will be created during import: "
+                        + ", ".join(new_source_codes)
+                    )   
 
                 if warning_count:
                     with st.expander("Show site rows with warnings", expanded=False):
@@ -3324,6 +3796,28 @@ if active_page == "Export / Publish":
             key="confirm_publish_checked",
         )
 
+        commit_after_publish = st.checkbox(
+            "After confirming publish, also commit and push the website dataset to GitHub",
+            value=False,
+            key="commit_after_publish",
+        )
+
+        include_source_pdfs_in_git = st.checkbox(
+            "Also include source_pdfs/ in the Git commit",
+            value=False,
+            key="include_source_pdfs_in_git",
+            help=(
+                "Use this only when the PDFs are intended to be pushed to the repository. "
+                "By default, only data/sites.csv and data/publish_batches/ are staged."
+            ),
+        )
+
+        git_commit_message = st.text_input(
+            "Git commit message",
+            value="Update corrosion map website dataset",
+            key="git_commit_message",
+        )
+
         if st.button("Confirm publish to website", type="primary", key="confirm_publish_to_website"):
             if duplicate_site_ids:
                 st.error("Fix duplicate site_id values before publishing.")
@@ -3335,17 +3829,97 @@ if active_page == "Export / Publish":
                 try:
                     result = publish_selected_sites_csv(selected_site_db_ids)
 
-                    set_next_active_page("Export / Publish")
-                    set_flash_message(
+                    st.session_state.website_publish_ready_for_git = True
+
+                    publish_message = (
                         "Website dataset published successfully. "
                         f"Published sites: {result['rows']}. "
                         f"Live file: {result['live_path']}. "
                         f"Batch snapshot: {result['batch_name']}."
                     )
+
+                    if commit_after_publish:
+                        git_result = commit_and_push_website_dataset(
+                            commit_message=git_commit_message,
+                            include_source_pdfs=include_source_pdfs_in_git,
+                        )
+
+                        st.session_state.last_git_publish_output = str(git_result["output"])
+                        st.session_state.last_git_publish_message = str(git_result["message"])
+
+                        if bool(git_result["ok"]):
+                            st.session_state.website_publish_ready_for_git = False
+                            set_flash_message(
+                                publish_message + " " + str(git_result["message"]),
+                                level="success",
+                            )
+                        else:
+                            st.session_state.website_publish_ready_for_git = True
+                            set_flash_message(
+                                publish_message + " However, Git commit/push did not complete: "
+                                + str(git_result["message"]),
+                                level="warning",
+                            )
+                    else:
+                        set_flash_message(
+                            publish_message + " You can now use the separate Commit and Push button.",
+                            level="success",
+                        )
+
+                    set_next_active_page("Export / Publish")
                     st.rerun()
 
                 except Exception as exc:
                     st.error(f"Website publish failed: {exc}")
+
+                    st.divider()
+                    st.write("#### Commit and push to GitHub")
+
+                    if st.session_state.last_git_publish_message:
+                        if st.session_state.website_publish_ready_for_git:
+                            st.warning(st.session_state.last_git_publish_message)
+                        else:
+                            st.success(st.session_state.last_git_publish_message)
+
+                    if st.session_state.last_git_publish_output:
+                        with st.expander("Show last Git command output", expanded=False):
+                            st.code(st.session_state.last_git_publish_output, language="text")
+
+                    if st.button("Refresh Git status", key="refresh_git_status"):
+                        st.session_state.git_status_preview = get_git_status_text()
+
+                    if "git_status_preview" in st.session_state:
+                        with st.expander("Current Git status", expanded=False):
+                            st.code(st.session_state.git_status_preview, language="text")
+
+                    manual_commit_disabled = not bool(st.session_state.website_publish_ready_for_git)
+
+                    if manual_commit_disabled:
+                        st.info(
+                            "Commit and Push is disabled until you successfully confirm a website publish in this app session."
+                        )
+
+                    if st.button(
+                        "Commit and push latest website publish",
+                        key="commit_push_latest_publish",
+                        disabled=manual_commit_disabled,
+                    ):
+                        git_result = commit_and_push_website_dataset(
+                            commit_message=git_commit_message,
+                            include_source_pdfs=include_source_pdfs_in_git,
+                        )
+
+                        st.session_state.last_git_publish_output = str(git_result["output"])
+                        st.session_state.last_git_publish_message = str(git_result["message"])
+
+                        if bool(git_result["ok"]):
+                            st.session_state.website_publish_ready_for_git = False
+                            set_flash_message(str(git_result["message"]), level="success")
+                        else:
+                            st.session_state.website_publish_ready_for_git = True
+                            set_flash_message(str(git_result["message"]), level="warning")
+
+                        st.rerun()
 
 if active_page == "Settings":
     st.subheader("Settings")
