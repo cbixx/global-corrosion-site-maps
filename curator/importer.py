@@ -30,6 +30,7 @@ EXPECTED_SITE_COLUMNS = [
 GEOCODE_MIN_INTERVAL_SECONDS = 1.1
 _GEOCODE_CACHE: dict[str, tuple[str, str, str]] = {}
 _LAST_GEOCODE_REQUEST_TIME = 0.0
+_OSM_SUGGESTION_CACHE: dict[str, list[dict[str, str]]] = {}
 
 def clean_cell(value) -> str:
     if pd.isna(value):
@@ -67,13 +68,6 @@ def normalize_import_column_name(column_name: str) -> str:
         "exposure_site_name": "site_label",
         "location": "site_label",
         "location_name": "site_label",
-
-        # Geocode Query
-        "geocode": "geocode_query",
-        "geocode_query": "geocode_query",
-        "search_query": "geocode_query",
-        "map_query": "geocode_query",
-        "osm_query": "geocode_query",
 
         # Site ID
         "siteid": "site_id",
@@ -138,6 +132,14 @@ def normalize_import_column_name(column_name: str) -> str:
         "metals": "metal",
         "material": "metal",
         "materials": "metal",
+
+        # Geocoding helper
+        "geocode": "geocode_query",
+        "geocode_query": "geocode_query",
+        "search_query": "geocode_query",
+        "map_query": "geocode_query",
+        "osm_query": "geocode_query",
+        "openstreetmap_query": "geocode_query",
 
         # Notes
         "note": "notes",
@@ -229,17 +231,118 @@ def has_blocking_import_warning(warnings: list[str]) -> bool:
         for warning in warnings
     )
 
-
-def geocode_site(site_label: str, country: str) -> tuple[str, str, str]:
+def wait_for_geocode_rate_limit() -> None:
     global _LAST_GEOCODE_REQUEST_TIME
 
+    elapsed = time.monotonic() - _LAST_GEOCODE_REQUEST_TIME
+
+    if elapsed < GEOCODE_MIN_INTERVAL_SECONDS:
+        time.sleep(GEOCODE_MIN_INTERVAL_SECONDS - elapsed)
+
+    _LAST_GEOCODE_REQUEST_TIME = time.monotonic()
+
+
+def make_osm_suggestion_label(result: Location) -> str:
+    raw = getattr(result, "raw", {}) or {}
+    address = raw.get("address", {}) or {}
+
+    locality = (
+        address.get("city")
+        or address.get("town")
+        or address.get("village")
+        or address.get("municipality")
+        or address.get("county")
+        or address.get("suburb")
+        or address.get("neighbourhood")
+        or ""
+    )
+
+    state = address.get("state", "") or address.get("region", "")
+    country = address.get("country", "")
+
+    parts = [
+        part.strip()
+        for part in [locality, state, country]
+        if str(part or "").strip()
+    ]
+
+    if parts:
+        return ", ".join(dict.fromkeys(parts))
+
+    return str(getattr(result, "address", "") or "").strip()
+
+
+def search_osm_suggestions(
+    query: str,
+    limit: int = 5,
+) -> list[dict[str, str]]:
+    query = clean_cell(query)
+
+    if not query:
+        return []
+
+    cache_key = f"{query.lower()}::{limit}"
+
+    if cache_key in _OSM_SUGGESTION_CACHE:
+        return _OSM_SUGGESTION_CACHE[cache_key]
+
+    try:
+        wait_for_geocode_rate_limit()
+
+        geolocator: Any = Nominatim(user_agent="corrosion_map_curator_import")
+
+        raw_results = geolocator.geocode(
+            query,
+            exactly_one=False,
+            limit=limit,
+            addressdetails=True,
+            language="en",
+            timeout=15,
+        )
+
+        if not raw_results:
+            return []
+
+        results = cast(list[Location], raw_results)
+
+        suggestions: list[dict[str, str]] = []
+
+        for result in results:
+            suggestion_label = make_osm_suggestion_label(result)
+            full_label = str(getattr(result, "address", "") or suggestion_label).strip()
+
+            suggestions.append(
+                {
+                    "osm_suggestion": suggestion_label,
+                    "osm_full_label": full_label,
+                    "osm_suggestion_latitude": str(result.latitude),
+                    "osm_suggestion_longitude": str(result.longitude),
+                    "osm_query_used": query,
+                }
+            )
+
+        _OSM_SUGGESTION_CACHE[cache_key] = suggestions
+        return suggestions
+
+    except Exception:
+        return []
+
+def geocode_site(
+    site_label: str,
+    country: str,
+    geocode_query: str = "",
+) -> tuple[str, str, str, dict[str, str]]:
     site_label = clean_cell(site_label)
     country = clean_cell(country)
+    geocode_query = clean_cell(geocode_query)
 
-    if not site_label and not country:
-        return "", "", "Cannot geocode: missing site label and country/location"
+    if not site_label and not country and not geocode_query:
+        return "", "", "Cannot geocode: missing site label and country/location", {}
 
     query_candidates = []
+
+    if geocode_query:
+        query_candidates.append(geocode_query)
 
     if site_label and country:
         query_candidates.append(f"{site_label}, {country}")
@@ -247,53 +350,39 @@ def geocode_site(site_label: str, country: str) -> tuple[str, str, str]:
     if site_label:
         query_candidates.append(site_label)
 
-    # Remove duplicates while preserving order.
     query_candidates = list(dict.fromkeys(query_candidates))
 
     cache_key = " | ".join(query_candidates).lower()
 
     if cache_key in _GEOCODE_CACHE:
-        return _GEOCODE_CACHE[cache_key]
+        cached_latitude, cached_longitude, cached_warning = _GEOCODE_CACHE[cache_key]
+        return cached_latitude, cached_longitude, cached_warning, {}
 
-    try:
-        geolocator: Any = Nominatim(user_agent="corrosion_map_curator_import")
+    warning_messages: list[str] = []
+    first_suggestion: dict[str, str] = {}
 
-        warning_messages: list[str] = []
+    for query in query_candidates:
+        suggestions = search_osm_suggestions(query, limit=5)
 
-        for query in query_candidates:
-            elapsed = time.monotonic() - _LAST_GEOCODE_REQUEST_TIME
+        if suggestions and not first_suggestion:
+            first_suggestion = suggestions[0]
 
-            if elapsed < GEOCODE_MIN_INTERVAL_SECONDS:
-                time.sleep(GEOCODE_MIN_INTERVAL_SECONDS - elapsed)
+        if suggestions:
+            best = suggestions[0]
+            latitude = best.get("osm_suggestion_latitude", "")
+            longitude = best.get("osm_suggestion_longitude", "")
 
-            _LAST_GEOCODE_REQUEST_TIME = time.monotonic()
-
-            raw_result = geolocator.geocode(
-                query,
-                exactly_one=True,
-                addressdetails=True,
-                language="en",
-                timeout=15,
-            )
-
-            if raw_result is not None:
-                result = cast(Location, raw_result)
-                geocode_result = str(result.latitude), str(result.longitude), ""
+            if latitude and longitude:
+                geocode_result = latitude, longitude, ""
                 _GEOCODE_CACHE[cache_key] = geocode_result
-                return geocode_result
+                return latitude, longitude, "", best
 
-            warning_messages.append(f"No result for: {query}")
+        warning_messages.append(f"No result for: {query}")
 
-        geocode_result = "", "", "Geocoding failed: " + "; ".join(warning_messages)
-        _GEOCODE_CACHE[cache_key] = geocode_result
-        return geocode_result
+    warning_text = "Geocoding failed: " + "; ".join(warning_messages)
 
-    except Exception as exc:
-        geocode_result = "", "", (
-            f"Geocoding error for {', '.join(query_candidates)}: {exc}"
-        )
-        _GEOCODE_CACHE[cache_key] = geocode_result
-        return geocode_result
+    # Do not cache failed geocoding results. Temporary OSM failures should be retryable.
+    return "", "", warning_text, first_suggestion
 
 
 def read_uploaded_csv(uploaded_file: BinaryIO) -> pd.DataFrame:
@@ -399,6 +488,7 @@ def build_import_preview(
         site_id = clean_cell(row.get("site_id", ""))
         site_label = clean_cell(row.get("site_label", ""))
         geocode_query = clean_cell(row.get("geocode_query", ""))
+        osm_suggestion = {}
         site_type = clean_cell(row.get("site_type", ""))
         modern_country_location = clean_cell(row.get("modern_country_location", ""))
         administering_country = clean_cell(row.get("administering_country", ""))
@@ -427,9 +517,10 @@ def build_import_preview(
             warnings.append(longitude_warning)
 
         if (not latitude or not longitude) and geocode_missing_coordinates:
-            geocoded_latitude, geocoded_longitude, geocode_warning = geocode_site(
-                site_label=geocode_query or site_label,
+            geocoded_latitude, geocoded_longitude, geocode_warning, osm_suggestion = geocode_site(
+                site_label=site_label,
                 country=modern_country_location,
+                geocode_query=geocode_query,
             )
 
             if geocoded_latitude and geocoded_longitude:
@@ -487,6 +578,12 @@ def build_import_preview(
                     "site_type": site_type,
                     "latitude": latitude,
                     "longitude": longitude,
+                    "geocode_query": geocode_query,
+                    "osm_suggestion": osm_suggestion.get("osm_suggestion", ""),
+                    "osm_full_label": osm_suggestion.get("osm_full_label", ""),
+                    "osm_suggestion_latitude": osm_suggestion.get("osm_suggestion_latitude", ""),
+                    "osm_suggestion_longitude": osm_suggestion.get("osm_suggestion_longitude", ""),
+                    "osm_query_used": osm_suggestion.get("osm_query_used", ""),
                     "modern_country_location": modern_country_location,
                     "administering_country": administering_country,
                     "former_entity": former_entity,
@@ -570,6 +667,12 @@ def build_import_preview(
                     "site_type": site_type,
                     "latitude": latitude,
                     "longitude": longitude,
+                    "geocode_query": geocode_query,
+                    "osm_suggestion": osm_suggestion.get("osm_suggestion", ""),
+                    "osm_full_label": osm_suggestion.get("osm_full_label", ""),
+                    "osm_suggestion_latitude": osm_suggestion.get("osm_suggestion_latitude", ""),
+                    "osm_suggestion_longitude": osm_suggestion.get("osm_suggestion_longitude", ""),
+                    "osm_query_used": osm_suggestion.get("osm_query_used", ""),
                     "modern_country_location": modern_country_location,
                     "administering_country": administering_country,
                     "former_entity": former_entity,

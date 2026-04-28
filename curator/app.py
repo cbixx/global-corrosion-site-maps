@@ -38,7 +38,7 @@ from db import (
     update_table_row,
 )
 
-from importer import build_import_preview
+from importer import build_import_preview, search_osm_suggestions
 from exporter import (
     OUTPUT_CSV_PATH,
     get_live_published_site_ids,
@@ -1325,6 +1325,14 @@ def build_site_level_import_preview(detail_df: pd.DataFrame) -> pd.DataFrame:
                 "site_type": first.get("site_type", ""),
                 "latitude": first.get("latitude", ""),
                 "longitude": first.get("longitude", ""),
+                "retry_osm": False,
+                "apply_osm_suggestion": False,
+                "geocode_query": first.get("geocode_query", ""),
+                "osm_suggestion": first.get("osm_suggestion", ""),
+                "osm_full_label": first.get("osm_full_label", ""),
+                "osm_suggestion_latitude": first.get("osm_suggestion_latitude", ""),
+                "osm_suggestion_longitude": first.get("osm_suggestion_longitude", ""),
+                "osm_query_used": first.get("osm_query_used", ""),
                 "modern_country_location": first.get("modern_country_location", ""),
                 "administering_country": first.get("administering_country", ""),
                 "former_entity": first.get("former_entity", ""),
@@ -1347,6 +1355,112 @@ def build_site_level_import_preview(detail_df: pd.DataFrame) -> pd.DataFrame:
 
     return pd.DataFrame(rows)
 
+def site_preview_row_needs_geocoding(row: pd.Series) -> bool:
+    latitude = str(row.get("latitude", "") or "").strip()
+    longitude = str(row.get("longitude", "") or "").strip()
+    warnings = str(row.get("warnings", "") or "")
+
+    return (
+        not latitude
+        or not longitude
+        or "Geocoding failed" in warnings
+        or "Missing latitude" in warnings
+        or "Missing longitude" in warnings
+    )
+
+
+def retry_osm_for_site_preview(site_preview_df: pd.DataFrame) -> pd.DataFrame:
+    updated_df = site_preview_df.copy()
+
+    for column in [
+        "retry_osm",
+        "apply_osm_suggestion",
+        "geocode_query",
+        "osm_suggestion",
+        "osm_full_label",
+        "osm_suggestion_latitude",
+        "osm_suggestion_longitude",
+        "osm_query_used",
+        "warnings",
+    ]:
+        if column not in updated_df.columns:
+            updated_df[column] = ""
+
+    for row_index, row in updated_df.iterrows():
+        retry_requested = bool(row.get("retry_osm"))
+
+        if not retry_requested and not site_preview_row_needs_geocoding(row):
+            continue
+
+        site_label = str(row.get("site_label", "") or "").strip()
+        country = str(row.get("modern_country_location", "") or "").strip()
+        geocode_query = str(row.get("geocode_query", "") or "").strip()
+
+        query_candidates = []
+
+        if geocode_query:
+            query_candidates.append(geocode_query)
+
+        if site_label and country:
+            query_candidates.append(f"{site_label}, {country}")
+
+        if site_label:
+            query_candidates.append(site_label)
+
+        query_candidates = list(dict.fromkeys(query_candidates))
+
+        suggestion = {}
+
+        for query in query_candidates:
+            suggestions = search_osm_suggestions(query, limit=5)
+
+            if suggestions:
+                suggestion = suggestions[0]
+                break
+
+        if suggestion:
+            updated_df.at[row_index, "osm_suggestion"] = suggestion.get("osm_suggestion", "")
+            updated_df.at[row_index, "osm_full_label"] = suggestion.get("osm_full_label", "")
+            updated_df.at[row_index, "osm_suggestion_latitude"] = suggestion.get("osm_suggestion_latitude", "")
+            updated_df.at[row_index, "osm_suggestion_longitude"] = suggestion.get("osm_suggestion_longitude", "")
+            updated_df.at[row_index, "osm_query_used"] = suggestion.get("osm_query_used", "")
+
+            updated_df.at[row_index, "warnings"] = append_warning_text(
+                str(updated_df.at[row_index, "warnings"] or ""),
+                "OSM suggestion found; review before applying",
+            )
+        else:
+            updated_df.at[row_index, "warnings"] = append_warning_text(
+                str(updated_df.at[row_index, "warnings"] or ""),
+                "OSM retry found no suggestion",
+            )
+
+        updated_df.at[row_index, "retry_osm"] = False
+
+    return updated_df
+
+
+def apply_osm_suggestions_to_site_preview(site_preview_df: pd.DataFrame) -> pd.DataFrame:
+    updated_df = site_preview_df.copy()
+
+    for row_index, row in updated_df.iterrows():
+        if not bool(row.get("apply_osm_suggestion")):
+            continue
+
+        suggested_latitude = str(row.get("osm_suggestion_latitude", "") or "").strip()
+        suggested_longitude = str(row.get("osm_suggestion_longitude", "") or "").strip()
+
+        if suggested_latitude and suggested_longitude:
+            updated_df.at[row_index, "latitude"] = suggested_latitude
+            updated_df.at[row_index, "longitude"] = suggested_longitude
+            updated_df.at[row_index, "warnings"] = append_warning_text(
+                str(updated_df.at[row_index, "warnings"] or ""),
+                "Latitude/longitude replaced by selected OSM suggestion",
+            )
+
+        updated_df.at[row_index, "apply_osm_suggestion"] = False
+
+    return updated_df
 
 def apply_site_preview_edits_to_detail(
     original_site_preview_df: pd.DataFrame,
@@ -1366,6 +1480,7 @@ def apply_site_preview_edits_to_detail(
         "former_entity",
         "region_category",
         "notes",
+        "geocode_query",
     ]
 
     for row_position in range(len(edited_site_preview_df)):
@@ -4278,6 +4393,18 @@ if active_page == "Import":
         key="import_sites_csv",
     )
 
+    if uploaded_import_csv is not None:
+        uploaded_import_signature = (
+            f"{uploaded_import_csv.name}:"
+            f"{getattr(uploaded_import_csv, 'size', '')}"
+        )
+
+        if st.session_state.get("last_import_upload_signature") != uploaded_import_signature:
+            st.session_state["last_import_upload_signature"] = uploaded_import_signature
+            st.session_state.pop("import_site_preview_override", None)
+            st.session_state.pop("latest_import_preview", None)
+            st.session_state.pop("import_preview_editor", None)
+
     import_col1, import_col2 = st.columns(2)
 
     with import_col1:
@@ -4370,24 +4497,31 @@ if active_page == "Import":
                 )
 
                 st.write("Checking whether imported sites match existing site records...")
+                preview_df = annotate_import_preview_for_upsert(preview_df)
+
+                if auto_fill_region_category_import:
+                    st.write("Auto-filling missing region categories where possible...")
+                    preview_df = auto_fill_import_region_categories(preview_df)
+
+                st.write("Preparing the import preview table...")
+                site_preview_df = build_site_level_import_preview(preview_df)
+
+                if "import_site_preview_override" in st.session_state:
+                    override_df = st.session_state["import_site_preview_override"]
+
+                    if isinstance(override_df, pd.DataFrame) and not override_df.empty:
+                        site_preview_df = override_df.copy()
 
                 import_status.update(
-                    label="Import preview built successfully.",
+                    label="Import preview is ready.",
                     state="complete",
                     expanded=False,
                 )
-
-            preview_df = annotate_import_preview_for_upsert(preview_df)
-
-            if auto_fill_region_category_import:
-                preview_df = auto_fill_import_region_categories(preview_df)
 
             if preview_df.empty:
                 st.warning("The uploaded file did not produce any importable preview rows.")
             else:
                 st.success(f"Parsed {len(preview_df)} preview row(s).")
-
-                site_preview_df = build_site_level_import_preview(preview_df)
 
                 select_import_clicked, deselect_import_clicked = render_left_button_pair(
                     "Select all import sites",
@@ -4405,16 +4539,23 @@ if active_page == "Import":
 
                 visible_site_preview_columns = [
                     "import_selected",
+                    "retry_osm",
+                    "apply_osm_suggestion",
                     "site_id",
                     "site_label",
-                    "source_codes",
-                    "programmes",
+                    "geocode_query",
+                    "osm_suggestion",
+                    "osm_full_label",
+                    "osm_suggestion_latitude",
+                    "osm_suggestion_longitude",
                     "latitude",
                     "longitude",
                     "modern_country_location",
                     "administering_country",
                     "former_entity",
                     "region_category",
+                    "source_codes",
+                    "programmes",
                     "metals",
                     "exposure_periods",
                     "notes",
@@ -4511,6 +4652,39 @@ if active_page == "Import":
                             accept_new_options=True,
                             width="large",
                         ),
+                        "retry_osm": st.column_config.CheckboxColumn(
+                            "Retry OSM",
+                            help="Tick rows to retry OpenStreetMap/Nominatim lookup using geocode_query or site label.",
+                            default=False,
+                        ),
+                        "apply_osm_suggestion": st.column_config.CheckboxColumn(
+                            "Apply OSM",
+                            help="Tick rows where the suggested OSM coordinates should replace latitude/longitude.",
+                            default=False,
+                        ),
+                        "geocode_query": st.column_config.TextColumn(
+                            "Geocode query",
+                            help="Optional search phrase used only for OSM lookup. This does not replace the site label.",
+                            width="medium",
+                        ),
+                        "osm_suggestion": st.column_config.TextColumn(
+                            "OSM suggestion",
+                            help="Best place name found by OSM/Nominatim. Review before applying.",
+                            width="large",
+                        ),
+                        "osm_full_label": st.column_config.TextColumn(
+                            "OSM full label",
+                            help="Full OpenStreetMap/Nominatim result used for checking whether the suggestion is correct.",
+                            width="large",
+                        ),
+                        "osm_suggestion_latitude": st.column_config.TextColumn(
+                            "OSM lat",
+                            width="small",
+                        ),
+                        "osm_suggestion_longitude": st.column_config.TextColumn(
+                            "OSM lon",
+                            width="small",
+                        ),
                     },
                     disabled=[
                         "csv_rows",
@@ -4524,8 +4698,45 @@ if active_page == "Import":
                         "site_upsert_match",
                         "source_statuses",
                         "new_sources",
+                        "osm_suggestion",
+                        "osm_full_label",
+                        "osm_suggestion_latitude",
+                        "osm_suggestion_longitude",
+                        "osm_query_used",
                     ],
                 )
+
+                osm_retry_clicked, osm_apply_clicked = render_left_button_pair(
+                    "Retry OSM for selected/missing sites",
+                    "Apply selected OSM suggestions",
+                    left_key="retry_osm_for_import_preview",
+                    right_key="apply_osm_suggestions_import_preview",
+                    widths=BUTTON_PAIR_LONG,
+                )
+
+                if osm_retry_clicked:
+                    with st.status("Retrying OpenStreetMap/Nominatim lookup...", expanded=True) as osm_status:
+                        st.write("Retrying rows ticked in Retry OSM and rows still missing coordinates...")
+                        site_preview_df = retry_osm_for_site_preview(edited_site_preview_df)
+                        osm_status.update(
+                            label="OSM retry finished. Review suggestions before importing.",
+                            state="complete",
+                            expanded=False,
+                        )
+
+                    st.session_state["import_site_preview_override"] = site_preview_df
+                    st.session_state.pop("import_preview_editor", None)
+                    st.rerun()
+
+                if osm_apply_clicked:
+                    site_preview_df = apply_osm_suggestions_to_site_preview(edited_site_preview_df)
+                    st.session_state["import_site_preview_override"] = site_preview_df
+                    st.session_state.pop("import_preview_editor", None)
+                    st.rerun()
+
+                if st.button("Reset import preview edits", key="reset_import_preview_edits"):
+                    st.session_state.pop("import_site_preview_override", None)
+                    st.rerun()
 
                 edited_preview_df = apply_site_preview_edits_to_detail(
                     original_site_preview_df=site_preview_df,
