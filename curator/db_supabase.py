@@ -10,6 +10,18 @@ SCHEMA_PATH = "SUPABASE"
 
 _POOL: ConnectionPool | None = None
 
+def get_setting(name: str, default: str = "") -> str:
+    value = os.environ.get(name, "").strip()
+
+    if value:
+        return value
+
+    try:
+        import streamlit as st
+
+        return str(st.secrets.get(name, default)).strip()
+    except Exception:
+        return default
 
 def _get_pool() -> ConnectionPool:
     global _POOL
@@ -17,13 +29,13 @@ def _get_pool() -> ConnectionPool:
     if _POOL is not None:
         return _POOL
 
-    db_url = os.environ.get("SUPABASE_DB_URL", "").strip()
+    db_url = get_setting("SUPABASE_DB_URL").strip()
 
     if not db_url:
         raise RuntimeError("SUPABASE_DB_URL is not set.")
 
-    min_size = int(os.environ.get("SUPABASE_POOL_MIN_SIZE", "1"))
-    max_size = int(os.environ.get("SUPABASE_POOL_MAX_SIZE", "5"))
+    min_size = int(get_setting("SUPABASE_POOL_MIN_SIZE", "0"))
+    max_size = int(get_setting("SUPABASE_POOL_MAX_SIZE", "3"))
 
     _POOL = ConnectionPool(
         conninfo=db_url,
