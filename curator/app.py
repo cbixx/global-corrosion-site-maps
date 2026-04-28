@@ -4369,6 +4369,11 @@ if active_page == "Import":
         "and write selected rows into the curator database."
     )
 
+    import_success_message = st.session_state.pop("last_import_success_message", "")
+
+    if import_success_message:
+        st.success(import_success_message)
+
     st.write("### Import sites CSV")
 
     st.info(
@@ -4380,6 +4385,11 @@ if active_page == "Import":
         "may be omitted."
     )
 
+    if "import_upload_version" not in st.session_state:
+        st.session_state["import_upload_version"] = 0
+
+    import_upload_version = int(st.session_state["import_upload_version"])
+
     uploaded_import_csv = st.file_uploader(
         "Upload CSV file",
         type=["csv", "txt"],
@@ -4390,7 +4400,7 @@ if active_page == "Import":
             "latitude, longitude, former_entity, region_category, exposure_period, and metal "
             "are accepted but do not need to be present."
         ),
-        key="import_sites_csv",
+        key=f"import_sites_csv_{import_upload_version}",
     )
 
     if uploaded_import_csv is not None:
@@ -4805,13 +4815,26 @@ if active_page == "Import":
                         try:
                             result = confirm_import_preview(edited_preview_df)
 
-                            set_next_active_page("Import")
-                            set_flash_message(
+                            success_message = (
                                 "Import confirmed and written to database. "
                                 f"Sites processed: {result['sites']}. "
                                 f"Sources processed: {result['sources']}. "
                                 f"Site-source links processed: {result['links']}."
                             )
+
+                            st.session_state["last_import_success_message"] = success_message
+
+                            st.session_state["import_upload_version"] = (
+                                int(st.session_state.get("import_upload_version", 0)) + 1
+                            )
+
+                            st.session_state.pop("import_site_preview_override", None)
+                            st.session_state.pop("latest_import_preview", None)
+                            st.session_state.pop("last_import_upload_signature", None)
+                            st.session_state.pop("import_preview_editor", None)
+
+                            set_next_active_page("Import")
+                            set_flash_message(success_message)
                             st.rerun()
 
                         except Exception as exc:
