@@ -94,6 +94,23 @@ def parse_float_or_blank(value: str) -> tuple[str, str]:
         return str(parsed), ""
     except ValueError:
         return value, f"Invalid numeric value: {value}"
+    
+BLOCKING_WARNING_PREFIXES = (
+    "Missing",
+    "Invalid",
+    "Cannot geocode",
+    "Geocoding failed",
+    "Geocoding error",
+    "Source code",
+    "Source metadata missing",
+)
+
+
+def has_blocking_import_warning(warnings: list[str]) -> bool:
+    return any(
+        str(warning).startswith(BLOCKING_WARNING_PREFIXES)
+        for warning in warnings
+    )
 
 
 def geocode_site(site_label: str, country: str) -> tuple[str, str, str]:
@@ -150,6 +167,7 @@ def build_import_preview(
     geocode_missing_coordinates: bool = False,
     source_metadata_by_code: dict[str, dict[str, str]] | None = None,
     site_id_generator: Callable[[str, str], str] | None = None,
+    require_existing_source_metadata: bool = False,
 ) -> pd.DataFrame:
     df = read_uploaded_csv(uploaded_file)
     source_metadata_by_code = source_metadata_by_code or {}
@@ -157,6 +175,32 @@ def build_import_preview(
     df.columns = [str(column).strip() for column in df.columns]
 
     source_columns = detect_source_columns(list(df.columns))
+
+    minimal_required_columns = [
+        "site_label",
+        "modern_country_location",
+    ]
+
+    missing_required_columns = [
+        column for column in minimal_required_columns
+        if column not in df.columns
+    ]
+
+    if missing_required_columns:
+        raise ValueError(
+            "The import CSV is missing required column(s): "
+            + ", ".join(missing_required_columns)
+            + ". Minimum recommended columns are: "
+            "site_label, modern_country_location, administering_country, "
+            "site_type, source_1, source_2, notes."
+        )
+
+    if not source_columns:
+        raise ValueError(
+            "The import CSV must contain at least one source column, "
+            "for example source_1."
+        )
+
     preview_rows: list[dict] = []
 
     for csv_row_number, (_, row) in enumerate(df.iterrows(), start=2):
@@ -245,10 +289,7 @@ def build_import_preview(
         if not parsed_sources:
             preview_rows.append(
                 {
-                    "import_selected": not any(
-                        warning.startswith("Missing") or warning.startswith("Invalid")
-                        for warning in warnings
-                    ),
+                    "import_selected": not has_blocking_import_warning(warnings),
                     "csv_row": csv_row_number,
                     "site_action": site_action,
                     "site_id": site_id,
@@ -290,10 +331,32 @@ def build_import_preview(
             effective_link_metals = db_source_metals or metal
             effective_link_exposure_periods = db_source_exposure_periods or exposure_period
 
-            if db_source_metals or db_source_exposure_periods:
+            if db_source_programme or db_source_metals or db_source_exposure_periods:
                 metadata_source = "source_database"
             else:
                 metadata_source = "csv_fallback"
+
+            if require_existing_source_metadata:
+                if source_code not in existing_source_codes:
+                    warnings.append(
+                        f"Source code {source_code} is not registered yet. "
+                        "Register the source and assign programme/metal/exposure metadata before import."
+                    )
+
+                if not db_source_programme:
+                    warnings.append(
+                        f"Source metadata missing for {source_code}: programme"
+                    )
+
+                if not db_source_metals:
+                    warnings.append(
+                        f"Source metadata missing for {source_code}: metals"
+                    )
+
+                if not db_source_exposure_periods:
+                    warnings.append(
+                        f"Source metadata missing for {source_code}: exposure periods"
+                    )
             source_action = (
                 "existing_source"
                 if source_code in existing_source_codes
@@ -309,10 +372,7 @@ def build_import_preview(
 
             preview_rows.append(
                 {
-                    "import_selected": not any(
-                        warning.startswith("Missing") or warning.startswith("Invalid")
-                        for warning in warnings
-                    ),
+                    "import_selected": not has_blocking_import_warning(warnings),
                     "csv_row": csv_row_number,
                     "site_action": site_action,
                     "site_id": site_id,

@@ -1245,6 +1245,49 @@ def annotate_import_preview_for_upsert(preview_df: pd.DataFrame) -> pd.DataFrame
 
     return annotated_df
 
+def auto_fill_import_region_categories(preview_df: pd.DataFrame) -> pd.DataFrame:
+    if preview_df.empty:
+        return preview_df
+
+    updated_df = preview_df.copy()
+
+    if "region_category" not in updated_df.columns:
+        updated_df["region_category"] = ""
+
+    if "warnings" not in updated_df.columns:
+        updated_df["warnings"] = ""
+
+    for row_index, row in updated_df.iterrows():
+        current_region = str(row.get("region_category", "") or "").strip()
+
+        if current_region:
+            continue
+
+        latitude = row.get("latitude", "")
+        longitude = row.get("longitude", "")
+
+        if latitude in ("", None) or longitude in ("", None):
+            continue
+
+        result = classify_region_category(
+            latitude=latitude,
+            longitude=longitude,
+            current_region_category=current_region,
+            modern_country_location=str(row.get("modern_country_location", "") or ""),
+            site_type=str(row.get("site_type", "") or ""),
+        )
+
+        suggested_region = str(result.region_category or "").strip()
+
+        if suggested_region:
+            updated_df.at[row_index, "region_category"] = suggested_region
+            updated_df.at[row_index, "warnings"] = append_warning_text(
+                str(updated_df.at[row_index, "warnings"] or ""),
+                "Region category filled automatically",
+            )
+
+    return updated_df
+
 def get_source_order_from_column(source_column: str) -> int:
     match = re.search(r"(\d+)$", str(source_column or ""))
 
@@ -4114,9 +4157,11 @@ if active_page == "Import":
         "Upload CSV file",
         type=["csv", "txt"],
         help=(
-            "Expected columns include site_id, site_label, site_type, latitude, longitude, "
-            "modern_country_location, administering_country, former_entity, region_category, "
-            "exposure_period, metal, source_1, source_2, source_3..., notes."
+            "Minimum columns: site_label, modern_country_location, source_1. "
+            "Recommended columns: site_label, modern_country_location, administering_country, "
+            "site_type, source_1, source_2, notes. Optional columns such as site_id, "
+            "latitude, longitude, former_entity, region_category, exposure_period, and metal "
+            "are accepted but do not need to be present."
         ),
         key="import_sites_csv",
     )
@@ -4132,24 +4177,52 @@ if active_page == "Import":
 
     with import_col2:
         geocode_missing_coordinates = st.checkbox(
-            "Auto-fill missing latitude/longitude using site label and country",
-            value=False,
+            "Auto-fill missing latitude/longitude using site label and country/location",
+            value=True,
             help=(
-                "Uses the current geocoder. Keep this off for very large imports unless needed."
+                "Uses OpenStreetMap/Nominatim through geopy. Rows that cannot be geocoded "
+                "will remain in the preview but will be unticked by default."
             ),
             key="geocode_missing_coordinates_import",
+        )
+
+        auto_fill_region_category_import = st.checkbox(
+            "Auto-fill missing region category from coordinates, country/location, and site type",
+            value=True,
+            help=(
+                "The automatic classification is only a suggestion. Review the preview before confirming import."
+            ),
+            key="auto_fill_region_category_import",
+        )
+
+        require_registered_source_metadata = st.checkbox(
+            "Require imported source codes to already exist with programme, metal, and exposure-period metadata",
+            value=True,
+            help=(
+                "Recommended. If enabled, rows linked to unregistered sources or incomplete source metadata "
+                "will be shown with warnings and unticked by default."
+            ),
+            key="require_registered_source_metadata_import",
         )
 
     st.write("#### Import rules")
 
     st.markdown(
         """
-        - One CSV site row may become several preview rows if it has multiple source columns.
-        - Source columns are detected dynamically: `source_1`, `source_2`, `source_3`, etc.
-        - If a source already exists in the app, its assigned metals and exposure periods are used for the site-source link preview.
-        - If a source has no assigned metadata, the CSV `metal` and `exposure_period` values are used as fallback values.
-        - Missing `site_id` values are automatically generated from `modern_country_location` and, for Antarctic records, `administering_country`.
-        - No database changes are made until the confirmation step is implemented and clicked.
+        - Minimal CSV format is supported. Recommended columns are:
+        `site_label`, `modern_country_location`, `administering_country`, `site_type`,
+        `source_1`, `source_2`, and `notes`.
+        - `source_1`, `source_2`, `source_3`, etc. are detected dynamically.
+        - Missing `site_id` values are generated from `modern_country_location`; for Antarctic records,
+        `administering_country` can be included in the generated prefix.
+        - Missing latitude/longitude values can be geocoded from `site_label` and `modern_country_location`.
+        - Rows that cannot be geocoded remain visible in the preview but are unticked by default.
+        - Missing `region_category` values can be filled automatically from coordinates, country/location,
+        and site type.
+        - Programme, metal, and exposure-period values are inherited from the linked source records when
+        those sources already exist in the database.
+        - No database changes are made until you review the preview, tick the confirmation checkbox,
+        and click **Confirm selected import**.
         """
     )
 
@@ -4164,9 +4237,13 @@ if active_page == "Import":
                 geocode_missing_coordinates=geocode_missing_coordinates,
                 source_metadata_by_code=get_source_metadata_by_code(),
                 site_id_generator=make_import_site_id_generator(),
+                require_existing_source_metadata=require_registered_source_metadata,
             )
 
             preview_df = annotate_import_preview_for_upsert(preview_df)
+
+            if auto_fill_region_category_import:
+                preview_df = auto_fill_import_region_categories(preview_df)
 
             if preview_df.empty:
                 st.warning("The uploaded file did not produce any importable preview rows.")
@@ -4191,24 +4268,16 @@ if active_page == "Import":
 
                 visible_site_preview_columns = [
                     "import_selected",
-                    "csv_rows",
-                    "site_action",
-                    "site_upsert_status",
-                    "site_upsert_match",
                     "site_id",
                     "site_label",
-                    "site_type",
+                    "source_codes",
+                    "programmes",
                     "latitude",
                     "longitude",
                     "modern_country_location",
                     "administering_country",
                     "former_entity",
                     "region_category",
-                    "source_count",
-                    "source_codes",
-                    "source_statuses",
-                    "new_sources",
-                    "programmes",
                     "metals",
                     "exposure_periods",
                     "notes",
@@ -4224,8 +4293,6 @@ if active_page == "Import":
 
                 for chip_column in [
                     "source_codes",
-                    "source_statuses",
-                    "new_sources",
                     "programmes",
                     "metals",
                     "exposure_periods",
@@ -4361,8 +4428,10 @@ if active_page == "Import":
                 if new_source_codes:
                     st.warning(
                         "New source code(s) detected in the imported CSV and not currently registered "
-                        "in the Streamlit database. They will be created during import: "
+                        "in the curator database: "
                         + ", ".join(new_source_codes)
+                        + ". Recommended workflow: register these sources first and assign programme, "
+                        "metal, and exposure-period metadata before confirming the import."
                     )   
 
                 if warning_count:
