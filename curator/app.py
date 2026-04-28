@@ -4340,17 +4340,42 @@ if active_page == "Import":
 
     if uploaded_import_csv is not None:
         try:
-            preview_df = build_import_preview(
-                uploaded_file=uploaded_import_csv,
-                existing_site_ids=get_existing_site_ids(),
-                existing_source_codes=get_existing_source_codes(),
-                existing_site_source_pairs=get_existing_site_source_pairs(),
-                default_programme=default_import_programme,
-                geocode_missing_coordinates=geocode_missing_coordinates,
-                source_metadata_by_code=get_source_metadata_by_code(),
-                site_id_generator=make_import_site_id_generator(),
-                require_existing_source_metadata=require_registered_source_metadata,
+            loading_message = (
+                "Building import preview. Geocoding missing coordinates may take around "
+                "1 second per unresolved site..."
+                if geocode_missing_coordinates
+                else "Building import preview..."
             )
+
+            with st.status(loading_message, expanded=True) as import_status:
+                st.write("Reading CSV and normalising headers...")
+                st.write("Checking existing sites, sources, and site-source links...")
+
+                if geocode_missing_coordinates:
+                    st.write(
+                        "Contacting OpenStreetMap/Nominatim for missing coordinates. "
+                        "Please wait; the app is intentionally slowing requests to avoid rate-limit problems."
+                    )
+
+                preview_df = build_import_preview(
+                    uploaded_file=uploaded_import_csv,
+                    existing_site_ids=get_existing_site_ids(),
+                    existing_source_codes=get_existing_source_codes(),
+                    existing_site_source_pairs=get_existing_site_source_pairs(),
+                    default_programme=default_import_programme,
+                    geocode_missing_coordinates=geocode_missing_coordinates,
+                    source_metadata_by_code=get_source_metadata_by_code(),
+                    site_id_generator=make_import_site_id_generator(),
+                    require_existing_source_metadata=require_registered_source_metadata,
+                )
+
+                st.write("Checking whether imported sites match existing site records...")
+
+                import_status.update(
+                    label="Import preview built successfully.",
+                    state="complete",
+                    expanded=False,
+                )
 
             preview_df = annotate_import_preview_for_upsert(preview_df)
 

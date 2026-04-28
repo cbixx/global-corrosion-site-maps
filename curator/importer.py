@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+import time
 from pathlib import Path
 from typing import Any, BinaryIO, Callable, cast
 
@@ -26,6 +27,9 @@ EXPECTED_SITE_COLUMNS = [
     "notes",
 ]
 
+GEOCODE_MIN_INTERVAL_SECONDS = 1.1
+_GEOCODE_CACHE: dict[str, tuple[str, str, str]] = {}
+_LAST_GEOCODE_REQUEST_TIME = 0.0
 
 def clean_cell(value) -> str:
     if pd.isna(value):
@@ -220,35 +224,69 @@ def has_blocking_import_warning(warnings: list[str]) -> bool:
 
 
 def geocode_site(site_label: str, country: str) -> tuple[str, str, str]:
+    global _LAST_GEOCODE_REQUEST_TIME
+
     site_label = clean_cell(site_label)
     country = clean_cell(country)
 
-    query_parts = [part for part in [site_label, country] if part]
-    query = ", ".join(query_parts)
-
-    if not query:
+    if not site_label and not country:
         return "", "", "Cannot geocode: missing site label and country/location"
+
+    query_candidates = []
+
+    if site_label and country:
+        query_candidates.append(f"{site_label}, {country}")
+
+    if site_label:
+        query_candidates.append(site_label)
+
+    # Remove duplicates while preserving order.
+    query_candidates = list(dict.fromkeys(query_candidates))
+
+    cache_key = " | ".join(query_candidates).lower()
+
+    if cache_key in _GEOCODE_CACHE:
+        return _GEOCODE_CACHE[cache_key]
 
     try:
         geolocator: Any = Nominatim(user_agent="corrosion_map_curator_import")
 
-        raw_result = geolocator.geocode(
-            query,
-            exactly_one=True,
-            addressdetails=True,
-            language="en",
-            timeout=10,
-        )
+        warning_messages: list[str] = []
 
-        if raw_result is None:
-            return "", "", f"Geocoding failed for: {query}"
+        for query in query_candidates:
+            elapsed = time.monotonic() - _LAST_GEOCODE_REQUEST_TIME
 
-        result = cast(Location, raw_result)
+            if elapsed < GEOCODE_MIN_INTERVAL_SECONDS:
+                time.sleep(GEOCODE_MIN_INTERVAL_SECONDS - elapsed)
 
-        return str(result.latitude), str(result.longitude), ""
+            _LAST_GEOCODE_REQUEST_TIME = time.monotonic()
+
+            raw_result = geolocator.geocode(
+                query,
+                exactly_one=True,
+                addressdetails=True,
+                language="en",
+                timeout=15,
+            )
+
+            if raw_result is not None:
+                result = cast(Location, raw_result)
+                geocode_result = str(result.latitude), str(result.longitude), ""
+                _GEOCODE_CACHE[cache_key] = geocode_result
+                return geocode_result
+
+            warning_messages.append(f"No result for: {query}")
+
+        geocode_result = "", "", "Geocoding failed: " + "; ".join(warning_messages)
+        _GEOCODE_CACHE[cache_key] = geocode_result
+        return geocode_result
 
     except Exception as exc:
-        return "", "", f"Geocoding error for {query}: {exc}"
+        geocode_result = "", "", (
+            f"Geocoding error for {', '.join(query_candidates)}: {exc}"
+        )
+        _GEOCODE_CACHE[cache_key] = geocode_result
+        return geocode_result
 
 
 def read_uploaded_csv(uploaded_file: BinaryIO) -> pd.DataFrame:
@@ -277,6 +315,26 @@ def build_import_preview(
 ) -> pd.DataFrame:
     df = read_uploaded_csv(uploaded_file)
     source_metadata_by_code = source_metadata_by_code or {}
+
+    existing_source_codes = {
+        str(source_code).strip().lower()
+        for source_code in existing_source_codes
+        if str(source_code).strip()
+    }
+
+    existing_site_source_pairs = {
+        (
+            str(site_id).strip(),
+            str(source_code).strip().lower(),
+        )
+        for site_id, source_code in existing_site_source_pairs
+    }
+
+    source_metadata_by_code = {
+        str(source_code).strip().lower(): metadata
+        for source_code, metadata in source_metadata_by_code.items()
+        if str(source_code).strip()
+    }
 
     original_columns = [str(column) for column in df.columns]
     normalised_columns = [
