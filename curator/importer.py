@@ -68,6 +68,13 @@ def normalize_import_column_name(column_name: str) -> str:
         "location": "site_label",
         "location_name": "site_label",
 
+        # Geocode Query
+        "geocode": "geocode_query",
+        "geocode_query": "geocode_query",
+        "search_query": "geocode_query",
+        "map_query": "geocode_query",
+        "osm_query": "geocode_query",
+
         # Site ID
         "siteid": "site_id",
         "site_id": "site_id",
@@ -391,6 +398,7 @@ def build_import_preview(
 
         site_id = clean_cell(row.get("site_id", ""))
         site_label = clean_cell(row.get("site_label", ""))
+        geocode_query = clean_cell(row.get("geocode_query", ""))
         site_type = clean_cell(row.get("site_type", ""))
         modern_country_location = clean_cell(row.get("modern_country_location", ""))
         administering_country = clean_cell(row.get("administering_country", ""))
@@ -420,7 +428,7 @@ def build_import_preview(
 
         if (not latitude or not longitude) and geocode_missing_coordinates:
             geocoded_latitude, geocoded_longitude, geocode_warning = geocode_site(
-                site_label=site_label,
+                site_label=geocode_query or site_label,
                 country=modern_country_location,
             )
 
