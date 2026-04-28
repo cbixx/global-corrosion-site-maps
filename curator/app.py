@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import os
 from typing import Any, cast
 import re
 
@@ -396,6 +397,20 @@ def display_app_path(path_value) -> str:
         return path.resolve().relative_to(REPO_ROOT).as_posix()
     except Exception:
         return path.name or text
+    
+def get_app_config_value(name: str, default: str = "") -> str:
+    value = os.environ.get(name, "").strip()
+
+    if value:
+        return value
+
+    try:
+        return str(st.secrets.get(name, default)).strip()
+    except Exception:
+        return default
+
+
+MAP_WEBSITE_URL = get_app_config_value("MAP_WEBSITE_URL", "")
 
 def get_table_height(
     row_count: int,
@@ -534,7 +549,10 @@ def render_pagination_controls(
     if page_key not in st.session_state:
         st.session_state[page_key] = 1
 
-    nav_col, display_col = st.columns([0.72, 0.28], vertical_alignment="center")
+    nav_left_spacer, nav_col, nav_right_spacer, display_col = st.columns(
+        [0.18, 0.48, 0.18, 0.16],
+        vertical_alignment="center",
+    )
 
     with display_col:
         page_size = st.selectbox(
@@ -548,7 +566,7 @@ def render_pagination_controls(
 
         st.markdown(
             f"""
-            <div style="text-align: right; margin-top: -0.5rem;">
+            <div style="text-align: right; margin-top: -0.35rem;">
                 <a href="#{anchor_id}" style="text-decoration: none;">Back to top</a>
             </div>
             """,
@@ -574,7 +592,8 @@ def render_pagination_controls(
 
     with nav_col:
         page_columns = st.columns(
-            [1.05] + [0.34 for _ in page_items] + [0.75],
+            [1.15] + [0.50 for _ in page_items] + [0.85],
+            gap="small",
             vertical_alignment="center",
         )
 
@@ -583,6 +602,7 @@ def render_pagination_controls(
                 "‹ Previous",
                 key=f"{page_key}_previous",
                 disabled=current_page <= 1,
+                use_container_width=True,
             ):
                 st.session_state[page_key] = current_page - 1
                 st.rerun()
@@ -599,11 +619,13 @@ def render_pagination_controls(
                         str(page_item),
                         key=f"{page_key}_page_{page_item}_active",
                         disabled=True,
+                        use_container_width=True,
                     )
                 else:
                     if st.button(
                         str(page_item),
                         key=f"{page_key}_page_{page_item}",
+                        use_container_width=True,
                     ):
                         st.session_state[page_key] = int(page_item)
                         st.rerun()
@@ -613,11 +635,63 @@ def render_pagination_controls(
                 "Next ›",
                 key=f"{page_key}_next",
                 disabled=current_page >= total_pages,
+                use_container_width=True,
             ):
                 st.session_state[page_key] = current_page + 1
                 st.rerun()
 
     return current_page, page_size
+
+def get_pagination_state(
+    total_rows: int,
+    page_key: str,
+    page_size_key: str,
+    default_page_size: int = 10,
+) -> tuple[int, int]:
+    page_size = int(st.session_state.get(page_size_key, default_page_size) or default_page_size)
+
+    total_pages = max(1, (total_rows + page_size - 1) // page_size)
+
+    current_page = int(st.session_state.get(page_key, 1) or 1)
+    current_page = max(1, min(current_page, total_pages))
+
+    st.session_state[page_key] = current_page
+
+    return current_page, page_size
+
+BUTTON_PAIR_COMPACT = (0.13, 0.14, 0.73)
+BUTTON_PAIR_MEDIUM = (0.16, 0.18, 0.66)
+BUTTON_PAIR_LONG = (0.18, 0.22, 0.60)
+BUTTON_PAIR_EXTRA_LONG = (0.23, 0.33, 0.44)
+
+
+def render_left_button_pair(
+    left_label: str,
+    right_label: str,
+    left_key: str,
+    right_key: str,
+    widths: tuple[float, float, float] = BUTTON_PAIR_MEDIUM,
+) -> tuple[bool, bool]:
+    left_col, right_col, spacer_col = st.columns(
+        list(widths),
+        vertical_alignment="bottom",
+    )
+
+    with left_col:
+        left_clicked = st.button(
+            left_label,
+            key=left_key,
+            use_container_width=True,
+        )
+
+    with right_col:
+        right_clicked = st.button(
+            right_label,
+            key=right_key,
+            use_container_width=True,
+        )
+
+    return left_clicked, right_clicked
 
 SITE_FORM_KEYS = [
     "site_label_input",
@@ -1637,13 +1711,16 @@ def require_curator_login() -> None:
     st.title("Corrosion Map Curator")
     st.caption("Restricted curator access")
 
-    entered_password = st.text_input(
-        "Enter curator password",
-        type="password",
-        key="curator_login_password",
-    )
+    with st.form("curator_login_form"):
+        entered_password = st.text_input(
+            "Enter curator password",
+            type="password",
+            key="curator_login_password",
+        )
 
-    if st.button("Log in", key="curator_login_button"):
+        login_submitted = st.form_submit_button("Log in")
+
+    if login_submitted:
         if entered_password == app_password:
             st.session_state.curator_logged_in = True
             st.rerun()
@@ -1652,6 +1729,521 @@ def require_curator_login() -> None:
 
     st.stop()
 
+def get_user_manual_english() -> str:
+    return """
+## Corrosion Map Curator — User Manual
+
+### 1. Purpose of the app
+
+The Corrosion Map Curator is a controlled data-management interface for building and maintaining the corrosion exposure-site database behind the public corrosion map.
+
+It is used to:
+
+- register literature, reports, standards, datasets, and other source materials;
+- add corrosion exposure sites with coordinates and metadata;
+- link each site to one or more supporting sources;
+- record site-level and source-level information such as programme, metal, exposure duration, country/location, and region category;
+- import larger CSV tables after preview and correction;
+- edit, delete, and bulk-update existing records;
+- publish selected curated sites to the public website dataset;
+- upload the website dataset to GitHub so that the public map can update.
+
+The curator database and the public map dataset are separate. Adding data to the curator does not automatically make it visible on the public map. A site appears on the public map only after it is selected in **Export / Publish** and the website dataset is uploaded to GitHub.
+
+---
+
+### 2. Main data structure
+
+The app uses three main record types.
+
+#### 2.1 Sources
+
+A source is a paper, report, database, standard, or other document that provides evidence for one or more corrosion exposure sites.
+
+A source normally includes:
+
+- `source_code`, such as `s018`;
+- source title;
+- programme, such as `ICP/UNECE`, `MICAT`, `ISOCORRAG`, or another programme;
+- metals covered by the source;
+- exposure periods or durations covered by the source;
+- PDF path or external URL;
+- notes.
+
+Add or register sources before linking them to sites.
+
+#### 2.2 Sites
+
+A site is a corrosion exposure location.
+
+A site normally includes:
+
+- `site_id`, such as `GB-005`;
+- site label, such as `London`;
+- latitude and longitude;
+- modern country/location;
+- administering country, where relevant;
+- former political or administrative entity, where relevant;
+- region category;
+- metal;
+- exposure period;
+- notes.
+
+The app can suggest a site ID from the country/location. For Antarctic or sub-Antarctic records, the administering country can be used in the site ID prefix.
+
+#### 2.3 Site-source links
+
+A site-source link records that a specific source supports a specific site.
+
+This link can also store metadata that may differ from the broad site or source record, such as:
+
+- source order;
+- metal(s) reported for that site in that source;
+- exposure period(s) reported for that site in that source;
+- link-specific notes.
+
+This is important because one source may report many sites, and one site may be supported by several sources.
+
+---
+
+### 3. Recommended workflow
+
+#### Step 1 — Add or register sources
+
+Go to **Sources**.
+
+Use this page to:
+
+- register existing PDFs from the `source_pdfs/` folder;
+- add a new source manually;
+- assign programme, metals, and exposure periods to sources;
+- update existing source metadata in batches.
+
+Minimum recommended fields for a source are:
+
+- source code;
+- source title;
+- programme;
+- metals;
+- exposure periods;
+- PDF path or URL where available.
+
+Important: in the online version, uploaded PDFs may not be permanently stored unless they are later committed to GitHub or moved to persistent storage. The database metadata is persistent, but the hosted file system should not be treated as permanent PDF storage.
+
+#### Step 2 — Add sites
+
+Go to **Sites**.
+
+Use the location search to obtain approximate coordinates, or enter coordinates manually. Then fill in the site information.
+
+Recommended fields are:
+
+- site label;
+- latitude;
+- longitude;
+- modern country/location;
+- administering country if relevant;
+- region category;
+- metal;
+- exposure period;
+- notes where needed.
+
+When a site label and location appear to match an existing site, the app warns you that the new entry may update an existing site row instead of creating a duplicate. Review this message carefully.
+
+#### Step 3 — Link sources to sites
+
+Still in **Sites**, open **Source evidence for existing site(s)**.
+
+Select one or more site records and one or more source records. Then choose the metals and exposure periods that apply to the site-source relationship.
+
+Use this when:
+
+- a source provides evidence for a newly added site;
+- a site is already in the database but needs another supporting source;
+- source-level metadata should be transferred into site-level metadata.
+
+The checkbox **After linking, add missing metals/exposure periods to the site-level summary fields** is normally useful. It helps keep the site summary fields consistent with the underlying source evidence.
+
+#### Step 4 — Review and edit records
+
+Go to **Manage Records**.
+
+Use this page to:
+
+- search existing sites or sources;
+- directly edit table cells;
+- save table edits;
+- delete selected records;
+- bulk-update selected records;
+- preview and apply automatic region-category suggestions.
+
+Deletion is intentionally protected. You must tick the relevant confirmation checkbox before destructive actions are applied.
+
+If a site/source cannot be deleted, check whether it still has site-source links. Delete the link first if needed.
+
+#### Step 5 — Import CSV data
+
+Go to **Import**.
+
+Upload a CSV file containing site and source information. The app will build a preview table before anything is written to the database.
+
+During import, check:
+
+- whether each row will create a new site or merge into an existing site;
+- whether source codes already exist;
+- whether new source codes will be created;
+- whether generated site IDs look correct;
+- whether latitude and longitude are valid;
+- whether the source and metadata fields are correctly interpreted.
+
+No import is saved until you tick the confirmation checkbox and click **Confirm selected import**.
+
+#### Step 6 — Publish to the public website dataset
+
+Go to **Export / Publish**.
+
+This page controls what appears on the public corrosion map.
+
+Use **Yet to be published** to select new curated sites that should be added to the public dataset.
+
+Use **Already published** to keep or remove existing public sites from the next website dataset.
+
+Then:
+
+1. review the selected sites;
+2. tick **I reviewed the selected sites and want to update the website dataset**;
+3. optionally tick **After confirming publish, upload the website dataset to GitHub using the API**;
+4. click **Confirm publish to website**.
+
+If automatic GitHub upload is not selected, use the separate **Upload latest website publish to GitHub** button afterwards.
+
+After upload, the public map may take a few seconds or minutes to show the change. If the change is not visible immediately, hard-refresh the public map page.
+
+---
+
+### 4. Removing a published test site
+
+To remove a published test site from the public map without deleting it from the curator database:
+
+1. Go to **Export / Publish**.
+2. Open **Quick remove already published site(s) from public map**.
+3. Select the test site.
+4. Tick the confirmation checkbox.
+5. Click **Remove selected site(s) from public map and upload to GitHub**.
+6. Wait for the public map to update.
+
+This removes the site from the public website dataset, not from the curator database.
+
+To delete it completely from the database, also remove it from **Manage Records** after it has been removed from the public dataset.
+
+---
+
+### 5. Good data-entry practice
+
+Use consistent source codes, site IDs, and metadata spelling.
+
+Recommended practices:
+
+- check whether a source already exists before adding a new one;
+- check whether a site already exists before adding a duplicate;
+- use controlled tags where possible;
+- keep notes concise but informative;
+- avoid deleting records unless you are certain they are wrong;
+- use the preview tables before importing or publishing;
+- publish only after reviewing the selected records.
+
+For uncertain data, prefer adding a note rather than forcing an uncertain classification.
+
+---
+
+### 6. What not to do
+
+Please avoid the following unless you know exactly why you are doing it:
+
+- do not use the **Settings** page for database reset or maintenance unless instructed;
+- do not delete sources that are still linked to sites;
+- do not delete sites that are still intended to appear on the map;
+- do not assume uploaded PDFs are permanently stored in the online app;
+- do not publish immediately after import without reviewing the imported rows;
+- do not share the curator password or GitHub/Supabase credentials publicly.
+
+---
+
+### 7. Troubleshooting
+
+If a table appears blank or does not render correctly, use Chrome and refresh the page.
+
+If newly added data does not appear on the public map, check the following:
+
+1. the site exists in the curator database;
+2. the site was selected in **Export / Publish**;
+3. the website dataset was uploaded to GitHub successfully;
+4. `data/sites.csv` in GitHub contains the new row;
+5. the public map page has been refreshed.
+
+If GitHub upload fails, the public map will not update even if the curator database was changed.
+
+If a source or site deletion fails, remove related site-source links first.
+"""
+
+
+def get_user_manual_chinese() -> str:
+    return """
+## 腐蚀地图数据管理器 — 用户手册
+
+### 1. 程序用途
+
+腐蚀地图数据管理器是一个用于维护公开腐蚀地图后台数据的受控数据管理界面。
+
+它主要用于：
+
+- 注册论文、报告、标准、数据库和其他资料来源；
+- 添加腐蚀暴露站点及其坐标和元数据；
+- 将每个站点与一个或多个资料来源建立关联；
+- 记录研究计划、金属材料、暴露时间、国家/地区、区域类别等信息；
+- 导入较大的 CSV 表格，并在写入数据库前进行预览和检查；
+- 编辑、删除和批量更新已有记录；
+- 将选定的站点发布到公开网站数据集；
+- 通过 GitHub API 上传网站数据文件，使公开地图更新。
+
+需要注意的是，curator 数据库和公开地图读取的数据集是分开的。把数据加入 curator 数据库，并不代表它会立即出现在公开地图上。只有在 **Export / Publish** 页面中选择站点并上传网站数据集到 GitHub 后，该站点才会出现在公开地图中。
+
+---
+
+### 2. 主要数据结构
+
+本程序主要管理三类记录。
+
+#### 2.1 资料来源 Sources
+
+资料来源可以是论文、报告、数据库、标准或其他能够支持腐蚀暴露站点信息的材料。
+
+一个资料来源通常包括：
+
+- `source_code`，例如 `s018`；
+- 资料标题；
+- 研究计划，例如 `ICP/UNECE`、`MICAT`、`ISOCORRAG` 或其他计划；
+- 该资料涉及的金属材料；
+- 该资料涉及的暴露时间或暴露周期；
+- PDF 路径或外部链接；
+- 备注。
+
+建议先添加或注册资料来源，再将其关联到站点。
+
+#### 2.2 站点 Sites
+
+站点是腐蚀暴露实验或观测发生的位置。
+
+一个站点通常包括：
+
+- `site_id`，例如 `GB-005`；
+- 站点名称，例如 `London`；
+- 纬度和经度；
+- 现代国家或地区；
+- 管理国家，如适用；
+- 历史政治或行政实体，如适用；
+- 区域类别；
+- 金属材料；
+- 暴露时间；
+- 备注。
+
+程序可以根据国家或地区自动建议 site ID。对于南极或亚南极站点，管理国家也可用于生成站点编号前缀。
+
+#### 2.3 站点-资料关联 Site-source links
+
+站点-资料关联用于记录某个资料来源支持某个具体站点。
+
+这个关联本身也可以保存一些信息，例如：
+
+- 资料顺序；
+- 该资料中对该站点报道的金属材料；
+- 该资料中对该站点报道的暴露时间；
+- 关联关系的备注。
+
+这很重要，因为一个资料来源可能包含多个站点，一个站点也可能由多个资料来源支持。
+
+---
+
+### 3. 推荐工作流程
+
+#### 步骤 1 — 添加或注册资料来源
+
+进入 **Sources** 页面。
+
+此页面可用于：
+
+- 注册 `source_pdfs/` 文件夹中已有的 PDF；
+- 手动添加新的资料来源；
+- 为资料来源分配研究计划、金属材料和暴露时间；
+- 批量更新已有资料来源的元数据。
+
+建议至少填写以下字段：
+
+- source code；
+- 资料标题；
+- 研究计划；
+- 金属材料；
+- 暴露时间；
+- PDF 路径或外部链接，如有。
+
+重要提示：在线版本中的 PDF 上传不一定是永久存储，除非之后将 PDF 提交到 GitHub 或转移到其他持久化存储。数据库中的文字元数据是持久的，但在线托管环境中的文件系统不应被视为永久 PDF 存储位置。
+
+#### 步骤 2 — 添加站点
+
+进入 **Sites** 页面。
+
+可以使用地点搜索功能获取大致坐标，也可以手动输入坐标。之后填写站点信息。
+
+建议填写：
+
+- 站点名称；
+- 纬度；
+- 经度；
+- 现代国家或地区；
+- 管理国家，如适用；
+- 区域类别；
+- 金属材料；
+- 暴露时间；
+- 必要的备注。
+
+如果程序判断新输入的站点可能与已有站点相同，它会提示该记录可能更新已有站点，而不是创建重复站点。请认真检查该提示。
+
+#### 步骤 3 — 将资料来源关联到站点
+
+仍在 **Sites** 页面，打开 **Source evidence for existing site(s)**。
+
+选择一个或多个站点，再选择一个或多个资料来源。然后为该站点-资料关系选择对应的金属材料和暴露时间。
+
+该功能适用于：
+
+- 某个资料来源支持一个新加入的站点；
+- 一个已有站点需要补充新的资料来源；
+- 需要把资料来源中的金属和暴露时间信息合并到站点层面的汇总字段中。
+
+通常建议保留 **After linking, add missing metals/exposure periods to the site-level summary fields** 选项。这样有助于保持站点汇总字段与底层资料证据一致。
+
+#### 步骤 4 — 检查和编辑记录
+
+进入 **Manage Records** 页面。
+
+此页面可用于：
+
+- 搜索已有站点或资料来源；
+- 直接编辑表格单元格；
+- 保存表格修改；
+- 删除选定记录；
+- 批量更新选定记录；
+- 预览并应用自动区域分类建议。
+
+删除操作受到保护。执行删除前必须勾选相应的确认框。
+
+如果某个站点或资料来源无法删除，请检查它是否仍然存在站点-资料关联。必要时先删除关联关系，再删除站点或资料来源。
+
+#### 步骤 5 — 导入 CSV 数据
+
+进入 **Import** 页面。
+
+上传包含站点和资料来源信息的 CSV 文件。程序会先生成预览表，在确认前不会写入数据库。
+
+导入前应检查：
+
+- 每一行是创建新站点，还是合并到已有站点；
+- source code 是否已经存在；
+- 是否会创建新的资料来源；
+- 自动生成的 site ID 是否合理；
+- 经纬度是否有效；
+- 资料来源和元数据字段是否被正确解析。
+
+只有在勾选确认框并点击 **Confirm selected import** 后，数据才会写入数据库。
+
+#### 步骤 6 — 发布到公开网站数据集
+
+进入 **Export / Publish** 页面。
+
+此页面控制哪些站点会出现在公开腐蚀地图上。
+
+使用 **Yet to be published** 选择需要新增到公开数据集的站点。
+
+使用 **Already published** 保留或移除已经存在于公开数据集中的站点。
+
+操作步骤：
+
+1. 检查选定站点；
+2. 勾选 **I reviewed the selected sites and want to update the website dataset**；
+3. 如需自动上传到 GitHub，勾选 **After confirming publish, upload the website dataset to GitHub using the API**；
+4. 点击 **Confirm publish to website**。
+
+如果没有选择自动 GitHub 上传，则需要之后点击 **Upload latest website publish to GitHub**。
+
+上传后，公开地图可能需要数秒到数分钟才会显示变化。如果没有立即显示，请强制刷新公开地图页面。
+
+---
+
+### 4. 删除已发布的测试站点
+
+如果需要从公开地图中移除一个已发布的测试站点，但暂时不从 curator 数据库删除它：
+
+1. 进入 **Export / Publish**；
+2. 打开 **Quick remove already published site(s) from public map**；
+3. 选择测试站点；
+4. 勾选确认框；
+5. 点击 **Remove selected site(s) from public map and upload to GitHub**；
+6. 等待公开地图更新。
+
+这个操作只会把站点从公开网站数据集中移除，不会删除 curator 数据库中的站点记录。
+
+如果需要彻底删除测试站点，可以在它从公开数据集中移除后，再到 **Manage Records** 中删除该站点记录。
+
+---
+
+### 5. 良好的数据录入习惯
+
+请尽量保持 source code、site ID 和元数据命名的一致性。
+
+建议：
+
+- 添加资料来源前，先检查是否已经存在；
+- 添加站点前，先检查是否已经存在相同或相近站点；
+- 尽量使用已有的标准标签；
+- 备注应简洁但有信息量；
+- 不确定时不要随意删除记录；
+- 导入和发布前务必检查预览表；
+- 只有在确认数据无误后才发布到公开地图。
+
+对于不确定的信息，建议在备注中说明，而不是强行归类。
+
+---
+
+### 6. 不建议进行的操作
+
+除非明确知道原因，请避免以下操作：
+
+- 不要随意使用 **Settings** 页面中的数据库重置或维护功能；
+- 不要删除仍然与站点关联的资料来源；
+- 不要删除仍然需要出现在地图上的站点；
+- 不要假设在线上传的 PDF 会永久保存；
+- 不要在导入后未经检查就立即发布；
+- 不要公开分享 curator 密码、GitHub token 或 Supabase 凭据。
+
+---
+
+### 7. 常见问题排查
+
+如果表格显示为空或渲染异常，建议使用 Chrome 浏览器并刷新页面。
+
+如果新加入的数据没有出现在公开地图上，请依次检查：
+
+1. 该站点是否已经存在于 curator 数据库；
+2. 该站点是否在 **Export / Publish** 中被选中；
+3. 网站数据集是否成功上传到 GitHub；
+4. GitHub 仓库中的 `data/sites.csv` 是否包含该站点；
+5. 是否已经刷新公开地图页面。
+
+如果 GitHub 上传失败，即使 curator 数据库已经修改，公开地图也不会更新。
+
+如果删除资料来源或站点失败，请先检查并删除相关的站点-资料关联。
+"""
+
 st.set_page_config(
     page_title="Corrosion Map Curator",
     layout="wide",
@@ -1659,135 +2251,39 @@ st.set_page_config(
 
 require_curator_login()
 
-manual_col_title, manual_col_button = st.columns([0.82, 0.18], vertical_alignment="center")
+manual_col_title, manual_col_controls = st.columns(
+    [0.72, 0.28],
+    vertical_alignment="center",
+)
 
 with manual_col_title:
     st.title("Corrosion Map Curator")
     st.caption("Local curation app for managing sites, sources, and site-source links.")
 
-with manual_col_button:
-    with st.popover("📘 User Manual", use_container_width=True):
-        manual_language = st.segmented_control(
-            "Manual language",
-            options=["English", "中文"],
-            default="English",
-            key="manual_language_selector",
-        )
+with manual_col_controls:
+    manual_button_col, logout_button_col = st.columns(
+        [0.66, 0.34],
+        gap="small",
+        vertical_alignment="center",
+    )
 
-        if manual_language == "English":
-            st.markdown(
-                """
-                ## Corrosion Map Curator — User Manual
-
-                ### 1. What this app can do
-
-                The Corrosion Map Curator is a local database-management tool for building and maintaining a structured corrosion exposure-site dataset. It helps users:
-
-                - register corrosion-related sources, including local PDF files and external URLs;
-                - add exposure sites with coordinates, country/location information, region tags, metals, exposure periods, and notes;
-                - link one or more sources to one or more sites;
-                - assign source-level metadata such as programme, metals, and exposure periods;
-                - edit, delete, and bulk-update existing site and source records;
-                - auto-suggest region categories from coordinates and contextual information;
-                - import site datasets from CSV files and review them before saving;
-                - export selected curated records into the website-ready `data/sites.csv` file;
-                - maintain a clean separation between the curator database and the public website dataset.
-
-                ### 2. Basic workflow
-
-                **Step 1 — Add or register sources**
-
-                Go to **Sources**. You can either register existing PDFs from the `source_pdfs/` folder or manually add a new source with a source code, title, programme, metals, exposure periods, PDF, URL, and notes.
-
-                **Step 2 — Add sites**
-
-                Go to **Sites**. Search a location, confirm or manually enter latitude and longitude, fill in the site label, country/location, region category, exposure period, metal, and notes, then click **Add site**.
-
-                **Step 3 — Link sources to sites**
-
-                In **Sites → Source evidence for existing site(s)**, select one or more sites and one or more sources. Then assign the relevant metals and exposure periods for that site-source relationship and click **Attach selected source(s)**.
-
-                **Step 4 — Review and edit records**
-
-                Go to **Manage Records**. Choose either `sites` or `sources`. You can edit table cells directly, delete selected records, or use the bulk-edit tools. For sites, you can also preview and apply automatic region-category suggestions.
-
-                **Step 5 — Import CSV data**
-
-                Go to **Import**. Upload a CSV file, review the parsed site/source/link preview, correct fields if needed, then confirm the selected import. No database changes are made until you confirm.
-
-                **Step 6 — Export to the website dataset**
-
-                Go to **Export / Publish**. Select the sites that should appear on the public website dataset, review the selection, then confirm publishing. The app updates `data/sites.csv` and creates a dated batch snapshot.
-
-                ### 3. Important notes
-
-                - Nothing is saved to the database until you click the relevant save, attach, import, or publish button.
-                - Deleting a site or source should be done carefully, especially if it is already linked to other records.
-                - Region-category auto-assignment is a suggestion, not an unquestionable classification. Review the preview before applying it.
-                - The local curation database is for editing and management; the exported CSV is the website-facing dataset.
-                - Source PDFs should be placed in or uploaded to `source_pdfs/` when possible, so the website can later link to them consistently.
-                """
+    with manual_button_col:
+        with st.popover("📘 User Manual", use_container_width=True):
+            manual_language = st.segmented_control(
+                "Manual language",
+                options=["English", "中文"],
+                default="English",
+                key="manual_language_selector",
             )
 
-        else:
-            st.markdown(
-                """
-                ## 腐蚀地图数据管理器 — 用户手册
-
-                ### 1. 本程序可以做什么
-
-                腐蚀地图数据管理器是一个用于整理和维护腐蚀暴露站点数据库的本地管理工具。它可以帮助用户：
-
-                - 注册腐蚀相关资料来源，包括本地 PDF 文件和外部网页链接；
-                - 添加暴露站点信息，包括坐标、国家/地区、区域标签、金属材料、暴露时间和备注；
-                - 将一个或多个资料来源关联到一个或多个站点；
-                - 为资料来源分配元数据，例如研究计划、金属材料和暴露时间；
-                - 编辑、删除和批量更新已有的站点和资料来源记录；
-                - 根据坐标和上下文信息自动建议区域分类标签；
-                - 从 CSV 文件导入站点数据，并在写入数据库前进行预览和检查；
-                - 将选定的整理后数据导出为网站使用的 `data/sites.csv` 文件；
-                - 将本地整理数据库与公开网站数据集分开管理。
-
-                ### 2. 基本使用流程
-
-                **步骤 1 — 添加或注册资料来源**
-
-                进入 **Sources** 页面。可以从 `source_pdfs/` 文件夹自动注册已有 PDF，也可以手动添加新的资料来源，包括 source code、标题、研究计划、金属材料、暴露时间、PDF、网页链接和备注。
-
-                **步骤 2 — 添加站点**
-
-                进入 **Sites** 页面。搜索地点，确认或手动输入纬度和经度，填写站点名称、国家/地区、区域标签、暴露时间、金属材料和备注，然后点击 **Add site**。
-
-                **步骤 3 — 将资料来源关联到站点**
-
-                在 **Sites → Source evidence for existing site(s)** 中，选择一个或多个站点以及一个或多个资料来源。然后为该站点-资料关系指定对应的金属材料和暴露时间，并点击 **Attach selected source(s)**。
-
-                **步骤 4 — 检查和编辑记录**
-
-                进入 **Manage Records** 页面。选择 `sites` 或 `sources`。可以直接编辑表格单元格、删除选定记录，或使用批量编辑工具。对于站点记录，还可以预览并应用自动区域分类建议。
-
-                **步骤 5 — 导入 CSV 数据**
-
-                进入 **Import** 页面。上传 CSV 文件，检查解析后的站点、资料来源和关联关系预览，必要时修改字段，然后确认导入。只有在确认后，数据才会写入数据库。
-
-                **步骤 6 — 导出到网站数据集**
-
-                进入 **Export / Publish** 页面。选择需要发布到公开网站数据集的站点，检查选择结果，然后确认发布。程序会更新 `data/sites.csv`，并生成带日期的批次快照。
-
-                ### 3. 注意事项
-
-                - 只有点击相应的保存、关联、导入或发布按钮后，修改才会写入数据库。
-                - 删除站点或资料来源时应谨慎，特别是当该记录已经与其他记录建立关联时。
-                - 自动区域分类只是建议，不应直接视为最终结论。应用前应检查预览结果。
-                - 本地 curation database 用于数据整理和管理；导出的 CSV 文件才是网站读取的数据集。
-                - 建议尽量将资料 PDF 放入或上传到 `source_pdfs/` 文件夹，以便后续网站能够稳定链接。
-                """
-            )
-
-if st.session_state.get("curator_logged_in") is True:
-    if st.button("Log out", key="curator_logout_button"):
-        st.session_state.curator_logged_in = False
-        st.rerun()
+            if manual_language == "English":
+                st.markdown(get_user_manual_english())
+            else:
+                st.markdown(get_user_manual_chinese())
+    with logout_button_col:
+        if st.button("Log out", key="curator_logout_button", use_container_width=True):
+            st.session_state.curator_logged_in = False
+            st.rerun()
 
 show_flash_message()
 
@@ -2201,15 +2697,21 @@ if active_page == "Sources":
             if source_selection_key not in st.session_state:
                 st.session_state[source_selection_key] = []
 
-            col_select_sources, col_clear_sources = st.columns(2)
+            select_sources_clicked, deselect_sources_clicked = render_left_button_pair(
+                "Select all sources",
+                "Deselect all sources",
+                left_key="select_all_combined_source_metadata",
+                right_key="deselect_all_combined_source_metadata",
+                widths=BUTTON_PAIR_COMPACT,
+            )
 
-            with col_select_sources:
-                if st.button("Select all sources", key="select_all_combined_source_metadata"):
-                    st.session_state[source_selection_key] = source_labels
+            if select_sources_clicked:
+                st.session_state[source_selection_key] = source_labels
+                st.rerun()
 
-            with col_clear_sources:
-                if st.button("Deselect all sources", key="deselect_all_combined_source_metadata"):
-                    st.session_state[source_selection_key] = []
+            if deselect_sources_clicked:
+                st.session_state[source_selection_key] = []
+                st.rerun()
 
             selected_source_labels = st.multiselect(
                 "Choose source(s) to update",
@@ -2679,17 +3181,21 @@ if active_page == "Sites":
 
             st.write("##### Site selection")
 
-            col_link_sites_all, col_link_sites_none = st.columns(2)
+            select_link_sites_clicked, deselect_link_sites_clicked = render_left_button_pair(
+                "Select all sites",
+                "Deselect all sites",
+                left_key="select_all_link_sites",
+                right_key="deselect_all_link_sites",
+                widths=BUTTON_PAIR_COMPACT,
+            )
 
-            with col_link_sites_all:
-                if st.button("Select all sites", key="select_all_link_sites"):
-                    st.session_state["link_sites_selected"] = site_link_labels
-                    st.rerun()
+            if select_link_sites_clicked:
+                st.session_state["link_sites_selected"] = site_link_labels
+                st.rerun()
 
-            with col_link_sites_none:
-                if st.button("Deselect all sites", key="deselect_all_link_sites"):
-                    st.session_state["link_sites_selected"] = []
-                    st.rerun()
+            if deselect_link_sites_clicked:
+                st.session_state["link_sites_selected"] = []
+                st.rerun()
 
             selected_site_labels = st.multiselect(
                 "Choose site(s)",
@@ -2700,17 +3206,21 @@ if active_page == "Sites":
 
             st.write("##### Source selection")
 
-            col_link_sources_all, col_link_sources_none = st.columns(2)
+            select_link_sources_clicked, deselect_link_sources_clicked = render_left_button_pair(
+                "Select all sources",
+                "Deselect all sources",
+                left_key="select_all_link_sources",
+                right_key="deselect_all_link_sources",
+                widths=BUTTON_PAIR_COMPACT,
+            )
 
-            with col_link_sources_all:
-                if st.button("Select all sources", key="select_all_link_sources"):
-                    st.session_state["link_sources_selected"] = source_link_labels
-                    st.rerun()
+            if select_link_sources_clicked:
+                st.session_state["link_sources_selected"] = source_link_labels
+                st.rerun()
 
-            with col_link_sources_none:
-                if st.button("Deselect all sources", key="deselect_all_link_sources"):
-                    st.session_state["link_sources_selected"] = []
-                    st.rerun()
+            if deselect_link_sources_clicked:
+                st.session_state["link_sources_selected"] = []
+                st.rerun()
 
             selected_source_labels = st.multiselect(
                 "Choose source(s)",
@@ -2887,9 +3397,25 @@ if active_page == "Sites":
                 if bool(row.get("delete"))
             ]
 
-            if st.button("Delete selected site-source links", key="delete_site_source_links"):
+            confirm_delete_links = st.checkbox(
+                "Confirm deletion of selected site-source links",
+                key="confirm_delete_site_source_links",
+            )
+
+            link_delete_left, link_delete_right = st.columns([0.72, 0.28])
+
+            with link_delete_right:
+                delete_links_clicked = st.button(
+                    "Delete selected site-source links",
+                    key="delete_site_source_links",
+                    use_container_width=True,
+                )
+
+            if delete_links_clicked:
                 if not delete_link_ids:
                     st.error("Tick at least one site-source link first.")
+                elif not confirm_delete_links:
+                    st.error("Confirm deletion before deleting selected site-source links.")
                 else:
                     try:
                         deleted_count = delete_site_source_links(delete_link_ids)
@@ -2936,10 +3462,13 @@ if active_page == "Manage Records":
 
     total_filtered_rows = len(filtered_rows)
 
-    current_page, page_size = render_pagination_controls(
+    page_key = f"manage_page_{manage_table}"
+    page_size_key = f"manage_page_size_{manage_table}"
+
+    current_page, page_size = get_pagination_state(
         total_rows=total_filtered_rows,
-        page_key=f"manage_page_{manage_table}",
-        page_size_key=f"manage_page_size_{manage_table}",
+        page_key=page_key,
+        page_size_key=page_size_key,
     )
 
     start_index = (int(current_page) - 1) * page_size
@@ -3017,7 +3546,7 @@ if active_page == "Manage Records":
         ]
 
         df_editor = df_editor[preferred_site_columns].copy()
-        df_editor["delete"] = False
+        df_editor.insert(0, "delete", False)
 
         disabled_columns = [
             column for column in df_editor.columns
@@ -3143,7 +3672,7 @@ if active_page == "Manage Records":
         df_editor["metals"] = df_editor["metals"].apply(split_chip_values)
         df_editor["exposure_periods"] = df_editor["exposure_periods"].apply(split_chip_values)
 
-        df_editor["delete"] = False
+        df_editor.insert(0, "delete", False)
 
         disabled_columns = []
 
@@ -3199,21 +3728,6 @@ if active_page == "Manage Records":
     if delete_state_key not in st.session_state:
         st.session_state[delete_state_key] = False
 
-    col_select_delete, col_deselect_delete = st.columns(2)
-
-    with col_select_delete:
-        if st.button("Select all for deletion", key=f"select_all_delete_{manage_table}"):
-            st.session_state[delete_state_key] = True
-
-    with col_deselect_delete:
-        if st.button("Deselect all deletion", key=f"deselect_all_delete_{manage_table}"):
-            st.session_state[delete_state_key] = False
-
-    confirm_bulk_delete = st.checkbox(
-        "Confirm deletion of selected records",
-        key=f"confirm_delete_{manage_table}",
-    )
-
     df_editor["delete"] = st.session_state[delete_state_key]
 
     search_signature = re.sub(
@@ -3233,92 +3747,142 @@ if active_page == "Manage Records":
         column_config=column_config,
     )
 
-    col_save, col_delete = st.columns([1, 1])
+    confirm_row_left, confirm_row_right = st.columns([0.58, 0.42])
 
-    with col_save:
-        if st.button("Save table edits", key=f"save_edits_{manage_table}"):
-            updated_rows = 0
+    with confirm_row_right:
+        confirm_spacer, confirm_checkbox_col = st.columns(
+            [0.22, 0.78],
+            vertical_alignment="center",
+        )
 
-            if manage_table == "sources":
-                for row_position in range(len(edited_df)):
-                    row_id = int(df_original.iloc[row_position]["id"])
-                    updates = {}
+        with confirm_checkbox_col:
+            confirm_bulk_delete = st.checkbox(
+                "Confirm deletion of selected records",
+                key=f"confirm_delete_{manage_table}",
+        )
 
-                    for column in editable_columns:
-                        old_value = clean_editor_value(
-                            df_original.iloc[row_position].get(column, "")
-                        )
-                        new_value = edited_df.iloc[row_position].get(column, "")
+    action_left, action_right = st.columns([0.58, 0.42], vertical_alignment="bottom")
 
-                        if column == "region_category":
-                            old_normalised = normalize_region_category(split_chip_values(old_value))
-                            new_normalised = normalize_region_category(split_chip_values(new_value))
-                        elif column in {"metal", "exposure_period"}:
-                            old_normalised = join_chip_values(old_value)
-                            new_normalised = join_chip_values(new_value)
-                        else:
-                            old_normalised = str(old_value)
-                            new_normalised = str(clean_editor_value(new_value))
+    with action_left:
+        select_delete_clicked, deselect_delete_clicked = render_left_button_pair(
+            "Select all for deletion",
+            "Deselect all deletion",
+            left_key=f"select_all_delete_{manage_table}",
+            right_key=f"deselect_all_delete_{manage_table}",
+            widths=BUTTON_PAIR_MEDIUM,
+        )
 
-                        if old_normalised != new_normalised:
-                            updates[column] = new_normalised
+        if select_delete_clicked:
+            st.session_state[delete_state_key] = True
+            st.rerun()
 
-                    if updates:
-                        updated_rows += update_table_row(
-                            manage_table,
-                            row_id,
-                            updates,
-                        )
+        if deselect_delete_clicked:
+            st.session_state[delete_state_key] = False
+            st.rerun()
 
-                for row_position in range(len(edited_df)):
-                    add_metadata_options(
-                        "programme",
-                        split_chip_values(edited_df.iloc[row_position].get("programme", "")),
+    with action_right:
+        right_spacer, delete_button_col, save_button_col = st.columns(
+            [0.22, 0.39, 0.39],
+            vertical_alignment="bottom",
+        )
+
+        with delete_button_col:
+            delete_clicked = st.button(
+                "Delete selected records",
+                key=f"delete_selected_{manage_table}",
+                use_container_width=True,
+            )
+
+        with save_button_col:
+            save_clicked = st.button(
+                "Save table edits",
+                key=f"save_edits_{manage_table}",
+                use_container_width=True,
+            )
+
+    if save_clicked:
+        updated_rows = 0
+
+        if manage_table == "sources":
+            for row_position in range(len(edited_df)):
+                row_id = int(df_original.iloc[row_position]["id"])
+                updates = {}
+
+                for column in editable_columns:
+                    old_value = clean_editor_value(
+                        df_original.iloc[row_position].get(column, "")
+                    )
+                    new_value = edited_df.iloc[row_position].get(column, "")
+
+                    if column == "region_category":
+                        old_normalised = normalize_region_category(split_chip_values(old_value))
+                        new_normalised = normalize_region_category(split_chip_values(new_value))
+                    elif column in {"metal", "exposure_period"}:
+                        old_normalised = join_chip_values(old_value)
+                        new_normalised = join_chip_values(new_value)
+                    else:
+                        old_normalised = str(old_value)
+                        new_normalised = str(clean_editor_value(new_value))
+
+                    if old_normalised != new_normalised:
+                        updates[column] = new_normalised
+
+                if updates:
+                    updated_rows += update_table_row(
+                        manage_table,
+                        row_id,
+                        updates,
                     )
 
-                    add_metadata_options(
-                        "metal",
-                        split_chip_values(edited_df.iloc[row_position].get("metals", "")),
+            for row_position in range(len(edited_df)):
+                add_metadata_options(
+                    "programme",
+                    split_chip_values(edited_df.iloc[row_position].get("programme", "")),
+                )
+
+                add_metadata_options(
+                    "metal",
+                    split_chip_values(edited_df.iloc[row_position].get("metals", "")),
+                )
+
+        else:
+            original_by_id = df_original.set_index("id")
+            edited_by_id = edited_df.drop(columns=["delete"]).set_index("id")
+
+            for row_id in edited_by_id.index:
+                updates = {}
+
+                for column in editable_columns:
+                    if column not in edited_by_id.columns:
+                        continue
+
+                    old_value = clean_editor_value(original_by_id.loc[row_id, column])
+                    new_value = edited_by_id.loc[row_id, column]
+
+                    if column in {"region_category", "metal", "exposure_period"}:
+                        old_normalised = join_chip_values(old_value)
+                        new_normalised = join_chip_values(new_value)
+                    else:
+                        old_normalised = str(old_value)
+                        new_normalised = str(clean_editor_value(new_value))
+
+                    if old_normalised != new_normalised:
+                        updates[column] = new_normalised
+
+                if updates:
+                    updated_rows += update_table_row(
+                        manage_table,
+                        int(row_id),
+                        updates,
                     )
 
-            else:
-                original_by_id = df_original.set_index("id")
-                edited_by_id = edited_df.drop(columns=["delete"]).set_index("id")
+        if updated_rows:
+            set_flash_message(f"Saved edits for {updated_rows} row(s).")
+            st.rerun()
+        else:
+            st.info("No changes detected.")
 
-                for row_id in edited_by_id.index:
-                    updates = {}
-
-                    for column in editable_columns:
-                        if column not in edited_by_id.columns:
-                            continue
-
-                        old_value = clean_editor_value(original_by_id.loc[row_id, column])
-                        new_value = edited_by_id.loc[row_id, column]
-
-                        if column in {"region_category", "metal", "exposure_period"}:
-                            old_normalised = join_chip_values(old_value)
-                            new_normalised = join_chip_values(new_value)
-                        else:
-                            old_normalised = str(old_value)
-                            new_normalised = str(clean_editor_value(new_value))
-
-                        if old_normalised != new_normalised:
-                            updates[column] = new_normalised
-
-                    if updates:
-                        updated_rows += update_table_row(
-                            manage_table,
-                            int(row_id),
-                            updates,
-                        )
-
-            if updated_rows:
-                set_flash_message(f"Saved edits for {updated_rows} row(s).")
-                st.rerun()
-            else:
-                st.info("No changes detected.")
-
-    with col_delete:
+    if delete_clicked:
         if manage_table == "sources":
             delete_ids = [
                 int(df_original.iloc[row_position]["id"])
@@ -3332,20 +3896,25 @@ if active_page == "Manage Records":
                 if bool(row.get("delete"))
             ]
 
-        if st.button("Delete selected records", key=f"delete_selected_{manage_table}"):
-            if not delete_ids:
-                st.error("Tick at least one record in the Delete column.")
-            elif not confirm_bulk_delete:
-                st.error("Confirm deletion before deleting selected records.")
-            else:
-                try:
-                    deleted_count = delete_table_rows(manage_table, delete_ids)
-                    set_flash_message(
-                        f"Deleted {deleted_count} record(s) from `{manage_table}`."
-                    )
-                    st.rerun()
-                except Exception as exc:
-                    st.error(f"Delete failed: {exc}")
+        if not delete_ids:
+            st.error("Tick at least one record in the Delete column.")
+        elif not confirm_bulk_delete:
+            st.error("Confirm deletion before deleting selected records.")
+        else:
+            try:
+                deleted_count = delete_table_rows(manage_table, delete_ids)
+                set_flash_message(
+                    f"Deleted {deleted_count} record(s) from `{manage_table}`."
+                )
+                st.rerun()
+            except Exception as exc:
+                st.error(f"Delete failed: {exc}")
+
+    render_pagination_controls(
+        total_rows=total_filtered_rows,
+        page_key=page_key,
+        page_size_key=page_size_key,
+    )
 
     st.write("#### Bulk edit selected records")
 
@@ -3360,23 +3929,21 @@ if active_page == "Manage Records":
     if bulk_selection_key not in st.session_state:
         st.session_state[bulk_selection_key] = []
 
-    col_bulk_select_all, col_bulk_deselect_all = st.columns(2)
+    bulk_select_clicked, bulk_deselect_clicked = render_left_button_pair(
+        "Select all records for bulk edit",
+        "Deselect all records for bulk edit",
+        left_key=f"select_all_bulk_rows_{manage_table}",
+        right_key=f"deselect_all_bulk_rows_{manage_table}",
+        widths=BUTTON_PAIR_LONG,
+    )
 
-    with col_bulk_select_all:
-        if st.button(
-            "Select all records for bulk edit",
-            key=f"select_all_bulk_rows_{manage_table}",
-        ):
-            st.session_state[bulk_selection_key] = row_labels
-            st.rerun()
+    if bulk_select_clicked:
+        st.session_state[bulk_selection_key] = row_labels
+        st.rerun()
 
-    with col_bulk_deselect_all:
-        if st.button(
-            "Deselect all records for bulk edit",
-            key=f"deselect_all_bulk_rows_{manage_table}",
-        ):
-            st.session_state[bulk_selection_key] = []
-            st.rerun()
+    if bulk_deselect_clicked:
+        st.session_state[bulk_selection_key] = []
+        st.rerun()
 
     selected_row_labels = st.multiselect(
         "Choose records to update",
@@ -3469,43 +4036,40 @@ if active_page == "Manage Records":
                 edited_auto_region_df["apply"].astype(bool)
             ].copy()
 
-            col_apply_auto_region, col_clear_auto_region = st.columns(2)
+            apply_auto_clicked, clear_auto_clicked = render_left_button_pair(
+                "Apply automatic region categories",
+                "Clear automatic region preview",
+                left_key="apply_auto_region_categories",
+                right_key="clear_auto_region_preview",
+                widths=(0.24, 0.24, 0.52),
+            )
 
-            with col_apply_auto_region:
-                if st.button(
-                    "Apply automatic region categories",
-                    key="apply_auto_region_categories",
-                    disabled=apply_auto_region_df.empty,
-                ):
-                    updated_count = 0
+            if apply_auto_clicked:
+                updated_count = 0
 
-                    for _, row in apply_auto_region_df.iterrows():
-                        suggested_value = str(
-                            row.get("suggested_region_category", "")
-                        ).strip()
+                for _, row in apply_auto_region_df.iterrows():
+                    suggested_value = str(
+                        row.get("suggested_region_category", "")
+                    ).strip()
 
-                        if not suggested_value:
-                            continue
+                    if not suggested_value:
+                        continue
 
-                        updated_count += update_table_row(
-                            "sites",
-                            int(row["id"]),
-                            {"region_category": suggested_value},
-                        )
-
-                    st.session_state.pop("auto_region_preview_df", None)
-                    set_flash_message(
-                        f"Updated region_category for {updated_count} site row(s)."
+                    updated_count += update_table_row(
+                        "sites",
+                        int(row["id"]),
+                        {"region_category": suggested_value},
                     )
-                    st.rerun()
 
-            with col_clear_auto_region:
-                if st.button(
-                    "Clear automatic region preview",
-                    key="clear_auto_region_preview",
-                ):
-                    st.session_state.pop("auto_region_preview_df", None)
-                    st.rerun()    
+                st.session_state.pop("auto_region_preview_df", None)
+                set_flash_message(
+                    f"Updated region_category for {updated_count} site row(s)."
+                )
+                st.rerun()
+
+            if clear_auto_clicked:
+                st.session_state.pop("auto_region_preview_df", None)
+                st.rerun() 
 
     bulk_field = st.selectbox(
         "Field to bulk update",
@@ -3609,15 +4173,19 @@ if active_page == "Import":
 
                 site_preview_df = build_site_level_import_preview(preview_df)
 
-                col_select_all, col_deselect_all = st.columns(2)
+                select_import_clicked, deselect_import_clicked = render_left_button_pair(
+                    "Select all import sites",
+                    "Deselect all import sites",
+                    left_key="select_all_import_sites",
+                    right_key="deselect_all_import_sites",
+                    widths=BUTTON_PAIR_MEDIUM,
+                )
 
-                with col_select_all:
-                    if st.button("Select all import sites", key="select_all_import_sites"):
-                        site_preview_df["import_selected"] = True
+                if select_import_clicked:
+                    site_preview_df["import_selected"] = True
 
-                with col_deselect_all:
-                    if st.button("Deselect all import sites", key="deselect_all_import_sites"):
-                        site_preview_df["import_selected"] = False
+                if deselect_import_clicked:
+                    site_preview_df["import_selected"] = False
 
                 visible_site_preview_columns = [
                     "import_selected",
@@ -3894,19 +4462,23 @@ if active_page == "Export / Publish":
             if unpublished_publish_default_key not in st.session_state:
                 st.session_state[unpublished_publish_default_key] = False
 
-            col_unpub_all, col_unpub_none = st.columns(2)
+            select_unpublished_clicked, deselect_unpublished_clicked = render_left_button_pair(
+                "Select all unpublished sites",
+                "Deselect unpublished sites",
+                left_key="select_all_unpublished_publish",
+                right_key="deselect_all_unpublished_publish",
+                widths=BUTTON_PAIR_LONG,
+            )
 
-            with col_unpub_all:
-                if st.button("Select all unpublished sites", key="select_all_unpublished_publish"):
-                    st.session_state[unpublished_publish_default_key] = True
-                    st.session_state.pop("unpublished_sites_publish_editor", None)
-                    st.rerun()
+            if select_unpublished_clicked:
+                st.session_state[unpublished_publish_default_key] = True
+                st.session_state.pop("unpublished_sites_publish_editor", None)
+                st.rerun()
 
-            with col_unpub_none:
-                if st.button("Deselect unpublished sites", key="deselect_all_unpublished_publish"):
-                    st.session_state[unpublished_publish_default_key] = False
-                    st.session_state.pop("unpublished_sites_publish_editor", None)
-                    st.rerun()
+            if deselect_unpublished_clicked:
+                st.session_state[unpublished_publish_default_key] = False
+                st.session_state.pop("unpublished_sites_publish_editor", None)
+                st.rerun()
 
             unpublished_df["publish"] = st.session_state[unpublished_publish_default_key]
 
@@ -3964,25 +4536,23 @@ if active_page == "Export / Publish":
             if published_publish_default_key not in st.session_state:
                 st.session_state[published_publish_default_key] = True
 
-            col_pub_all, col_pub_none = st.columns(2)
+            keep_published_clicked, remove_published_clicked = render_left_button_pair(
+                "Keep all already published sites",
+                "Remove all already published from next website dataset",
+                left_key="select_all_published_publish",
+                right_key="deselect_all_published_publish",
+                widths=BUTTON_PAIR_EXTRA_LONG,
+            )
 
-            with col_pub_all:
-                if st.button(
-                    "Keep all already published sites",
-                    key="select_all_published_publish",
-                ):
-                    st.session_state[published_publish_default_key] = True
-                    st.session_state.pop("published_sites_publish_editor", None)
-                    st.rerun()
+            if keep_published_clicked:
+                st.session_state[published_publish_default_key] = True
+                st.session_state.pop("published_sites_publish_editor", None)
+                st.rerun()
 
-            with col_pub_none:
-                if st.button(
-                    "Remove all already published from next website dataset",
-                    key="deselect_all_published_publish",
-                ):
-                    st.session_state[published_publish_default_key] = False
-                    st.session_state.pop("published_sites_publish_editor", None)
-                    st.rerun()
+            if remove_published_clicked:
+                st.session_state[published_publish_default_key] = False
+                st.session_state.pop("published_sites_publish_editor", None)
+                st.rerun()
 
             already_published_df["publish"] = st.session_state[published_publish_default_key]
 
@@ -4083,62 +4653,178 @@ if active_page == "Export / Publish":
             key="git_commit_message",
         )
 
-        if st.button("Confirm publish to website", type="primary", key="confirm_publish_to_website"):
-            if duplicate_site_ids:
-                st.error("Fix duplicate site_id values before publishing.")
-            elif not selected_site_db_ids:
-                st.error("Select at least one site to publish.")
-            elif not confirm_publish_checked:
-                st.error("Tick the confirmation checkbox before publishing.")
+        with st.expander("Quick remove already published site(s) from public map", expanded=False):
+            st.caption(
+                "Use this to remove one or more already published sites from the public map "
+                "without deleting them from the curator database."
+            )
+
+            if already_published_df.empty:
+                st.info("No already published sites are available to remove.")
             else:
-                try:
-                    result = publish_selected_sites_csv(selected_site_db_ids)
-                    st.session_state.last_publish_live_path = str(result["live_path"])
-                    st.session_state.last_publish_batch_path = str(result["batch_path"])
+                published_remove_label_to_id = {}
 
-                    st.session_state.website_publish_ready_for_git = True
-
-                    publish_message = (
-                        "Website dataset published successfully. "
-                        f"Published sites: {result['rows']}. "
-                        f"Live file: {display_app_path(result['live_path'])}. "
-                        f"Batch snapshot: {result['batch_name']}."
+                for _, row in already_published_df.iterrows():
+                    label = (
+                        f"{row.get('site_id', '')} — "
+                        f"{row.get('site_label', '')} "
+                        f"[database id: {int(row['site_db_id'])}]"
                     )
+                    published_remove_label_to_id[label] = int(row["site_db_id"])
 
-                    if publish_to_github_after_export:
-                        github_result = publish_files_to_github(
-                            live_path=str(result["live_path"]),
-                            batch_path=str(result["batch_path"]),
-                            commit_message=git_commit_message,
-                        )
+                selected_remove_labels = st.multiselect(
+                    "Published site(s) to remove from public map",
+                    options=list(published_remove_label_to_id.keys()),
+                    key="quick_remove_published_site_labels",
+                )
 
-                        st.session_state.last_git_publish_output = str(github_result["output"])
-                        st.session_state.last_git_publish_message = str(github_result["message"])
+                selected_remove_site_db_ids = [
+                    published_remove_label_to_id[label]
+                    for label in selected_remove_labels
+                ]
 
-                        if bool(github_result["ok"]):
-                            st.session_state.website_publish_ready_for_git = False
-                            set_flash_message(
-                                publish_message + " " + str(github_result["message"]),
-                                level="success",
+                confirm_quick_remove = st.checkbox(
+                    "I understand this removes the selected site(s) from the public map dataset, but does not delete them from the curator database.",
+                    key="confirm_quick_remove_published_sites",
+                )
+
+                if st.button(
+                    "Remove selected site(s) from public map and upload to GitHub",
+                    key="quick_remove_published_sites_from_map",
+                    type="secondary",
+                ):
+                    if not selected_remove_site_db_ids:
+                        st.error("Select at least one already published site to remove.")
+                    elif not confirm_quick_remove:
+                        st.error("Tick the confirmation checkbox before removing published site(s).")
+                    else:
+                        keep_site_db_ids = [
+                            int(row["site_db_id"])
+                            for _, row in publish_df.iterrows()
+                            if bool(row["is_already_published"])
+                            and int(row["site_db_id"]) not in selected_remove_site_db_ids
+                        ]
+
+                        if not keep_site_db_ids:
+                            st.error(
+                                "This shortcut would publish an empty website dataset. "
+                                "Use the normal publish table if you truly intend to remove every site."
                             )
                         else:
-                            st.session_state.website_publish_ready_for_git = True
-                            set_flash_message(
-                                publish_message + " However, GitHub API publish did not complete: "
-                                + str(github_result["message"]),
-                                level="warning",
-                            )
-                    else:
-                        set_flash_message(
-                            publish_message + " You can now use the separate GitHub API upload button.",
-                            level="success",
+                            try:
+                                result = publish_selected_sites_csv(keep_site_db_ids)
+
+                                st.session_state.last_publish_live_path = str(result["live_path"])
+                                st.session_state.last_publish_batch_path = str(result["batch_path"])
+
+                                github_result = publish_files_to_github(
+                                    live_path=str(result["live_path"]),
+                                    batch_path=str(result["batch_path"]),
+                                    commit_message=(
+                                        git_commit_message.strip()
+                                        or "Remove published site from corrosion map website dataset"
+                                    ),
+                                )
+
+                                st.session_state.last_git_publish_output = str(github_result["output"])
+                                st.session_state.last_git_publish_message = str(github_result["message"])
+
+                                if bool(github_result["ok"]):
+                                    st.session_state.website_publish_ready_for_git = False
+                                    set_flash_message(
+                                        "Selected published site(s) removed from the public map dataset "
+                                        "and uploaded to GitHub. The map may take a few seconds or minutes "
+                                        "to show the change.",
+                                        level="success",
+                                    )
+                                else:
+                                    st.session_state.website_publish_ready_for_git = True
+                                    set_flash_message(
+                                        "The local website dataset was updated, but GitHub upload did not complete: "
+                                        + str(github_result["message"]),
+                                        level="warning",
+                                    )
+
+                                set_next_active_page("Export / Publish")
+                                st.rerun()
+
+                            except Exception as exc:
+                                st.error(f"Could not remove selected published site(s): {exc}")
+
+        publish_button_col, map_button_col = st.columns(
+            [0.68, 0.32],
+            vertical_alignment="top",
+        )
+
+        with publish_button_col:
+            if st.button("Confirm publish to website", type="primary", key="confirm_publish_to_website"):
+                if duplicate_site_ids:
+                    st.error("Fix duplicate site_id values before publishing.")
+                elif not selected_site_db_ids:
+                    st.error("Select at least one site to publish.")
+                elif not confirm_publish_checked:
+                    st.error("Tick the confirmation checkbox before publishing.")
+                else:
+                    try:
+                        result = publish_selected_sites_csv(selected_site_db_ids)
+                        st.session_state.last_publish_live_path = str(result["live_path"])
+                        st.session_state.last_publish_batch_path = str(result["batch_path"])
+
+                        st.session_state.website_publish_ready_for_git = True
+
+                        publish_message = (
+                            "Website dataset published successfully. "
+                            f"Published sites: {result['rows']}. "
+                            f"Live file: {display_app_path(result['live_path'])}. "
+                            f"Batch snapshot: {result['batch_name']}."
                         )
 
-                    set_next_active_page("Export / Publish")
-                    st.rerun()
+                        if publish_to_github_after_export:
+                            github_result = publish_files_to_github(
+                                live_path=str(result["live_path"]),
+                                batch_path=str(result["batch_path"]),
+                                commit_message=git_commit_message,
+                            )
 
-                except Exception as exc:
-                    st.error(f"Website publish failed: {exc}")
+                            st.session_state.last_git_publish_output = str(github_result["output"])
+                            st.session_state.last_git_publish_message = str(github_result["message"])
+
+                            if bool(github_result["ok"]):
+                                st.session_state.website_publish_ready_for_git = False
+                                set_flash_message(
+                                    publish_message + " " + str(github_result["message"]),
+                                    level="success",
+                                )
+                            else:
+                                st.session_state.website_publish_ready_for_git = True
+                                set_flash_message(
+                                    publish_message + " However, GitHub API publish did not complete: "
+                                    + str(github_result["message"]),
+                                    level="warning",
+                                )
+                        else:
+                            set_flash_message(
+                                publish_message + " You can now use the separate GitHub API upload button.",
+                                level="success",
+                            )
+
+                        set_next_active_page("Export / Publish")
+                        st.rerun()
+
+                    except Exception as exc:
+                        st.error(f"Website publish failed: {exc}")
+        with map_button_col:
+            if MAP_WEBSITE_URL:
+                st.link_button(
+                    "Open public map website ↗",
+                    MAP_WEBSITE_URL,
+                    use_container_width=True,
+                )
+            else:
+                st.info("Set MAP_WEBSITE_URL in secrets to enable the map shortcut.")
+
+            st.caption("Published changes may take a few seconds or minutes to appear on the map.")
+        
         st.divider()
         st.write("#### Upload latest website publish to GitHub")
 
