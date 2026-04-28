@@ -1984,6 +1984,7 @@ If newly added data does not appear on the public map, check the following:
 If GitHub upload fails, the public map will not update even if the curator database was changed.
 
 If a source or site deletion fails, remove related site-source links first.
+If none works, ask Jason.
 """
 
 
@@ -2242,6 +2243,7 @@ def get_user_manual_chinese() -> str:
 如果 GitHub 上传失败，即使 curator 数据库已经修改，公开地图也不会更新。
 
 如果删除资料来源或站点失败，请先检查并删除相关的站点-资料关联。
+如果都没用，找Jason。
 """
 
 st.set_page_config(
