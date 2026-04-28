@@ -281,3 +281,46 @@ def publish_files_to_github(
         ),
         "output": "\n".join(output_lines),
     }
+
+def publish_file_to_github(
+    local_path: str | Path,
+    commit_message: str | None = None,
+    repo_path: str | None = None,
+) -> dict[str, Any]:
+    config = get_github_publish_config()
+    client = GitHubContentsClient(config)
+
+    local_path = Path(local_path)
+
+    if repo_path is None:
+        repo_path = repo_path_from_local_path(local_path)
+
+    if commit_message is None:
+        commit_message = f"Upload {repo_path}"
+
+    upload_result = client.put_file(
+        local_path=local_path,
+        repo_path=repo_path,
+        commit_message=commit_message,
+    )
+
+    output_lines = [
+        f"Repository: {config.owner}/{config.repo}",
+        f"Branch: {config.branch}",
+        "",
+        f"- {upload_result['path']}: {upload_result['action']}",
+    ]
+
+    if upload_result.get("html_url"):
+        output_lines.append(f"  {upload_result['html_url']}")
+
+    if upload_result.get("commit_sha"):
+        output_lines.append(f"  commit: {upload_result['commit_sha']}")
+
+    return {
+        "ok": True,
+        "changed_count": 0 if upload_result.get("action") == "skipped" else 1,
+        "upload": upload_result,
+        "message": f"GitHub PDF upload completed: {repo_path} {upload_result['action']}.",
+        "output": "\n".join(output_lines),
+    }

@@ -49,6 +49,7 @@ from region_classifier import classify_region_category
 from github_publish import (
     get_github_config_summary,
     publish_files_to_github,
+    publish_file_to_github,
 )
 
 def get_geolocator() -> Nominatim:
@@ -2600,6 +2601,78 @@ if active_page == "Sources":
                 add_metadata_options("programme", split_chip_values(scan_programme))
                 set_flash_message(f"Registered {registered_count} PDF source(s).")
                 st.rerun()
+    
+    with st.expander("Upload source PDF(s) to GitHub", expanded=False):
+        existing_pdf_files = list_source_pdf_files()
+
+        if not existing_pdf_files:
+            st.info("No PDF files found in `source_pdfs/`.")
+        else:
+            pdf_label_to_path = {
+                pdf_path.name: pdf_path
+                for pdf_path in existing_pdf_files
+            }
+
+            selected_pdf_labels = st.multiselect(
+                "Choose PDF file(s) to upload to GitHub",
+                options=list(pdf_label_to_path.keys()),
+                key="source_pdfs_to_upload_to_github",
+            )
+
+            if st.button(
+                "Upload selected source PDF(s) to GitHub",
+                key="upload_selected_source_pdfs_to_github",
+            ):
+                if not selected_pdf_labels:
+                    st.error("Select at least one PDF file.")
+                else:
+                    upload_messages = []
+                    uploaded_count = 0
+                    skipped_count = 0
+                    failed_count = 0
+
+                    for pdf_label in selected_pdf_labels:
+                        pdf_path = pdf_label_to_path[pdf_label]
+
+                        try:
+                            result = publish_file_to_github(
+                                local_path=pdf_path,
+                                commit_message=f"Upload source PDF {pdf_path.name}",
+                            )
+
+                            action = str(result.get("upload", {}).get("action", ""))
+
+                            if action == "skipped":
+                                skipped_count += 1
+                            else:
+                                uploaded_count += 1
+
+                            upload_messages.append(
+                                f"{pdf_path.name}: {action}"
+                            )
+
+                        except Exception as exc:
+                            failed_count += 1
+                            upload_messages.append(
+                                f"{pdf_path.name}: failed — {exc}"
+                            )
+
+                    st.session_state.last_git_publish_output = "\n".join(upload_messages)
+
+                    if failed_count:
+                        st.warning(
+                            f"PDF GitHub upload completed with failures. "
+                            f"Uploaded/updated: {uploaded_count}; skipped unchanged: {skipped_count}; "
+                            f"failed: {failed_count}."
+                        )
+                    else:
+                        st.success(
+                            f"PDF GitHub upload completed. "
+                            f"Uploaded/updated: {uploaded_count}; skipped unchanged: {skipped_count}."
+                        )
+
+                    with st.expander("Show PDF GitHub upload details", expanded=True):
+                        st.code("\n".join(upload_messages), language="text")
 
     st.divider()
 
@@ -2652,6 +2725,16 @@ if active_page == "Sources":
             help="The PDF will be copied into source_pdfs/ and linked from the website later.",
         )
 
+        upload_source_pdf_to_github = st.checkbox(
+            "After adding this source, upload the PDF to GitHub",
+            value=True,
+            help=(
+                "Recommended for the online app. Streamlit's hosted file system is not permanent, "
+                "so uploaded PDFs should be committed to GitHub if they need to remain accessible."
+            ),
+            key="upload_source_pdf_to_github_after_add",
+        )
+
         external_url = st.text_input(
             "External URL",
             placeholder="Optional. If a PDF is uploaded, the uploaded PDF path will be used.",
@@ -2693,7 +2776,30 @@ if active_page == "Sources":
                     set_next_active_page("Sources")
                     add_metadata_options("programme", split_chip_values(source_programme))
                     add_metadata_options("metal", split_chip_values(source_metals))
-                    set_flash_message(f"Source '{source_code.strip()}' added successfully.")
+
+                    flash_level = "success"
+                    flash_message = f"Source '{source_code.strip()}' added successfully."
+
+                    if uploaded_pdf is not None and upload_source_pdf_to_github:
+                        try:
+                            pdf_local_path = REPO_ROOT / source_url
+
+                            github_pdf_result = publish_file_to_github(
+                                local_path=pdf_local_path,
+                                commit_message=f"Upload source PDF {local_file_name}",
+                            )
+
+                            flash_message += " Uploaded source PDF to GitHub."
+                            st.session_state.last_git_publish_output = str(github_pdf_result["output"])
+
+                        except Exception as github_exc:
+                            flash_level = "warning"
+                            flash_message += (
+                                " However, the source PDF was not uploaded to GitHub: "
+                                + str(github_exc)
+                            )
+
+                    set_flash_message(flash_message, level=flash_level)
                     st.rerun()
 
                 except Exception as exc:
@@ -3859,10 +3965,7 @@ if active_page == "Manage Records":
                     )
                     new_value = edited_df.iloc[row_position].get(column, "")
 
-                    if column == "region_category":
-                        old_normalised = normalize_region_category(split_chip_values(old_value))
-                        new_normalised = normalize_region_category(split_chip_values(new_value))
-                    elif column in {"metal", "exposure_period"}:
+                    if column in {"programme", "metals", "exposure_periods"}:
                         old_normalised = join_chip_values(old_value)
                         new_normalised = join_chip_values(new_value)
                     else:
@@ -4152,6 +4255,15 @@ if active_page == "Import":
     )
 
     st.write("### Import sites CSV")
+
+    st.info(
+        "Minimal import format is supported. Recommended columns: "
+        "`site_label`, `modern_country_location`, `administering_country`, "
+        "`site_type`, `source_1`, `source_2`, and `notes`. "
+        "Optional columns such as `site_id`, `latitude`, `longitude`, "
+        "`former_entity`, `region_category`, `metal`, and `exposure_period` "
+        "may be omitted."
+    )
 
     uploaded_import_csv = st.file_uploader(
         "Upload CSV file",

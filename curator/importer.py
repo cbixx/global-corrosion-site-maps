@@ -32,6 +32,112 @@ def clean_cell(value) -> str:
         return ""
     return str(value).strip()
 
+def normalize_import_column_name(column_name: str) -> str:
+    text = clean_cell(column_name)
+
+    # Remove invisible UTF-8 BOM and common wrapping characters.
+    text = text.replace("\ufeff", "")
+    text = text.strip().strip('"').strip("'")
+
+    # Make matching case-insensitive and separator-insensitive.
+    text = text.lower()
+    text = re.sub(r"\s+", "_", text)
+    text = re.sub(r"[-/]+", "_", text)
+    text = re.sub(r"[^a-z0-9_]+", "_", text)
+    text = re.sub(r"_+", "_", text).strip("_")
+
+    # Flexible source-column recognition:
+    # source1, source_1, source 1, source-01 -> source_1
+    source_match = re.fullmatch(r"source_?0*(\d+)", text)
+    if source_match:
+        return f"source_{int(source_match.group(1))}"
+
+    aliases = {
+        # Site label
+        "site": "site_label",
+        "site_name": "site_label",
+        "site_label": "site_label",
+        "station": "site_label",
+        "station_name": "site_label",
+        "exposure_site": "site_label",
+        "exposure_site_name": "site_label",
+        "location": "site_label",
+        "location_name": "site_label",
+
+        # Site ID
+        "siteid": "site_id",
+        "site_id": "site_id",
+        "site_code": "site_id",
+        "station_id": "site_id",
+        "station_code": "site_id",
+
+        # Site type
+        "site_type": "site_type",
+        "type": "site_type",
+        "station_type": "site_type",
+        "location_type": "site_type",
+
+        # Coordinates
+        "lat": "latitude",
+        "latitude": "latitude",
+        "y": "latitude",
+        "lon": "longitude",
+        "long": "longitude",
+        "lng": "longitude",
+        "longitude": "longitude",
+        "x": "longitude",
+
+        # Country/location
+        "country": "modern_country_location",
+        "modern_country": "modern_country_location",
+        "modern_location": "modern_country_location",
+        "modern_country_location": "modern_country_location",
+        "country_location": "modern_country_location",
+        "current_country": "modern_country_location",
+        "current_location": "modern_country_location",
+        "modern_country_or_location": "modern_country_location",
+
+        # Administering country
+        "admin_country": "administering_country",
+        "administering_country": "administering_country",
+        "administrating_country": "administering_country",
+        "administrator_country": "administering_country",
+        "administered_by": "administering_country",
+
+        # Former entity
+        "former_entity": "former_entity",
+        "former_country": "former_entity",
+        "former_state": "former_entity",
+        "historical_entity": "former_entity",
+
+        # Region
+        "region": "region_category",
+        "region_category": "region_category",
+        "region_categories": "region_category",
+        "environment": "region_category",
+        "environment_type": "region_category",
+
+        # Exposure/metal
+        "duration": "exposure_period",
+        "exposure_duration": "exposure_period",
+        "exposure_period": "exposure_period",
+        "exposure_time": "exposure_period",
+        "period": "exposure_period",
+        "metal": "metal",
+        "metals": "metal",
+        "material": "metal",
+        "materials": "metal",
+
+        # Notes
+        "note": "notes",
+        "notes": "notes",
+        "remark": "notes",
+        "remarks": "notes",
+        "comment": "notes",
+        "comments": "notes",
+    }
+
+    return aliases.get(text, text)
 
 def detect_source_columns(columns: list[str]) -> list[str]:
     source_columns = [
@@ -77,7 +183,7 @@ def parse_source_value(source_value: str) -> dict[str, str]:
         source_url = normalized
 
     return {
-        "source_code": source_code.strip(),
+        "source_code": source_code.strip().lower(),
         "source_url": source_url.strip(),
         "local_file_name": local_file_name.strip(),
     }
@@ -172,7 +278,21 @@ def build_import_preview(
     df = read_uploaded_csv(uploaded_file)
     source_metadata_by_code = source_metadata_by_code or {}
 
-    df.columns = [str(column).strip() for column in df.columns]
+    original_columns = [str(column) for column in df.columns]
+    normalised_columns = [
+        normalize_import_column_name(column)
+        for column in original_columns
+    ]
+
+    df.columns = normalised_columns
+
+    df = df.loc[
+        :,
+        [
+            column for column in df.columns
+            if column and not column.startswith("unnamed")
+        ],
+    ]
 
     source_columns = detect_source_columns(list(df.columns))
 
@@ -187,12 +307,16 @@ def build_import_preview(
     ]
 
     if missing_required_columns:
+        detected_columns = ", ".join(list(df.columns))
+
         raise ValueError(
             "The import CSV is missing required column(s): "
             + ", ".join(missing_required_columns)
             + ". Minimum recommended columns are: "
             "site_label, modern_country_location, administering_country, "
-            "site_type, source_1, source_2, notes."
+            "site_type, source_1, source_2, notes. "
+            "Detected columns after normalisation: "
+            + detected_columns
         )
 
     if not source_columns:
