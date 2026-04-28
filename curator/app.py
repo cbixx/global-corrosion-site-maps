@@ -45,7 +45,10 @@ from exporter import (
     publish_selected_sites_csv,
 )
 from region_classifier import classify_region_category
-from git_tools import commit_and_push_website_dataset, get_git_status_text
+from github_publish import (
+    get_github_config_summary,
+    publish_files_to_github,
+)
 
 def get_geolocator() -> Nominatim:
     return Nominatim(user_agent="corrosion_map_curator")
@@ -1762,6 +1765,12 @@ if "last_git_publish_output" not in st.session_state:
 
 if "last_git_publish_message" not in st.session_state:
     st.session_state.last_git_publish_message = ""
+
+if "last_publish_live_path" not in st.session_state:
+    st.session_state.last_publish_live_path = ""
+
+if "last_publish_batch_path" not in st.session_state:
+    st.session_state.last_publish_batch_path = ""
     
 def apply_selected_location() -> None:
     selected_label = st.session_state.get("selected_location_label")
@@ -3806,6 +3815,7 @@ if active_page == "Export / Publish":
         unpublished_df = publish_df[
             ~publish_df["is_already_published"]
         ].copy()
+        edited_unpublished_df = pd.DataFrame()
 
         st.write("### Yet to be published")
 
@@ -3994,20 +4004,10 @@ if active_page == "Export / Publish":
             key="confirm_publish_checked",
         )
 
-        commit_after_publish = st.checkbox(
-            "After confirming publish, also commit and push the website dataset to GitHub",
+        publish_to_github_after_export = st.checkbox(
+            "After confirming publish, upload the website dataset to GitHub using the API",
             value=False,
-            key="commit_after_publish",
-        )
-
-        include_source_pdfs_in_git = st.checkbox(
-            "Also include source_pdfs/ in the Git commit",
-            value=False,
-            key="include_source_pdfs_in_git",
-            help=(
-                "Use this only when the PDFs are intended to be pushed to the repository. "
-                "By default, only data/sites.csv and data/publish_batches/ are staged."
-            ),
+            key="publish_to_github_after_export",
         )
 
         git_commit_message = st.text_input(
@@ -4026,6 +4026,8 @@ if active_page == "Export / Publish":
             else:
                 try:
                     result = publish_selected_sites_csv(selected_site_db_ids)
+                    st.session_state.last_publish_live_path = str(result["live_path"])
+                    st.session_state.last_publish_batch_path = str(result["batch_path"])
 
                     st.session_state.website_publish_ready_for_git = True
 
@@ -4036,31 +4038,32 @@ if active_page == "Export / Publish":
                         f"Batch snapshot: {result['batch_name']}."
                     )
 
-                    if commit_after_publish:
-                        git_result = commit_and_push_website_dataset(
+                    if publish_to_github_after_export:
+                        github_result = publish_files_to_github(
+                            live_path=str(result["live_path"]),
+                            batch_path=str(result["batch_path"]),
                             commit_message=git_commit_message,
-                            include_source_pdfs=include_source_pdfs_in_git,
                         )
 
-                        st.session_state.last_git_publish_output = str(git_result["output"])
-                        st.session_state.last_git_publish_message = str(git_result["message"])
+                        st.session_state.last_git_publish_output = str(github_result["output"])
+                        st.session_state.last_git_publish_message = str(github_result["message"])
 
-                        if bool(git_result["ok"]):
+                        if bool(github_result["ok"]):
                             st.session_state.website_publish_ready_for_git = False
                             set_flash_message(
-                                publish_message + " " + str(git_result["message"]),
+                                publish_message + " " + str(github_result["message"]),
                                 level="success",
                             )
                         else:
                             st.session_state.website_publish_ready_for_git = True
                             set_flash_message(
-                                publish_message + " However, Git commit/push did not complete: "
-                                + str(git_result["message"]),
+                                publish_message + " However, GitHub API publish did not complete: "
+                                + str(github_result["message"]),
                                 level="warning",
                             )
                     else:
                         set_flash_message(
-                            publish_message + " You can now use the separate Commit and Push button.",
+                            publish_message + " You can now use the separate GitHub API upload button.",
                             level="success",
                         )
 
@@ -4070,7 +4073,7 @@ if active_page == "Export / Publish":
                 except Exception as exc:
                     st.error(f"Website publish failed: {exc}")
         st.divider()
-        st.write("#### Commit and push to GitHub")
+        st.write("#### Upload latest website publish to GitHub")
 
         if st.session_state.last_git_publish_message:
             if st.session_state.website_publish_ready_for_git:
@@ -4082,41 +4085,45 @@ if active_page == "Export / Publish":
             with st.expander("Show last Git command output", expanded=False):
                 st.code(st.session_state.last_git_publish_output, language="text")
 
-        if st.button("Refresh Git status", key="refresh_git_status"):
-            st.session_state.git_status_preview = get_git_status_text()
+        if st.button("Check GitHub API configuration", key="check_github_api_config"):
+            st.session_state.git_status_preview = get_github_config_summary()
 
         if "git_status_preview" in st.session_state:
-            with st.expander("Current Git status", expanded=False):
+            with st.expander("GitHub API configuration", expanded=False):
                 st.code(st.session_state.git_status_preview, language="text")
 
         manual_commit_disabled = not bool(st.session_state.website_publish_ready_for_git)
 
         if manual_commit_disabled:
             st.info(
-                "Commit and Push is disabled until you successfully confirm a website publish in this app session."
+                "GitHub upload is disabled until you successfully confirm a website publish in this app session."
             )
 
         if st.button(
-            "Commit and push latest website publish",
-            key="commit_push_latest_publish",
+            "Upload latest website publish to GitHub",
+            key="upload_latest_publish_to_github",
             disabled=manual_commit_disabled,
         ):
-            git_result = commit_and_push_website_dataset(
-                commit_message=git_commit_message,
-                include_source_pdfs=include_source_pdfs_in_git,
-            )
-
-            st.session_state.last_git_publish_output = str(git_result["output"])
-            st.session_state.last_git_publish_message = str(git_result["message"])
-
-            if bool(git_result["ok"]):
-                st.session_state.website_publish_ready_for_git = False
-                set_flash_message(str(git_result["message"]), level="success")
+            if not st.session_state.last_publish_live_path or not st.session_state.last_publish_batch_path:
+                st.error("No latest publish file paths are available. Confirm website publish first.")
             else:
-                st.session_state.website_publish_ready_for_git = True
-                set_flash_message(str(git_result["message"]), level="warning")
+                github_result = publish_files_to_github(
+                    live_path=st.session_state.last_publish_live_path,
+                    batch_path=st.session_state.last_publish_batch_path,
+                    commit_message=git_commit_message,
+                )
 
-            st.rerun()
+                st.session_state.last_git_publish_output = str(github_result["output"])
+                st.session_state.last_git_publish_message = str(github_result["message"])
+
+                if bool(github_result["ok"]):
+                    st.session_state.website_publish_ready_for_git = False
+                    set_flash_message(str(github_result["message"]), level="success")
+                else:
+                    st.session_state.website_publish_ready_for_git = True
+                    set_flash_message(str(github_result["message"]), level="warning")
+
+                st.rerun()
 
 if active_page == "Settings":
     st.subheader("Settings")

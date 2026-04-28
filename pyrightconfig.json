@@ -1,0 +1,11 @@
+{
+  "include": [
+    "curator",
+    "scripts"
+  ],
+  "extraPaths": [
+    "curator"
+  ],
+  "venvPath": ".",
+  "venv": ".venv"
+}
