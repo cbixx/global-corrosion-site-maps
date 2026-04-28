@@ -372,6 +372,26 @@ def build_site_id_prefix(
 REPO_ROOT = Path(__file__).resolve().parents[1]
 SOURCE_PDF_DIR = REPO_ROOT / "source_pdfs"
 SOURCE_PDF_RELATIVE_DIR = "source_pdfs"
+DATA_EDITOR_MAX_HEIGHT = 520
+DATAFRAME_MAX_HEIGHT = 420
+DATA_EDITOR_ROW_HEIGHT = 34
+DATA_EDITOR_HEADER_HEIGHT = 40
+DATA_EDITOR_EXTRA_PADDING = 0
+
+
+def get_table_height(
+    row_count: int,
+    max_height: int = DATA_EDITOR_MAX_HEIGHT,
+) -> int:
+    row_count = max(1, int(row_count))
+
+    calculated_height = (
+        DATA_EDITOR_HEADER_HEIGHT
+        + row_count * DATA_EDITOR_ROW_HEIGHT
+        + DATA_EDITOR_EXTRA_PADDING
+    )
+
+    return min(calculated_height, max_height)
 
 
 def make_safe_file_stem(value: str) -> str:
@@ -452,6 +472,134 @@ def build_row_label(row: dict, table_name: str) -> str:
         return f"{row['id']} — {row.get('source_code', '')} — {row.get('source_title', '') or row.get('local_file_name', '')}"
 
     return str(row["id"])
+
+def filter_records_by_search(rows: list[dict], search_text: str) -> list[dict]:
+    search_text = str(search_text or "").strip().lower()
+
+    if not search_text:
+        return rows
+
+    filtered_rows = []
+
+    for row in rows:
+        searchable_text = " ".join(
+            str(value or "")
+            for value in row.values()
+        ).lower()
+
+        if search_text in searchable_text:
+            filtered_rows.append(row)
+
+    return filtered_rows
+
+def get_visible_page_items(current_page: int, total_pages: int) -> list[int | str]:
+    if total_pages <= 7:
+        return list(range(1, total_pages + 1))
+
+    if current_page <= 4:
+        return [1, 2, 3, 4, 5, "...", total_pages]
+
+    if current_page >= total_pages - 3:
+        return [1, "...", total_pages - 4, total_pages - 3, total_pages - 2, total_pages - 1, total_pages]
+
+    return [1, "...", current_page - 1, current_page, current_page + 1, "...", total_pages]
+
+
+def render_pagination_controls(
+    total_rows: int,
+    page_key: str,
+    page_size_key: str,
+    anchor_id: str = "manage-records-top",
+) -> tuple[int, int]:
+    page_size_options = [10, 25, 50, 100, 200]
+
+    if page_key not in st.session_state:
+        st.session_state[page_key] = 1
+
+    nav_col, display_col = st.columns([0.72, 0.28], vertical_alignment="center")
+
+    with display_col:
+        page_size = st.selectbox(
+            "Display",
+            options=page_size_options,
+            index=0,
+            key=page_size_key,
+            format_func=lambda value: f"{value} results",
+            label_visibility="collapsed",
+        )
+
+        st.markdown(
+            f"""
+            <div style="text-align: right; margin-top: -0.5rem;">
+                <a href="#{anchor_id}" style="text-decoration: none;">Back to top</a>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+    last_page_size_key = f"{page_size_key}_last_value"
+
+    if st.session_state.get(last_page_size_key) != page_size:
+        st.session_state[last_page_size_key] = page_size
+        st.session_state[page_key] = 1
+
+    total_pages = max(1, (total_rows + page_size - 1) // page_size)
+
+    if int(st.session_state[page_key]) > total_pages:
+        st.session_state[page_key] = total_pages
+
+    if int(st.session_state[page_key]) < 1:
+        st.session_state[page_key] = 1
+
+    current_page = int(st.session_state[page_key])
+    page_items = get_visible_page_items(current_page, total_pages)
+
+    with nav_col:
+        page_columns = st.columns(
+            [1.05] + [0.34 for _ in page_items] + [0.75],
+            vertical_alignment="center",
+        )
+
+        with page_columns[0]:
+            if st.button(
+                "‹ Previous",
+                key=f"{page_key}_previous",
+                disabled=current_page <= 1,
+            ):
+                st.session_state[page_key] = current_page - 1
+                st.rerun()
+
+        for page_item, page_column in zip(page_items, page_columns[1:-1]):
+            with page_column:
+                if page_item == "...":
+                    st.markdown(
+                        "<div style='text-align:center; padding-top:0.45rem;'>...</div>",
+                        unsafe_allow_html=True,
+                    )
+                elif int(page_item) == current_page:
+                    st.button(
+                        str(page_item),
+                        key=f"{page_key}_page_{page_item}_active",
+                        disabled=True,
+                    )
+                else:
+                    if st.button(
+                        str(page_item),
+                        key=f"{page_key}_page_{page_item}",
+                    ):
+                        st.session_state[page_key] = int(page_item)
+                        st.rerun()
+
+        with page_columns[-1]:
+            if st.button(
+                "Next ›",
+                key=f"{page_key}_next",
+                disabled=current_page >= total_pages,
+            ):
+                st.session_state[page_key] = current_page + 1
+                st.rerun()
+
+    return current_page, page_size
 
 SITE_FORM_KEYS = [
     "site_label_input",
@@ -2641,6 +2789,7 @@ if active_page == "Sites":
                 link_df_editor,
                 hide_index=True,
                 width="stretch",
+                height=get_table_height(len(link_df_editor)),
                 disabled=[
                     column for column in link_df_editor.columns
                     if column != "delete"
@@ -2675,6 +2824,7 @@ if active_page == "Sites":
 
 if active_page == "Manage Records":
     st.subheader("Manage Records")
+    st.markdown('<div id="manage-records-top"></div>', unsafe_allow_html=True)
     st.caption("Edit, delete, or bulk-update existing site and source records.")
 
     manage_table = st.selectbox(
@@ -2692,576 +2842,621 @@ if active_page == "Manage Records":
 
     if not rows:
         st.info(f"No records found in `{manage_table}`.")
-    else:
-        df_original = pd.DataFrame(rows)
+        st.stop()
 
-        if manage_table == "sites":
-            editable_columns = [
-                "site_id",
-                "site_label",
-                "latitude",
-                "longitude",
-                "modern_country_location",
-                "administering_country",
-                "former_entity",
-                "region_category",
-                "exposure_period",
-                "metal",
-                "notes",
-            ]
+    st.write("#### Browse records")
 
-            link_summary_by_site_id = get_site_link_summary_by_site_db_id()
+    search_text = st.text_input(
+        "Search records",
+        placeholder="Search by site ID, label, source code, country, metal, programme, etc.",
+        key=f"manage_search_{manage_table}",
+    )
 
-            df_editor = df_original.copy()
+    filtered_rows = filter_records_by_search(rows, search_text)
 
-            df_editor["source_codes"] = df_editor["id"].apply(
-                lambda site_db_id: link_summary_by_site_id.get(
-                    int(site_db_id),
-                    {},
-                ).get("source_codes", "")
-            )
+    if not filtered_rows:
+        st.info("No records match the current search.")
+        st.stop()
 
-            df_editor["programmes"] = df_editor["id"].apply(
-                lambda site_db_id: link_summary_by_site_id.get(
-                    int(site_db_id),
-                    {},
-                ).get("programmes", "")
-            )
+    total_filtered_rows = len(filtered_rows)
 
-            df_editor["source_codes"] = df_editor["source_codes"].apply(split_chip_values)
-            df_editor["programmes"] = df_editor["programmes"].apply(split_chip_values)
-            df_editor["region_category"] = df_editor["region_category"].apply(split_chip_values)
-            df_editor["metal"] = df_editor["metal"].apply(split_chip_values)
-            df_editor["exposure_period"] = df_editor["exposure_period"].apply(split_chip_values)
+    current_page, page_size = render_pagination_controls(
+        total_rows=total_filtered_rows,
+        page_key=f"manage_page_{manage_table}",
+        page_size_key=f"manage_page_size_{manage_table}",
+    )
 
-            preferred_site_columns = [
-                "id",
-                "site_id",
-                "site_label",
-                "source_codes",
-                "programmes",
-                "latitude",
-                "longitude",
-                "modern_country_location",
-                "administering_country",
-                "former_entity",
-                "region_category",
-                "metal",
-                "exposure_period",
-                "notes",
-            ]
+    start_index = (int(current_page) - 1) * page_size
+    end_index = start_index + page_size
 
-            preferred_site_columns = [
-                column for column in preferred_site_columns
-                if column in df_editor.columns
-            ]
+    page_rows = filtered_rows[start_index:end_index]
 
-            df_editor = df_editor[preferred_site_columns].copy()
-            df_editor["delete"] = False
+    st.caption(
+        f"Showing rows {start_index + 1}–{min(end_index, total_filtered_rows)} "
+        f"of {total_filtered_rows} matching record(s). "
+        f"Total records in `{manage_table}`: {len(rows)}."
+    )
 
-            disabled_columns = [
-                column for column in df_editor.columns
-                if column not in editable_columns and column != "delete"
-            ]
+    df_original = pd.DataFrame(page_rows).reset_index(drop=True)
 
-            source_code_options = merge_option_values(
-                [
-                    item
-                    for value in df_original.get("source_codes", [])
-                    for item in split_chip_values(value)
-                ],
-                [
-                    item
-                    for value in df_editor.get("source_codes", [])
-                    for item in split_chip_values(value)
-                ],
-            )
-
-            programme_options = merge_option_values(
-                get_programme_options(include_blank=False),
-                [
-                    item
-                    for value in df_editor.get("programmes", [])
-                    for item in split_chip_values(value)
-                ],
-            )
-
-            metal_options = merge_option_values(
-                get_metal_options(),
-                [
-                    item
-                    for value in df_editor.get("metal", [])
-                    for item in split_chip_values(value)
-                ],
-            )
-
-            exposure_options = merge_option_values(
-                EXPOSURE_PERIOD_OPTIONS,
-                [
-                    item
-                    for value in df_editor.get("exposure_period", [])
-                    for item in split_chip_values(value)
-                ],
-            )
-
-            region_options = merge_option_values(
-                REGION_TAG_OPTIONS,
-                [
-                    item
-                    for value in df_editor.get("region_category", [])
-                    for item in split_chip_values(value)
-                ],
-            )
-
-            column_config = {
-                "id": None,
-                "source_codes": st.column_config.MultiselectColumn(
-                    "Source codes",
-                    options=source_code_options,
-                    accept_new_options=True,
-                    width="large",
-                ),
-                "region_category": st.column_config.MultiselectColumn(
-                    "Region category",
-                    options=region_options,
-                    accept_new_options=True,
-                    width="large",
-                ),
-                "programmes": st.column_config.MultiselectColumn(
-                    "Programmes",
-                    options=programme_options,
-                    accept_new_options=True,
-                    width="large",
-                ),
-                "metal": st.column_config.MultiselectColumn(
-                    "Metal",
-                    options=metal_options,
-                    accept_new_options=True,
-                    width="large",
-                ),
-                "exposure_period": st.column_config.MultiselectColumn(
-                    "Exposure period",
-                    options=exposure_options,
-                    accept_new_options=True,
-                    width="large",
-                ),
-                "delete": st.column_config.CheckboxColumn(
-                    "Delete",
-                    help="Tick records to delete, then click Delete selected records.",
-                    default=False,
-                ),
-            }
-
-        else:
-            editable_columns = [
-                "source_code",
-                "source_title",
-                "programme",
-                "metals",
-                "exposure_periods",
-                "source_url",
-                "notes",
-            ]
-
-            required_source_columns = [
-                "source_code",
-                "source_title",
-                "programme",
-                "metals",
-                "exposure_periods",
-                "source_url",
-                "notes",
-            ]
-
-            for column in required_source_columns:
-                if column not in df_original.columns:
-                    df_original[column] = ""
-
-            df_editor = df_original[required_source_columns].copy()
-
-            df_editor["programme"] = df_editor["programme"].apply(split_chip_values)
-            df_editor["metals"] = df_editor["metals"].apply(split_chip_values)
-            df_editor["exposure_periods"] = df_editor["exposure_periods"].apply(split_chip_values)
-
-            df_editor["delete"] = False
-
-            disabled_columns = []
-
-            column_config = {
-                "programme": st.column_config.MultiselectColumn(
-                    "Programme",
-                    options=get_programme_options(include_blank=False),
-                    accept_new_options=True,
-                    help="Programme(s) associated with this source.",
-                    width="medium",
-                ),
-                "source_code": st.column_config.TextColumn(
-                    "Source code",
-                    width="small",
-                ),
-                "source_title": st.column_config.TextColumn(
-                    "Source title",
-                    width="large",
-                ),
-                "metals": st.column_config.MultiselectColumn(
-                    "Metals",
-                    options=get_metal_options(),
-                    accept_new_options=True,
-                    help="Metal types associated with this source.",
-                    width="large",
-                ),
-                "exposure_periods": st.column_config.MultiselectColumn(
-                    "Exposure periods",
-                    options=EXPOSURE_PERIOD_OPTIONS,
-                    accept_new_options=True,
-                    help="Exposure periods or durations associated with this source.",
-                    width="large",
-                ),
-                "source_url": st.column_config.LinkColumn(
-                    "Source URL",
-                    help="PDF path or external source URL.",
-                    width="medium",
-                ),
-                "delete": st.column_config.CheckboxColumn(
-                    "Delete",
-                    help="Tick records to delete, then click Delete selected records.",
-                    default=False,
-                ),
-            }
-
-        st.caption(
-            "Edit cells directly in the table, or tick Delete for records you want to remove. "
-            "Nothing is changed in the database until you click a save/delete button."
-        )
-
-        delete_state_key = f"delete_all_state_{manage_table}"
-
-        if delete_state_key not in st.session_state:
-            st.session_state[delete_state_key] = False
-
-        col_select_delete, col_deselect_delete = st.columns(2)
-
-        with col_select_delete:
-            if st.button("Select all for deletion", key=f"select_all_delete_{manage_table}"):
-                st.session_state[delete_state_key] = True
-
-        with col_deselect_delete:
-            if st.button("Deselect all deletion", key=f"deselect_all_delete_{manage_table}"):
-                st.session_state[delete_state_key] = False
-
-        confirm_bulk_delete = st.checkbox(
-            "Confirm deletion of selected records",
-            key=f"confirm_delete_{manage_table}",
-        )
-
-        df_editor["delete"] = st.session_state[delete_state_key]
-
-        edited_df = st.data_editor(
-            df_editor,
-            hide_index=True,
-            width="stretch",
-            disabled=disabled_columns,
-            num_rows="fixed",
-            key=f"data_editor_{manage_table}",
-            column_config=column_config,
-        )
-
-        col_save, col_delete = st.columns([1, 1])
-
-        with col_save:
-            if st.button("Save table edits", key=f"save_edits_{manage_table}"):
-                updated_rows = 0
-
-                if manage_table == "sources":
-                    for row_position in range(len(edited_df)):
-                        row_id = int(df_original.iloc[row_position]["id"])
-                        updates = {}
-
-                        for column in editable_columns:
-                            old_value = clean_editor_value(
-                                df_original.iloc[row_position].get(column, "")
-                            )
-                            new_value = edited_df.iloc[row_position].get(column, "")
-
-                            if column == "region_category":
-                                old_normalised = normalize_region_category(split_chip_values(old_value))
-                                new_normalised = normalize_region_category(split_chip_values(new_value))
-                            elif column in {"metal", "exposure_period"}:
-                                old_normalised = join_chip_values(old_value)
-                                new_normalised = join_chip_values(new_value)
-                            else:
-                                old_normalised = str(old_value)
-                                new_normalised = str(clean_editor_value(new_value))
-
-                            if old_normalised != new_normalised:
-                                updates[column] = new_normalised
-
-                        if updates:
-                            updated_rows += update_table_row(
-                                manage_table,
-                                row_id,
-                                updates,
-                            )
-
-                    for row_position in range(len(edited_df)):
-                        add_metadata_options(
-                            "programme",
-                            split_chip_values(edited_df.iloc[row_position].get("programme", "")),
-                        )
-
-                        add_metadata_options(
-                            "metal",
-                            split_chip_values(edited_df.iloc[row_position].get("metals", "")),
-                        )
-
-                else:
-                    original_by_id = df_original.set_index("id")
-                    edited_by_id = edited_df.drop(columns=["delete"]).set_index("id")
-
-                    for row_id in edited_by_id.index:
-                        updates = {}
-
-                        for column in editable_columns:
-                            if column not in edited_by_id.columns:
-                                continue
-
-                            old_value = clean_editor_value(original_by_id.loc[row_id, column])
-                            new_value = edited_by_id.loc[row_id, column]
-
-                            if column in {"region_category", "metal", "exposure_period"}:
-                                old_normalised = join_chip_values(old_value)
-                                new_normalised = join_chip_values(new_value)
-                            else:
-                                old_normalised = str(old_value)
-                                new_normalised = str(clean_editor_value(new_value))
-
-                            if old_normalised != new_normalised:
-                                updates[column] = new_normalised
-
-                        if updates:
-                            updated_rows += update_table_row(
-                                manage_table,
-                                int(row_id),
-                                updates,
-                            )
-
-                if updated_rows:
-                    set_flash_message(f"Saved edits for {updated_rows} row(s).")
-                    st.rerun()
-                else:
-                    st.info("No changes detected.")
-
-        with col_delete:
-            if manage_table == "sources":
-                delete_ids = [
-                    int(df_original.iloc[row_position]["id"])
-                    for row_position, (_, row) in enumerate(edited_df.iterrows())
-                    if bool(row.get("delete"))
-                ]
-            else:
-                delete_ids = [
-                    int(row["id"])
-                    for _, row in edited_df.iterrows()
-                    if bool(row.get("delete"))
-                ]
-
-            if st.button("Delete selected records", key=f"delete_selected_{manage_table}"):
-                if not delete_ids:
-                    st.error("Tick at least one record in the Delete column.")
-                elif not confirm_bulk_delete:
-                    st.error("Confirm deletion before deleting selected records.")
-                else:
-                    try:
-                        deleted_count = delete_table_rows(manage_table, delete_ids)
-                        set_flash_message(
-                            f"Deleted {deleted_count} record(s) from `{manage_table}`."
-                        )
-                        st.rerun()
-                    except Exception as exc:
-                        st.error(f"Delete failed: {exc}")
-
-        st.write("#### Bulk edit selected records")
-
-        row_label_to_id = {
-            build_row_label(row, manage_table): int(row["id"])
-            for row in rows
-        }
-
-        row_labels = list(row_label_to_id.keys())
-        bulk_selection_key = f"bulk_rows_{manage_table}"
-
-        if bulk_selection_key not in st.session_state:
-            st.session_state[bulk_selection_key] = []
-
-        col_bulk_select_all, col_bulk_deselect_all = st.columns(2)
-
-        with col_bulk_select_all:
-            if st.button(
-                "Select all records for bulk edit",
-                key=f"select_all_bulk_rows_{manage_table}",
-            ):
-                st.session_state[bulk_selection_key] = row_labels
-                st.rerun()
-
-        with col_bulk_deselect_all:
-            if st.button(
-                "Deselect all records for bulk edit",
-                key=f"deselect_all_bulk_rows_{manage_table}",
-            ):
-                st.session_state[bulk_selection_key] = []
-                st.rerun()
-
-        selected_row_labels = st.multiselect(
-            "Choose records to update",
-            options=row_labels,
-            key=bulk_selection_key,
-        )
-
-        selected_row_ids = [
-            row_label_to_id[label]
-            for label in selected_row_labels
+    if manage_table == "sites":
+        editable_columns = [
+            "site_id",
+            "site_label",
+            "latitude",
+            "longitude",
+            "modern_country_location",
+            "administering_country",
+            "former_entity",
+            "region_category",
+            "exposure_period",
+            "metal",
+            "notes",
         ]
 
-        if manage_table == "sites":
-            st.write("#### Auto-assign region category for selected sites")
+        link_summary_by_site_id = get_site_link_summary_by_site_db_id()
 
-            if st.button(
-                "Preview automatic region categories",
-                key="preview_auto_region_categories",
-                disabled=not selected_row_ids,
-            ):
-                selected_rows = [
-                    row for row in rows
-                    if int(row["id"]) in selected_row_ids
-                ]
+        df_editor = df_original.copy()
 
-                preview_rows = []
+        df_editor["source_codes"] = df_editor["id"].apply(
+            lambda site_db_id: link_summary_by_site_id.get(
+                int(site_db_id),
+                {},
+            ).get("source_codes", "")
+        )
 
-                for row in selected_rows:
-                    result = classify_region_category(
-                        latitude=row.get("latitude"),
-                        longitude=row.get("longitude"),
-                        current_region_category=row.get("region_category", ""),
-                        modern_country_location=row.get("modern_country_location", ""),
-                        site_type=row.get("site_type", ""),
-                    )
+        df_editor["programmes"] = df_editor["id"].apply(
+            lambda site_db_id: link_summary_by_site_id.get(
+                int(site_db_id),
+                {},
+            ).get("programmes", "")
+        )
 
-                    preview_rows.append(
-                        {
-                            "apply": True,
-                            "id": int(row["id"]),
-                            "site_id": row.get("site_id", ""),
-                            "site_label": row.get("site_label", ""),
-                            "latitude": row.get("latitude", ""),
-                            "longitude": row.get("longitude", ""),
-                            "current_region_category": row.get("region_category", ""),
-                            "suggested_region_category": result.region_category,
-                            "notes": result.notes,
-                        }
-                    )
+        df_editor["source_codes"] = df_editor["source_codes"].apply(split_chip_values)
+        df_editor["programmes"] = df_editor["programmes"].apply(split_chip_values)
+        df_editor["region_category"] = df_editor["region_category"].apply(split_chip_values)
+        df_editor["metal"] = df_editor["metal"].apply(split_chip_values)
+        df_editor["exposure_period"] = df_editor["exposure_period"].apply(split_chip_values)
 
-                st.session_state["auto_region_preview_df"] = pd.DataFrame(preview_rows)
+        preferred_site_columns = [
+            "id",
+            "site_id",
+            "site_label",
+            "source_codes",
+            "programmes",
+            "latitude",
+            "longitude",
+            "modern_country_location",
+            "administering_country",
+            "former_entity",
+            "region_category",
+            "metal",
+            "exposure_period",
+            "notes",
+        ]
 
-            auto_region_preview_df = st.session_state.get("auto_region_preview_df")
+        preferred_site_columns = [
+            column for column in preferred_site_columns
+            if column in df_editor.columns
+        ]
 
-            if auto_region_preview_df is not None and not auto_region_preview_df.empty:
-                edited_auto_region_df = st.data_editor(
-                    auto_region_preview_df,
-                    hide_index=True,
-                    width="stretch",
-                    num_rows="fixed",
-                    key="auto_region_preview_editor",
-                    disabled=[
-                        "id",
-                        "site_id",
-                        "site_label",
-                        "latitude",
-                        "longitude",
-                        "current_region_category",
-                        "notes",
-                    ],
-                    column_config={
-                        "apply": st.column_config.CheckboxColumn(
-                            "Apply",
-                            help="Tick rows to update.",
-                            default=True,
-                        ),
-                        "id": None,
-                        "suggested_region_category": st.column_config.TextColumn(
-                            "Suggested region category",
-                            help="You can edit the suggestion before applying.",
-                        ),
-                    },
-                )
+        df_editor = df_editor[preferred_site_columns].copy()
+        df_editor["delete"] = False
 
-                apply_auto_region_df = edited_auto_region_df[
-                    edited_auto_region_df["apply"].astype(bool)
-                ].copy()
+        disabled_columns = [
+            column for column in df_editor.columns
+            if column not in editable_columns and column != "delete"
+        ]
 
-                col_apply_auto_region, col_clear_auto_region = st.columns(2)
+        source_code_options = merge_option_values(
+            [
+                item
+                for value in df_original.get("source_codes", [])
+                for item in split_chip_values(value)
+            ],
+            [
+                item
+                for value in df_editor.get("source_codes", [])
+                for item in split_chip_values(value)
+            ],
+        )
 
-                with col_apply_auto_region:
-                    if st.button(
-                        "Apply automatic region categories",
-                        key="apply_auto_region_categories",
-                        disabled=apply_auto_region_df.empty,
-                    ):
-                        updated_count = 0
+        programme_options = merge_option_values(
+            get_programme_options(include_blank=False),
+            [
+                item
+                for value in df_editor.get("programmes", [])
+                for item in split_chip_values(value)
+            ],
+        )
 
-                        for _, row in apply_auto_region_df.iterrows():
-                            suggested_value = str(
-                                row.get("suggested_region_category", "")
-                            ).strip()
+        metal_options = merge_option_values(
+            get_metal_options(),
+            [
+                item
+                for value in df_editor.get("metal", [])
+                for item in split_chip_values(value)
+            ],
+        )
 
-                            if not suggested_value:
-                                continue
+        exposure_options = merge_option_values(
+            EXPOSURE_PERIOD_OPTIONS,
+            [
+                item
+                for value in df_editor.get("exposure_period", [])
+                for item in split_chip_values(value)
+            ],
+        )
 
-                            updated_count += update_table_row(
-                                "sites",
-                                int(row["id"]),
-                                {"region_category": suggested_value},
-                            )
+        region_options = merge_option_values(
+            REGION_TAG_OPTIONS,
+            [
+                item
+                for value in df_editor.get("region_category", [])
+                for item in split_chip_values(value)
+            ],
+        )
 
-                        st.session_state.pop("auto_region_preview_df", None)
-                        set_flash_message(
-                            f"Updated region_category for {updated_count} site row(s)."
+        column_config = {
+            "id": None,
+            "source_codes": st.column_config.MultiselectColumn(
+                "Source codes",
+                options=source_code_options,
+                accept_new_options=True,
+                width="large",
+            ),
+            "region_category": st.column_config.MultiselectColumn(
+                "Region category",
+                options=region_options,
+                accept_new_options=True,
+                width="large",
+            ),
+            "programmes": st.column_config.MultiselectColumn(
+                "Programmes",
+                options=programme_options,
+                accept_new_options=True,
+                width="large",
+            ),
+            "metal": st.column_config.MultiselectColumn(
+                "Metal",
+                options=metal_options,
+                accept_new_options=True,
+                width="large",
+            ),
+            "exposure_period": st.column_config.MultiselectColumn(
+                "Exposure period",
+                options=exposure_options,
+                accept_new_options=True,
+                width="large",
+            ),
+            "delete": st.column_config.CheckboxColumn(
+                "Delete",
+                help="Tick records to delete, then click Delete selected records.",
+                default=False,
+            ),
+        }
+
+    else:
+        editable_columns = [
+            "source_code",
+            "source_title",
+            "programme",
+            "metals",
+            "exposure_periods",
+            "source_url",
+            "notes",
+        ]
+
+        required_source_columns = [
+            "source_code",
+            "source_title",
+            "programme",
+            "metals",
+            "exposure_periods",
+            "source_url",
+            "notes",
+        ]
+
+        for column in required_source_columns:
+            if column not in df_original.columns:
+                df_original[column] = ""
+
+        df_editor = df_original[required_source_columns].copy()
+
+        df_editor["programme"] = df_editor["programme"].apply(split_chip_values)
+        df_editor["metals"] = df_editor["metals"].apply(split_chip_values)
+        df_editor["exposure_periods"] = df_editor["exposure_periods"].apply(split_chip_values)
+
+        df_editor["delete"] = False
+
+        disabled_columns = []
+
+        column_config = {
+            "programme": st.column_config.MultiselectColumn(
+                "Programme",
+                options=get_programme_options(include_blank=False),
+                accept_new_options=True,
+                help="Programme(s) associated with this source.",
+                width="medium",
+            ),
+            "source_code": st.column_config.TextColumn(
+                "Source code",
+                width="small",
+            ),
+            "source_title": st.column_config.TextColumn(
+                "Source title",
+                width="large",
+            ),
+            "metals": st.column_config.MultiselectColumn(
+                "Metals",
+                options=get_metal_options(),
+                accept_new_options=True,
+                help="Metal types associated with this source.",
+                width="large",
+            ),
+            "exposure_periods": st.column_config.MultiselectColumn(
+                "Exposure periods",
+                options=EXPOSURE_PERIOD_OPTIONS,
+                accept_new_options=True,
+                help="Exposure periods or durations associated with this source.",
+                width="large",
+            ),
+            "source_url": st.column_config.LinkColumn(
+                "Source URL",
+                help="PDF path or external source URL.",
+                width="medium",
+            ),
+            "delete": st.column_config.CheckboxColumn(
+                "Delete",
+                help="Tick records to delete, then click Delete selected records.",
+                default=False,
+            ),
+        }
+
+    st.caption(
+        "Edit cells directly in the table, or tick Delete for records you want to remove. "
+        "Nothing is changed in the database until you click a save/delete button."
+    )
+
+    delete_state_key = f"delete_all_state_{manage_table}"
+
+    if delete_state_key not in st.session_state:
+        st.session_state[delete_state_key] = False
+
+    col_select_delete, col_deselect_delete = st.columns(2)
+
+    with col_select_delete:
+        if st.button("Select all for deletion", key=f"select_all_delete_{manage_table}"):
+            st.session_state[delete_state_key] = True
+
+    with col_deselect_delete:
+        if st.button("Deselect all deletion", key=f"deselect_all_delete_{manage_table}"):
+            st.session_state[delete_state_key] = False
+
+    confirm_bulk_delete = st.checkbox(
+        "Confirm deletion of selected records",
+        key=f"confirm_delete_{manage_table}",
+    )
+
+    df_editor["delete"] = st.session_state[delete_state_key]
+
+    search_signature = re.sub(
+        r"[^a-zA-Z0-9]+",
+        "_",
+        search_text.strip().lower(),
+    )[:30] or "all"
+
+    edited_df = st.data_editor(
+        df_editor,
+        hide_index=True,
+        width="stretch",
+        height=get_table_height(len(df_editor)),
+        disabled=disabled_columns,
+        num_rows="fixed",
+        key=f"data_editor_{manage_table}_{current_page}_{page_size}_{search_signature}",
+        column_config=column_config,
+    )
+
+    col_save, col_delete = st.columns([1, 1])
+
+    with col_save:
+        if st.button("Save table edits", key=f"save_edits_{manage_table}"):
+            updated_rows = 0
+
+            if manage_table == "sources":
+                for row_position in range(len(edited_df)):
+                    row_id = int(df_original.iloc[row_position]["id"])
+                    updates = {}
+
+                    for column in editable_columns:
+                        old_value = clean_editor_value(
+                            df_original.iloc[row_position].get(column, "")
                         )
-                        st.rerun()
+                        new_value = edited_df.iloc[row_position].get(column, "")
 
-                with col_clear_auto_region:
-                    if st.button(
-                        "Clear automatic region preview",
-                        key="clear_auto_region_preview",
-                    ):
-                        st.session_state.pop("auto_region_preview_df", None)
-                        st.rerun()    
+                        if column == "region_category":
+                            old_normalised = normalize_region_category(split_chip_values(old_value))
+                            new_normalised = normalize_region_category(split_chip_values(new_value))
+                        elif column in {"metal", "exposure_period"}:
+                            old_normalised = join_chip_values(old_value)
+                            new_normalised = join_chip_values(new_value)
+                        else:
+                            old_normalised = str(old_value)
+                            new_normalised = str(clean_editor_value(new_value))
 
-        bulk_field = st.selectbox(
-            "Field to bulk update",
-            options=editable_columns,
-            key=f"bulk_field_{manage_table}",
-        )
+                        if old_normalised != new_normalised:
+                            updates[column] = new_normalised
 
-        bulk_value = st.text_input(
-            "New value",
-            key=f"bulk_value_{manage_table}",
-        )
+                    if updates:
+                        updated_rows += update_table_row(
+                            manage_table,
+                            row_id,
+                            updates,
+                        )
 
-        if st.button("Apply bulk edit", key=f"apply_bulk_{manage_table}"):
-            if not selected_row_ids:
-                st.error("Select at least one record.")
+                for row_position in range(len(edited_df)):
+                    add_metadata_options(
+                        "programme",
+                        split_chip_values(edited_df.iloc[row_position].get("programme", "")),
+                    )
+
+                    add_metadata_options(
+                        "metal",
+                        split_chip_values(edited_df.iloc[row_position].get("metals", "")),
+                    )
+
+            else:
+                original_by_id = df_original.set_index("id")
+                edited_by_id = edited_df.drop(columns=["delete"]).set_index("id")
+
+                for row_id in edited_by_id.index:
+                    updates = {}
+
+                    for column in editable_columns:
+                        if column not in edited_by_id.columns:
+                            continue
+
+                        old_value = clean_editor_value(original_by_id.loc[row_id, column])
+                        new_value = edited_by_id.loc[row_id, column]
+
+                        if column in {"region_category", "metal", "exposure_period"}:
+                            old_normalised = join_chip_values(old_value)
+                            new_normalised = join_chip_values(new_value)
+                        else:
+                            old_normalised = str(old_value)
+                            new_normalised = str(clean_editor_value(new_value))
+
+                        if old_normalised != new_normalised:
+                            updates[column] = new_normalised
+
+                    if updates:
+                        updated_rows += update_table_row(
+                            manage_table,
+                            int(row_id),
+                            updates,
+                        )
+
+            if updated_rows:
+                set_flash_message(f"Saved edits for {updated_rows} row(s).")
+                st.rerun()
+            else:
+                st.info("No changes detected.")
+
+    with col_delete:
+        if manage_table == "sources":
+            delete_ids = [
+                int(df_original.iloc[row_position]["id"])
+                for row_position, (_, row) in enumerate(edited_df.iterrows())
+                if bool(row.get("delete"))
+            ]
+        else:
+            delete_ids = [
+                int(row["id"])
+                for _, row in edited_df.iterrows()
+                if bool(row.get("delete"))
+            ]
+
+        if st.button("Delete selected records", key=f"delete_selected_{manage_table}"):
+            if not delete_ids:
+                st.error("Tick at least one record in the Delete column.")
+            elif not confirm_bulk_delete:
+                st.error("Confirm deletion before deleting selected records.")
             else:
                 try:
-                    changed_count = bulk_update_table_rows(
-                        manage_table,
-                        selected_row_ids,
-                        bulk_field,
-                        bulk_value,
+                    deleted_count = delete_table_rows(manage_table, delete_ids)
+                    set_flash_message(
+                        f"Deleted {deleted_count} record(s) from `{manage_table}`."
                     )
-                    set_flash_message(f"Updated {changed_count} record(s).")
                     st.rerun()
                 except Exception as exc:
-                    st.error(f"Bulk edit failed: {exc}")
+                    st.error(f"Delete failed: {exc}")
+
+    st.write("#### Bulk edit selected records")
+
+    row_label_to_id = {
+        build_row_label(row, manage_table): int(row["id"])
+        for row in filtered_rows
+    }
+
+    row_labels = list(row_label_to_id.keys())
+    bulk_selection_key = f"bulk_rows_{manage_table}"
+
+    if bulk_selection_key not in st.session_state:
+        st.session_state[bulk_selection_key] = []
+
+    col_bulk_select_all, col_bulk_deselect_all = st.columns(2)
+
+    with col_bulk_select_all:
+        if st.button(
+            "Select all records for bulk edit",
+            key=f"select_all_bulk_rows_{manage_table}",
+        ):
+            st.session_state[bulk_selection_key] = row_labels
+            st.rerun()
+
+    with col_bulk_deselect_all:
+        if st.button(
+            "Deselect all records for bulk edit",
+            key=f"deselect_all_bulk_rows_{manage_table}",
+        ):
+            st.session_state[bulk_selection_key] = []
+            st.rerun()
+
+    selected_row_labels = st.multiselect(
+        "Choose records to update",
+        options=row_labels,
+        key=bulk_selection_key,
+    )
+
+    selected_row_ids = [
+        row_label_to_id[label]
+        for label in selected_row_labels
+    ]
+
+    if manage_table == "sites":
+        st.write("#### Auto-assign region category for selected sites")
+
+        if st.button(
+            "Preview automatic region categories",
+            key="preview_auto_region_categories",
+            disabled=not selected_row_ids,
+        ):
+            selected_rows = [
+                row for row in filtered_rows
+                if int(row["id"]) in selected_row_ids
+            ]
+
+            preview_rows = []
+
+            for row in selected_rows:
+                result = classify_region_category(
+                    latitude=row.get("latitude"),
+                    longitude=row.get("longitude"),
+                    current_region_category=row.get("region_category", ""),
+                    modern_country_location=row.get("modern_country_location", ""),
+                    site_type=row.get("site_type", ""),
+                )
+
+                preview_rows.append(
+                    {
+                        "apply": True,
+                        "id": int(row["id"]),
+                        "site_id": row.get("site_id", ""),
+                        "site_label": row.get("site_label", ""),
+                        "latitude": row.get("latitude", ""),
+                        "longitude": row.get("longitude", ""),
+                        "current_region_category": row.get("region_category", ""),
+                        "suggested_region_category": result.region_category,
+                        "notes": result.notes,
+                    }
+                )
+
+            st.session_state["auto_region_preview_df"] = pd.DataFrame(preview_rows)
+
+        auto_region_preview_df = st.session_state.get("auto_region_preview_df")
+
+        if auto_region_preview_df is not None and not auto_region_preview_df.empty:
+            edited_auto_region_df = st.data_editor(
+                auto_region_preview_df,
+                hide_index=True,
+                width="stretch",
+                height=get_table_height(
+                    len(auto_region_preview_df),
+                    max_height=DATAFRAME_MAX_HEIGHT,
+                ),
+                num_rows="fixed",
+                key="auto_region_preview_editor",
+                disabled=[
+                    "id",
+                    "site_id",
+                    "site_label",
+                    "latitude",
+                    "longitude",
+                    "current_region_category",
+                    "notes",
+                ],
+                column_config={
+                    "apply": st.column_config.CheckboxColumn(
+                        "Apply",
+                        help="Tick rows to update.",
+                        default=True,
+                    ),
+                    "id": None,
+                    "suggested_region_category": st.column_config.TextColumn(
+                        "Suggested region category",
+                        help="You can edit the suggestion before applying.",
+                    ),
+                },
+            )
+
+            apply_auto_region_df = edited_auto_region_df[
+                edited_auto_region_df["apply"].astype(bool)
+            ].copy()
+
+            col_apply_auto_region, col_clear_auto_region = st.columns(2)
+
+            with col_apply_auto_region:
+                if st.button(
+                    "Apply automatic region categories",
+                    key="apply_auto_region_categories",
+                    disabled=apply_auto_region_df.empty,
+                ):
+                    updated_count = 0
+
+                    for _, row in apply_auto_region_df.iterrows():
+                        suggested_value = str(
+                            row.get("suggested_region_category", "")
+                        ).strip()
+
+                        if not suggested_value:
+                            continue
+
+                        updated_count += update_table_row(
+                            "sites",
+                            int(row["id"]),
+                            {"region_category": suggested_value},
+                        )
+
+                    st.session_state.pop("auto_region_preview_df", None)
+                    set_flash_message(
+                        f"Updated region_category for {updated_count} site row(s)."
+                    )
+                    st.rerun()
+
+            with col_clear_auto_region:
+                if st.button(
+                    "Clear automatic region preview",
+                    key="clear_auto_region_preview",
+                ):
+                    st.session_state.pop("auto_region_preview_df", None)
+                    st.rerun()    
+
+    bulk_field = st.selectbox(
+        "Field to bulk update",
+        options=editable_columns,
+        key=f"bulk_field_{manage_table}",
+    )
+
+    bulk_value = st.text_input(
+        "New value",
+        key=f"bulk_value_{manage_table}",
+    )
+
+    if st.button("Apply bulk edit", key=f"apply_bulk_{manage_table}"):
+        if not selected_row_ids:
+            st.error("Select at least one record.")
+        else:
+            try:
+                changed_count = bulk_update_table_rows(
+                    manage_table,
+                    selected_row_ids,
+                    bulk_field,
+                    bulk_value,
+                )
+                set_flash_message(f"Updated {changed_count} record(s).")
+                st.rerun()
+            except Exception as exc:
+                st.error(f"Bulk edit failed: {exc}")
 
 
 if active_page == "Import":
@@ -3433,6 +3628,7 @@ if active_page == "Import":
                     site_preview_display_df,
                     hide_index=True,
                     width="stretch",
+                    height=get_table_height(len(site_preview_display_df)),
                     num_rows="fixed",
                     key="import_preview_editor",
                     column_config={
@@ -3664,6 +3860,7 @@ if active_page == "Export / Publish":
                 unpublished_display_df,
                 hide_index=True,
                 width="stretch",
+                height=get_table_height(len(unpublished_display_df)),
                 num_rows="fixed",
                 key="unpublished_sites_publish_editor",
                 column_config={
@@ -3740,6 +3937,7 @@ if active_page == "Export / Publish":
                 published_display_df,
                 hide_index=True,
                 width="stretch",
+                height=get_table_height(len(published_display_df)),
                 num_rows="fixed",
                 key="published_sites_publish_editor",
                 column_config={
@@ -3871,55 +4069,54 @@ if active_page == "Export / Publish":
 
                 except Exception as exc:
                     st.error(f"Website publish failed: {exc}")
+        st.divider()
+        st.write("#### Commit and push to GitHub")
 
-                    st.divider()
-                    st.write("#### Commit and push to GitHub")
+        if st.session_state.last_git_publish_message:
+            if st.session_state.website_publish_ready_for_git:
+                st.warning(st.session_state.last_git_publish_message)
+            else:
+                st.success(st.session_state.last_git_publish_message)
 
-                    if st.session_state.last_git_publish_message:
-                        if st.session_state.website_publish_ready_for_git:
-                            st.warning(st.session_state.last_git_publish_message)
-                        else:
-                            st.success(st.session_state.last_git_publish_message)
+        if st.session_state.last_git_publish_output:
+            with st.expander("Show last Git command output", expanded=False):
+                st.code(st.session_state.last_git_publish_output, language="text")
 
-                    if st.session_state.last_git_publish_output:
-                        with st.expander("Show last Git command output", expanded=False):
-                            st.code(st.session_state.last_git_publish_output, language="text")
+        if st.button("Refresh Git status", key="refresh_git_status"):
+            st.session_state.git_status_preview = get_git_status_text()
 
-                    if st.button("Refresh Git status", key="refresh_git_status"):
-                        st.session_state.git_status_preview = get_git_status_text()
+        if "git_status_preview" in st.session_state:
+            with st.expander("Current Git status", expanded=False):
+                st.code(st.session_state.git_status_preview, language="text")
 
-                    if "git_status_preview" in st.session_state:
-                        with st.expander("Current Git status", expanded=False):
-                            st.code(st.session_state.git_status_preview, language="text")
+        manual_commit_disabled = not bool(st.session_state.website_publish_ready_for_git)
 
-                    manual_commit_disabled = not bool(st.session_state.website_publish_ready_for_git)
+        if manual_commit_disabled:
+            st.info(
+                "Commit and Push is disabled until you successfully confirm a website publish in this app session."
+            )
 
-                    if manual_commit_disabled:
-                        st.info(
-                            "Commit and Push is disabled until you successfully confirm a website publish in this app session."
-                        )
+        if st.button(
+            "Commit and push latest website publish",
+            key="commit_push_latest_publish",
+            disabled=manual_commit_disabled,
+        ):
+            git_result = commit_and_push_website_dataset(
+                commit_message=git_commit_message,
+                include_source_pdfs=include_source_pdfs_in_git,
+            )
 
-                    if st.button(
-                        "Commit and push latest website publish",
-                        key="commit_push_latest_publish",
-                        disabled=manual_commit_disabled,
-                    ):
-                        git_result = commit_and_push_website_dataset(
-                            commit_message=git_commit_message,
-                            include_source_pdfs=include_source_pdfs_in_git,
-                        )
+            st.session_state.last_git_publish_output = str(git_result["output"])
+            st.session_state.last_git_publish_message = str(git_result["message"])
 
-                        st.session_state.last_git_publish_output = str(git_result["output"])
-                        st.session_state.last_git_publish_message = str(git_result["message"])
+            if bool(git_result["ok"]):
+                st.session_state.website_publish_ready_for_git = False
+                set_flash_message(str(git_result["message"]), level="success")
+            else:
+                st.session_state.website_publish_ready_for_git = True
+                set_flash_message(str(git_result["message"]), level="warning")
 
-                        if bool(git_result["ok"]):
-                            st.session_state.website_publish_ready_for_git = False
-                            set_flash_message(str(git_result["message"]), level="success")
-                        else:
-                            st.session_state.website_publish_ready_for_git = True
-                            set_flash_message(str(git_result["message"]), level="warning")
-
-                        st.rerun()
+            st.rerun()
 
 if active_page == "Settings":
     st.subheader("Settings")
