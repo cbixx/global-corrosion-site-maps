@@ -1601,10 +1601,48 @@ def show_flash_message() -> None:
         st.info(message)
         st.toast(message, icon="ℹ️")
 
+def get_app_password() -> str:
+    try:
+        secret_password = str(st.secrets.get("CURATOR_APP_PASSWORD", "")).strip()
+    except Exception:
+        secret_password = ""
+
+    return secret_password
+
+
+def require_curator_login() -> None:
+    app_password = get_app_password()
+
+    if not app_password:
+        return
+
+    if st.session_state.get("curator_logged_in") is True:
+        return
+
+    st.title("Corrosion Map Curator")
+    st.caption("Restricted curator access")
+
+    entered_password = st.text_input(
+        "Enter curator password",
+        type="password",
+        key="curator_login_password",
+    )
+
+    if st.button("Log in", key="curator_login_button"):
+        if entered_password == app_password:
+            st.session_state.curator_logged_in = True
+            st.rerun()
+        else:
+            st.error("Incorrect password.")
+
+    st.stop()
+
 st.set_page_config(
     page_title="Corrosion Map Curator",
     layout="wide",
 )
+
+require_curator_login()
 
 manual_col_title, manual_col_button = st.columns([0.82, 0.18], vertical_alignment="center")
 
@@ -1730,6 +1768,11 @@ with manual_col_button:
                 - 建议尽量将资料 PDF 放入或上传到 `source_pdfs/` 文件夹，以便后续网站能够稳定链接。
                 """
             )
+
+if st.session_state.get("curator_logged_in") is True:
+    if st.button("Log out", key="curator_logout_button"):
+        st.session_state.curator_logged_in = False
+        st.rerun()
 
 show_flash_message()
 
