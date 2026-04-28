@@ -381,6 +381,21 @@ DATA_EDITOR_ROW_HEIGHT = 34
 DATA_EDITOR_HEADER_HEIGHT = 40
 DATA_EDITOR_EXTRA_PADDING = 0
 
+def display_app_path(path_value) -> str:
+    text = str(path_value or "").strip()
+
+    if not text:
+        return ""
+
+    if text.upper() == "SUPABASE":
+        return "SUPABASE"
+
+    path = Path(text)
+
+    try:
+        return path.resolve().relative_to(REPO_ROOT).as_posix()
+    except Exception:
+        return path.name or text
 
 def get_table_height(
     row_count: int,
@@ -1903,7 +1918,16 @@ if active_page == "Dashboard":
     st.caption("Overview of the local curation database and source-PDF folder.")
 
     st.write("#### Database")
-    st.write(f"Database file: `{Path(DB_PATH).resolve()}`")
+    if str(DB_PATH).upper() == "SUPABASE":
+        st.write("Database backend: `SUPABASE`")
+        st.success("Connected in Supabase backend mode.")
+    else:
+        st.write("Database backend: `Local SQLite`")
+        st.write(f"Database file: `{display_app_path(DB_PATH)}`")
+        st.warning(
+            "Running in local SQLite backend mode. "
+            "If this is the online deployment, DB_BACKEND is not being read as 'supabase'."
+        )
 
     try:
         counts = table_counts()
@@ -3818,7 +3842,7 @@ if active_page == "Export / Publish":
     )
 
     st.write("### Website dataset")
-    st.write(f"Live website file: `{OUTPUT_CSV_PATH}`")
+    st.write(f"Live website file: `{display_app_path(OUTPUT_CSV_PATH)}`")
     st.caption(
         "The website reads `data/sites.csv`. Each publish also creates a dated batch snapshot "
         "inside `data/publish_batches/`."
@@ -4077,7 +4101,7 @@ if active_page == "Export / Publish":
                     publish_message = (
                         "Website dataset published successfully. "
                         f"Published sites: {result['rows']}. "
-                        f"Live file: {result['live_path']}. "
+                        f"Live file: {display_app_path(result['live_path'])}. "
                         f"Batch snapshot: {result['batch_name']}."
                     )
 
@@ -4173,8 +4197,16 @@ if active_page == "Settings":
     st.caption("Maintenance tools and database safety controls.")
 
     st.write("#### Paths")
-    st.write(f"Database file: `{Path(DB_PATH).resolve()}`")
-    st.write(f"Source PDF folder: `{SOURCE_PDF_DIR.resolve()}`")
+    if str(DB_PATH).upper() == "SUPABASE":
+        st.write("Database backend: `SUPABASE`")
+    else:
+        if str(DB_PATH).upper() == "SUPABASE":
+            st.write("Database backend: `SUPABASE`")
+        else:
+            st.write("Database backend: `Local SQLite`")
+            st.write(f"Database file: `{display_app_path(DB_PATH)}`")
+
+    st.write(f"Source PDF folder: `{SOURCE_PDF_RELATIVE_DIR}/`")
 
     st.write("#### App controls")
 
