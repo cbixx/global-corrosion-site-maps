@@ -653,7 +653,7 @@
           id="searchBox"
           class="control-input"
           type="text"
-          placeholder="Site label, site ID, country, region, site type, metal..."
+          placeholder="Site label, site ID, country, region, metal, exposure period..."
         />
       </div>
 
@@ -667,13 +667,6 @@
       <div class="control-group">
         <label class="control-label" for="regionFilter">Region category</label>
         <select id="regionFilter" class="control-select">
-          <option value="">All</option>
-        </select>
-      </div>
-
-      <div class="control-group">
-        <label class="control-label" for="typeFilter">Site type</label>
-        <select id="typeFilter" class="control-select">
           <option value="">All</option>
         </select>
       </div>
@@ -763,7 +756,7 @@
 
       <div class="sidebar-note">
         Search works across site label, site ID, site type, country/location, administering country,
-        former entity, region category, exposure period, metal, and notes.
+        former entity, region category, exposure period, metal, and notes. Site type remains searchable but is not shown as a separate filter.
       </div>
     </aside>
 
@@ -789,6 +782,33 @@
     const HORIZONTAL_WORLDS = 3;
     const DEFAULT_CENTER = [20, 20];
     const DEFAULT_ZOOM = 2.5;
+
+    const STANDARD_METALS = [
+      'Carbon steel',
+      'Weathering steel',
+      'Zinc',
+      'Copper',
+      'Aluminium',
+      'Galvanized steel',
+      'Lead',
+      'Nickel',
+      'Tin',
+      'Brass',
+      'Bronze'
+    ];
+
+    const STANDARD_EXPOSURE_PERIODS = [
+      '1 month',
+      '3 months',
+      '6 months',
+      '1 year',
+      '2 years',
+      '3 years',
+      '4 years',
+      '5 years',
+      '8 years',
+      '10 years'
+    ];
 
 
     const map = L.map('map', {
@@ -883,7 +903,6 @@
       if (key === 'query') document.getElementById('searchBox').value = '';
       if (key === 'country') document.getElementById('countryFilter').value = '';
       if (key === 'region') document.getElementById('regionFilter').value = '';
-      if (key === 'type') document.getElementById('typeFilter').value = '';
       if (key === 'metal') document.getElementById('metalFilter').value = '';
       if (key === 'exposure') document.getElementById('exposureFilter').value = '';
       if (key === 'sources') document.getElementById('sourceOnlyFilter').checked = false;
@@ -991,11 +1010,23 @@
       return value === null || value === undefined ? '' : String(value).trim();
      }
 
-     function splitListValue(value) {
+    function splitListValue(value) {
       return normalizeText(value)
         .split(/[;,]/)
         .map(item => item.trim())
         .filter(Boolean);
+    }
+
+    function getStandardValuesPresentInRows(rows, column, standardValues) {
+      const presentValues = new Set(
+        rows
+          .flatMap(row => splitListValue(row[column]))
+          .map(value => value.toLowerCase())
+      );
+
+      return standardValues.filter(value =>
+        presentValues.has(value.toLowerCase())
+      );
     }
 
      function collectResources(row) {
@@ -1131,17 +1162,30 @@
     }
 
     function updateDropdowns(rows) {
-      const uniqueCountries = [...new Set(rows.map(r => (r.modern_country_location || '').trim()).filter(Boolean))].sort();
-      const uniqueRegions = [...new Set(rows.flatMap(r => splitListValue(r.region_category)))].sort();
-      const uniqueTypes = [...new Set(rows.map(r => (r.site_type || '').trim()).filter(Boolean))].sort();
-      const uniqueMetals = [...new Set(rows.flatMap(r => splitListValue(r.metal)))].sort();
-      const uniqueExposures = [...new Set(rows.flatMap(r => splitListValue(r.exposure_period)))].sort();
+      const uniqueCountries = [...new Set(
+        rows.map(r => (r.modern_country_location || '').trim()).filter(Boolean)
+      )].sort();
+
+      const uniqueRegions = [...new Set(
+        rows.flatMap(r => splitListValue(r.region_category))
+      )].sort();
+
+      const cleanMetals = getStandardValuesPresentInRows(
+        rows,
+        'metal',
+        STANDARD_METALS
+      );
+
+      const cleanExposurePeriods = getStandardValuesPresentInRows(
+        rows,
+        'exposure_period',
+        STANDARD_EXPOSURE_PERIODS
+      );
 
       populateSelect('countryFilter', uniqueCountries);
       populateSelect('regionFilter', uniqueRegions);
-      populateSelect('typeFilter', uniqueTypes);
-      populateSelect('metalFilter', uniqueMetals);
-      populateSelect('exposureFilter', uniqueExposures);
+      populateSelect('metalFilter', cleanMetals);
+      populateSelect('exposureFilter', cleanExposurePeriods);
     }
 
     function updateResultPanel(count, total) {
@@ -1215,7 +1259,6 @@
       const query = document.getElementById('searchBox').value.trim();
       const country = document.getElementById('countryFilter').value.trim();
       const region = document.getElementById('regionFilter').value.trim();
-      const type = document.getElementById('typeFilter').value.trim();
       const metal = document.getElementById('metalFilter').value.trim();
       const exposure = document.getElementById('exposureFilter').value.trim();
       const onlySources = document.getElementById('sourceOnlyFilter').checked;
@@ -1225,7 +1268,6 @@
       if (query) chips.push({ key: 'query', label: `Search: ${query}` });
       if (country) chips.push({ key: 'country', label: `Country: ${country}` });
       if (region) chips.push({ key: 'region', label: `Region: ${region}` });
-      if (type) chips.push({ key: 'type', label: `Type: ${type}` });
       if (metal) chips.push({ key: 'metal', label: `Metal: ${metal}` });
       if (exposure) chips.push({ key: 'exposure', label: `Exposure: ${exposure}` });
       if (onlySources) chips.push({ key: 'sources', label: `Linked sources only` });
@@ -1351,24 +1393,41 @@
       const query = document.getElementById('searchBox').value.trim().toLowerCase();
       const countryValue = document.getElementById('countryFilter').value.trim().toLowerCase();
       const regionValue = document.getElementById('regionFilter').value.trim().toLowerCase();
-      const typeValue = document.getElementById('typeFilter').value.trim().toLowerCase();
       const metalValue = document.getElementById('metalFilter').value.trim().toLowerCase();
-      const exposureValue = document.getElementById('exposureFilter').value.trim().toLowerCase();  
+      const exposureValue = document.getElementById('exposureFilter').value.trim().toLowerCase();
 
       visibleRows = allRows.filter(row => {
         const matchesSearch = !query || row._searchText.includes(query);
-        const matchesCountry = !countryValue || row.modern_country_location.toLowerCase() === countryValue;
-        const matchesRegion = !regionValue || row.region_category.toLowerCase() === regionValue;
-        const matchesType = !typeValue || row.site_type.toLowerCase() === typeValue;
-        const matchesMetal = !metalValue || splitListValue(row.metal).some(item => item.toLowerCase() === metalValue);
-        const matchesExposure = !exposureValue || splitListValue(row.exposure_period).some(item => item.toLowerCase() === exposureValue);
-        const matchesSources = !onlySources || (row._resources && row._resources.length > 0);
+        const matchesCountry =
+          !countryValue ||
+          row.modern_country_location.toLowerCase() === countryValue;
+
+        const matchesRegion =
+          !regionValue ||
+          splitListValue(row.region_category).some(
+            item => item.toLowerCase() === regionValue
+          );
+
+        const matchesMetal =
+          !metalValue ||
+          splitListValue(row.metal).some(
+            item => item.toLowerCase() === metalValue
+          );
+
+        const matchesExposure =
+          !exposureValue ||
+          splitListValue(row.exposure_period).some(
+            item => item.toLowerCase() === exposureValue
+          );
+
+        const matchesSources =
+          !onlySources ||
+          (row._resources && row._resources.length > 0);
 
         return (
           matchesSearch &&
           matchesCountry &&
           matchesRegion &&
-          matchesType &&
           matchesMetal &&
           matchesExposure &&
           matchesSources
@@ -1383,7 +1442,12 @@
       renderActiveFilterChips();
 
       const filtersAreActive = Boolean(
-        query || countryValue || regionValue || typeValue || metalValue || exposureValue || onlySources
+        query ||
+        countryValue ||
+        regionValue ||
+        metalValue ||
+        exposureValue ||
+        onlySources
       );
 
       if (filtersAreActive && autoFit) {
@@ -1418,7 +1482,6 @@
         document.getElementById('searchBox').addEventListener('input', () => applyFilters(true));
         document.getElementById('countryFilter').addEventListener('change', () => applyFilters(true));
         document.getElementById('regionFilter').addEventListener('change', () => applyFilters(true));
-        document.getElementById('typeFilter').addEventListener('change', () => applyFilters(true));
         document.getElementById('metalFilter').addEventListener('change', () => applyFilters(true));
         document.getElementById('exposureFilter').addEventListener('change', () => applyFilters(true));
 
@@ -1426,7 +1489,6 @@
           document.getElementById('searchBox').value = '';
           document.getElementById('countryFilter').value = '';
           document.getElementById('regionFilter').value = '';
-          document.getElementById('typeFilter').value = '';
           document.getElementById('metalFilter').value = '';
           document.getElementById('exposureFilter').value = '';
           document.getElementById('sourceOnlyFilter').checked = false;
