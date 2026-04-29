@@ -446,6 +446,39 @@
     .hover-summary-card[hidden] {
       display: none !important;
     }
+
+    .map-status-panel {
+      position: absolute;
+      left: 14px;
+      bottom: 14px;
+      z-index: 1000;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+      max-width: min(620px, calc(100vw - 40px));
+    }
+
+    .map-status-badge,
+    .map-status-button {
+      background: rgba(255, 255, 255, 0.96);
+      border: 1px solid #d7dee3;
+      border-radius: 999px;
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.10);
+      padding: 8px 12px;
+      font-size: 12px;
+      color: #374151;
+      backdrop-filter: blur(4px);
+    }
+
+    .map-status-button {
+      cursor: pointer;
+      font-weight: 600;
+    }
+
+    .map-status-button:hover {
+      background: #f3f7fa;
+    }
     
     .sidebar-toggle {
       border: 1px solid #bdbdbd;
@@ -646,6 +679,20 @@
       </div>
 
       <div class="control-group">
+        <label class="control-label" for="metalFilter">Metal</label>
+        <select id="metalFilter" class="control-select">
+          <option value="">All</option>
+        </select>
+      </div>
+
+      <div class="control-group">
+        <label class="control-label" for="exposureFilter">Exposure period</label>
+        <select id="exposureFilter" class="control-select">
+          <option value="">All</option>
+        </select>
+      </div>
+
+      <div class="control-group">
         <label class="checkbox-row" for="sourceOnlyFilter">
           <input id="sourceOnlyFilter" type="checkbox" />
           <span>Only show sites with linked sources</span>
@@ -723,6 +770,13 @@
     <main class="map-panel">
       <div id="map"></div>
       <div id="hoverSummaryCard" class="hover-summary-card" hidden></div>
+
+      <div class="map-status-panel">
+        <div id="mapStatusBadge" class="map-status-badge">Loading dataset...</div>
+        <button id="downloadVisibleCsv" class="map-status-button" type="button">
+          Download visible sites CSV
+        </button>
+      </div>
     </main>
   </div>
 
@@ -830,6 +884,8 @@
       if (key === 'country') document.getElementById('countryFilter').value = '';
       if (key === 'region') document.getElementById('regionFilter').value = '';
       if (key === 'type') document.getElementById('typeFilter').value = '';
+      if (key === 'metal') document.getElementById('metalFilter').value = '';
+      if (key === 'exposure') document.getElementById('exposureFilter').value = '';
       if (key === 'sources') document.getElementById('sourceOnlyFilter').checked = false;
 
       applyFilters(true);
@@ -865,6 +921,49 @@
         .replace(/'/g, '&#039;');
     }
 
+    function csvEscape(value) {
+      const text = value === null || value === undefined ? '' : String(value);
+      return `"${text.replace(/"/g, '""')}"`;
+    }
+
+    function rowsToCsv(rows) {
+      const columns = [
+        'site_id',
+        'site_label',
+        'site_type',
+        'latitude',
+        'longitude',
+        'modern_country_location',
+        'administering_country',
+        'former_entity',
+        'region_category',
+        'exposure_period',
+        'metal',
+        'notes'
+      ];
+
+      const header = columns.join(',');
+      const body = rows.map(row =>
+        columns.map(column => csvEscape(row[column] || '')).join(',')
+      );
+
+      return [header, ...body].join('\n');
+    }
+
+    function downloadCsv(filename, csvText) {
+      const blob = new Blob([csvText], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      URL.revokeObjectURL(url);
+    }
+
     function sanitizeUrl(value) {
       if (!value) return '';
 
@@ -891,6 +990,13 @@
     function normalizeText(value) {
       return value === null || value === undefined ? '' : String(value).trim();
      }
+
+     function splitListValue(value) {
+      return normalizeText(value)
+        .split(/[;,]/)
+        .map(item => item.trim())
+        .filter(Boolean);
+    }
 
      function collectResources(row) {
       return Object.keys(row)
@@ -1026,12 +1132,16 @@
 
     function updateDropdowns(rows) {
       const uniqueCountries = [...new Set(rows.map(r => (r.modern_country_location || '').trim()).filter(Boolean))].sort();
-      const uniqueRegions = [...new Set(rows.map(r => (r.region_category || '').trim()).filter(Boolean))].sort();
+      const uniqueRegions = [...new Set(rows.flatMap(r => splitListValue(r.region_category)))].sort();
       const uniqueTypes = [...new Set(rows.map(r => (r.site_type || '').trim()).filter(Boolean))].sort();
+      const uniqueMetals = [...new Set(rows.flatMap(r => splitListValue(r.metal)))].sort();
+      const uniqueExposures = [...new Set(rows.flatMap(r => splitListValue(r.exposure_period)))].sort();
 
       populateSelect('countryFilter', uniqueCountries);
       populateSelect('regionFilter', uniqueRegions);
       populateSelect('typeFilter', uniqueTypes);
+      populateSelect('metalFilter', uniqueMetals);
+      populateSelect('exposureFilter', uniqueExposures);
     }
 
     function updateResultPanel(count, total) {
@@ -1106,6 +1216,8 @@
       const country = document.getElementById('countryFilter').value.trim();
       const region = document.getElementById('regionFilter').value.trim();
       const type = document.getElementById('typeFilter').value.trim();
+      const metal = document.getElementById('metalFilter').value.trim();
+      const exposure = document.getElementById('exposureFilter').value.trim();
       const onlySources = document.getElementById('sourceOnlyFilter').checked;
 
       const chips = [];
@@ -1114,6 +1226,8 @@
       if (country) chips.push({ key: 'country', label: `Country: ${country}` });
       if (region) chips.push({ key: 'region', label: `Region: ${region}` });
       if (type) chips.push({ key: 'type', label: `Type: ${type}` });
+      if (metal) chips.push({ key: 'metal', label: `Metal: ${metal}` });
+      if (exposure) chips.push({ key: 'exposure', label: `Exposure: ${exposure}` });
       if (onlySources) chips.push({ key: 'sources', label: `Linked sources only` });
 
       if (chips.length === 0) {
@@ -1238,15 +1352,27 @@
       const countryValue = document.getElementById('countryFilter').value.trim().toLowerCase();
       const regionValue = document.getElementById('regionFilter').value.trim().toLowerCase();
       const typeValue = document.getElementById('typeFilter').value.trim().toLowerCase();
+      const metalValue = document.getElementById('metalFilter').value.trim().toLowerCase();
+      const exposureValue = document.getElementById('exposureFilter').value.trim().toLowerCase();  
 
       visibleRows = allRows.filter(row => {
         const matchesSearch = !query || row._searchText.includes(query);
         const matchesCountry = !countryValue || row.modern_country_location.toLowerCase() === countryValue;
         const matchesRegion = !regionValue || row.region_category.toLowerCase() === regionValue;
         const matchesType = !typeValue || row.site_type.toLowerCase() === typeValue;
+        const matchesMetal = !metalValue || splitListValue(row.metal).some(item => item.toLowerCase() === metalValue);
+        const matchesExposure = !exposureValue || splitListValue(row.exposure_period).some(item => item.toLowerCase() === exposureValue);
         const matchesSources = !onlySources || (row._resources && row._resources.length > 0);
 
-        return matchesSearch && matchesCountry && matchesRegion && matchesType && matchesSources;
+        return (
+          matchesSearch &&
+          matchesCountry &&
+          matchesRegion &&
+          matchesType &&
+          matchesMetal &&
+          matchesExposure &&
+          matchesSources
+        );
       });
 
       renderMarkers(visibleRows);
@@ -1256,7 +1382,9 @@
       updateStats(visibleRows);
       renderActiveFilterChips();
 
-      const filtersAreActive = Boolean(query || countryValue || regionValue || typeValue || onlySources);
+      const filtersAreActive = Boolean(
+        query || countryValue || regionValue || typeValue || metalValue || exposureValue || onlySources
+      );
 
       if (filtersAreActive && autoFit) {
         fitRows(visibleRows);
@@ -1282,18 +1410,25 @@
 
         updateStats(allRows);
         renderActiveFilterChips();
+        const loadedAt = new Date().toLocaleString();
+        document.getElementById('mapStatusBadge').textContent =
+          `Dataset loaded: ${allRows.length.toLocaleString()} sites · ${loadedAt}`;
 
         document.getElementById('sourceOnlyFilter').addEventListener('change', () => applyFilters(true));
         document.getElementById('searchBox').addEventListener('input', () => applyFilters(true));
         document.getElementById('countryFilter').addEventListener('change', () => applyFilters(true));
         document.getElementById('regionFilter').addEventListener('change', () => applyFilters(true));
         document.getElementById('typeFilter').addEventListener('change', () => applyFilters(true));
+        document.getElementById('metalFilter').addEventListener('change', () => applyFilters(true));
+        document.getElementById('exposureFilter').addEventListener('change', () => applyFilters(true));
 
         document.getElementById('clearFilters').addEventListener('click', function() {
           document.getElementById('searchBox').value = '';
           document.getElementById('countryFilter').value = '';
           document.getElementById('regionFilter').value = '';
           document.getElementById('typeFilter').value = '';
+          document.getElementById('metalFilter').value = '';
+          document.getElementById('exposureFilter').value = '';
           document.getElementById('sourceOnlyFilter').checked = false;
           applyFilters(false);
         });
@@ -1303,6 +1438,11 @@
         });
         document.getElementById('resetView').addEventListener('click', function() {
           map.setView(DEFAULT_CENTER, DEFAULT_ZOOM);
+        });
+
+        document.getElementById('downloadVisibleCsv').addEventListener('click', function() {
+          const csvText = rowsToCsv(visibleRows);
+          downloadCsv('visible_corrosion_sites.csv', csvText);
         });
 
         setTimeout(() => {

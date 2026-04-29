@@ -2945,6 +2945,45 @@ if active_page == "Dashboard":
         with metric_col3:
             st.metric("Site-source links", counts.get("site_sources", 0))
 
+            st.write("#### System status")
+
+            status_col1, status_col2, status_col3, status_col4 = st.columns(4)
+
+            with status_col1:
+                st.metric(
+                    "Backend",
+                    "Supabase" if str(DB_PATH).upper() == "SUPABASE" else "SQLite",
+                )
+
+            with status_col2:
+                try:
+                    github_summary = str(get_github_config_summary())
+
+                    if "missing" in github_summary.lower() or "not configured" in github_summary.lower():
+                        github_ready = "No"
+                    else:
+                        github_ready = "Yes"
+
+                except Exception:
+                    github_ready = "Unknown"
+
+                st.metric("GitHub publish ready", github_ready)
+
+            with status_col3:
+                st.metric(
+                    "Public map URL",
+                    "Set" if MAP_WEBSITE_URL else "Missing",
+                )
+
+            with status_col4:
+                try:
+                    draft = load_app_draft(IMPORT_PREVIEW_DRAFT_KEY)
+                    draft_status = "Yes" if draft else "No"
+                except Exception:
+                    draft_status = "Unknown"
+
+                st.metric("Unsaved import draft", draft_status)
+
     except Exception as exc:
         st.error(f"Could not read database counts: {exc}")
         st.info("Go to the Settings tab and initialize the database if this is a new setup.")
