@@ -41,26 +41,20 @@
       display: flex;
       flex-direction: column;
       align-items: center;
-      padding: 10px 0;
+      padding: 10px 8px;
       gap: 8px;
       box-sizing: border-box;
       transition:
         width 0.22s ease,
         min-width 0.22s ease,
-        max-width 0.22s ease,
-        padding 0.22s ease,
-        opacity 0.22s ease,
-        border-color 0.22s ease;
+        max-width 0.22s ease;
     }
 
-    .app.sidebar-open .sidebar-rail {
-      width: 0;
-      min-width: 0;
-      max-width: 0;
-      padding: 0;
-      border-right-color: transparent;
-      overflow: hidden;
-      opacity: 0;
+    .app.rail-expanded .sidebar-rail {
+      width: 138px;
+      min-width: 138px;
+      max-width: 138px;
+      align-items: stretch;
     }
 
     .rail-button {
@@ -73,9 +67,17 @@
       display: flex;
       align-items: center;
       justify-content: center;
+      gap: 10px;
       cursor: pointer;
       padding: 0;
       line-height: 1;
+      box-sizing: border-box;
+    }
+
+    .app.rail-expanded .rail-button {
+      width: 100%;
+      justify-content: flex-start;
+      padding: 0 10px;
     }
 
     .rail-button:hover {
@@ -93,11 +95,27 @@
     .rail-icon {
       width: 20px;
       height: 20px;
+      min-width: 20px;
       stroke: currentColor;
       stroke-width: 2;
       fill: none;
       stroke-linecap: round;
       stroke-linejoin: round;
+    }
+
+    .rail-label {
+      display: none;
+      font-size: 13px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .app.rail-expanded .rail-label {
+      display: inline;
+    }
+
+    .app.rail-expanded .rail-expand-button .rail-icon {
+      transform: rotate(180deg);
     }
 
     .sidebar {
@@ -898,17 +916,33 @@
   <div class="app sidebar-open" id="appShell">
     <aside class="sidebar-rail">
       <button
+        id="railExpandButton"
+        class="rail-button rail-expand-button"
+        type="button"
+        aria-label="Expand side rail"
+        aria-expanded="false"
+        title="Expand side rail"
+      >
+        <svg class="rail-icon" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M9 18l6-6-6-6"></path>
+        </svg>
+        <span class="rail-label">Views</span>
+      </button>
+
+      <button
         id="railSearchButton"
         class="rail-button active"
         type="button"
-        aria-label="Search and filters"
+        aria-label="Map and filters"
         aria-pressed="true"
-        title="Search and filters"
+        title="Map and filters"
       >
         <svg class="rail-icon" viewBox="0 0 24 24" aria-hidden="true">
-          <circle cx="11" cy="11" r="6"></circle>
-          <path d="M20 20l-4.2-4.2"></path>
+          <path d="M9 18l-6 3V6l6-3 6 3 6-3v15l-6 3-6-3z"></path>
+          <path d="M9 3v15"></path>
+          <path d="M15 6v15"></path>
         </svg>
+        <span class="rail-label">Map</span>
       </button>
 
       <button
@@ -927,6 +961,7 @@
           <path d="M3 12h.01"></path>
           <path d="M3 18h.01"></path>
         </svg>
+        <span class="rail-label">List</span>
       </button>
     </aside>
 
@@ -1171,6 +1206,7 @@
       "Kenya",
       "Korea, Republic of",
       "Kuwait",
+      "Lao People's Democratic Republic",
       "Latvia",
       "Lebanon",
       "Libya",
@@ -1376,6 +1412,7 @@
     const sidebar = document.getElementById('sidebar');
     const toggleSidebarButton = document.getElementById('toggleSidebar');
     const railSearchButton = document.getElementById('railSearchButton');
+    const railExpandButton = document.getElementById('railExpandButton');
     const railDirectoryButton = document.getElementById('railDirectoryButton');
     const countryDirectoryPanel = document.getElementById('countryDirectoryPanel');
     const closeDirectoryButton = document.getElementById('closeDirectoryButton');
@@ -1384,16 +1421,27 @@
     const directoryLetterNav = document.getElementById('directoryLetterNav');
     const countryDirectoryContent = document.getElementById('countryDirectoryContent');
 
-    function setRailState(isSidebarOpen) {
-      railSearchButton.classList.toggle('active', !isSidebarOpen);
-      railSearchButton.setAttribute('aria-pressed', isSidebarOpen ? 'false' : 'true');
+    function setRailState(isMapActive) {
+      railSearchButton.classList.toggle('active', isMapActive);
+      railSearchButton.setAttribute('aria-pressed', isMapActive ? 'true' : 'false');
+    }
+
+    function setRailExpanded(isExpanded) {
+      appShell.classList.toggle('rail-expanded', isExpanded);
+      railExpandButton.setAttribute('aria-expanded', isExpanded ? 'true' : 'false');
+      railExpandButton.setAttribute(
+        'title',
+        isExpanded ? 'Collapse side rail' : 'Expand side rail'
+      );
     }
 
     function closeSidebar() {
       sidebar.classList.add('sidebar-collapsed');
       appShell.classList.remove('sidebar-open');
       toggleSidebarButton.setAttribute('aria-expanded', 'false');
-      setRailState(false);
+      if (!appShell.classList.contains('directory-open')) {
+        setRailState(true);
+      }
       setTimeout(() => map.invalidateSize(), 230);
     }
 
@@ -1413,9 +1461,7 @@
     function openDirectory() {
       closeSidebar();
 
-      railSearchButton.classList.remove('active');
-      railSearchButton.setAttribute('aria-pressed', 'false');
-
+      setRailState(false);
       appShell.classList.add('directory-open');
       countryDirectoryPanel.hidden = false;
       setDirectoryState(true);
@@ -1426,12 +1472,7 @@
       appShell.classList.remove('directory-open');
       countryDirectoryPanel.hidden = true;
       setDirectoryState(false);
-
-      if (sidebar.classList.contains('sidebar-collapsed')) {
-        railSearchButton.classList.add('active');
-        railSearchButton.setAttribute('aria-pressed', 'true');
-      }
-
+      setRailState(true);
       setTimeout(() => map.invalidateSize(), 120);
     }
 
@@ -1443,6 +1484,10 @@
       } else {
         openDirectory();
       }
+    });
+
+    railExpandButton.addEventListener('click', function() {
+      setRailExpanded(!appShell.classList.contains('rail-expanded'));
     });
 
     closeDirectoryButton.addEventListener('click', closeDirectory);
