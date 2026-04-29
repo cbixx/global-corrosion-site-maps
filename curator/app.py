@@ -322,6 +322,8 @@ COUNTRY_CODE_NAME_OVERRIDES = {
     "Moldova": "MD",
     "Laos": "LA",
     "Vietnam": "VN",
+    "Taiwan": "CN",
+    "Chinese Taipei": "CN",
 }
 
 
@@ -694,6 +696,16 @@ def render_left_button_pair(
 
     return left_clicked, right_clicked
 
+REQUIRED_MARK = " *"
+
+
+def required_label(label: str) -> str:
+    return f"{label}{REQUIRED_MARK}"
+
+
+def optional_label(label: str) -> str:
+    return f"{label} (optional)"
+
 SITE_FORM_KEYS = [
     "site_label_input",
     "site_latitude",
@@ -708,6 +720,18 @@ SITE_FORM_KEYS = [
     "exposure_period_input",
     "metals_select",
     "site_notes_input",
+]
+
+SOURCE_FORM_KEYS = [
+    "add_source_code",
+    "add_source_title",
+    "add_source_programme",
+    "add_source_metals",
+    "add_source_exposure_periods",
+    "add_source_uploaded_pdf",
+    "upload_source_pdf_to_github_after_add",
+    "add_source_external_url",
+    "add_source_notes",
 ]
 
 SOURCE_METADATA_FORM_KEYS = [
@@ -731,6 +755,10 @@ def clear_site_form_state() -> None:
     st.session_state.location_results = []
     st.session_state.selected_location_label = None
     st.session_state.location_search_message = ""
+
+def clear_source_form_state() -> None:
+    for key in SOURCE_FORM_KEYS:
+        st.session_state.pop(key, None)
 
 def get_source_metadata_by_code() -> dict[str, dict[str, str]]:
     with get_connection() as conn:
@@ -1461,6 +1489,65 @@ def apply_osm_suggestions_to_site_preview(site_preview_df: pd.DataFrame) -> pd.D
         updated_df.at[row_index, "apply_osm_suggestion"] = False
 
     return updated_df
+
+def auto_fill_site_preview_region_categories_from_current_coordinates(
+    site_preview_df: pd.DataFrame,
+    overwrite_existing: bool = False,
+) -> tuple[pd.DataFrame, int, int]:
+    updated_df = site_preview_df.copy()
+
+    for column in ["region_category", "warnings"]:
+        if column not in updated_df.columns:
+            updated_df[column] = ""
+
+    updated_count = 0
+    skipped_count = 0
+
+    for row_index, row in updated_df.iterrows():
+        current_region = join_chip_values(row.get("region_category", ""))
+
+        if current_region and not overwrite_existing:
+            continue
+
+        latitude_text = str(row.get("latitude", "") or "").strip()
+        longitude_text = str(row.get("longitude", "") or "").strip()
+
+        if not latitude_text or not longitude_text:
+            skipped_count += 1
+            continue
+
+        try:
+            latitude_value = float(latitude_text)
+            longitude_value = float(longitude_text)
+        except (TypeError, ValueError):
+            skipped_count += 1
+            updated_df.at[row_index, "warnings"] = append_warning_text(
+                str(updated_df.at[row_index, "warnings"] or ""),
+                "Region category not filled: latitude/longitude are not valid numbers",
+            )
+            continue
+
+        result = classify_region_category(
+            latitude=latitude_value,
+            longitude=longitude_value,
+            current_region_category=current_region,
+            modern_country_location=str(row.get("modern_country_location", "") or ""),
+            site_type=str(row.get("site_type", "") or ""),
+        )
+
+        suggested_region = str(result.region_category or "").strip()
+
+        if suggested_region:
+            updated_df.at[row_index, "region_category"] = suggested_region
+            updated_df.at[row_index, "warnings"] = append_warning_text(
+                str(updated_df.at[row_index, "warnings"] or ""),
+                "Region category filled from current coordinates",
+            )
+            updated_count += 1
+        else:
+            skipped_count += 1
+
+    return updated_df, updated_count, skipped_count
 
 def apply_site_preview_edits_to_detail(
     original_site_preview_df: pd.DataFrame,
@@ -2454,6 +2541,9 @@ if "location_results" not in st.session_state:
 if "selected_location_label" not in st.session_state:
     st.session_state.selected_location_label = None
 
+if st.session_state.pop("clear_source_form_after_success", False):
+    clear_source_form_state()
+
 if st.session_state.pop("clear_site_form_after_success", False):
     clear_site_form_state()
 
@@ -2793,21 +2883,36 @@ if active_page == "Sources":
 
     st.write("### Add source")
 
-    with st.form("add_source_form", clear_on_submit=True):
-        source_code = st.text_input("Source code", placeholder="e.g. s017")
-        source_title = st.text_input("Source title", placeholder="Paper/report title")
+    with st.form("add_source_form", clear_on_submit=False):
+        st.caption("* Required field")
+
+        source_code = st.text_input(
+            required_label("Source code"),
+            placeholder="e.g. s017",
+            key="add_source_code",
+        )
+
+        source_title = st.text_input(
+            optional_label("Source title"),
+            placeholder="Paper/report title",
+            key="add_source_title",
+        )
 
         selected_programme = st.selectbox(
-            "Source programme",
+            required_label("Source programme"),
             options=get_programme_options(include_blank=True),
-            help="Classify the source by major corrosion exposure programme where applicable. Type a new value to add a new programme.",
+            help=(
+                "Required. Classify the source by major corrosion exposure programme where applicable. "
+                "Type a new value to add a new programme."
+            ),
             accept_new_options=True,
+            key="add_source_programme",
         )
 
         source_programme = selected_programme.strip()
 
         selected_source_metals = st.multiselect(
-            "Metal(s) covered by this source",
+            required_label("Metal(s) covered by this source"),
             options=get_metal_options(),
             help=(
                 "Required. These become default metals when this source is linked to a site. "
@@ -2820,7 +2925,7 @@ if active_page == "Sources":
         source_metals = normalize_metal_selection(selected_source_metals)
 
         selected_source_exposure_periods = st.multiselect(
-            "Exposure period(s) covered by this source",
+            required_label("Exposure period(s) covered by this source"),
             options=EXPOSURE_PERIOD_OPTIONS,
             help=(
                 "Required. These become default exposure periods when this source is linked to a site. "
@@ -2835,13 +2940,14 @@ if active_page == "Sources":
         )
 
         uploaded_pdf = st.file_uploader(
-            "Upload source PDF",
+            optional_label("Upload source PDF"),
             type=["pdf"],
             help="The PDF will be copied into source_pdfs/ and linked from the website later.",
+            key="add_source_uploaded_pdf",
         )
 
         upload_source_pdf_to_github = st.checkbox(
-            "After adding this source, upload the PDF to GitHub",
+            optional_label("After adding this source, upload the PDF to GitHub"),
             value=True,
             help=(
                 "Recommended for the online app. Streamlit's hosted file system is not permanent, "
@@ -2851,21 +2957,38 @@ if active_page == "Sources":
         )
 
         external_url = st.text_input(
-            "External URL",
-            placeholder="Optional. If a PDF is uploaded, the uploaded PDF path will be used.",
+            optional_label("External URL"),
+            placeholder="If a PDF is uploaded, the uploaded PDF path will be used.",
+            key="add_source_external_url",
         )
 
-        source_notes = st.text_area("Source notes", placeholder="Optional notes")
+        source_notes = st.text_area(
+            optional_label("Source notes"),
+            placeholder="Optional notes",
+            key="add_source_notes",
+        )
 
         submit_source = st.form_submit_button("Add source")
 
         if submit_source:
+            validation_errors = []
+
             if not source_code.strip():
-                st.error("Source code is required.")
-            elif not source_metals.strip():
-                st.error("At least one source metal is required.")
-            elif not source_exposure_periods.strip():
-                st.error("At least one source exposure period is required.")
+                validation_errors.append("Source code is required.")
+
+            if not source_programme.strip():
+                validation_errors.append("Source programme is required.")
+
+            if not source_metals.strip():
+                validation_errors.append("At least one source metal is required.")
+
+            if not source_exposure_periods.strip():
+                validation_errors.append("At least one source exposure period is required.")
+
+            if validation_errors:
+                st.error("Please complete the required field(s). Your entered information has been kept.")
+                for error in validation_errors:
+                    st.warning(error)
             else:
                 try:
                     local_file_name = ""
@@ -2905,7 +3028,9 @@ if active_page == "Sources":
                             )
 
                             flash_message += " Uploaded source PDF to GitHub."
-                            st.session_state.last_git_publish_output = str(github_pdf_result["output"])
+                            st.session_state.last_git_publish_output = str(
+                                github_pdf_result["output"]
+                            )
 
                         except Exception as github_exc:
                             flash_level = "warning"
@@ -2914,6 +3039,7 @@ if active_page == "Sources":
                                 + str(github_exc)
                             )
 
+                    st.session_state.clear_source_form_after_success = True
                     set_flash_message(flash_message, level=flash_level)
                     st.rerun()
 
@@ -3220,10 +3346,11 @@ if active_page == "Sites":
     st.divider()
 
     st.write("### Add site")
+    st.caption("* Required field")
 
     with st.container():
         site_label = st.text_input(
-            "Site label",
+            required_label("Site label"),
             placeholder="e.g. Berlin",
             key="site_label_input",
         )
@@ -3234,27 +3361,27 @@ if active_page == "Sites":
 
         with col1:
             latitude = st.text_input(
-                "Latitude",
+                required_label("Latitude"),
                 key="site_latitude",
                 placeholder="e.g. 50.0755",
             )
 
         with col2:
             longitude = st.text_input(
-                "Longitude",
+                required_label("Longitude"),
                 key="site_longitude",
                 placeholder="e.g. 14.4378",
             )
 
         modern_country_location = st.text_input(
-            "Modern country / location",
+            required_label("Modern country / location"),
             key="site_modern_country_location",
             placeholder="e.g. Germany or Antarctica",
         )
 
         administering_country = st.text_input(
-            "Administering country",
-            placeholder="Optional; used for Antarctic IDs such as AQ-RU-001",
+            optional_label("Administering country"),
+            placeholder="Used for Antarctic IDs such as AQ-RU-001",
             key="administering_country_input",
         )
 
@@ -3276,7 +3403,7 @@ if active_page == "Sites":
         st.session_state.last_suggested_site_id = suggested_site_id
 
         site_id = st.text_input(
-            "Site ID",
+            required_label("Site ID"),
             key="site_id_input",
             help=(
                 "Automatically suggested from the country/location. "
@@ -3285,7 +3412,7 @@ if active_page == "Sites":
         )
 
         selected_former_entity = st.selectbox(
-            "Former entity",
+            optional_label("Former entity"),
             options=FORMER_ENTITY_OPTIONS,
             key="former_entity_select",
         )
@@ -3301,7 +3428,7 @@ if active_page == "Sites":
         former_entity = resolve_option_value(selected_former_entity, custom_former_entity)
 
         selected_region_tags = st.multiselect(
-            "Region category tags",
+            optional_label("Region category tags"),
             options=REGION_TAG_OPTIONS,
             help="Choose one or more tags. They will be combined into a normalized region category.",
             key="region_tags_select",
@@ -3313,13 +3440,13 @@ if active_page == "Sites":
             st.caption(f"Saved region category: {region_category}")
 
         exposure_period = st.text_input(
-            "Exposure period",
+            optional_label("Exposure period"),
             placeholder="e.g. 1987–1991 or 1 year",
             key="exposure_period_input",
         )
 
         selected_metals = st.multiselect(
-            "Metal",
+            optional_label("Metal"),
             options=get_metal_options(),
             help="Choose one or more metals. Type a new value and press Enter to add a custom metal.",
             key="metals_select",
@@ -3332,7 +3459,7 @@ if active_page == "Sites":
             st.caption(f"Saved metal field: {metal}")
 
         site_notes = st.text_area(
-            "Site notes",
+            optional_label("Site notes"),
             placeholder="Optional notes about the site",
             key="site_notes_input",
         )
@@ -3363,6 +3490,8 @@ if active_page == "Sites":
                 st.error("Latitude is required.")
             elif not longitude.strip():
                 st.error("Longitude is required.")
+            elif not modern_country_location.strip():
+                st.error("Modern country / location is required.")
             else:
                 try:
                     latitude_value = float(latitude)
@@ -3464,7 +3593,7 @@ if active_page == "Sites":
                 st.rerun()
 
             selected_site_labels = st.multiselect(
-                "Choose site(s)",
+                required_label("Choose site(s)"),
                 options=site_link_labels,
                 help="Choose one or more sites. Multiple selection allows bulk source linking.",
                 key="link_sites_selected",
@@ -3489,7 +3618,7 @@ if active_page == "Sites":
                 st.rerun()
 
             selected_source_labels = st.multiselect(
-                "Choose source(s)",
+                required_label("Choose source(s)"),
                 options=source_link_labels,
                 help="Choose one or more sources to attach to the selected site(s).",
                 key="link_sources_selected",
@@ -3533,7 +3662,7 @@ if active_page == "Sites":
                 )
 
             source_order = st.number_input(
-                "Source order",
+                required_label("Source order"),
                 min_value=1,
                 max_value=99,
                 value=1,
@@ -3543,7 +3672,7 @@ if active_page == "Sites":
             )
 
             selected_link_metals = st.multiselect(
-                "Metal(s) for this site-source link",
+                optional_label("Metal(s) for this site-source link"),
                 options=get_metal_options(),
                 help=(
                     "Defaults to the selected source metadata. "
@@ -3556,7 +3685,7 @@ if active_page == "Sites":
             link_metals = normalize_metal_selection(selected_link_metals)
 
             selected_link_exposure_periods = st.multiselect(
-                "Exposure period(s) for this site-source link",
+                optional_label("Exposure period(s) for this site-source link"),
                 options=EXPOSURE_PERIOD_OPTIONS,
                 help=(
                     "Defaults to the selected source metadata. "
@@ -3571,7 +3700,7 @@ if active_page == "Sites":
             )
 
             link_notes = st.text_area(
-                "Notes for this site-source relationship",
+                optional_label("Notes for this site-source relationship"),
                 placeholder="Optional notes, e.g. table number, exposure series, extraction remarks.",
                 key="link_notes",
             )
@@ -4391,7 +4520,7 @@ if active_page == "Import":
     import_upload_version = int(st.session_state["import_upload_version"])
 
     uploaded_import_csv = st.file_uploader(
-        "Upload CSV file",
+        required_label("Upload CSV file"),
         type=["csv", "txt"],
         help=(
             "Minimum columns: site_label, modern_country_location, source_1. "
@@ -4532,6 +4661,14 @@ if active_page == "Import":
                 st.warning("The uploaded file did not produce any importable preview rows.")
             else:
                 st.success(f"Parsed {len(preview_df)} preview row(s).")
+
+                last_region_fill_message = st.session_state.pop(
+                    "last_import_region_fill_message",
+                    "",
+                )
+
+                if last_region_fill_message:
+                    st.info(last_region_fill_message)
 
                 select_import_clicked, deselect_import_clicked = render_left_button_pair(
                     "Select all import sites",
@@ -4744,6 +4881,34 @@ if active_page == "Import":
                     st.session_state.pop("import_preview_editor", None)
                     st.rerun()
 
+                region_fill_col, region_fill_spacer = st.columns(
+                    [0.42, 0.58],
+                    vertical_alignment="bottom",
+                )
+
+                with region_fill_col:
+                    fill_regions_clicked = st.button(
+                        "Auto-fill missing region categories from current coordinates",
+                        key="auto_fill_import_regions_from_current_coordinates",
+                        use_container_width=True,
+                    )
+
+                if fill_regions_clicked:
+                    site_preview_df, updated_count, skipped_count = (
+                        auto_fill_site_preview_region_categories_from_current_coordinates(
+                            edited_site_preview_df,
+                            overwrite_existing=False,
+                        )
+                    )
+
+                    st.session_state["import_site_preview_override"] = site_preview_df
+                    st.session_state["last_import_region_fill_message"] = (
+                        f"Region-category auto-fill completed. "
+                        f"Filled: {updated_count}; skipped/no change: {skipped_count}."
+                    )
+                    st.session_state.pop("import_preview_editor", None)
+                    st.rerun()
+
                 if st.button("Reset import preview edits", key="reset_import_preview_edits"):
                     st.session_state.pop("import_site_preview_override", None)
                     st.rerun()
@@ -4802,7 +4967,7 @@ if active_page == "Import":
                 st.write("#### Confirm import")
 
                 confirm_import_checked = st.checkbox(
-                    "I reviewed the preview and want to write the selected rows into the database.",
+                    required_label("I reviewed the preview and want to write the selected rows into the database."),
                     key="confirm_import_checked",
                 )
 
@@ -5079,7 +5244,7 @@ if active_page == "Export / Publish":
         st.write("#### Confirm website publish")
 
         confirm_publish_checked = st.checkbox(
-            "I reviewed the selected sites and want to update the website dataset.",
+            required_label("I reviewed the selected sites and want to update the website dataset."),
             key="confirm_publish_checked",
         )
 
