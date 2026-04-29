@@ -340,8 +340,15 @@ def get_country_code(location_name: str) -> str:
     if location_name in ANTARCTIC_LOCATION_NAMES:
         return "AQ"
 
-    if location_name in COUNTRY_CODE_NAME_OVERRIDES:
-        return COUNTRY_CODE_NAME_OVERRIDES[location_name]
+    override_key = location_name.casefold()
+
+    country_code_overrides_normalised = {
+        key.casefold(): value
+        for key, value in COUNTRY_CODE_NAME_OVERRIDES.items()
+    }
+
+    if override_key in country_code_overrides_normalised:
+        return country_code_overrides_normalised[override_key]
 
     # Try exact pycountry lookup.
     try:
@@ -499,6 +506,24 @@ def split_chip_values(value) -> list[str]:
 
 def join_chip_values(value) -> str:
     return ", ".join(split_chip_values(value))
+
+def normalise_bool_value(value) -> bool:
+    if isinstance(value, bool):
+        return value
+
+    if value is None:
+        return False
+
+    text = str(value).strip().lower()
+
+    return text in {"true", "1", "yes", "y", "checked", "selected"}
+
+
+def normalise_bool_column(df: pd.DataFrame, column: str) -> pd.Series:
+    if column not in df.columns:
+        return pd.Series([False] * len(df), index=df.index)
+
+    return df[column].apply(normalise_bool_value)
 
 def build_row_label(row: dict, table_name: str) -> str:
     if table_name == "sites":
@@ -720,6 +745,8 @@ SITE_FORM_KEYS = [
     "exposure_period_input",
     "metals_select",
     "site_notes_input",
+    "site_type_select",
+    "custom_site_type_input",
 ]
 
 SOURCE_FORM_KEYS = [
@@ -1194,6 +1221,45 @@ def preview_site_upsert_match(
         "match_reason": "",
     }
 
+def make_import_preview_signature(
+    uploaded_file,
+    default_import_programme: str,
+    geocode_missing_coordinates: bool,
+    auto_fill_region_category_import: bool,
+    require_registered_source_metadata: bool,
+) -> str:
+    return "|".join(
+        [
+            str(getattr(uploaded_file, "name", "")),
+            str(getattr(uploaded_file, "size", "")),
+            str(default_import_programme or ""),
+            str(bool(geocode_missing_coordinates)),
+            str(bool(auto_fill_region_category_import)),
+            str(bool(require_registered_source_metadata)),
+        ]
+    )
+
+def refresh_import_preview_editor() -> None:
+    current_version = int(st.session_state.get("import_preview_editor_version", 0))
+
+    st.session_state.pop("import_preview_editor", None)
+    st.session_state.pop(f"import_preview_editor_{current_version}", None)
+
+    st.session_state["import_preview_editor_version"] = current_version + 1
+
+def clear_cached_import_preview() -> None:
+    for key in [
+        "cached_import_preview_signature",
+        "cached_import_preview_df",
+        "cached_import_site_preview_df",
+        "import_site_preview_override",
+        "latest_import_preview",
+        "import_preview_editor",
+    ]:
+        st.session_state.pop(key, None)
+
+    refresh_import_preview_editor()
+
 
 def annotate_import_preview_for_upsert(preview_df: pd.DataFrame) -> pd.DataFrame:
     """
@@ -1343,7 +1409,7 @@ def build_site_level_import_preview(detail_df: pd.DataFrame) -> pd.DataFrame:
 
         rows.append(
             {
-                "import_selected": bool(group["import_selected"].astype(bool).any()),
+                "import_selected": bool(normalise_bool_column(group, "import_selected").any()),
                 "csv_rows": merge_unique_text_values(group["csv_row"].astype(str).tolist()),
                 "site_action": first.get("site_action", ""),
                 "site_upsert_status": first.get("site_upsert_status", ""),
@@ -1415,7 +1481,7 @@ def retry_osm_for_site_preview(site_preview_df: pd.DataFrame) -> pd.DataFrame:
             updated_df[column] = ""
 
     for row_index, row in updated_df.iterrows():
-        retry_requested = bool(row.get("retry_osm"))
+        retry_requested = normalise_bool_value(row.get("retry_osm"))
 
         if not retry_requested and not site_preview_row_needs_geocoding(row):
             continue
@@ -1472,7 +1538,7 @@ def apply_osm_suggestions_to_site_preview(site_preview_df: pd.DataFrame) -> pd.D
     updated_df = site_preview_df.copy()
 
     for row_index, row in updated_df.iterrows():
-        if not bool(row.get("apply_osm_suggestion")):
+        if not normalise_bool_value(row.get("apply_osm_suggestion")):
             continue
 
         suggested_latitude = str(row.get("osm_suggestion_latitude", "") or "").strip()
@@ -1580,7 +1646,7 @@ def apply_site_preview_edits_to_detail(
         mask = updated_detail_df["site_id"].astype(str).str.strip().eq(original_site_id)
 
         if "import_selected" in edited_row:
-            updated_detail_df.loc[mask, "import_selected"] = bool(
+            updated_detail_df.loc[mask, "import_selected"] = normalise_bool_value(
                 edited_row.get("import_selected")
             )
 
@@ -1737,7 +1803,8 @@ def upsert_source_from_import_row(row: pd.Series) -> int | None:
 
 
 def confirm_import_preview(import_df: pd.DataFrame) -> dict[str, int]:
-    selected_df = import_df[import_df["import_selected"].astype(bool)].copy()
+    selected_mask = normalise_bool_column(import_df, "import_selected")
+    selected_df = import_df[selected_mask].copy()
 
     if selected_df.empty:
         return {
@@ -2781,6 +2848,26 @@ if active_page == "Sources":
 
             scan_programme = default_programme_for_scan.strip()
 
+            selected_scan_metals = st.multiselect(
+                "Metal(s) for registered PDFs",
+                options=get_metal_options(),
+                key="register_existing_pdf_metals",
+                accept_new_options=True,
+            )
+
+            scan_metals = normalize_metal_selection(selected_scan_metals)
+
+            selected_scan_exposure_periods = st.multiselect(
+                "Exposure period(s) for registered PDFs",
+                options=EXPOSURE_PERIOD_OPTIONS,
+                key="register_existing_pdf_exposure_periods",
+                accept_new_options=True,
+            )
+
+            scan_exposure_periods = normalize_exposure_period_selection(
+                selected_scan_exposure_periods
+            )
+
             if st.button("Register missing PDFs"):
                 registered_count = 0
 
@@ -2794,6 +2881,8 @@ if active_page == "Sources":
                             source_code=source_code,
                             source_title=source_code,
                             programme=scan_programme,
+                            metals=scan_metals,
+                            exposure_periods=scan_exposure_periods,
                             local_file_name=local_file_name,
                             source_url=source_url,
                             notes="Registered automatically from source_pdfs folder.",
@@ -2804,6 +2893,7 @@ if active_page == "Sources":
 
                 set_next_active_page("Sources")
                 add_metadata_options("programme", split_chip_values(scan_programme))
+                add_metadata_options("metal", split_chip_values(scan_metals))
                 set_flash_message(f"Registered {registered_count} PDF source(s).")
                 st.rerun()
     
@@ -2991,53 +3081,69 @@ if active_page == "Sources":
                     st.warning(error)
             else:
                 try:
-                    local_file_name = ""
-                    source_url = external_url.strip()
+                    flash_level = "success"
+                    flash_message = ""
 
-                    if uploaded_pdf is not None:
-                        local_file_name, source_url = save_uploaded_source_pdf(
-                            uploaded_pdf,
-                            source_code,
+                    with st.status(
+                        "Adding source and processing PDF...",
+                        expanded=True,
+                    ) as source_status:
+                        local_file_name = ""
+                        source_url = external_url.strip()
+
+                        if uploaded_pdf is not None:
+                            st.write("Saving uploaded PDF into source_pdfs/...")
+                            local_file_name, source_url = save_uploaded_source_pdf(
+                                uploaded_pdf,
+                                source_code,
+                            )
+
+                        st.write("Writing source metadata to database...")
+                        insert_source(
+                            source_code=source_code,
+                            source_title=source_title,
+                            programme=source_programme,
+                            metals=source_metals,
+                            exposure_periods=source_exposure_periods,
+                            local_file_name=local_file_name,
+                            source_url=source_url,
+                            notes=source_notes,
                         )
 
-                    insert_source(
-                        source_code=source_code,
-                        source_title=source_title,
-                        programme=source_programme,
-                        metals=source_metals,
-                        exposure_periods=source_exposure_periods,
-                        local_file_name=local_file_name,
-                        source_url=source_url,
-                        notes=source_notes,
-                    )
+                        st.write("Updating metadata option lists...")
+                        set_next_active_page("Sources")
+                        add_metadata_options("programme", split_chip_values(source_programme))
+                        add_metadata_options("metal", split_chip_values(source_metals))
 
-                    set_next_active_page("Sources")
-                    add_metadata_options("programme", split_chip_values(source_programme))
-                    add_metadata_options("metal", split_chip_values(source_metals))
+                        flash_message = f"Source '{source_code.strip()}' added successfully."
 
-                    flash_level = "success"
-                    flash_message = f"Source '{source_code.strip()}' added successfully."
+                        if uploaded_pdf is not None and upload_source_pdf_to_github:
+                            try:
+                                st.write("Uploading source PDF to GitHub...")
+                                pdf_local_path = REPO_ROOT / source_url
 
-                    if uploaded_pdf is not None and upload_source_pdf_to_github:
-                        try:
-                            pdf_local_path = REPO_ROOT / source_url
+                                github_pdf_result = publish_file_to_github(
+                                    local_path=pdf_local_path,
+                                    commit_message=f"Upload source PDF {local_file_name}",
+                                )
 
-                            github_pdf_result = publish_file_to_github(
-                                local_path=pdf_local_path,
-                                commit_message=f"Upload source PDF {local_file_name}",
-                            )
+                                flash_message += " Uploaded source PDF to GitHub."
+                                st.session_state.last_git_publish_output = str(
+                                    github_pdf_result["output"]
+                                )
 
-                            flash_message += " Uploaded source PDF to GitHub."
-                            st.session_state.last_git_publish_output = str(
-                                github_pdf_result["output"]
-                            )
+                            except Exception as github_exc:
+                                flash_level = "warning"
+                                flash_message += (
+                                    " However, the source PDF was not uploaded to GitHub: "
+                                    + str(github_exc)
+                                )
 
-                        except Exception as github_exc:
-                            flash_level = "warning"
-                            flash_message += (
-                                " However, the source PDF was not uploaded to GitHub: "
-                                + str(github_exc)
-                            )
+                        source_status.update(
+                            label="Source processing completed.",
+                            state="complete",
+                            expanded=False,
+                        )
 
                     st.session_state.clear_source_form_after_success = True
                     set_flash_message(flash_message, level=flash_level)
@@ -3355,7 +3461,23 @@ if active_page == "Sites":
             key="site_label_input",
         )
 
-        site_type = ""
+        selected_site_type = st.selectbox(
+            optional_label("Site type"),
+            options=SITE_TYPE_OPTIONS,
+            key="site_type_select",
+            help="Classify the site type where known, e.g. City, Research station, Industrial site.",
+        )
+
+        custom_site_type = ""
+
+        if selected_site_type == "Other / custom":
+            custom_site_type = st.text_input(
+                optional_label("Custom site type"),
+                placeholder="Enter custom site type",
+                key="custom_site_type_input",
+            )
+
+        site_type = resolve_option_value(selected_site_type, custom_site_type)
 
         col1, col2 = st.columns(2)
 
@@ -3385,19 +3507,25 @@ if active_page == "Sites":
             key="administering_country_input",
         )
 
-        site_id_prefix = build_site_id_prefix(
-            modern_country_location=modern_country_location,
-            administering_country=administering_country,
-        )
+        site_id_prefix = ""
 
-        suggested_site_id = get_next_site_id_for_prefix(site_id_prefix)
+        if modern_country_location.strip():
+            site_id_prefix = build_site_id_prefix(
+                modern_country_location=modern_country_location,
+                administering_country=administering_country,
+            )
 
-        st.caption(f"Suggested site ID: `{suggested_site_id}`")
+        if site_id_prefix:
+            suggested_site_id = get_next_site_id_for_prefix(site_id_prefix)
+            st.caption(f"Suggested site ID: `{suggested_site_id}`")
+        else:
+            suggested_site_id = ""
+            st.caption("Suggested site ID will appear after modern country / location is entered.")
 
         previous_suggested_site_id = st.session_state.get("last_suggested_site_id", "")
         current_site_id_value = st.session_state.get("site_id_input", "")
 
-        if current_site_id_value in ("", previous_suggested_site_id):
+        if suggested_site_id and current_site_id_value in ("", previous_suggested_site_id):
             st.session_state.site_id_input = suggested_site_id
 
         st.session_state.last_suggested_site_id = suggested_site_id
@@ -4532,6 +4660,20 @@ if active_page == "Import":
         key=f"import_sites_csv_{import_upload_version}",
     )
 
+    import_template_csv = (
+        "site_label,modern_country_location,administering_country,former_entity,"
+        "site_type,geocode_query,latitude,longitude,source_1,source_2,source_3,notes\n"
+        "Example site,China,,,,\"Example site, China\",,,s001,,,Optional note\n"
+    )
+
+    st.download_button(
+        "Download CSV import template",
+        data=import_template_csv.encode("utf-8-sig"),
+        file_name="corrosion_map_import_template.csv",
+        mime="text/csv",
+        key="download_import_template_csv",
+    )
+
     if uploaded_import_csv is not None:
         uploaded_import_signature = (
             f"{uploaded_import_csv.name}:"
@@ -4542,7 +4684,7 @@ if active_page == "Import":
             st.session_state["last_import_upload_signature"] = uploaded_import_signature
             st.session_state.pop("import_site_preview_override", None)
             st.session_state.pop("latest_import_preview", None)
-            st.session_state.pop("import_preview_editor", None)
+            refresh_import_preview_editor()
 
     import_col1, import_col2 = st.columns(2)
 
@@ -4583,6 +4725,18 @@ if active_page == "Import":
             key="require_registered_source_metadata_import",
         )
 
+    rebuild_import_preview_clicked = False
+
+    if uploaded_import_csv is not None:
+        rebuild_import_preview_clicked = st.button(
+            "Rebuild import preview from uploaded CSV",
+            key="rebuild_import_preview_from_uploaded_csv",
+            help=(
+                "Use this after changing import settings, source metadata, or if you want to discard "
+                "cached preview results and rebuild from the uploaded CSV."
+            ),
+        )
+
     st.write("#### Import rules")
 
     st.markdown(
@@ -4606,56 +4760,92 @@ if active_page == "Import":
 
     if uploaded_import_csv is not None:
         try:
-            loading_message = (
-                "Building import preview. Geocoding missing coordinates may take around "
-                "1 second per unresolved site..."
-                if geocode_missing_coordinates
-                else "Building import preview..."
+            current_import_preview_signature = make_import_preview_signature(
+                uploaded_file=uploaded_import_csv,
+                default_import_programme=default_import_programme,
+                geocode_missing_coordinates=geocode_missing_coordinates,
+                auto_fill_region_category_import=auto_fill_region_category_import,
+                require_registered_source_metadata=require_registered_source_metadata,
             )
 
-            with st.status(loading_message, expanded=True) as import_status:
-                st.write("Reading CSV and normalising headers...")
-                st.write("Checking existing sites, sources, and site-source links...")
+            cached_signature = st.session_state.get("cached_import_preview_signature", "")
 
-                if geocode_missing_coordinates:
-                    st.write(
-                        "Contacting OpenStreetMap/Nominatim for missing coordinates. "
-                        "Please wait; the app is intentionally slowing requests to avoid rate-limit problems."
+            needs_preview_rebuild = (
+                rebuild_import_preview_clicked
+                or cached_signature != current_import_preview_signature
+                or "cached_import_preview_df" not in st.session_state
+                or "cached_import_site_preview_df" not in st.session_state
+            )
+
+            if needs_preview_rebuild:
+                st.session_state.pop("import_site_preview_override", None)
+                st.session_state.pop("latest_import_preview", None)
+                refresh_import_preview_editor()
+
+                loading_message = (
+                    "Building import preview. Geocoding missing coordinates may take around "
+                    "1 second per unresolved site..."
+                    if geocode_missing_coordinates
+                    else "Building import preview..."
+                )
+
+                with st.status(loading_message, expanded=True) as import_status:
+                    st.write("Reading CSV and normalising headers...")
+                    st.write("Checking existing sites, sources, and site-source links...")
+
+                    if geocode_missing_coordinates:
+                        st.write(
+                            "Contacting OpenStreetMap/Nominatim for missing coordinates. "
+                            "Please wait; the app is intentionally slowing requests to avoid rate-limit problems."
+                        )
+
+                    preview_df = build_import_preview(
+                        uploaded_file=uploaded_import_csv,
+                        existing_site_ids=get_existing_site_ids(),
+                        existing_source_codes=get_existing_source_codes(),
+                        existing_site_source_pairs=get_existing_site_source_pairs(),
+                        default_programme=default_import_programme,
+                        geocode_missing_coordinates=geocode_missing_coordinates,
+                        source_metadata_by_code=get_source_metadata_by_code(),
+                        site_id_generator=make_import_site_id_generator(),
+                        require_existing_source_metadata=require_registered_source_metadata,
                     )
 
-                preview_df = build_import_preview(
-                    uploaded_file=uploaded_import_csv,
-                    existing_site_ids=get_existing_site_ids(),
-                    existing_source_codes=get_existing_source_codes(),
-                    existing_site_source_pairs=get_existing_site_source_pairs(),
-                    default_programme=default_import_programme,
-                    geocode_missing_coordinates=geocode_missing_coordinates,
-                    source_metadata_by_code=get_source_metadata_by_code(),
-                    site_id_generator=make_import_site_id_generator(),
-                    require_existing_source_metadata=require_registered_source_metadata,
+                    st.write("Checking whether imported sites match existing site records...")
+                    preview_df = annotate_import_preview_for_upsert(preview_df)
+
+                    if auto_fill_region_category_import:
+                        st.write("Auto-filling missing region categories where possible...")
+                        preview_df = auto_fill_import_region_categories(preview_df)
+
+                    st.write("Preparing the import preview table...")
+                    site_preview_df = build_site_level_import_preview(preview_df)
+
+                    st.session_state["cached_import_preview_signature"] = (
+                        current_import_preview_signature
+                    )
+                    st.session_state["cached_import_preview_df"] = preview_df.copy()
+                    st.session_state["cached_import_site_preview_df"] = site_preview_df.copy()
+
+                    import_status.update(
+                        label="Import preview is ready.",
+                        state="complete",
+                        expanded=False,
+                    )
+
+            else:
+                preview_df = st.session_state["cached_import_preview_df"].copy()
+                site_preview_df = st.session_state["cached_import_site_preview_df"].copy()
+                st.caption(
+                    "Using cached import preview. Table edits should now be much faster. "
+                    "Click 'Rebuild import preview from uploaded CSV' only when needed."
                 )
 
-                st.write("Checking whether imported sites match existing site records...")
-                preview_df = annotate_import_preview_for_upsert(preview_df)
+            if "import_site_preview_override" in st.session_state:
+                override_df = st.session_state["import_site_preview_override"]
 
-                if auto_fill_region_category_import:
-                    st.write("Auto-filling missing region categories where possible...")
-                    preview_df = auto_fill_import_region_categories(preview_df)
-
-                st.write("Preparing the import preview table...")
-                site_preview_df = build_site_level_import_preview(preview_df)
-
-                if "import_site_preview_override" in st.session_state:
-                    override_df = st.session_state["import_site_preview_override"]
-
-                    if isinstance(override_df, pd.DataFrame) and not override_df.empty:
-                        site_preview_df = override_df.copy()
-
-                import_status.update(
-                    label="Import preview is ready.",
-                    state="complete",
-                    expanded=False,
-                )
+                if isinstance(override_df, pd.DataFrame) and not override_df.empty:
+                    site_preview_df = override_df.copy()
 
             if preview_df.empty:
                 st.warning("The uploaded file did not produce any importable preview rows.")
@@ -4680,9 +4870,15 @@ if active_page == "Import":
 
                 if select_import_clicked:
                     site_preview_df["import_selected"] = True
+                    st.session_state["import_site_preview_override"] = site_preview_df
+                    refresh_import_preview_editor()
+                    st.rerun()
 
                 if deselect_import_clicked:
                     site_preview_df["import_selected"] = False
+                    st.session_state["import_site_preview_override"] = site_preview_df
+                    refresh_import_preview_editor()
+                    st.rerun()
 
                 visible_site_preview_columns = [
                     "import_selected",
@@ -4762,13 +4958,17 @@ if active_page == "Import":
                     ],
                 )
 
+                import_preview_editor_version = int(
+                    st.session_state.get("import_preview_editor_version", 0)
+                )
+
                 edited_site_preview_df = st.data_editor(
                     site_preview_display_df,
                     hide_index=True,
                     width="stretch",
                     height=get_table_height(len(site_preview_display_df)),
                     num_rows="fixed",
-                    key="import_preview_editor",
+                    key=f"import_preview_editor_{import_preview_editor_version}",
                     column_config={
                         "import_selected": st.column_config.CheckboxColumn(
                             "Import",
@@ -4853,6 +5053,14 @@ if active_page == "Import":
                     ],
                 )
 
+                edited_site_preview_df = edited_site_preview_df.copy()
+
+                if "import_selected" in edited_site_preview_df.columns:
+                    edited_site_preview_df["import_selected"] = normalise_bool_column(
+                        edited_site_preview_df,
+                        "import_selected",
+                    )
+
                 osm_retry_clicked, osm_apply_clicked = render_left_button_pair(
                     "Retry OSM for selected/missing sites",
                     "Apply selected OSM suggestions",
@@ -4872,13 +5080,13 @@ if active_page == "Import":
                         )
 
                     st.session_state["import_site_preview_override"] = site_preview_df
-                    st.session_state.pop("import_preview_editor", None)
+                    refresh_import_preview_editor()
                     st.rerun()
 
                 if osm_apply_clicked:
                     site_preview_df = apply_osm_suggestions_to_site_preview(edited_site_preview_df)
                     st.session_state["import_site_preview_override"] = site_preview_df
-                    st.session_state.pop("import_preview_editor", None)
+                    refresh_import_preview_editor()
                     st.rerun()
 
                 region_fill_col, region_fill_spacer = st.columns(
@@ -4906,11 +5114,12 @@ if active_page == "Import":
                         f"Region-category auto-fill completed. "
                         f"Filled: {updated_count}; skipped/no change: {skipped_count}."
                     )
-                    st.session_state.pop("import_preview_editor", None)
+                    refresh_import_preview_editor()
                     st.rerun()
 
                 if st.button("Reset import preview edits", key="reset_import_preview_edits"):
                     st.session_state.pop("import_site_preview_override", None)
+                    refresh_import_preview_editor()
                     st.rerun()
 
                 edited_preview_df = apply_site_preview_edits_to_detail(
@@ -4921,8 +5130,13 @@ if active_page == "Import":
 
                 st.session_state["latest_import_preview"] = edited_preview_df
 
-                selected_site_count = int(edited_site_preview_df["import_selected"].sum())
-                selected_link_count = int(edited_preview_df["import_selected"].sum())
+                selected_site_count = int(
+                    normalise_bool_column(edited_site_preview_df, "import_selected").sum()
+                )
+
+                selected_link_count = int(
+                    normalise_bool_column(edited_preview_df, "import_selected").sum()
+                )
                 warning_count = int(
                     edited_site_preview_df["warnings"].astype(str).str.len().gt(0).sum()
                 )
@@ -4964,6 +5178,14 @@ if active_page == "Import":
                         ]
                         st.dataframe(warning_df, width="stretch")
 
+                        st.download_button(
+                            "Download warning rows as CSV",
+                            data=warning_df.to_csv(index=False).encode("utf-8-sig"),
+                            file_name="import_warning_rows.csv",
+                            mime="text/csv",
+                            key="download_import_warning_rows",
+                        )
+
                 st.write("#### Confirm import")
 
                 confirm_import_checked = st.checkbox(
@@ -4996,7 +5218,10 @@ if active_page == "Import":
                             st.session_state.pop("import_site_preview_override", None)
                             st.session_state.pop("latest_import_preview", None)
                             st.session_state.pop("last_import_upload_signature", None)
-                            st.session_state.pop("import_preview_editor", None)
+                            refresh_import_preview_editor()
+                            st.session_state.pop("cached_import_preview_signature", None)
+                            st.session_state.pop("cached_import_preview_df", None)
+                            st.session_state.pop("cached_import_site_preview_df", None)
 
                             set_next_active_page("Import")
                             set_flash_message(success_message)
