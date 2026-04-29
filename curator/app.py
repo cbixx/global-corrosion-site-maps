@@ -4,6 +4,10 @@ from pathlib import Path
 import os
 from typing import Any, cast
 import re
+import json
+import hashlib
+import time
+from datetime import datetime, timezone
 
 import pandas as pd
 import pycountry
@@ -524,6 +528,174 @@ def normalise_bool_column(df: pd.DataFrame, column: str) -> pd.Series:
         return pd.Series([False] * len(df), index=df.index)
 
     return df[column].apply(normalise_bool_value)
+
+DRAFT_AUTOSAVE_INTERVAL_SECONDS = 8
+
+
+def utc_now_iso() -> str:
+    return datetime.now(timezone.utc).isoformat(timespec="seconds")
+
+
+def ensure_draft_schema_updates() -> None:
+    with get_connection() as conn:
+        conn.execute(
+            """
+            create table if not exists app_drafts (
+                draft_key text primary key,
+                draft_label text not null,
+                payload_json text not null,
+                payload_hash text not null,
+                updated_at text not null
+            )
+            """
+        )
+        conn.commit()
+
+
+def make_payload_json(payload: dict[str, Any]) -> str:
+    return json.dumps(
+        payload,
+        ensure_ascii=False,
+        sort_keys=True,
+        default=str,
+    )
+
+
+def make_payload_hash(payload: dict[str, Any]) -> str:
+    payload_json = make_payload_json(payload)
+    return hashlib.sha256(payload_json.encode("utf-8")).hexdigest()
+
+
+def save_app_draft(
+    draft_key: str,
+    draft_label: str,
+    payload: dict[str, Any],
+) -> bool:
+    payload_json = make_payload_json(payload)
+    payload_hash = hashlib.sha256(payload_json.encode("utf-8")).hexdigest()
+
+    with get_connection() as conn:
+        existing = conn.execute(
+            """
+            select payload_hash
+            from app_drafts
+            where draft_key = ?
+            """,
+            (draft_key,),
+        ).fetchone()
+
+        if existing and str(existing["payload_hash"]) == payload_hash:
+            return False
+
+        conn.execute(
+            """
+            insert into app_drafts (
+                draft_key,
+                draft_label,
+                payload_json,
+                payload_hash,
+                updated_at
+            )
+            values (?, ?, ?, ?, ?)
+            on conflict(draft_key) do update set
+                draft_label = excluded.draft_label,
+                payload_json = excluded.payload_json,
+                payload_hash = excluded.payload_hash,
+                updated_at = excluded.updated_at
+            """,
+            (
+                draft_key,
+                draft_label,
+                payload_json,
+                payload_hash,
+                utc_now_iso(),
+            ),
+        )
+        conn.commit()
+
+    return True
+
+
+def autosave_app_draft(
+    draft_key: str,
+    draft_label: str,
+    payload: dict[str, Any],
+    interval_seconds: int = DRAFT_AUTOSAVE_INTERVAL_SECONDS,
+) -> bool:
+    now = time.time()
+    last_save_key = f"draft_last_save_time::{draft_key}"
+    last_hash_key = f"draft_last_hash::{draft_key}"
+
+    payload_hash = make_payload_hash(payload)
+    last_hash = st.session_state.get(last_hash_key, "")
+    last_save_time = float(st.session_state.get(last_save_key, 0.0))
+
+    if payload_hash == last_hash:
+        return False
+
+    if now - last_save_time < interval_seconds:
+        return False
+
+    saved = save_app_draft(
+        draft_key=draft_key,
+        draft_label=draft_label,
+        payload=payload,
+    )
+
+    if saved:
+        st.session_state[last_save_key] = now
+        st.session_state[last_hash_key] = payload_hash
+
+    return saved
+
+
+def load_app_draft(draft_key: str) -> dict[str, Any] | None:
+    with get_connection() as conn:
+        row = conn.execute(
+            """
+            select draft_key, draft_label, payload_json, updated_at
+            from app_drafts
+            where draft_key = ?
+            """,
+            (draft_key,),
+        ).fetchone()
+
+    if not row:
+        return None
+
+    return {
+        "draft_key": str(row["draft_key"]),
+        "draft_label": str(row["draft_label"]),
+        "payload": json.loads(str(row["payload_json"])),
+        "updated_at": str(row["updated_at"]),
+    }
+
+
+def delete_app_draft(draft_key: str) -> None:
+    with get_connection() as conn:
+        conn.execute(
+            "delete from app_drafts where draft_key = ?",
+            (draft_key,),
+        )
+        conn.commit()
+
+    st.session_state.pop(f"draft_last_save_time::{draft_key}", None)
+    st.session_state.pop(f"draft_last_hash::{draft_key}", None)
+
+
+def dataframe_to_draft_payload(df: pd.DataFrame) -> dict[str, Any]:
+    clean_df = df.astype(object).where(pd.notna(df), "")
+    return {
+        "columns": list(clean_df.columns),
+        "records": clean_df.to_dict("records"),
+    }
+
+
+def dataframe_from_draft_payload(payload: dict[str, Any]) -> pd.DataFrame:
+    return pd.DataFrame(
+        payload.get("records", []),
+        columns=payload.get("columns", None),
+    )
 
 def build_row_label(row: dict, table_name: str) -> str:
     if table_name == "sites":
@@ -2692,6 +2864,7 @@ def run_location_search() -> None:
 
 try:
     ensure_schema_updates()
+    ensure_draft_schema_updates()
 except Exception as exc:
     st.warning(f"Schema update check could not be completed: {exc}")
 
@@ -5130,6 +5303,23 @@ if active_page == "Import":
 
                 st.session_state["latest_import_preview"] = edited_preview_df
 
+                import_preview_draft_payload = {
+                    "preview_df": dataframe_to_draft_payload(preview_df),
+                    "site_preview_df": dataframe_to_draft_payload(edited_site_preview_df),
+                    "edited_preview_df": dataframe_to_draft_payload(edited_preview_df),
+                    "uploaded_file_name": getattr(uploaded_import_csv, "name", ""),
+                }
+
+                draft_saved = autosave_app_draft(
+                    draft_key="import_preview_draft",
+                    draft_label="Import preview",
+                    payload=import_preview_draft_payload,
+                    interval_seconds=8,
+                )
+
+                if draft_saved:
+                    st.caption("Import preview draft auto-saved.")
+
                 selected_site_count = int(
                     normalise_bool_column(edited_site_preview_df, "import_selected").sum()
                 )
@@ -5222,6 +5412,7 @@ if active_page == "Import":
                             st.session_state.pop("cached_import_preview_signature", None)
                             st.session_state.pop("cached_import_preview_df", None)
                             st.session_state.pop("cached_import_site_preview_df", None)
+                            delete_app_draft("import_preview_draft")
 
                             set_next_active_page("Import")
                             set_flash_message(success_message)
