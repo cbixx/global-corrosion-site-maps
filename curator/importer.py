@@ -12,6 +12,33 @@ from geopy.location import Location
 
 SOURCE_COLUMN_RE = re.compile(r"^source_\d+$", re.IGNORECASE)
 
+SOURCE_CODE_PATTERN = re.compile(r"^s\d{3}$")
+
+
+def normalise_source_code(value: str) -> str:
+    text = clean_cell(value).lower()
+    text = re.sub(r"\.pdf$", "", text, flags=re.IGNORECASE)
+
+    match = re.fullmatch(r"s?0*(\d{1,4})", text)
+
+    if match:
+        return f"s{int(match.group(1)):03d}"
+
+    return text
+
+
+def is_canonical_source_code(value: str) -> bool:
+    return bool(SOURCE_CODE_PATTERN.fullmatch(clean_cell(value).lower()))
+
+
+def canonical_source_pdf_name(source_code: str, fallback_file_name: str = "") -> str:
+    canonical_code = normalise_source_code(source_code)
+
+    if is_canonical_source_code(canonical_code):
+        return f"{canonical_code}.pdf"
+
+    return clean_cell(fallback_file_name)
+
 EXPECTED_SITE_COLUMNS = [
     "site_id",
     "site_label",
@@ -181,18 +208,25 @@ def parse_source_value(source_value: str) -> dict[str, str]:
     file_name = Path(normalized).name
 
     if file_name.lower().endswith(".pdf"):
-        local_file_name = file_name
-        source_code = Path(file_name).stem
+        raw_source_code = Path(file_name).stem
+        source_code = normalise_source_code(raw_source_code)
+        local_file_name = canonical_source_pdf_name(source_code, file_name)
 
         if normalized.startswith("http://") or normalized.startswith("https://"):
             source_url = normalized
         elif "/" in normalized:
-            source_url = normalized
+            parent_path = str(Path(normalized).parent).replace("\\", "/")
+
+            if parent_path and parent_path != ".":
+                source_url = f"{parent_path}/{local_file_name}"
+            else:
+                source_url = f"source_pdfs/{local_file_name}"
         else:
-            source_url = f"source_pdfs/{file_name}"
+            source_url = f"source_pdfs/{local_file_name}"
     else:
         local_file_name = ""
-        source_code = Path(normalized).stem or normalized
+        raw_source_code = Path(normalized).stem or normalized
+        source_code = normalise_source_code(raw_source_code)
         source_url = normalized
 
     return {
@@ -200,7 +234,6 @@ def parse_source_value(source_value: str) -> dict[str, str]:
         "source_url": source_url.strip(),
         "local_file_name": local_file_name.strip(),
     }
-
 
 def parse_float_or_blank(value: str) -> tuple[str, str]:
     value = clean_cell(value)
@@ -413,7 +446,7 @@ def build_import_preview(
     source_metadata_by_code = source_metadata_by_code or {}
 
     existing_source_codes = {
-        str(source_code).strip().lower()
+        normalise_source_code(str(source_code))
         for source_code in existing_source_codes
         if str(source_code).strip()
     }
@@ -421,13 +454,13 @@ def build_import_preview(
     existing_site_source_pairs = {
         (
             str(site_id).strip(),
-            str(source_code).strip().lower(),
+            normalise_source_code(str(source_code)),
         )
         for site_id, source_code in existing_site_source_pairs
     }
 
     source_metadata_by_code = {
-        str(source_code).strip().lower(): metadata
+        normalise_source_code(str(source_code)): metadata
         for source_code, metadata in source_metadata_by_code.items()
         if str(source_code).strip()
     }
@@ -553,6 +586,12 @@ def build_import_preview(
             source_code = parsed_source["source_code"]
 
             if not source_code:
+                continue
+
+            if not is_canonical_source_code(source_code):
+                warnings.append(
+                    f"Source code {source_code} is not in canonical sNNN format."
+                )
                 continue
 
             if source_code in seen_source_codes:

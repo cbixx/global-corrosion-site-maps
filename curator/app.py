@@ -475,7 +475,141 @@ def list_source_pdf_files() -> list[Path]:
 
 
 def source_code_from_pdf_path(pdf_path: Path) -> str:
-    return pdf_path.stem.strip()
+    return pdf_path.stem.strip().lower()
+
+SOURCE_CODE_PATTERN = re.compile(r"^s\d{3}$")
+
+
+def normalise_source_code(value: str) -> str:
+    text = str(value or "").strip().lower()
+    text = re.sub(r"\.pdf$", "", text, flags=re.IGNORECASE)
+
+    match = re.fullmatch(r"s?0*(\d{1,4})", text)
+
+    if match:
+        return f"s{int(match.group(1)):03d}"
+
+    return text
+
+
+def is_canonical_source_code(value: str) -> bool:
+    return bool(SOURCE_CODE_PATTERN.fullmatch(str(value or "").strip().lower()))
+
+
+def source_code_number(value: str) -> int | None:
+    canonical_code = normalise_source_code(value)
+
+    if not is_canonical_source_code(canonical_code):
+        return None
+
+    return int(canonical_code[1:])
+
+
+def is_canonical_source_pdf_path(pdf_path: Path) -> bool:
+    return is_canonical_source_code(pdf_path.stem)
+
+
+def suggested_source_pdf_name(source_code: str) -> str:
+    return f"{normalise_source_code(source_code)}.pdf"
+
+
+def source_code_exists(
+    source_code: str,
+    exclude_source_id: int | None = None,
+) -> bool:
+    canonical_code = normalise_source_code(source_code)
+
+    with get_connection() as conn:
+        if exclude_source_id is None:
+            row = conn.execute(
+                """
+                select id
+                from sources
+                where lower(trim(source_code)) = lower(trim(?))
+                limit 1
+                """,
+                (canonical_code,),
+            ).fetchone()
+        else:
+            row = conn.execute(
+                """
+                select id
+                from sources
+                where lower(trim(source_code)) = lower(trim(?))
+                  and id <> ?
+                limit 1
+                """,
+                (canonical_code, int(exclude_source_id)),
+            ).fetchone()
+
+    return row is not None
+
+
+def get_next_source_code() -> str:
+    numbers: list[int] = []
+
+    try:
+        with get_connection() as conn:
+            rows = conn.execute(
+                """
+                select source_code
+                from sources
+                where source_code is not null
+                """
+            ).fetchall()
+
+        for row in rows:
+            number = source_code_number(str(row["source_code"]))
+            if number is not None:
+                numbers.append(number)
+    except Exception:
+        pass
+
+    for pdf_path in list_source_pdf_files():
+        number = source_code_number(pdf_path.stem)
+        if number is not None:
+            numbers.append(number)
+
+    return f"s{(max(numbers) if numbers else 0) + 1:03d}"
+
+def rename_noncanonical_source_pdf_files() -> dict[str, list[str]]:
+    renamed_files: list[str] = []
+    skipped_files: list[str] = []
+    failed_files: list[str] = []
+
+    for pdf_path in list_source_pdf_files():
+        original_name = pdf_path.name
+        canonical_source_code = normalise_source_code(pdf_path.stem)
+
+        if not is_canonical_source_code(canonical_source_code):
+            skipped_files.append(
+                f"{original_name}: could not infer canonical source code"
+            )
+            continue
+
+        canonical_name = f"{canonical_source_code}.pdf"
+        target_path = pdf_path.with_name(canonical_name)
+
+        if pdf_path.name == canonical_name:
+            continue
+
+        if target_path.exists():
+            skipped_files.append(
+                f"{original_name}: target `{canonical_name}` already exists"
+            )
+            continue
+
+        try:
+            pdf_path.rename(target_path)
+            renamed_files.append(f"{original_name} → {canonical_name}")
+        except Exception as exc:
+            failed_files.append(f"{original_name}: {exc}")
+
+    return {
+        "renamed": renamed_files,
+        "skipped": skipped_files,
+        "failed": failed_files,
+    }
 
 def clean_editor_value(value):
     if pd.isna(value):
@@ -1507,7 +1641,10 @@ def annotate_import_preview_for_upsert(preview_df: pd.DataFrame) -> pd.DataFrame
             )
             annotated_df.at[row_index, "site_upsert_match"] = ""
 
-        source_code = str(row.get("source_code", "")).strip()
+        source_code = normalise_source_code(str(row.get("source_code", "")).strip())
+
+        if "source_code" in annotated_df.columns and source_code:
+            annotated_df.at[row_index, "source_code"] = source_code
 
         if source_code:
             if source_code in existing_source_codes:
@@ -1876,10 +2013,14 @@ def upsert_site_from_import_row(row: pd.Series) -> int:
 
 
 def upsert_source_from_import_row(row: pd.Series) -> int | None:
-    source_code = str(row.get("source_code", "")).strip()
+    source_code = normalise_source_code(str(row.get("source_code", "")).strip())
 
     if not source_code:
         return None
+    if not is_canonical_source_code(source_code):
+        raise ValueError(
+            f"Invalid source code `{source_code}`. Source codes must use `sNNN` format."
+        )
 
     source_title = str(row.get("source_title", "") or source_code).strip()
     programme = str(row.get("programme", "")).strip()
@@ -2952,14 +3093,71 @@ if active_page == "Dashboard":
     st.write("#### Source PDFs")
 
     existing_pdf_files = list_source_pdf_files()
+    noncanonical_pdf_files = [
+        pdf_path for pdf_path in existing_pdf_files
+        if normalise_source_code(pdf_path.stem) != pdf_path.stem.strip().lower()
+    ]
 
     try:
         existing_source_codes = get_existing_source_codes()
     except Exception:
         existing_source_codes = set()
+    
+    canonical_pdf_files = [
+        pdf_path for pdf_path in existing_pdf_files
+        if normalise_source_code(pdf_path.stem) == pdf_path.stem.strip().lower()
+    ]
+
+    if noncanonical_pdf_files:
+        st.warning(
+            "Some PDF filenames are not in canonical `sNNN.pdf` format. "
+            "You can rename them automatically before registration."
+        )
+
+        with st.expander("Show PDF files that will be renamed", expanded=False):
+            for pdf_path in noncanonical_pdf_files:
+                canonical_name = suggested_source_pdf_name(pdf_path.stem)
+                st.write(f"- `{pdf_path.name}` → `{canonical_name}`")
+
+        if st.button(
+            "Rename PDFs to canonical source-code filenames",
+            key="rename_noncanonical_source_pdfs",
+        ):
+            rename_result = rename_noncanonical_source_pdf_files()
+
+            messages = []
+
+            if rename_result["renamed"]:
+                messages.append(
+                    "Renamed PDF file(s):\n"
+                    + "\n".join(f"- {item}" for item in rename_result["renamed"])
+                )
+
+            if rename_result["skipped"]:
+                messages.append(
+                    "Skipped PDF file(s):\n"
+                    + "\n".join(f"- {item}" for item in rename_result["skipped"])
+                )
+
+            if rename_result["failed"]:
+                messages.append(
+                    "Failed PDF rename(s):\n"
+                    + "\n".join(f"- {item}" for item in rename_result["failed"])
+                )
+
+            if rename_result["failed"]:
+                set_flash_message("\n\n".join(messages), level="warning")
+            else:
+                set_flash_message(
+                    "\n\n".join(messages) or "No PDF filename changes were needed.",
+                    level="success",
+                )
+
+            set_next_active_page("Sources")
+            st.rerun()
 
     missing_pdf_files = [
-        pdf_path for pdf_path in existing_pdf_files
+        pdf_path for pdf_path in canonical_pdf_files
         if source_code_from_pdf_path(pdf_path) not in existing_source_codes
     ]
 
@@ -3044,8 +3242,62 @@ if active_page == "Sources":
             existing_source_codes = set()
             st.error(f"Could not read existing source codes: {exc}")
 
-        missing_pdf_files = [
+        noncanonical_pdf_files = [
             pdf_path for pdf_path in existing_pdf_files
+            if normalise_source_code(pdf_path.stem) != pdf_path.stem.strip().lower()
+        ]
+
+        canonical_pdf_files = [
+            pdf_path for pdf_path in existing_pdf_files
+            if normalise_source_code(pdf_path.stem) == pdf_path.stem.strip().lower()
+        ]
+
+        if noncanonical_pdf_files:
+            st.warning(
+                "Some PDF filenames are not in canonical `sNNN.pdf` format. "
+                "Rename them before registering PDFs as sources."
+            )
+
+            with st.expander("Show PDF files that should be renamed", expanded=False):
+                for pdf_path in noncanonical_pdf_files:
+                    canonical_name = suggested_source_pdf_name(pdf_path.stem)
+                    st.write(f"- `{pdf_path.name}` → `{canonical_name}`")
+
+            if st.button(
+                "Rename PDFs to canonical source-code filenames",
+                key="rename_noncanonical_source_pdfs_from_sources_page",
+            ):
+                rename_result = rename_noncanonical_source_pdf_files()
+
+                messages = []
+
+                if rename_result["renamed"]:
+                    messages.append(
+                        "Renamed PDF file(s):\n"
+                        + "\n".join(f"- {item}" for item in rename_result["renamed"])
+                    )
+
+                if rename_result["skipped"]:
+                    messages.append(
+                        "Skipped PDF file(s):\n"
+                        + "\n".join(f"- {item}" for item in rename_result["skipped"])
+                    )
+
+                if rename_result["failed"]:
+                    messages.append(
+                        "Failed PDF rename(s):\n"
+                        + "\n".join(f"- {item}" for item in rename_result["failed"])
+                    )
+
+                set_flash_message(
+                    "\n\n".join(messages) or "No PDF filename changes were needed.",
+                    level="warning" if rename_result["failed"] else "success",
+                )
+                set_next_active_page("Sources")
+                st.rerun()
+
+        missing_pdf_files = [
+            pdf_path for pdf_path in canonical_pdf_files
             if source_code_from_pdf_path(pdf_path) not in existing_source_codes
         ]
 
@@ -3197,12 +3449,26 @@ if active_page == "Sources":
 
     st.write("### Add source")
 
+    suggested_source_code = get_next_source_code()
+
+    if not str(st.session_state.get("add_source_code", "")).strip():
+        st.session_state["add_source_code"] = suggested_source_code
+
+    st.caption(
+        f"Next suggested source code: `{suggested_source_code}`. "
+        "Source codes are normalised to the canonical `sNNN` format."
+    )
+
     with st.form("add_source_form", clear_on_submit=False):
         st.caption("* Required field")
 
         source_code = st.text_input(
             required_label("Source code"),
-            placeholder="e.g. s017",
+            placeholder=f"e.g. {suggested_source_code}",
+            help=(
+                "Use canonical source-code format: s001, s002, s003, etc. "
+                "Inputs such as 21, S21, or s21 will be normalised to s021."
+            ),
             key="add_source_code",
         )
 
@@ -3287,8 +3553,20 @@ if active_page == "Sources":
         if submit_source:
             validation_errors = []
 
-            if not source_code.strip():
+            raw_source_code = source_code
+            source_code = normalise_source_code(raw_source_code)
+
+            if not raw_source_code.strip():
                 validation_errors.append("Source code is required.")
+            elif not is_canonical_source_code(source_code):
+                validation_errors.append(
+                    "Source code must follow the canonical format `sNNN`, for example `s021`."
+                )
+            elif source_code_exists(source_code):
+                validation_errors.append(
+                    f"Source code `{source_code}` already exists. "
+                    "Use the existing source record instead of creating a duplicate."
+                )
 
             if not source_programme.strip():
                 validation_errors.append("Source programme is required.")
@@ -4564,6 +4842,23 @@ if active_page == "Manage Records":
                     if column in {"programme", "metals", "exposure_periods"}:
                         old_normalised = join_chip_values(old_value)
                         new_normalised = join_chip_values(new_value)
+                    elif column == "source_code":
+                        old_normalised = normalise_source_code(str(old_value))
+                        new_normalised = normalise_source_code(str(clean_editor_value(new_value)))
+
+                        if not is_canonical_source_code(new_normalised):
+                            st.error(
+                                f"Invalid source code `{new_value}`. "
+                                "Source codes must use canonical `sNNN` format, for example `s021`."
+                            )
+                            st.stop()
+
+                        if source_code_exists(new_normalised, exclude_source_id=row_id):
+                            st.error(
+                                f"Source code `{new_normalised}` already exists. "
+                                "This edit would create a duplicate source code."
+                            )
+                            st.stop()
                     else:
                         old_normalised = str(old_value)
                         new_normalised = str(clean_editor_value(new_value))
@@ -5079,7 +5374,7 @@ if active_page == "Import":
         - Minimal CSV format is supported. Recommended columns are:
         `site_label`, `modern_country_location`, `administering_country`, `site_type`,
         `source_1`, `source_2`, and `notes`.
-        - `source_1`, `source_2`, `source_3`, etc. are detected dynamically.
+        - `source_1`, `source_2`, `source_3`, etc. are detected dynamically. Source codes are normalised to sNNN format; for example, s21 and 21 become s021.
         - Missing `site_id` values are generated from `modern_country_location`; for Antarctic records,
         `administering_country` can be included in the generated prefix.
         - Missing latitude/longitude values can be geocoded from `site_label` and `modern_country_location`.
