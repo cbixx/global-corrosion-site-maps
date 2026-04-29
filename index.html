@@ -479,6 +479,280 @@
     .map-status-button:hover {
       background: #f3f7fa;
     }
+
+    .country-directory-panel {
+      position: absolute;
+      inset: 0;
+      z-index: 950;
+      background:
+        linear-gradient(180deg, rgba(248, 250, 252, 0.985), rgba(255, 255, 255, 0.985));
+      color: #111827;
+      overflow-y: auto;
+      padding: 34px 44px 44px;
+      box-sizing: border-box;
+    }
+
+    .country-directory-panel[hidden] {
+      display: none !important;
+    }
+
+    .app.directory-open #map,
+    .app.directory-open .map-status-panel,
+    .app.directory-open .hover-summary-card {
+      display: none !important;
+    }
+
+    .directory-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 24px;
+      margin-bottom: 24px;
+      border-bottom: 1px solid #e5e7eb;
+      padding-bottom: 22px;
+    }
+
+    .directory-kicker {
+      font-size: 12px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #607d8b;
+      font-weight: 700;
+      margin-bottom: 6px;
+    }
+
+    .directory-title {
+      margin: 0;
+      font-size: 34px;
+      line-height: 1.1;
+      letter-spacing: -0.03em;
+      color: #111827;
+    }
+
+    .directory-subtitle {
+      margin: 10px 0 0;
+      color: #6b7280;
+      font-size: 14px;
+      max-width: 760px;
+      line-height: 1.55;
+    }
+
+    .directory-close-button {
+      border: 1px solid #d1d5db;
+      background: #ffffff;
+      border-radius: 999px;
+      padding: 9px 14px;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 700;
+      color: #374151;
+      box-shadow: 0 3px 10px rgba(15, 23, 42, 0.06);
+      white-space: nowrap;
+    }
+
+    .directory-close-button:hover {
+      background: #f3f7fa;
+    }
+
+    .directory-toolbar {
+      display: grid;
+      grid-template-columns: minmax(260px, 520px) 1fr;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 18px;
+    }
+
+    .directory-search {
+      width: 100%;
+      border: 1px solid #d1d5db;
+      border-radius: 999px;
+      padding: 11px 16px;
+      font-size: 14px;
+      background: #ffffff;
+      box-sizing: border-box;
+    }
+
+    .directory-count {
+      color: #6b7280;
+      font-size: 13px;
+      text-align: right;
+    }
+
+    .directory-letter-nav {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin: 12px 0 24px;
+      padding-bottom: 18px;
+      border-bottom: 1px solid #e5e7eb;
+    }
+
+    .directory-letter-link {
+      min-width: 28px;
+      text-align: center;
+      text-decoration: none;
+      color: #2563eb;
+      font-size: 13px;
+      font-weight: 700;
+      padding: 6px 8px;
+      border-radius: 8px;
+    }
+
+    .directory-letter-link:hover {
+      background: #eef4ff;
+    }
+
+    .country-section {
+      display: grid;
+      grid-template-columns: 190px minmax(0, 1fr);
+      gap: 28px;
+      padding: 28px 0;
+      border-bottom: 1px solid #e5e7eb;
+    }
+
+    .country-heading {
+      margin: 0;
+      font-size: 25px;
+      line-height: 1.12;
+      letter-spacing: -0.02em;
+      color: #111827;
+    }
+
+    .country-meta {
+      margin-top: 8px;
+      font-size: 12px;
+      color: #6b7280;
+    }
+
+    .site-directory-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+    }
+
+    .directory-site-row {
+      display: grid;
+      grid-template-columns: minmax(260px, 1fr) minmax(170px, 0.45fr) minmax(190px, 0.55fr);
+      gap: 14px;
+      align-items: center;
+      min-height: 34px;
+      padding: 7px 0;
+      border-bottom: 1px solid #f1f5f9;
+    }
+
+    .directory-site-row:last-child {
+      border-bottom: 0;
+    }
+
+    .directory-site-main {
+      border: 0;
+      background: transparent;
+      padding: 0;
+      text-align: left;
+      cursor: pointer;
+      min-width: 0;
+    }
+
+    .directory-site-main:hover .directory-site-name {
+      color: #1d4ed8;
+      text-decoration: underline;
+    }
+
+    .directory-site-name {
+      font-size: 14px;
+      font-weight: 700;
+      color: #111827;
+    }
+
+    .directory-site-id {
+      margin-left: 8px;
+      color: #9ca3af;
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .directory-region-pill {
+      display: inline-block;
+      max-width: 100%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      background: #eef4f7;
+      color: #2f4f5c;
+      border-radius: 999px;
+      padding: 4px 9px;
+      font-size: 11px;
+      font-weight: 700;
+    }
+
+    .directory-source-links {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      justify-content: flex-start;
+    }
+
+    .directory-source-link {
+      display: inline-block;
+      text-decoration: none;
+      color: #1f6feb;
+      background: #eef4ff;
+      border: 1px solid #dbeafe;
+      border-radius: 999px;
+      padding: 4px 8px;
+      font-size: 11px;
+      font-weight: 700;
+    }
+
+    .directory-source-link:hover {
+      background: #dbeafe;
+    }
+
+    .directory-muted {
+      color: #9ca3af;
+      font-size: 12px;
+    }
+
+    .directory-empty-country {
+      color: #9ca3af;
+      font-size: 13px;
+      font-style: italic;
+      padding: 8px 0;
+    }
+
+    @media (max-width: 900px) {
+      .country-directory-panel {
+        padding: 24px 20px 32px;
+      }
+
+      .directory-header,
+      .directory-toolbar {
+        display: block;
+      }
+
+      .directory-close-button {
+        margin-top: 16px;
+      }
+
+      .directory-count {
+        text-align: left;
+        margin-top: 10px;
+      }
+
+      .country-section {
+        display: block;
+      }
+
+      .country-heading {
+        margin-bottom: 14px;
+      }
+
+      .directory-site-row {
+        grid-template-columns: 1fr;
+        gap: 6px;
+        padding: 12px 0;
+      }
+    }
     
     .sidebar-toggle {
       border: 1px solid #bdbdbd;
@@ -636,6 +910,24 @@
           <path d="M20 20l-4.2-4.2"></path>
         </svg>
       </button>
+
+      <button
+        id="railDirectoryButton"
+        class="rail-button"
+        type="button"
+        aria-label="Country directory"
+        aria-pressed="false"
+        title="Country directory"
+      >
+        <svg class="rail-icon" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M8 6h13"></path>
+          <path d="M8 12h13"></path>
+          <path d="M8 18h13"></path>
+          <path d="M3 6h.01"></path>
+          <path d="M3 12h.01"></path>
+          <path d="M3 18h.01"></path>
+        </svg>
+      </button>
     </aside>
 
     <aside class="sidebar" id="sidebar">
@@ -764,6 +1056,37 @@
       <div id="map"></div>
       <div id="hoverSummaryCard" class="hover-summary-card" hidden></div>
 
+      <section id="countryDirectoryPanel" class="country-directory-panel" hidden>
+        <div class="directory-header">
+          <div>
+            <div class="directory-kicker">Dataset directory</div>
+            <h2 class="directory-title">Corrosion test sites A–Z</h2>
+            <p class="directory-subtitle">
+              Countries/locations are listed alphabetically. Sites are sorted alphabetically within each country.
+              Countries with no current records are retained as visible coverage gaps.
+            </p>
+          </div>
+
+          <button id="closeDirectoryButton" class="directory-close-button" type="button">
+            Return to map
+          </button>
+        </div>
+
+        <div class="directory-toolbar">
+          <input
+            id="directorySearch"
+            class="directory-search"
+            type="text"
+            placeholder="Search country, site, source, region, metal, exposure period..."
+          />
+          <div id="directoryCount" class="directory-count">Loading directory...</div>
+        </div>
+
+        <nav id="directoryLetterNav" class="directory-letter-nav" aria-label="Country initials"></nav>
+
+        <div id="countryDirectoryContent" class="country-directory-content"></div>
+      </section>
+
       <div class="map-status-panel">
         <div id="mapStatusBadge" class="map-status-badge">Loading dataset...</div>
         <button id="downloadVisibleCsv" class="map-status-button" type="button">
@@ -782,6 +1105,196 @@
     const HORIZONTAL_WORLDS = 3;
     const DEFAULT_CENTER = [20, 20];
     const DEFAULT_ZOOM = 2.5;
+    const DIRECTORY_COUNTRY_LIST = [
+      "Afghanistan",
+      "Albania",
+      "Algeria",
+      "Andorra",
+      "Angola",
+      "Argentina",
+      "Armenia",
+      "Australia",
+      "Austria",
+      "Azerbaijan",
+      "Bahamas",
+      "Bahrain",
+      "Bangladesh",
+      "Belarus",
+      "Belgium",
+      "Belize",
+      "Benin",
+      "Bolivia",
+      "Bosnia and Herzegovina",
+      "Botswana",
+      "Brazil",
+      "Brunei Darussalam",
+      "Bulgaria",
+      "Burkina Faso",
+      "Cambodia",
+      "Cameroon",
+      "Canada",
+      "Chile",
+      "China",
+      "Colombia",
+      "Congo",
+      "Costa Rica",
+      "Croatia",
+      "Cuba",
+      "Cyprus",
+      "Czechia",
+      "Denmark",
+      "Dominican Republic",
+      "Ecuador",
+      "Egypt",
+      "El Salvador",
+      "Estonia",
+      "Ethiopia",
+      "Finland",
+      "France",
+      "Georgia",
+      "Germany",
+      "Ghana",
+      "Greece",
+      "Guatemala",
+      "Hungary",
+      "Iceland",
+      "India",
+      "Indonesia",
+      "Iran",
+      "Iraq",
+      "Ireland",
+      "Israel",
+      "Italy",
+      "Japan",
+      "Jordan",
+      "Kazakhstan",
+      "Kenya",
+      "Korea, Republic of",
+      "Kuwait",
+      "Latvia",
+      "Lebanon",
+      "Libya",
+      "Lithuania",
+      "Luxembourg",
+      "Malaysia",
+      "Mexico",
+      "Moldova",
+      "Mongolia",
+      "Montenegro",
+      "Morocco",
+      "Mozambique",
+      "Myanmar",
+      "Nepal",
+      "Netherlands",
+      "New Zealand",
+      "Nigeria",
+      "North Macedonia",
+      "Norway",
+      "Pakistan",
+      "Panama",
+      "Paraguay",
+      "Peru",
+      "Philippines",
+      "Poland",
+      "Portugal",
+      "Qatar",
+      "Romania",
+      "Russian Federation",
+      "Saudi Arabia",
+      "Serbia",
+      "Singapore",
+      "Slovakia",
+      "Slovenia",
+      "South Africa",
+      "Spain",
+      "Sri Lanka",
+      "Sweden",
+      "Switzerland",
+      "Thailand",
+      "Tunisia",
+      "Türkiye",
+      "Ukraine",
+      "United Arab Emirates",
+      "United Kingdom",
+      "United States",
+      "Uruguay",
+      "Viet Nam",
+      "Zimbabwe"
+    ];
+
+    const COUNTRY_NAME_ALIASES = {
+      "Bolivia": "Bolivia",
+      "Bolivia, Plurinational State of": "Bolivia",
+      "Venezuela": "Venezuela",
+      "Venezuela, Bolivarian Republic of": "Venezuela",
+      "Vietnam": "Viet Nam",
+      "Viet Nam": "Viet Nam",
+      "Russia": "Russian Federation",
+      "Russian Federation": "Russian Federation",
+      "Iran": "Iran",
+      "Iran, Islamic Republic of": "Iran",
+      "Syria": "Syria",
+      "Syrian Arab Republic": "Syria",
+      "Tanzania": "Tanzania",
+      "Tanzania, United Republic of": "Tanzania",
+      "Moldova": "Moldova",
+      "Moldova, Republic of": "Moldova",
+      "Laos": "Lao People's Democratic Republic",
+      "Lao People's Democratic Republic": "Lao People's Democratic Republic",
+      "South Korea": "Korea, Republic of",
+      "Korea, Republic of": "Korea, Republic of",
+      "North Korea": "Korea, Democratic People's Republic of",
+      "Korea, Democratic People's Republic of": "Korea, Democratic People's Republic of",
+      "Czech Republic": "Czechia",
+      "Czechia": "Czechia",
+      "Turkey": "Türkiye",
+      "Türkiye": "Türkiye",
+      "United States of America": "United States",
+      "USA": "United States",
+      "U.S.A.": "United States",
+      "United Kingdom": "United Kingdom",
+      "UK": "United Kingdom",
+
+      "Taiwan": "China",
+      "Taiwan, China": "China",
+      "Taiwan Province": "China",
+      "Taiwan Province, China": "China",
+      "Taiwan, Province of China": "China",
+      "Chinese Taipei": "China",
+      "中国台湾": "China",
+      "台湾": "China",
+      "臺灣": "China",
+      "台湾省": "China",
+      "臺灣省": "China",
+      "台湾地区": "China",
+      "臺灣地區": "China",
+
+      "Hong Kong": "China",
+      "Hong Kong SAR": "China",
+      "Hong Kong, China": "China",
+      "香港": "China",
+      "香港特别行政区": "China",
+      "香港特別行政區": "China",
+
+      "Macao": "China",
+      "Macau": "China",
+      "Macao SAR": "China",
+      "Macau SAR": "China",
+      "Macao, China": "China",
+      "Macau, China": "China",
+      "澳门": "China",
+      "澳門": "China",
+      "澳门特别行政区": "China",
+      "澳門特別行政區": "China"
+    };
+
+    function normaliseDirectoryCountry(value) {
+      const country = normalizeText(value);
+
+      if (!country) return "Unknown location";
+
+      return COUNTRY_NAME_ALIASES[country] || country;
+    }
 
     const STANDARD_METALS = [
       'Carbon steel',
@@ -863,6 +1376,13 @@
     const sidebar = document.getElementById('sidebar');
     const toggleSidebarButton = document.getElementById('toggleSidebar');
     const railSearchButton = document.getElementById('railSearchButton');
+    const railDirectoryButton = document.getElementById('railDirectoryButton');
+    const countryDirectoryPanel = document.getElementById('countryDirectoryPanel');
+    const closeDirectoryButton = document.getElementById('closeDirectoryButton');
+    const directorySearchInput = document.getElementById('directorySearch');
+    const directoryCount = document.getElementById('directoryCount');
+    const directoryLetterNav = document.getElementById('directoryLetterNav');
+    const countryDirectoryContent = document.getElementById('countryDirectoryContent');
 
     function setRailState(isSidebarOpen) {
       railSearchButton.classList.toggle('active', !isSidebarOpen);
@@ -885,8 +1405,58 @@
       setTimeout(() => map.invalidateSize(), 230);
     }
 
+    function setDirectoryState(isOpen) {
+      railDirectoryButton.classList.toggle('active', isOpen);
+      railDirectoryButton.setAttribute('aria-pressed', isOpen ? 'true' : 'false');
+    }
+
+    function openDirectory() {
+      closeSidebar();
+
+      railSearchButton.classList.remove('active');
+      railSearchButton.setAttribute('aria-pressed', 'false');
+
+      appShell.classList.add('directory-open');
+      countryDirectoryPanel.hidden = false;
+      setDirectoryState(true);
+      renderCountryDirectory(visibleRows);
+    }
+
+    function closeDirectory() {
+      appShell.classList.remove('directory-open');
+      countryDirectoryPanel.hidden = true;
+      setDirectoryState(false);
+
+      if (sidebar.classList.contains('sidebar-collapsed')) {
+        railSearchButton.classList.add('active');
+        railSearchButton.setAttribute('aria-pressed', 'true');
+      }
+
+      setTimeout(() => map.invalidateSize(), 120);
+    }
+
     toggleSidebarButton.addEventListener('click', closeSidebar);
+    
+    railDirectoryButton.addEventListener('click', function() {
+      if (appShell.classList.contains('directory-open')) {
+        closeDirectory();
+      } else {
+        openDirectory();
+      }
+    });
+
+    closeDirectoryButton.addEventListener('click', closeDirectory);
+
+    directorySearchInput.addEventListener('input', function() {
+      renderCountryDirectory(visibleRows);
+    });
     railSearchButton.addEventListener('click', function() {
+      if (appShell.classList.contains('directory-open')) {
+        closeDirectory();
+        openSidebar();
+        return;
+      }
+
       if (sidebar.classList.contains('sidebar-collapsed')) {
         openSidebar();
       } else {
@@ -1350,6 +1920,195 @@
       });
     }
 
+    function countryAnchorId(countryName) {
+      return `country-${String(countryName || 'unknown')
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-|-$/g, '') || 'unknown'}`;
+    }
+
+    function buildDirectorySourceLinks(row) {
+      const resources = row._resources || [];
+
+      if (!resources.length) {
+        return `<span class="directory-muted">No source link</span>`;
+      }
+
+      return resources.map((resource, index) => `
+        <a
+          class="directory-source-link"
+          href="${escapeHtml(resource.url)}"
+          target="_blank"
+          rel="noopener noreferrer"
+          title="${escapeHtml(resource.label || `Source ${index + 1}`)}"
+        >
+          ${escapeHtml(resource.label || `S${index + 1}`)}
+        </a>
+      `).join('');
+    }
+
+    function rowMatchesDirectorySearch(row, query, directoryCountry) {
+      if (!query) return true;
+
+      const haystack = [
+        row._searchText,
+        directoryCountry,
+        row.site_label,
+        row.site_id,
+        row.region_category,
+        row.metal,
+        row.exposure_period
+      ]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase();
+
+      return haystack.includes(query);
+    }
+
+    function renderCountryDirectory(rows) {
+      if (!countryDirectoryContent) return;
+
+      const directoryQuery = directorySearchInput.value.trim().toLowerCase();
+      const sourceRows = Array.isArray(rows) ? rows : [];
+
+      const countryGroups = new Map();
+
+      sourceRows.forEach(row => {
+        const country = normaliseDirectoryCountry(row.modern_country_location);
+
+        if (!rowMatchesDirectorySearch(row, directoryQuery, country)) {
+          return;
+        }
+
+        if (!countryGroups.has(country)) {
+          countryGroups.set(country, []);
+        }
+
+        countryGroups.get(country).push(row);
+      });
+
+      countryGroups.forEach((sites, country) => {
+        sites.sort((a, b) => (a.site_label || '').localeCompare(b.site_label || ''));
+      });
+
+      let countries = [...new Set([
+        ...DIRECTORY_COUNTRY_LIST,
+        ...countryGroups.keys()
+      ])].sort((a, b) => a.localeCompare(b));
+
+      if (directoryQuery) {
+        countries = countries.filter(country => {
+          const countryMatches = country.toLowerCase().includes(directoryQuery);
+          const hasMatchingSites = countryGroups.has(country);
+
+          return countryMatches || hasMatchingSites;
+        });
+      }
+
+      const letters = [...new Set(
+        countries.map(country => country.charAt(0).toUpperCase())
+      )].filter(Boolean);
+
+      directoryLetterNav.innerHTML = letters.map(letter => `
+        <a class="directory-letter-link" href="#directory-letter-${escapeHtml(letter)}">
+          ${escapeHtml(letter)}
+        </a>
+      `).join('');
+
+      const siteCount = [...countryGroups.values()].reduce(
+        (total, sites) => total + sites.length,
+        0
+      );
+
+      const countriesWithSites = [...countryGroups.keys()].length;
+
+      directoryCount.textContent =
+        `${siteCount.toLocaleString()} matched site${siteCount === 1 ? '' : 's'} · ` +
+        `${countriesWithSites.toLocaleString()} populated · ` +
+        `${countries.length.toLocaleString()} shown`;
+
+      let previousLetter = '';
+
+      countryDirectoryContent.innerHTML = countries.map(country => {
+        const sites = countryGroups.get(country) || [];
+        const firstLetter = country.charAt(0).toUpperCase();
+        const letterAnchor = firstLetter !== previousLetter
+          ? `<div id="directory-letter-${escapeHtml(firstLetter)}"></div>`
+          : '';
+
+        previousLetter = firstLetter;
+
+        const siteRowsHtml = sites.length
+          ? sites.map(row => {
+              const regionText = normalizeText(row.region_category) || 'Unclassified region';
+
+              return `
+                <div class="directory-site-row">
+                  <button
+                    class="directory-site-main"
+                    type="button"
+                    data-row-index="${row._rowIndex}"
+                    title="Open this site on the map"
+                  >
+                    <span class="directory-site-name">${escapeHtml(row.site_label || 'Unnamed site')}</span>
+                    <span class="directory-site-id">${escapeHtml(row.site_id || '')}</span>
+                  </button>
+
+                  <div>
+                    <span class="directory-region-pill">${escapeHtml(regionText)}</span>
+                  </div>
+
+                  <div class="directory-source-links">
+                    ${buildDirectorySourceLinks(row)}
+                  </div>
+                </div>
+              `;
+            }).join('')
+          : `
+              <div class="directory-empty-country">
+                No corrosion test site has been added for this country/location yet.
+              </div>
+            `;
+
+        return `
+          ${letterAnchor}
+          <section id="${escapeHtml(countryAnchorId(country))}" class="country-section">
+            <div>
+              <h3 class="country-heading">${escapeHtml(country)}</h3>
+              <div class="country-meta">
+                ${sites.length.toLocaleString()} site${sites.length === 1 ? '' : 's'}
+              </div>
+            </div>
+
+            <div class="site-directory-list">
+              ${siteRowsHtml}
+            </div>
+          </section>
+        `;
+      }).join('');
+
+      if (!countries.length) {
+        countryDirectoryContent.innerHTML = `
+          <div class="directory-muted">No countries or sites match the current directory search.</div>
+        `;
+      }
+    }
+
+    countryDirectoryContent.addEventListener('click', function(event) {
+      const siteButton = event.target.closest('.directory-site-main');
+
+      if (!siteButton) return;
+
+      const rowIndex = Number(siteButton.getAttribute('data-row-index'));
+      const row = allRows.find(item => item._rowIndex === rowIndex);
+
+      if (!row) return;
+
+      closeDirectory();
+      focusRow(row);
+    });
+
     function renderMarkers(rows) {
       markersLayer.clearLayers();
 
@@ -1440,6 +2199,9 @@
 
       updateStats(visibleRows);
       renderActiveFilterChips();
+      if (appShell.classList.contains('directory-open')) {
+        renderCountryDirectory(visibleRows);
+      }
 
       const filtersAreActive = Boolean(
         query ||
@@ -1465,6 +2227,10 @@
         allRows = results.data
           .map(normalizeRow)
           .filter(row => !isNaN(row._lat) && !isNaN(row._lon));
+
+        allRows.forEach((row, index) => {
+          row._rowIndex = index;
+        });
         
         updateDropdowns(allRows);
         visibleRows = [...allRows];
@@ -1474,6 +2240,7 @@
 
         updateStats(allRows);
         renderActiveFilterChips();
+        renderCountryDirectory(allRows);
         const loadedAt = new Date().toLocaleString();
         document.getElementById('mapStatusBadge').textContent =
           `Dataset loaded: ${allRows.length.toLocaleString()} sites · ${loadedAt}`;
