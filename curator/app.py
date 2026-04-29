@@ -1594,7 +1594,7 @@ def annotate_import_preview_for_upsert(preview_df: pd.DataFrame) -> pd.DataFrame
     annotated_df = preview_df.copy()
 
     existing_source_codes = {
-        str(code).strip()
+        normalise_source_code(str(code))
         for code in get_existing_source_codes()
         if str(code).strip()
     }
