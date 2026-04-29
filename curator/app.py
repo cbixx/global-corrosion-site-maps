@@ -530,6 +530,7 @@ def normalise_bool_column(df: pd.DataFrame, column: str) -> pd.Series:
     return df[column].apply(normalise_bool_value)
 
 DRAFT_AUTOSAVE_INTERVAL_SECONDS = 8
+IMPORT_PREVIEW_DRAFT_KEY = "import_preview_draft"
 
 
 def utc_now_iso() -> str:
@@ -696,6 +697,20 @@ def dataframe_from_draft_payload(payload: dict[str, Any]) -> pd.DataFrame:
         payload.get("records", []),
         columns=payload.get("columns", None),
     )
+
+def clear_import_draft_session_state() -> None:
+    for key in [
+        "restored_import_preview_payload",
+        "restored_import_preview_updated_at",
+        "restored_import_preview_file_name",
+        "import_site_preview_override",
+        "latest_import_preview",
+        "cached_import_preview_signature",
+        "cached_import_preview_df",
+        "cached_import_site_preview_df",
+        "last_import_upload_signature",
+    ]:
+        st.session_state.pop(key, None)
 
 def build_row_label(row: dict, table_name: str) -> str:
     if table_name == "sites":
@@ -4804,6 +4819,112 @@ if active_page == "Import":
     if import_success_message:
         st.success(import_success_message)
 
+    restored_import_preview_payload = st.session_state.get(
+        "restored_import_preview_payload"
+    )
+
+    if restored_import_preview_payload:
+        restored_file_name = st.session_state.get(
+            "restored_import_preview_file_name",
+            restored_import_preview_payload.get("uploaded_file_name", "previous CSV"),
+        )
+
+        restored_updated_at = st.session_state.get(
+            "restored_import_preview_updated_at",
+            "",
+        )
+
+        st.info(
+            "A restored import draft is currently active. "
+            f"Original file: `{restored_file_name}`. "
+            f"Draft saved at: `{restored_updated_at or 'unknown time'}`."
+        )
+
+        discard_active_draft_col, active_draft_spacer = st.columns(
+            [0.28, 0.72],
+            vertical_alignment="bottom",
+        )
+
+        with discard_active_draft_col:
+            if st.button(
+                "Discard active restored draft",
+                key="discard_active_import_preview_draft",
+                use_container_width=True,
+            ):
+                delete_app_draft(IMPORT_PREVIEW_DRAFT_KEY)
+                clear_import_draft_session_state()
+                refresh_import_preview_editor()
+                st.rerun()
+
+    else:
+        try:
+            saved_import_draft = load_app_draft(IMPORT_PREVIEW_DRAFT_KEY)
+        except Exception as exc:
+            saved_import_draft = None
+            st.warning(f"Could not check for saved import draft: {exc}")
+
+        if saved_import_draft:
+            draft_payload = saved_import_draft.get("payload", {})
+            draft_file_name = str(
+                draft_payload.get("uploaded_file_name", "previous CSV")
+            ).strip() or "previous CSV"
+
+            site_preview_payload = draft_payload.get("site_preview_df", {})
+            draft_site_count = len(site_preview_payload.get("records", []))
+
+            st.warning(
+                "Unsaved import draft found. "
+                f"Original file: `{draft_file_name}`. "
+                f"Draft saved at: `{saved_import_draft.get('updated_at', 'unknown time')}`. "
+                f"Preview sites in draft: {draft_site_count}."
+            )
+
+            restore_col, discard_col, draft_spacer = st.columns(
+                [0.20, 0.20, 0.60],
+                vertical_alignment="bottom",
+            )
+
+            with restore_col:
+                restore_import_draft_clicked = st.button(
+                    "Restore import draft",
+                    key="restore_import_preview_draft",
+                    use_container_width=True,
+                )
+
+            with discard_col:
+                discard_import_draft_clicked = st.button(
+                    "Discard import draft",
+                    key="discard_import_preview_draft",
+                    use_container_width=True,
+                )
+
+            if restore_import_draft_clicked:
+                st.session_state["restored_import_preview_payload"] = draft_payload
+                st.session_state["restored_import_preview_updated_at"] = str(
+                    saved_import_draft.get("updated_at", "")
+                )
+                st.session_state["restored_import_preview_file_name"] = draft_file_name
+
+                st.session_state["import_upload_version"] = (
+                    int(st.session_state.get("import_upload_version", 0)) + 1
+                )
+
+                st.session_state.pop("import_site_preview_override", None)
+                st.session_state.pop("latest_import_preview", None)
+                st.session_state.pop("cached_import_preview_signature", None)
+                st.session_state.pop("cached_import_preview_df", None)
+                st.session_state.pop("cached_import_site_preview_df", None)
+                st.session_state.pop("last_import_upload_signature", None)
+
+                refresh_import_preview_editor()
+                st.rerun()
+
+            if discard_import_draft_clicked:
+                delete_app_draft(IMPORT_PREVIEW_DRAFT_KEY)
+                clear_import_draft_session_state()
+                refresh_import_preview_editor()
+                st.rerun()
+
     st.write("### Import sites CSV")
 
     st.info(
@@ -4855,8 +4976,13 @@ if active_page == "Import":
 
         if st.session_state.get("last_import_upload_signature") != uploaded_import_signature:
             st.session_state["last_import_upload_signature"] = uploaded_import_signature
+
+            st.session_state.pop("restored_import_preview_payload", None)
+            st.session_state.pop("restored_import_preview_updated_at", None)
+            st.session_state.pop("restored_import_preview_file_name", None)
             st.session_state.pop("import_site_preview_override", None)
             st.session_state.pop("latest_import_preview", None)
+
             refresh_import_preview_editor()
 
     import_col1, import_col2 = st.columns(2)
@@ -4931,88 +5057,126 @@ if active_page == "Import":
         """
     )
 
-    if uploaded_import_csv is not None:
+    restored_import_preview_payload = st.session_state.get(
+        "restored_import_preview_payload"
+    )
+
+    has_restored_import_preview = isinstance(restored_import_preview_payload, dict)
+
+    if uploaded_import_csv is not None or has_restored_import_preview:
         try:
-            current_import_preview_signature = make_import_preview_signature(
-                uploaded_file=uploaded_import_csv,
-                default_import_programme=default_import_programme,
-                geocode_missing_coordinates=geocode_missing_coordinates,
-                auto_fill_region_category_import=auto_fill_region_category_import,
-                require_registered_source_metadata=require_registered_source_metadata,
-            )
+            if has_restored_import_preview and uploaded_import_csv is None:
+                restored_payload = cast(dict[str, Any], restored_import_preview_payload)
 
-            cached_signature = st.session_state.get("cached_import_preview_signature", "")
+                preview_payload = restored_payload.get("preview_df", {})
+                site_preview_payload = restored_payload.get("site_preview_df", {})
 
-            needs_preview_rebuild = (
-                rebuild_import_preview_clicked
-                or cached_signature != current_import_preview_signature
-                or "cached_import_preview_df" not in st.session_state
-                or "cached_import_site_preview_df" not in st.session_state
-            )
+                preview_df = dataframe_from_draft_payload(preview_payload)
+                site_preview_df = dataframe_from_draft_payload(site_preview_payload)
 
-            if needs_preview_rebuild:
-                st.session_state.pop("import_site_preview_override", None)
-                st.session_state.pop("latest_import_preview", None)
-                refresh_import_preview_editor()
+                if preview_df.empty or site_preview_df.empty:
+                    st.warning(
+                        "The saved import draft could not be restored because it does not contain "
+                        "a valid preview table. Discard this draft and rebuild the import preview."
+                    )
+                    st.stop()
 
-                loading_message = (
-                    "Building import preview. Geocoding missing coordinates may take around "
-                    "1 second per unresolved site..."
-                    if geocode_missing_coordinates
-                    else "Building import preview..."
+                st.session_state["import_site_preview_override"] = site_preview_df.copy()
+
+                st.caption(
+                    "Using restored import draft. Review the table carefully before confirming import."
                 )
-
-                with st.status(loading_message, expanded=True) as import_status:
-                    st.write("Reading CSV and normalising headers...")
-                    st.write("Checking existing sites, sources, and site-source links...")
-
-                    if geocode_missing_coordinates:
-                        st.write(
-                            "Contacting OpenStreetMap/Nominatim for missing coordinates. "
-                            "Please wait; the app is intentionally slowing requests to avoid rate-limit problems."
-                        )
-
-                    preview_df = build_import_preview(
-                        uploaded_file=uploaded_import_csv,
-                        existing_site_ids=get_existing_site_ids(),
-                        existing_source_codes=get_existing_source_codes(),
-                        existing_site_source_pairs=get_existing_site_source_pairs(),
-                        default_programme=default_import_programme,
-                        geocode_missing_coordinates=geocode_missing_coordinates,
-                        source_metadata_by_code=get_source_metadata_by_code(),
-                        site_id_generator=make_import_site_id_generator(),
-                        require_existing_source_metadata=require_registered_source_metadata,
-                    )
-
-                    st.write("Checking whether imported sites match existing site records...")
-                    preview_df = annotate_import_preview_for_upsert(preview_df)
-
-                    if auto_fill_region_category_import:
-                        st.write("Auto-filling missing region categories where possible...")
-                        preview_df = auto_fill_import_region_categories(preview_df)
-
-                    st.write("Preparing the import preview table...")
-                    site_preview_df = build_site_level_import_preview(preview_df)
-
-                    st.session_state["cached_import_preview_signature"] = (
-                        current_import_preview_signature
-                    )
-                    st.session_state["cached_import_preview_df"] = preview_df.copy()
-                    st.session_state["cached_import_site_preview_df"] = site_preview_df.copy()
-
-                    import_status.update(
-                        label="Import preview is ready.",
-                        state="complete",
-                        expanded=False,
-                    )
 
             else:
-                preview_df = st.session_state["cached_import_preview_df"].copy()
-                site_preview_df = st.session_state["cached_import_site_preview_df"].copy()
-                st.caption(
-                    "Using cached import preview. Table edits should now be much faster. "
-                    "Click 'Rebuild import preview from uploaded CSV' only when needed."
+                if uploaded_import_csv is None:
+                    st.warning("Upload a CSV file or restore a valid import draft first.")
+                    st.stop()
+
+                uploaded_csv_for_preview = uploaded_import_csv
+
+                current_import_preview_signature = make_import_preview_signature(
+                    uploaded_file=uploaded_csv_for_preview,
+                    default_import_programme=default_import_programme,
+                    geocode_missing_coordinates=geocode_missing_coordinates,
+                    auto_fill_region_category_import=auto_fill_region_category_import,
+                    require_registered_source_metadata=require_registered_source_metadata,
                 )
+
+                cached_signature = st.session_state.get(
+                    "cached_import_preview_signature",
+                    "",
+                )
+
+                needs_preview_rebuild = (
+                    rebuild_import_preview_clicked
+                    or cached_signature != current_import_preview_signature
+                    or "cached_import_preview_df" not in st.session_state
+                    or "cached_import_site_preview_df" not in st.session_state
+                )
+
+                if needs_preview_rebuild:
+                    st.session_state.pop("import_site_preview_override", None)
+                    st.session_state.pop("latest_import_preview", None)
+                    refresh_import_preview_editor()
+
+                    loading_message = (
+                        "Building import preview. Geocoding missing coordinates may take around "
+                        "1 second per unresolved site..."
+                        if geocode_missing_coordinates
+                        else "Building import preview..."
+                    )
+
+                    with st.status(loading_message, expanded=True) as import_status:
+                        st.write("Reading CSV and normalising headers...")
+                        st.write("Checking existing sites, sources, and site-source links...")
+
+                        if geocode_missing_coordinates:
+                            st.write(
+                                "Contacting OpenStreetMap/Nominatim for missing coordinates. "
+                                "Please wait; the app is intentionally slowing requests to avoid rate-limit problems."
+                            )
+
+                        preview_df = build_import_preview(
+                            uploaded_file=uploaded_csv_for_preview,
+                            existing_site_ids=get_existing_site_ids(),
+                            existing_source_codes=get_existing_source_codes(),
+                            existing_site_source_pairs=get_existing_site_source_pairs(),
+                            default_programme=default_import_programme,
+                            geocode_missing_coordinates=geocode_missing_coordinates,
+                            source_metadata_by_code=get_source_metadata_by_code(),
+                            site_id_generator=make_import_site_id_generator(),
+                            require_existing_source_metadata=require_registered_source_metadata,
+                        )
+
+                        st.write("Checking whether imported sites match existing site records...")
+                        preview_df = annotate_import_preview_for_upsert(preview_df)
+
+                        if auto_fill_region_category_import:
+                            st.write("Auto-filling missing region categories where possible...")
+                            preview_df = auto_fill_import_region_categories(preview_df)
+
+                        st.write("Preparing the import preview table...")
+                        site_preview_df = build_site_level_import_preview(preview_df)
+
+                        st.session_state["cached_import_preview_signature"] = (
+                            current_import_preview_signature
+                        )
+                        st.session_state["cached_import_preview_df"] = preview_df.copy()
+                        st.session_state["cached_import_site_preview_df"] = site_preview_df.copy()
+
+                        import_status.update(
+                            label="Import preview is ready.",
+                            state="complete",
+                            expanded=False,
+                        )
+
+                else:
+                    preview_df = st.session_state["cached_import_preview_df"].copy()
+                    site_preview_df = st.session_state["cached_import_site_preview_df"].copy()
+                    st.caption(
+                        "Using cached import preview. Table edits should now be much faster. "
+                        "Click 'Rebuild import preview from uploaded CSV' only when needed."
+                    )
 
             if "import_site_preview_override" in st.session_state:
                 override_df = st.session_state["import_site_preview_override"]
@@ -5303,15 +5467,24 @@ if active_page == "Import":
 
                 st.session_state["latest_import_preview"] = edited_preview_df
 
+                if uploaded_import_csv is not None:
+                    import_draft_file_name = getattr(uploaded_import_csv, "name", "")
+                else:
+                    import_draft_file_name = str(
+                        restored_import_preview_payload.get("uploaded_file_name", "")
+                        if isinstance(restored_import_preview_payload, dict)
+                        else ""
+                    )
+
                 import_preview_draft_payload = {
                     "preview_df": dataframe_to_draft_payload(preview_df),
                     "site_preview_df": dataframe_to_draft_payload(edited_site_preview_df),
                     "edited_preview_df": dataframe_to_draft_payload(edited_preview_df),
-                    "uploaded_file_name": getattr(uploaded_import_csv, "name", ""),
+                    "uploaded_file_name": import_draft_file_name,
                 }
 
                 draft_saved = autosave_app_draft(
-                    draft_key="import_preview_draft",
+                    draft_key=IMPORT_PREVIEW_DRAFT_KEY,
                     draft_label="Import preview",
                     payload=import_preview_draft_payload,
                     interval_seconds=8,
@@ -5412,7 +5585,10 @@ if active_page == "Import":
                             st.session_state.pop("cached_import_preview_signature", None)
                             st.session_state.pop("cached_import_preview_df", None)
                             st.session_state.pop("cached_import_site_preview_df", None)
-                            delete_app_draft("import_preview_draft")
+                            st.session_state.pop("restored_import_preview_payload", None)
+                            st.session_state.pop("restored_import_preview_updated_at", None)
+                            st.session_state.pop("restored_import_preview_file_name", None)
+                            delete_app_draft(IMPORT_PREVIEW_DRAFT_KEY)
 
                             set_next_active_page("Import")
                             set_flash_message(success_message)
