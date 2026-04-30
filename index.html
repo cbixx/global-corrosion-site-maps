@@ -636,6 +636,26 @@
       color: #111827;
     }
 
+    .directory-country-button {
+      border: 0;
+      background: transparent;
+      padding: 0;
+      margin: 0;
+      text-align: left;
+      cursor: pointer;
+      font: inherit;
+      font-size: 25px;
+      line-height: 1.12;
+      letter-spacing: -0.02em;
+      color: #111827;
+      font-weight: 700;
+    }
+
+    .directory-country-button:hover {
+      color: #1d4ed8;
+      text-decoration: underline;
+    }
+
     .country-meta {
       margin-top: 8px;
       font-size: 12px;
@@ -909,6 +929,129 @@
       width: min(260px, 78vw);
     }
    }
+    .corrosion-section {
+      margin-top: 16px;
+      padding-top: 12px;
+      border-top: 1px solid rgba(0, 0, 0, 0.12);
+    }
+
+    .file-label {
+      display: block;
+      font-size: 0.85rem;
+      font-weight: 600;
+      margin-bottom: 6px;
+    }
+
+    #corrosionCsvInput {
+      width: 100%;
+      margin-bottom: 8px;
+    }
+
+    .small-status {
+      font-size: 0.78rem;
+      line-height: 1.35;
+      opacity: 0.8;
+      margin: 6px 0 10px 0;
+    }
+
+    .corrosion-section .button-row {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 10px;
+    }
+
+    .corrosion-section .button-row button {
+      flex: 1 1 auto;
+      padding: 6px 8px;
+      border-radius: 8px;
+      border: 1px solid rgba(0, 0, 0, 0.18);
+      background: #ffffff;
+      cursor: pointer;
+      font-size: 0.78rem;
+    }
+
+    .country-popup-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 5000;
+      background: rgba(0, 0, 0, 0.35);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 18px;
+    }
+
+    .country-popup-overlay.hidden {
+      display: none;
+    }
+
+    .country-popup-box {
+      width: min(760px, 94vw);
+      max-height: 88vh;
+      background: #ffffff;
+      border-radius: 16px;
+      box-shadow: 0 18px 40px rgba(0, 0, 0, 0.28);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .country-popup-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 14px 16px 10px 16px;
+      border-bottom: 1px solid rgba(0, 0, 0, 0.12);
+    }
+
+    .country-popup-header h2 {
+      margin: 0;
+      font-size: 1.1rem;
+    }
+
+    .country-popup-header p {
+      margin: 4px 0 0 0;
+      font-size: 0.82rem;
+      opacity: 0.75;
+    }
+
+    .country-popup-close {
+      border: none;
+      background: transparent;
+      font-size: 1.8rem;
+      line-height: 1;
+      cursor: pointer;
+    }
+
+    #countryMiniMap {
+      height: 360px;
+      width: 100%;
+    }
+
+    .country-popup-site-list {
+      padding: 10px 16px 14px 16px;
+      font-size: 0.84rem;
+      max-height: 160px;
+      overflow-y: auto;
+    }
+
+    .country-popup-site-list .country-site-row {
+      padding: 6px 0;
+      border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+    }
+
+    .country-popup-site-list .country-site-row:last-child {
+      border-bottom: none;
+    }
+
+    .corrosion-popup-line {
+      margin-top: 8px;
+      padding-top: 6px;
+      border-top: 1px solid rgba(0, 0, 0, 0.12);
+      font-weight: 600;
+    }
 
   </style>
 </head>
@@ -1025,6 +1168,34 @@
         <button id="resetView" class="panel-button" type="button">Reset map</button>
       </div>
 
+      <div class="control-section corrosion-section">
+        <h3>Corrosion-rate overlay</h3>
+
+        <label class="file-label" for="corrosionCsvInput">
+          Import corrosion-rate CSV
+        </label>
+
+        <input
+          id="corrosionCsvInput"
+          type="file"
+          accept=".csv"
+        />
+
+        <div id="corrosionImportStatus" class="small-status">
+          No corrosion-rate table imported.
+        </div>
+
+        <div class="button-row">
+          <button id="exportCorrosionCsvBtn" type="button">
+            Export current corrosion CSV
+          </button>
+
+          <button id="clearCorrosionCsvBtn" type="button">
+            Clear corrosion overlay
+          </button>
+        </div>
+      </div>
+
       <div id="activeFilterChips" class="filter-chips" hidden></div>
 
       <div class="result-box">
@@ -1131,9 +1302,29 @@
     </main>
   </div>
 
+  <div id="countryPopupOverlay" class="country-popup-overlay hidden">
+    <div class="country-popup-box">
+      <div class="country-popup-header">
+        <div>
+          <h2 id="countryPopupTitle">Country</h2>
+          <p id="countryPopupSubtitle">Sites available in this country</p>
+        </div>
+
+        <button id="closeCountryPopupBtn" type="button" class="country-popup-close">
+          ×
+        </button>
+      </div>
+
+      <div id="countryMiniMap"></div>
+
+      <div id="countryPopupSiteList" class="country-popup-site-list"></div>
+    </div>
+  </div>
+
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+  <script src="https://unpkg.com/leaflet.heat/dist/leaflet-heat.js"></script>
 
   <script>
     const TILE_LAT_LIMIT = 85.0511;
@@ -1325,7 +1516,11 @@
     };
 
     function normaliseDirectoryCountry(value) {
-      const country = normalizeText(value);
+      const raw = normalizeText(value);
+
+      if (!raw) return "Unknown location";
+
+      const country = raw.split("/")[0].trim();
 
       if (!country) return "Unknown location";
 
@@ -1403,6 +1598,16 @@
 
     let allRows = [];
     let visibleRows = [];
+    let allSiteIds = new Set();
+    let markersBySiteId = new Map();
+
+    let corrosionRatesBySiteId = new Map();
+    let corrosionOverlayActive = false;
+    let corrosionHeatLayer = null;
+
+    let countryMiniMap = null;
+    let countryMiniMarkerLayer = null;
+    let countryMiniBaseLayer = null;
 
     const activeFilterChipsContainer = document.getElementById('activeFilterChips');
     const hoverSummaryCard = document.getElementById('hoverSummaryCard');
@@ -1598,6 +1803,77 @@
       URL.revokeObjectURL(url);
     }
 
+    function getSiteId(row) {
+      return normalizeText(
+        row.site_id ||
+        row.siteId ||
+        row["site Id"] ||
+        row["Site ID"] ||
+        row["site ID"]
+      ).toUpperCase();
+    }
+
+    function parseCorrosionNumber(value) {
+      if (value === null || value === undefined) return null;
+
+      const cleaned = String(value)
+        .trim()
+        .replace(",", ".");
+
+      if (!cleaned) return null;
+
+      const number = Number(cleaned);
+
+      return Number.isFinite(number) ? number : null;
+    }
+
+    function formatCorrosionRate(rate) {
+      if (!Number.isFinite(rate)) {
+        return "No imported report";
+      }
+
+      return `${rate.toFixed(2)} µm/year`;
+    }
+
+    function getCorrosionRate(row) {
+      const siteId = getSiteId(row);
+      return corrosionRatesBySiteId.get(siteId);
+    }
+
+    function buildCorrosionPopupSection(row) {
+      if (!corrosionOverlayActive) return "";
+
+      const rate = getCorrosionRate(row);
+
+      if (rate === undefined) {
+        return `
+          <div class="corrosion-popup-line">
+            <strong>Steel corrosion rate:</strong> No imported report
+          </div>
+        `;
+      }
+
+      return `
+        <div class="corrosion-popup-line">
+          <strong>Steel corrosion rate:</strong> ${escapeHtml(formatCorrosionRate(rate))}
+        </div>
+      `;
+    }
+
+    function findCsvColumn(row, possibleNames) {
+      const keys = Object.keys(row || {});
+
+      for (const wantedName of possibleNames) {
+        const match = keys.find(
+          key => key.trim().toLowerCase() === wantedName.trim().toLowerCase()
+        );
+
+        if (match) return match;
+      }
+
+      return null;
+    }
+
     function sanitizeUrl(value) {
       if (!value) return '';
 
@@ -1731,6 +2007,8 @@
       if (row.metal) {
         popupContent += `<div class="popup-row"><strong>Metal:</strong> ${escapeHtml(row.metal)}</div>`;
       }
+
+      popupContent += buildCorrosionPopupSection(row);
 
       if (resources.length > 0 || notes) {
         popupContent += `<div class="action-row">`;
@@ -2120,7 +2398,14 @@
           ${letterAnchor}
           <section id="${escapeHtml(countryAnchorId(country))}" class="country-section">
             <div>
-              <h3 class="country-heading">${escapeHtml(country)}</h3>
+              <button
+                class="directory-country-button"
+                type="button"
+                data-country="${escapeHtml(country)}"
+                title="Open country mini-map"
+              >
+                ${escapeHtml(country)}
+              </button>
               <div class="country-meta">
                 ${sites.length.toLocaleString()} site${sites.length === 1 ? '' : 's'}
               </div>
@@ -2140,7 +2425,156 @@
       }
     }
 
+    function getRowsForDirectoryCountry(countryName) {
+      const target = normalizeText(countryName).toLowerCase();
+
+      return visibleRows.filter(row =>
+        normaliseDirectoryCountry(row.modern_country_location).toLowerCase() === target
+      );
+    }
+
+    function openCountryPopup(countryName) {
+      const overlay = document.getElementById("countryPopupOverlay");
+      const title = document.getElementById("countryPopupTitle");
+      const subtitle = document.getElementById("countryPopupSubtitle");
+      const siteList = document.getElementById("countryPopupSiteList");
+
+      if (!overlay || !title || !subtitle || !siteList) return;
+
+      const countrySites = getRowsForDirectoryCountry(countryName);
+
+      title.textContent = countryName;
+      subtitle.textContent = `${countrySites.length} site${countrySites.length === 1 ? "" : "s"} available`;
+
+      siteList.innerHTML = countrySites.length
+        ? countrySites.map(row => {
+            const rate = getCorrosionRate(row);
+            const rateText = !corrosionOverlayActive
+              ? ""
+              : rate === undefined
+                ? "Steel corrosion rate: No imported report"
+                : `Steel corrosion rate: ${formatCorrosionRate(rate)}`;
+
+            return `
+              <div class="country-site-row">
+                <strong>${escapeHtml(row.site_label || "Unnamed site")}</strong><br>
+                <span>Site ID: ${escapeHtml(row.site_id || "")}</span><br>
+                <span>${escapeHtml(row.region_category || "Unclassified region")}</span>
+                ${rateText ? `<br><span>${escapeHtml(rateText)}</span>` : ""}
+              </div>
+            `;
+          }).join("")
+        : `
+          <div class="country-site-row">
+            No corrosion test site has been added for this country/location yet.
+          </div>
+        `;
+
+      overlay.classList.remove("hidden");
+
+      setTimeout(() => {
+        initialiseCountryMiniMap();
+        renderCountryMiniMap(countryName, countrySites);
+      }, 80);
+    }
+
+    function initialiseCountryMiniMap() {
+      if (countryMiniMap) {
+        countryMiniMap.invalidateSize();
+        return;
+      }
+
+      countryMiniMap = L.map("countryMiniMap", {
+        zoomControl: true,
+        attributionControl: false
+      });
+
+      countryMiniBaseLayer = L.tileLayer(
+        "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+        {
+          maxZoom: 18
+        }
+      );
+
+      countryMiniBaseLayer.addTo(countryMiniMap);
+
+      countryMiniMarkerLayer = L.layerGroup().addTo(countryMiniMap);
+    }
+
+    function renderCountryMiniMap(countryName, countrySites) {
+      if (!countryMiniMap || !countryMiniMarkerLayer) return;
+
+      countryMiniMarkerLayer.clearLayers();
+
+      const bounds = [];
+
+      countrySites.forEach(row => {
+        if (isNaN(row._lat) || isNaN(row._lon)) return;
+
+        const marker = L.marker([row._lat, row._lon]);
+
+        marker.bindPopup(buildPopup(row));
+        marker.addTo(countryMiniMarkerLayer);
+
+        bounds.push([row._lat, row._lon]);
+      });
+
+      countryMiniMap.invalidateSize();
+
+      if (bounds.length === 1) {
+        countryMiniMap.setView(bounds[0], 5);
+      } else if (bounds.length > 1) {
+        countryMiniMap.fitBounds(bounds, {
+          padding: [28, 28],
+          maxZoom: 6
+        });
+      } else {
+        countryMiniMap.setView(DEFAULT_CENTER, DEFAULT_ZOOM);
+      }
+
+      if (
+        countryName.toLowerCase() === "russia" ||
+        countryName.toLowerCase() === "russian federation"
+      ) {
+        const warning = L.control({ position: "bottomleft" });
+
+        warning.onAdd = function() {
+          const div = L.DomUtil.create("div", "mini-map-warning");
+          div.innerHTML =
+            "Russia is shown by measured site markers only, not as a whole-country corrosion zone.";
+          div.style.background = "white";
+          div.style.padding = "6px 8px";
+          div.style.borderRadius = "8px";
+          div.style.fontSize = "11px";
+          div.style.boxShadow = "0 2px 8px rgba(0,0,0,0.18)";
+          return div;
+        };
+
+        warning.addTo(countryMiniMap);
+
+        setTimeout(() => {
+          countryMiniMap.removeControl(warning);
+        }, 5000);
+      }
+    }
+
+    function closeCountryPopup() {
+      const overlay = document.getElementById("countryPopupOverlay");
+
+      if (overlay) {
+        overlay.classList.add("hidden");
+      }
+    }
+
     countryDirectoryContent.addEventListener('click', function(event) {
+      const countryButton = event.target.closest('.directory-country-button');
+
+      if (countryButton) {
+        const countryName = countryButton.getAttribute('data-country');
+        openCountryPopup(countryName);
+        return;
+      }
+
       const siteButton = event.target.closest('.directory-site-main');
 
       if (!siteButton) return;
@@ -2156,14 +2590,23 @@
 
     function renderMarkers(rows) {
       markersLayer.clearLayers();
+      markersBySiteId = new Map();
 
       rows.forEach(row => {
         if (isNaN(row._lat) || isNaN(row._lon)) return;
 
         const marker = L.marker([row._lat, row._lon]);
+        const siteId = getSiteId(row);
+
         row._marker = marker;
+
+        if (siteId) {
+          markersBySiteId.set(siteId, marker);
+        }
+
         marker.bindTooltip(row.site_label || 'Unnamed site');
         marker.bindPopup(buildPopup(row));
+
         marker.on('mouseover', function() {
           showHoverSummary(row);
         });
@@ -2171,8 +2614,203 @@
         marker.on('mouseout', function() {
           clearHoverSummary();
         });
+
         marker.addTo(markersLayer);
       });
+    }
+
+    function normaliseHeatIntensity(rate, minRate, maxRate) {
+      if (!Number.isFinite(rate)) return 0;
+
+      if (maxRate === minRate) {
+        return 0.7;
+      }
+
+      const value = (rate - minRate) / (maxRate - minRate);
+
+      return Math.max(0.15, Math.min(1, value));
+    }
+
+    function updateCorrosionHeatLayer() {
+      if (corrosionHeatLayer) {
+        map.removeLayer(corrosionHeatLayer);
+        corrosionHeatLayer = null;
+      }
+
+      if (!corrosionOverlayActive) return;
+
+      const rowsForHeat = Array.isArray(visibleRows) ? visibleRows : allRows;
+
+      const matchedPoints = rowsForHeat
+        .map(row => {
+          const rate = getCorrosionRate(row);
+
+          if (!Number.isFinite(rate)) return null;
+          if (isNaN(row._lat) || isNaN(row._lon)) return null;
+
+          return {
+            lat: row._lat,
+            lon: row._lon,
+            rate
+          };
+        })
+        .filter(Boolean);
+
+      if (!matchedPoints.length) return;
+
+      const rates = matchedPoints.map(point => point.rate);
+      const minRate = Math.min(...rates);
+      const maxRate = Math.max(...rates);
+
+      const heatPoints = matchedPoints.map(point => [
+        point.lat,
+        point.lon,
+        normaliseHeatIntensity(point.rate, minRate, maxRate)
+      ]);
+
+      corrosionHeatLayer = L.heatLayer(heatPoints, {
+        radius: 28,
+        blur: 20,
+        maxZoom: 8
+      });
+
+      corrosionHeatLayer.addTo(map);
+    }
+
+    function importCorrosionCsvFile(file) {
+      const status = document.getElementById("corrosionImportStatus");
+
+      if (!status) return;
+
+      if (!file) {
+        status.textContent = "No file selected.";
+        return;
+      }
+
+      if (!allRows.length) {
+        status.textContent = "Dataset is not loaded yet. Try again after the map finishes loading.";
+        return;
+      }
+
+      Papa.parse(file, {
+        header: true,
+        skipEmptyLines: true,
+        complete: function(results) {
+          const rows = results.data || [];
+
+          if (!rows.length) {
+            status.textContent = "The imported CSV is empty.";
+            return;
+          }
+
+          const firstRow = rows[0];
+
+          const siteIdColumn = findCsvColumn(firstRow, [
+            "site_id",
+            "site id",
+            "siteId",
+            "Site ID"
+          ]);
+
+          const rateColumn = findCsvColumn(firstRow, [
+            "steel_corrosion_rate",
+            "steel corrosion rate",
+            "corrosion_rate",
+            "corrosion rate"
+          ]);
+
+          if (!siteIdColumn || !rateColumn) {
+            status.textContent =
+              "Import failed. Required columns: site_id and steel_corrosion_rate.";
+            return;
+          }
+
+          const importedRates = new Map();
+          const unknownSiteIds = [];
+          const invalidRows = [];
+
+          rows.forEach((row, index) => {
+            const siteId = normalizeText(row[siteIdColumn]).toUpperCase();
+            const rate = parseCorrosionNumber(row[rateColumn]);
+
+            if (!siteId || !Number.isFinite(rate)) {
+              invalidRows.push(index + 2);
+              return;
+            }
+
+            if (!allSiteIds.has(siteId)) {
+              unknownSiteIds.push(siteId);
+              return;
+            }
+
+            importedRates.set(siteId, rate);
+          });
+
+          corrosionRatesBySiteId = importedRates;
+          corrosionOverlayActive = true;
+
+          renderMarkers(visibleRows);
+          updateCorrosionHeatLayer();
+
+          if (appShell.classList.contains("directory-open")) {
+            renderCountryDirectory(visibleRows);
+          }
+
+          let message = `Imported ${importedRates.size} matched corrosion-rate record(s).`;
+
+          if (unknownSiteIds.length) {
+            message += ` ${unknownSiteIds.length} site_id value(s) did not match existing sites.`;
+          }
+
+          if (invalidRows.length) {
+            message += ` ${invalidRows.length} invalid row(s) skipped.`;
+          }
+
+          status.textContent = message;
+        },
+        error: function(error) {
+          status.textContent = `CSV import failed: ${error.message}`;
+        }
+      });
+    }
+
+    function exportCurrentCorrosionCsv() {
+      if (!corrosionRatesBySiteId.size) {
+        alert("No corrosion-rate data is currently imported.");
+        return;
+      }
+
+      const rows = Array.from(corrosionRatesBySiteId.entries()).map(
+        ([siteId, rate]) => ({
+          site_id: siteId,
+          steel_corrosion_rate: rate
+        })
+      );
+
+      const csv = Papa.unparse(rows);
+      downloadCsv("corrosion_rates_export.csv", csv);
+    }
+
+    function clearCorrosionOverlay() {
+      corrosionRatesBySiteId = new Map();
+      corrosionOverlayActive = false;
+
+      if (corrosionHeatLayer) {
+        map.removeLayer(corrosionHeatLayer);
+        corrosionHeatLayer = null;
+      }
+
+      renderMarkers(visibleRows);
+
+      if (appShell.classList.contains("directory-open")) {
+        renderCountryDirectory(visibleRows);
+      }
+
+      const input = document.getElementById("corrosionCsvInput");
+      const status = document.getElementById("corrosionImportStatus");
+
+      if (input) input.value = "";
+      if (status) status.textContent = "Corrosion-rate overlay cleared.";
     }
 
     function fitRows(rows) {
@@ -2239,6 +2877,8 @@
       });
 
       renderMarkers(visibleRows);
+      updateCorrosionHeatLayer();
+
       updateResultPanel(visibleRows.length, allRows.length);
       renderResultsList(visibleRows);
 
@@ -2276,6 +2916,12 @@
         allRows.forEach((row, index) => {
           row._rowIndex = index;
         });
+
+        allSiteIds = new Set(
+          allRows
+            .map(row => getSiteId(row))
+            .filter(Boolean)
+        );
         
         updateDropdowns(allRows);
         visibleRows = [...allRows];
@@ -2317,6 +2963,29 @@
         document.getElementById('downloadVisibleCsv').addEventListener('click', function() {
           const csvText = rowsToCsv(visibleRows);
           downloadCsv('visible_corrosion_sites.csv', csvText);
+        });
+
+        document.getElementById('corrosionCsvInput')?.addEventListener('change', function(event) {
+          const file = event.target.files && event.target.files[0];
+          importCorrosionCsvFile(file);
+        });
+
+        document.getElementById('exportCorrosionCsvBtn')?.addEventListener('click', function() {
+          exportCurrentCorrosionCsv();
+        });
+
+        document.getElementById('clearCorrosionCsvBtn')?.addEventListener('click', function() {
+          clearCorrosionOverlay();
+        });
+
+        document.getElementById('closeCountryPopupBtn')?.addEventListener('click', function() {
+          closeCountryPopup();
+        });
+
+        document.getElementById('countryPopupOverlay')?.addEventListener('click', function(event) {
+          if (event.target.id === 'countryPopupOverlay') {
+            closeCountryPopup();
+          }
         });
 
         setTimeout(() => {
