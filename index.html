@@ -1569,6 +1569,9 @@
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '&copy; OpenStreetMap contributors'
     }).addTo(map);
+    map.createPane('corrosionHeatPane');
+    map.getPane('corrosionHeatPane').style.zIndex = 450;
+    map.getPane('corrosionHeatPane').style.pointerEvents = 'none';
 
     function updatePanFeel() {
       const z = map.getZoom();
@@ -2656,6 +2659,8 @@
         })
         .filter(Boolean);
 
+      console.log("Corrosion heat matched points:", matchedPoints.length);
+
       if (!matchedPoints.length) return;
 
       const rates = matchedPoints.map(point => point.rate);
@@ -2669,12 +2674,25 @@
       ]);
 
       corrosionHeatLayer = L.heatLayer(heatPoints, {
-        radius: 28,
-        blur: 20,
-        maxZoom: 8
+        pane: 'corrosionHeatPane',
+        radius: 42,
+        blur: 26,
+        maxZoom: 10,
+        minOpacity: 0.45,
+        gradient: {
+          0.20: '#2c7bb6',
+          0.45: '#ffffbf',
+          0.70: '#fdae61',
+          1.00: '#d7191c'
+        }
       });
 
       corrosionHeatLayer.addTo(map);
+      
+      const status = document.getElementById("corrosionImportStatus");
+      if (status) {
+        status.textContent += ` Heat layer rendered from ${matchedPoints.length} point(s).`;
+      }
     }
 
     function importCorrosionCsvFile(file) {
