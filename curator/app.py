@@ -40,6 +40,10 @@ from db import (
     table_counts,
     update_source_programme,
     update_table_row,
+    delete_corrosion_observations,
+    get_corrosion_observations,
+    get_public_corrosion_observations,
+    import_corrosion_observations,
 )
 
 from importer import build_import_preview, search_osm_suggestions
@@ -390,6 +394,27 @@ def build_site_id_prefix(
 REPO_ROOT = Path(__file__).resolve().parents[1]
 SOURCE_PDF_DIR = REPO_ROOT / "source_pdfs"
 SOURCE_PDF_RELATIVE_DIR = "source_pdfs"
+CORROSION_OUTPUT_CSV_PATH = REPO_ROOT / "data" / "corrosion_observations.csv"
+
+CORROSION_REQUIRED_COLUMNS = [
+    "site_id",
+    "source_code",
+    "material",
+    "exposure_period",
+    "corrosion_metric",
+    "value",
+    "unit",
+]
+
+CORROSION_OPTIONAL_COLUMNS = [
+    "measurement_method",
+    "specimen_condition",
+    "exposure_condition",
+    "notes",
+]
+
+CORROSION_TEMPLATE_COLUMNS = CORROSION_REQUIRED_COLUMNS + CORROSION_OPTIONAL_COLUMNS
+
 DATA_EDITOR_MAX_HEIGHT = 520
 DATAFRAME_MAX_HEIGHT = 420
 DATA_EDITOR_ROW_HEIGHT = 34
@@ -1174,6 +1199,153 @@ def merge_unique_text_values(values) -> str:
                 merged.append(item)
 
     return ", ".join(merged)
+
+def normalize_corrosion_column_name(column_name: str) -> str:
+    text = str(column_name or "").strip()
+    text = text.replace("\ufeff", "")
+    text = text.strip().strip('"').strip("'")
+    text = text.lower()
+    text = re.sub(r"\s+", "_", text)
+    text = re.sub(r"[-/]+", "_", text)
+    text = re.sub(r"[^a-z0-9_]+", "_", text)
+    text = re.sub(r"_+", "_", text).strip("_")
+
+    aliases = {
+        "site": "site_id",
+        "siteid": "site_id",
+        "site_id": "site_id",
+        "site_code": "site_id",
+        "source": "source_code",
+        "sourcecode": "source_code",
+        "source_code": "source_code",
+        "source_id": "source_code",
+        "metal": "material",
+        "metals": "material",
+        "material": "material",
+        "materials": "material",
+        "exposure": "exposure_period",
+        "exposure_time": "exposure_period",
+        "exposure_duration": "exposure_period",
+        "exposure_period": "exposure_period",
+        "duration": "exposure_period",
+        "metric": "corrosion_metric",
+        "corrosion_metric": "corrosion_metric",
+        "rate": "value",
+        "corrosion_rate": "value",
+        "steel_corrosion_rate": "value",
+        "zinc_corrosion_rate": "value",
+        "value": "value",
+        "unit": "unit",
+        "units": "unit",
+        "method": "measurement_method",
+        "measurement_method": "measurement_method",
+        "specimen": "specimen_condition",
+        "specimen_condition": "specimen_condition",
+        "condition": "exposure_condition",
+        "exposure_condition": "exposure_condition",
+        "note": "notes",
+        "notes": "notes",
+    }
+
+    return aliases.get(text, text)
+
+
+def read_corrosion_csv(uploaded_file) -> pd.DataFrame:
+    uploaded_file.seek(0)
+
+    df = pd.read_csv(
+        uploaded_file,
+        sep=None,
+        engine="python",
+        dtype=str,
+        keep_default_na=False,
+    )
+
+    df.columns = [
+        normalize_corrosion_column_name(column)
+        for column in df.columns
+    ]
+
+    df = df.loc[
+        :,
+        [
+            column for column in df.columns
+            if column and not column.startswith("unnamed")
+        ],
+    ]
+
+    for column in CORROSION_OPTIONAL_COLUMNS:
+        if column not in df.columns:
+            df[column] = ""
+
+    if "corrosion_metric" not in df.columns:
+        df["corrosion_metric"] = "corrosion_rate"
+
+    missing_columns = [
+        column for column in CORROSION_REQUIRED_COLUMNS
+        if column not in df.columns
+    ]
+
+    if missing_columns:
+        raise ValueError(
+            "The corrosion CSV is missing required column(s): "
+            + ", ".join(missing_columns)
+            + ". Required columns are: "
+            + ", ".join(CORROSION_REQUIRED_COLUMNS)
+        )
+
+    df = df[CORROSION_TEMPLATE_COLUMNS].copy()
+
+    df["source_code"] = df["source_code"].apply(normalise_source_code)
+    df["corrosion_metric"] = df["corrosion_metric"].replace("", "corrosion_rate")
+
+    return df
+
+
+def make_corrosion_template_csv() -> str:
+    example_rows = pd.DataFrame(
+        [
+            {
+                "site_id": "JP-001",
+                "source_code": "s021",
+                "material": "Carbon steel",
+                "exposure_period": "1 year",
+                "corrosion_metric": "corrosion_rate",
+                "value": "38.5",
+                "unit": "µm/year",
+                "measurement_method": "mass loss",
+                "specimen_condition": "bare",
+                "exposure_condition": "atmospheric",
+                "notes": "Example only",
+            },
+            {
+                "site_id": "JP-001",
+                "source_code": "s021",
+                "material": "Zinc",
+                "exposure_period": "1 year",
+                "corrosion_metric": "corrosion_rate",
+                "value": "2.1",
+                "unit": "µm/year",
+                "measurement_method": "mass loss",
+                "specimen_condition": "bare",
+                "exposure_condition": "atmospheric",
+                "notes": "Example only",
+            },
+        ],
+        columns=CORROSION_TEMPLATE_COLUMNS,
+    )
+
+    return example_rows.to_csv(index=False)
+
+
+def export_corrosion_observations_to_website_csv() -> int:
+    rows = get_public_corrosion_observations()
+    output_df = pd.DataFrame(rows)
+
+    CORROSION_OUTPUT_CSV_PATH.parent.mkdir(parents=True, exist_ok=True)
+    output_df.to_csv(CORROSION_OUTPUT_CSV_PATH, index=False, encoding="utf-8-sig")
+
+    return len(output_df)
 
 def normalize_site_match_text(value: str | None) -> str:
     value = str(value or "").strip().lower()
@@ -3029,6 +3201,7 @@ PAGE_OPTIONS = [
     "Dashboard",
     "Sources",
     "Sites",
+    "Corrosion Data",
     "Manage Records",
     "Import",
     "Export / Publish",
@@ -3075,7 +3248,7 @@ if active_page == "Dashboard":
     try:
         counts = table_counts()
 
-        metric_col1, metric_col2, metric_col3 = st.columns(3)
+        metric_col1, metric_col2, metric_col3, metric_col4 = st.columns(3)
 
         with metric_col1:
             st.metric("Sites", counts.get("sites", 0))
@@ -3085,6 +3258,9 @@ if active_page == "Dashboard":
 
         with metric_col3:
             st.metric("Site-source links", counts.get("site_sources", 0))
+        
+        with metric_col4:
+            st.metric("Corrosion observations", counts.get("corrosion_observations", 0))
 
     except Exception as exc:
         st.error(f"Could not read database counts: {exc}")
@@ -4448,6 +4624,203 @@ if active_page == "Sites":
                         st.rerun()
                     except Exception as exc:
                         st.error(f"Could not delete selected links: {exc}")
+
+if active_page == "Corrosion Data":
+    st.subheader("Corrosion Data")
+    st.caption(
+        "Primary measurement-level corrosion data. "
+        "Each row represents one site-source-material-exposure corrosion observation."
+    )
+
+    st.info(
+        "Recommended structure: one corrosion value per row. "
+        "Do not combine steel and zinc corrosion rates into one wide row."
+    )
+
+    st.write("### CSV import")
+
+    st.download_button(
+        "Download corrosion observation CSV template",
+        data=make_corrosion_template_csv(),
+        file_name="corrosion_observations_template.csv",
+        mime="text/csv",
+    )
+
+    uploaded_corrosion_csv = st.file_uploader(
+        "Upload corrosion observation CSV",
+        type=["csv", "txt"],
+        key="corrosion_observation_csv_upload",
+        help=(
+            "Required columns: site_id, source_code, material, exposure_period, "
+            "corrosion_metric, value, unit."
+        ),
+    )
+
+    corrosion_preview_df = pd.DataFrame()
+
+    if uploaded_corrosion_csv is not None:
+        try:
+            corrosion_preview_df = read_corrosion_csv(uploaded_corrosion_csv)
+
+            st.success(f"Preview built: {len(corrosion_preview_df)} corrosion observation row(s).")
+            st.dataframe(
+                corrosion_preview_df,
+                width="stretch",
+                height=get_table_height(len(corrosion_preview_df), max_height=420),
+            )
+
+            confirm_corrosion_import = st.checkbox(
+                "I reviewed the corrosion observation preview and want to import these rows",
+                key="confirm_corrosion_observation_import",
+            )
+
+            if st.button("Confirm corrosion observation import", key="confirm_corrosion_observation_import_button"):
+                if not confirm_corrosion_import:
+                    st.error("Tick the confirmation checkbox before importing.")
+                else:
+                    result = import_corrosion_observations(
+                        corrosion_preview_df.to_dict("records")
+                    )
+
+                    message = (
+                        f"Imported/updated {result['inserted_or_updated']} corrosion observation(s). "
+                        f"Skipped {result['skipped']} row(s)."
+                    )
+
+                    if result["skipped"]:
+                        set_flash_message(message, level="warning")
+                    else:
+                        set_flash_message(message, level="success")
+
+                    if result["messages"]:
+                        st.warning("Some rows were skipped or produced warnings.")
+                        st.code("\n".join(result["messages"][:80]), language="text")
+
+                    set_next_active_page("Corrosion Data")
+                    st.rerun()
+
+        except Exception as exc:
+            st.error(f"Could not build corrosion observation preview: {exc}")
+
+    st.divider()
+
+    st.write("### Existing corrosion observations")
+
+    try:
+        corrosion_rows = get_corrosion_observations()
+        corrosion_df = pd.DataFrame(corrosion_rows)
+    except Exception as exc:
+        corrosion_df = pd.DataFrame()
+        st.error(f"Could not load corrosion observations: {exc}")
+
+    if corrosion_df.empty:
+        st.info("No corrosion observations have been added yet.")
+    else:
+        search_corrosion = st.text_input(
+            "Search corrosion observations",
+            placeholder="site_id, site label, source code, material, exposure period...",
+            key="search_corrosion_observations",
+        )
+
+        display_df = corrosion_df.copy()
+
+        if search_corrosion.strip():
+            query = search_corrosion.strip().lower()
+            display_df = display_df[
+                display_df.astype(str)
+                .agg(" ".join, axis=1)
+                .str.lower()
+                .str.contains(query, na=False)
+            ]
+
+        st.caption(f"Showing {len(display_df)} of {len(corrosion_df)} corrosion observation row(s).")
+
+        table_df = display_df.copy()
+        table_df.insert(0, "delete", False)
+
+        edited_corrosion_df = st.data_editor(
+            table_df,
+            width="stretch",
+            height=get_table_height(len(table_df), max_height=520),
+            disabled=[
+                column for column in table_df.columns
+                if column != "delete"
+            ],
+            key="corrosion_observations_editor",
+        )
+
+        selected_delete_ids = (
+            edited_corrosion_df.loc[
+                edited_corrosion_df["delete"].apply(normalise_bool_value),
+                "id",
+            ]
+            .astype(int)
+            .tolist()
+            if not edited_corrosion_df.empty
+            else []
+        )
+
+        delete_confirmed = st.checkbox(
+            "Confirm deletion of selected corrosion observation row(s)",
+            key="confirm_delete_corrosion_observations",
+        )
+
+        delete_col, export_col, github_col = st.columns(
+            [0.28, 0.36, 0.36],
+            vertical_alignment="bottom",
+        )
+
+        with delete_col:
+            if st.button("Delete selected corrosion observations", key="delete_selected_corrosion_observations"):
+                if not selected_delete_ids:
+                    st.error("Select at least one row to delete.")
+                elif not delete_confirmed:
+                    st.error("Tick the deletion confirmation checkbox first.")
+                else:
+                    deleted_count = delete_corrosion_observations(selected_delete_ids)
+                    set_flash_message(f"Deleted {deleted_count} corrosion observation row(s).")
+                    set_next_active_page("Corrosion Data")
+                    st.rerun()
+
+        with export_col:
+            if st.button("Export corrosion observations to website CSV", key="export_corrosion_observations_csv"):
+                try:
+                    exported_count = export_corrosion_observations_to_website_csv()
+                    set_flash_message(
+                        f"Exported {exported_count} corrosion observation row(s) to "
+                        f"`{CORROSION_OUTPUT_CSV_PATH.relative_to(REPO_ROOT).as_posix()}`."
+                    )
+                    set_next_active_page("Corrosion Data")
+                    st.rerun()
+                except Exception as exc:
+                    st.error(f"Could not export corrosion observations: {exc}")
+
+        with github_col:
+            if st.button("Upload corrosion CSV to GitHub", key="upload_corrosion_csv_to_github"):
+                try:
+                    if not CORROSION_OUTPUT_CSV_PATH.exists():
+                        exported_count = export_corrosion_observations_to_website_csv()
+                    else:
+                        exported_count = len(pd.read_csv(CORROSION_OUTPUT_CSV_PATH))
+
+                    result = publish_file_to_github(
+                        local_path=CORROSION_OUTPUT_CSV_PATH,
+                        commit_message="Update corrosion observations dataset",
+                    )
+
+                    st.session_state.last_git_publish_output = str(result.get("output", result))
+                    set_flash_message(
+                        f"Uploaded corrosion observations CSV to GitHub. "
+                        f"Rows available: {exported_count}."
+                    )
+                    set_next_active_page("Corrosion Data")
+                    st.rerun()
+
+                except Exception as exc:
+                    st.error(f"Could not upload corrosion observations CSV to GitHub: {exc}")
+
+        with st.expander("Show website corrosion CSV path", expanded=False):
+            st.code(CORROSION_OUTPUT_CSV_PATH.as_posix(), language="text")
 
 if active_page == "Manage Records":
     st.subheader("Manage Records")

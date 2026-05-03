@@ -32,11 +32,14 @@ def init_db() -> None:
 
 def table_counts() -> dict[str, int]:
     with get_connection() as conn:
-        tables = ["sites", "sources", "site_sources"]
+        tables = ["sites", "sources", "site_sources", "corrosion_observations"]
         counts = {}
         for table in tables:
-            value = conn.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0]
-            counts[table] = int(value)
+            try:
+                value = conn.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0]
+                counts[table] = int(value)
+            except Exception:
+                counts[table] = 0
         return counts
 
 
@@ -89,6 +92,40 @@ def ensure_schema_updates() -> None:
                 value text not null,
                 created_at text default current_timestamp,
                 unique(category, value)
+            )
+            """
+        )
+
+        conn.execute(
+            """
+            create table if not exists corrosion_observations (
+                id integer primary key autoincrement,
+                site_fk integer not null,
+                source_fk integer not null,
+                site_source_fk integer,
+                material text not null,
+                exposure_period text not null,
+                corrosion_metric text not null default 'corrosion_rate',
+                value real not null,
+                unit text not null,
+                measurement_method text not null default '',
+                specimen_condition text not null default '',
+                exposure_condition text not null default '',
+                notes text not null default '',
+                created_at text default current_timestamp,
+                updated_at text default current_timestamp,
+                foreign key(site_fk) references sites(id) on delete cascade,
+                foreign key(source_fk) references sources(id) on delete cascade,
+                foreign key(site_source_fk) references site_sources(id) on delete set null,
+                unique(
+                    site_fk,
+                    source_fk,
+                    material,
+                    exposure_period,
+                    corrosion_metric,
+                    measurement_method,
+                    specimen_condition
+                )
             )
             """
         )
@@ -740,6 +777,248 @@ def add_metadata_options(category: str, values: list[str]) -> int:
         conn.commit()
 
     return changed_count
+
+def _normalise_source_code_for_corrosion(value: str) -> str:
+    import re
+
+    text = str(value or "").strip().lower()
+    text = re.sub(r"\.pdf$", "", text)
+
+    match = re.fullmatch(r"s?0*(\d{1,4})", text)
+
+    if match:
+        return f"s{int(match.group(1)):03d}"
+
+    return text
+
+
+def get_corrosion_observations() -> list[dict]:
+    with get_connection() as conn:
+        rows = conn.execute(
+            """
+            select
+                corrosion_observations.id,
+                sites.site_id,
+                sites.site_label,
+                sites.modern_country_location,
+                sources.source_code,
+                sources.source_title,
+                corrosion_observations.material,
+                corrosion_observations.exposure_period,
+                corrosion_observations.corrosion_metric,
+                corrosion_observations.value,
+                corrosion_observations.unit,
+                corrosion_observations.measurement_method,
+                corrosion_observations.specimen_condition,
+                corrosion_observations.exposure_condition,
+                corrosion_observations.notes,
+                corrosion_observations.created_at,
+                corrosion_observations.updated_at
+            from corrosion_observations
+            join sites on sites.id = corrosion_observations.site_fk
+            join sources on sources.id = corrosion_observations.source_fk
+            order by
+                sites.site_id,
+                sources.source_code,
+                corrosion_observations.material,
+                corrosion_observations.exposure_period
+            """
+        ).fetchall()
+
+    return [dict(row) for row in rows]
+
+
+def get_public_corrosion_observations() -> list[dict]:
+    with get_connection() as conn:
+        rows = conn.execute(
+            """
+            select
+                sites.site_id,
+                sites.site_label,
+                sites.latitude,
+                sites.longitude,
+                sites.modern_country_location,
+                sources.source_code,
+                sources.source_title,
+                corrosion_observations.material,
+                corrosion_observations.exposure_period,
+                corrosion_observations.corrosion_metric,
+                corrosion_observations.value,
+                corrosion_observations.unit,
+                corrosion_observations.measurement_method,
+                corrosion_observations.specimen_condition,
+                corrosion_observations.exposure_condition,
+                corrosion_observations.notes
+            from corrosion_observations
+            join sites on sites.id = corrosion_observations.site_fk
+            join sources on sources.id = corrosion_observations.source_fk
+            order by
+                sites.site_id,
+                corrosion_observations.material,
+                corrosion_observations.exposure_period,
+                sources.source_code
+            """
+        ).fetchall()
+
+    return [dict(row) for row in rows]
+
+
+def delete_corrosion_observations(observation_ids: list[int]) -> int:
+    if not observation_ids:
+        return 0
+
+    placeholders = ", ".join(["?"] * len(observation_ids))
+
+    with get_connection() as conn:
+        cursor = conn.execute(
+            f"""
+            delete from corrosion_observations
+            where id in ({placeholders})
+            """,
+            [int(observation_id) for observation_id in observation_ids],
+        )
+        conn.commit()
+        return cursor.rowcount
+
+
+def import_corrosion_observations(records: list[dict]) -> dict:
+    result = {
+        "inserted_or_updated": 0,
+        "skipped": 0,
+        "messages": [],
+    }
+
+    with get_connection() as conn:
+        for row_number, record in enumerate(records, start=2):
+            site_id = str(record.get("site_id", "") or "").strip()
+            source_code = _normalise_source_code_for_corrosion(
+                str(record.get("source_code", "") or "").strip()
+            )
+            material = str(record.get("material", "") or "").strip()
+            exposure_period = str(record.get("exposure_period", "") or "").strip()
+            corrosion_metric = str(record.get("corrosion_metric", "") or "corrosion_rate").strip()
+            unit = str(record.get("unit", "") or "").strip()
+            measurement_method = str(record.get("measurement_method", "") or "").strip()
+            specimen_condition = str(record.get("specimen_condition", "") or "").strip()
+            exposure_condition = str(record.get("exposure_condition", "") or "").strip()
+            notes = str(record.get("notes", "") or "").strip()
+
+            try:
+                value = float(str(record.get("value", "")).strip())
+            except Exception:
+                result["skipped"] += 1
+                result["messages"].append(f"Row {row_number}: invalid value.")
+                continue
+
+            if not site_id or not source_code or not material or not exposure_period or not unit:
+                result["skipped"] += 1
+                result["messages"].append(
+                    f"Row {row_number}: missing site_id, source_code, material, exposure_period, or unit."
+                )
+                continue
+
+            site_row = conn.execute(
+                """
+                select id
+                from sites
+                where lower(trim(site_id)) = lower(trim(?))
+                limit 1
+                """,
+                (site_id,),
+            ).fetchone()
+
+            if site_row is None:
+                result["skipped"] += 1
+                result["messages"].append(f"Row {row_number}: site_id `{site_id}` not found.")
+                continue
+
+            source_row = conn.execute(
+                """
+                select id
+                from sources
+                where lower(trim(source_code)) = lower(trim(?))
+                limit 1
+                """,
+                (source_code,),
+            ).fetchone()
+
+            if source_row is None:
+                result["skipped"] += 1
+                result["messages"].append(f"Row {row_number}: source_code `{source_code}` not found.")
+                continue
+
+            site_fk = int(site_row["id"])
+            source_fk = int(source_row["id"])
+
+            link_row = conn.execute(
+                """
+                select id
+                from site_sources
+                where site_fk = ?
+                  and source_fk = ?
+                limit 1
+                """,
+                (site_fk, source_fk),
+            ).fetchone()
+
+            site_source_fk = int(link_row["id"]) if link_row else None
+
+            conn.execute(
+                """
+                insert into corrosion_observations (
+                    site_fk,
+                    source_fk,
+                    site_source_fk,
+                    material,
+                    exposure_period,
+                    corrosion_metric,
+                    value,
+                    unit,
+                    measurement_method,
+                    specimen_condition,
+                    exposure_condition,
+                    notes,
+                    updated_at
+                )
+                values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, current_timestamp)
+                on conflict(
+                    site_fk,
+                    source_fk,
+                    material,
+                    exposure_period,
+                    corrosion_metric,
+                    measurement_method,
+                    specimen_condition
+                )
+                do update set
+                    site_source_fk = excluded.site_source_fk,
+                    value = excluded.value,
+                    unit = excluded.unit,
+                    exposure_condition = excluded.exposure_condition,
+                    notes = excluded.notes,
+                    updated_at = current_timestamp
+                """,
+                (
+                    site_fk,
+                    source_fk,
+                    site_source_fk,
+                    material,
+                    exposure_period,
+                    corrosion_metric,
+                    value,
+                    unit,
+                    measurement_method,
+                    specimen_condition,
+                    exposure_condition,
+                    notes,
+                ),
+            )
+
+            result["inserted_or_updated"] += 1
+
+        conn.commit()
+
+    return result
 
 if __name__ == "__main__":
     print("BASE_DIR =", BASE_DIR)
