@@ -3248,7 +3248,7 @@ if active_page == "Dashboard":
     try:
         counts = table_counts()
 
-        metric_col1, metric_col2, metric_col3, metric_col4 = st.columns(3)
+        metric_col1, metric_col2, metric_col3, metric_col4 = st.columns(4)
 
         with metric_col1:
             st.metric("Sites", counts.get("sites", 0))

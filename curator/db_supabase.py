@@ -248,12 +248,11 @@ def table_counts() -> dict[str, int]:
 
     with get_connection() as conn:
         for table in ["sites", "sources", "site_sources", "corrosion_observations"]:
-            for table in ["sites", "sources", "site_sources", "corrosion_observations"]:
-                try:
-                    row = conn.execute(f"select count(*) as count from {table}").fetchone()
-                    counts[table] = int(row["count"]) if row else 0
-                except Exception:
-                    counts[table] = 0
+            try:
+                row = conn.execute(f"select count(*) as count from {table}").fetchone()
+                counts[table] = int(row["count"]) if row else 0
+            except Exception:
+                counts[table] = 0
 
     return counts
 
