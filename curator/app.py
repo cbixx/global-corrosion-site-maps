@@ -60,6 +60,14 @@ from github_publish import (
     publish_file_to_github,
 )
 
+from ui_styles import (
+    escape_html,
+    inject_app_styles,
+    render_dashboard_card,
+    render_section_title,
+    render_workflow_step,
+)
+
 def get_geolocator() -> Nominatim:
     return Nominatim(user_agent="corrosion_map_curator")
 
@@ -3063,6 +3071,7 @@ st.set_page_config(
     page_title="Corrosion Map Curator",
     layout="wide",
 )
+inject_app_styles()
 
 require_curator_login()
 
@@ -3230,196 +3239,6 @@ if active_page is None:
 
 
 if active_page == "Dashboard":
-    st.markdown(
-        """
-        <style>
-            .dashboard-hero {
-                border: 1px solid #e5e7eb;
-                border-radius: 18px;
-                padding: 1.35rem 1.5rem;
-                background: linear-gradient(135deg, #f8fafc 0%, #eef6ff 100%);
-                margin-bottom: 1.2rem;
-            }
-
-            .dashboard-eyebrow {
-                font-size: 0.78rem;
-                text-transform: uppercase;
-                letter-spacing: 0.08em;
-                color: #64748b;
-                font-weight: 700;
-                margin-bottom: 0.35rem;
-            }
-
-            .dashboard-title {
-                font-size: 1.45rem;
-                line-height: 1.2;
-                font-weight: 800;
-                color: #0f172a;
-                margin-bottom: 0.35rem;
-            }
-
-            .dashboard-subtitle {
-                font-size: 0.95rem;
-                color: #64748b;
-                max-width: 820px;
-            }
-
-            .dashboard-card {
-                border: 1px solid #e5e7eb;
-                border-radius: 16px;
-                padding: 1rem 1.05rem;
-                background: #ffffff;
-                box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
-                min-height: 112px;
-                margin-bottom: 0.8rem;
-            }
-
-            .dashboard-card:hover {
-                border-color: #cbd5e1;
-                box-shadow: 0 6px 18px rgba(15, 23, 42, 0.06);
-                transition: 0.15s ease;
-            }
-
-            .dashboard-card-label {
-                font-size: 0.78rem;
-                color: #64748b;
-                font-weight: 700;
-                text-transform: uppercase;
-                letter-spacing: 0.045em;
-                margin-bottom: 0.45rem;
-            }
-
-            .dashboard-card-value {
-                font-size: 2rem;
-                line-height: 1.05;
-                color: #0f172a;
-                font-weight: 800;
-                margin-bottom: 0.3rem;
-            }
-
-            .dashboard-card-hint {
-                font-size: 0.82rem;
-                color: #64748b;
-            }
-
-            .status-pill {
-                display: inline-flex;
-                align-items: center;
-                gap: 0.38rem;
-                border-radius: 999px;
-                padding: 0.35rem 0.72rem;
-                font-size: 0.82rem;
-                font-weight: 700;
-                border: 1px solid #dbeafe;
-                background: #eff6ff;
-                color: #1d4ed8;
-                margin-right: 0.35rem;
-                margin-bottom: 0.35rem;
-            }
-
-            .status-pill.good {
-                border-color: #bbf7d0;
-                background: #f0fdf4;
-                color: #15803d;
-            }
-
-            .status-pill.warn {
-                border-color: #fde68a;
-                background: #fffbeb;
-                color: #b45309;
-            }
-
-            .status-pill.bad {
-                border-color: #fecaca;
-                background: #fef2f2;
-                color: #b91c1c;
-            }
-
-            .dashboard-section-title {
-                font-size: 1rem;
-                font-weight: 800;
-                color: #0f172a;
-                margin-top: 1.2rem;
-                margin-bottom: 0.55rem;
-            }
-
-            .workflow-step {
-                border: 1px solid #e5e7eb;
-                border-radius: 14px;
-                padding: 0.85rem 0.95rem;
-                background: #ffffff;
-                min-height: 88px;
-            }
-
-            .workflow-step-number {
-                width: 1.55rem;
-                height: 1.55rem;
-                border-radius: 999px;
-                display: inline-flex;
-                align-items: center;
-                justify-content: center;
-                background: #eff6ff;
-                color: #1d4ed8;
-                font-weight: 800;
-                font-size: 0.82rem;
-                margin-bottom: 0.45rem;
-            }
-
-            .workflow-step-title {
-                font-weight: 800;
-                color: #0f172a;
-                font-size: 0.9rem;
-                margin-bottom: 0.15rem;
-            }
-
-            .workflow-step-caption {
-                color: #64748b;
-                font-size: 0.8rem;
-                line-height: 1.35;
-            }
-
-            div[data-testid="stMetric"] {
-                background: transparent;
-            }
-
-            div[data-testid="stMetric"] label {
-                color: #64748b;
-            }
-        </style>
-        """,
-        unsafe_allow_html=True,
-    )
-
-    def dashboard_escape(value) -> str:
-        text = str(value or "")
-        return (
-            text.replace("&", "&amp;")
-            .replace("<", "&lt;")
-            .replace(">", "&gt;")
-            .replace('"', "&quot;")
-        )
-
-    def render_dashboard_card(label: str, value, hint: str = "") -> None:
-        st.markdown(
-            f"""
-            <div class="dashboard-card">
-                <div class="dashboard-card-label">{dashboard_escape(label)}</div>
-                <div class="dashboard-card-value">{dashboard_escape(value)}</div>
-                <div class="dashboard-card-hint">{dashboard_escape(hint)}</div>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-
-    def render_status_pill(label: str, value: str, tone: str = "") -> None:
-        st.markdown(
-            f"""
-            <span class="status-pill {dashboard_escape(tone)}">
-                {dashboard_escape(label)}: {dashboard_escape(value)}
-            </span>
-            """,
-            unsafe_allow_html=True,
-        )
 
     try:
         counts = table_counts()
@@ -3479,10 +3298,10 @@ if active_page == "Dashboard":
                 Monitor the database, source documents, publication readiness, and new corrosion-observation layer from one control panel.
             </div>
             <div style="margin-top: 0.85rem;">
-                <span class="status-pill {backend_tone}">Backend: {dashboard_escape(backend_status)}</span>
-                <span class="status-pill {'good' if github_status == 'Ready' else 'warn'}">GitHub: {dashboard_escape(github_status)}</span>
-                <span class="status-pill {'good' if public_map_status == 'Set' else 'warn'}">Public map: {dashboard_escape(public_map_status)}</span>
-                <span class="status-pill {'good' if draft_status == 'Available' else ''}">Import draft: {dashboard_escape(draft_status)}</span>
+                <span class="status-pill {backend_tone}">Backend: {escape_html(backend_status)}</span>
+                <span class="status-pill {'good' if github_status == 'Ready' else 'warn'}">GitHub: {escape_html(github_status)}</span>
+                <span class="status-pill {'good' if public_map_status == 'Set' else 'warn'}">Public map: {escape_html(public_map_status)}</span>
+                <span class="status-pill {'good' if draft_status == 'Available' else ''}">Import draft: {escape_html(draft_status)}</span>
             </div>
         </div>
         """,
@@ -3493,7 +3312,7 @@ if active_page == "Dashboard":
         st.error(f"Could not read database counts: {counts_error}")
         st.info("Go to the Settings tab and initialize the database if this is a new setup.")
 
-    st.markdown('<div class="dashboard-section-title">Database records</div>', unsafe_allow_html=True)
+    render_section_title("Database records")
 
     metric_col1, metric_col2, metric_col3, metric_col4 = st.columns(4)
 
@@ -3525,7 +3344,7 @@ if active_page == "Dashboard":
             "Measurement-level rows",
         )
 
-    st.markdown('<div class="dashboard-section-title">Source documents</div>', unsafe_allow_html=True)
+    render_section_title("Source documents")
 
     pdf_col1, pdf_col2, pdf_col3 = st.columns(3)
 
@@ -3604,7 +3423,7 @@ if active_page == "Dashboard":
     else:
         st.info("No PDFs found in `source_pdfs/` yet.")
 
-    st.markdown('<div class="dashboard-section-title">System status</div>', unsafe_allow_html=True)
+    render_section_title("System status")
 
     status_col1, status_col2, status_col3, status_col4 = st.columns(4)
 
@@ -3661,7 +3480,7 @@ if active_page == "Dashboard":
                 set_next_active_page("Settings")
                 st.rerun()
 
-    st.markdown('<div class="dashboard-section-title">Workflow</div>', unsafe_allow_html=True)
+    render_section_title("Workflow")
 
     workflow_col1, workflow_col2, workflow_col3, workflow_col4 = st.columns(4)
 
@@ -3678,16 +3497,7 @@ if active_page == "Dashboard":
     ):
         number, title, caption = step
         with column:
-            st.markdown(
-                f"""
-                <div class="workflow-step">
-                    <div class="workflow-step-number">{dashboard_escape(number)}</div>
-                    <div class="workflow-step-title">{dashboard_escape(title)}</div>
-                    <div class="workflow-step-caption">{dashboard_escape(caption)}</div>
-                </div>
-                """,
-                unsafe_allow_html=True,
-            )
+            render_workflow_step(number, title, caption)
 
 
 if active_page == "Sources":
