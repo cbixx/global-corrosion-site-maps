@@ -3230,43 +3230,203 @@ if active_page is None:
 
 
 if active_page == "Dashboard":
-    st.subheader("Dashboard")
-    st.caption("Overview of the local curation database and source-PDF folder.")
+    st.markdown(
+        """
+        <style>
+            .dashboard-hero {
+                border: 1px solid #e5e7eb;
+                border-radius: 18px;
+                padding: 1.35rem 1.5rem;
+                background: linear-gradient(135deg, #f8fafc 0%, #eef6ff 100%);
+                margin-bottom: 1.2rem;
+            }
 
-    st.write("#### Database")
-    if str(DB_PATH).upper() == "SUPABASE":
-        st.write("Database backend: `SUPABASE`")
-        st.success("Connected in Supabase backend mode.")
-    else:
-        st.write("Database backend: `Local SQLite`")
-        st.write(f"Database file: `{display_app_path(DB_PATH)}`")
-        st.warning(
-            "Running in local SQLite backend mode. "
-            "If this is the online deployment, DB_BACKEND is not being read as 'supabase'."
+            .dashboard-eyebrow {
+                font-size: 0.78rem;
+                text-transform: uppercase;
+                letter-spacing: 0.08em;
+                color: #64748b;
+                font-weight: 700;
+                margin-bottom: 0.35rem;
+            }
+
+            .dashboard-title {
+                font-size: 1.45rem;
+                line-height: 1.2;
+                font-weight: 800;
+                color: #0f172a;
+                margin-bottom: 0.35rem;
+            }
+
+            .dashboard-subtitle {
+                font-size: 0.95rem;
+                color: #64748b;
+                max-width: 820px;
+            }
+
+            .dashboard-card {
+                border: 1px solid #e5e7eb;
+                border-radius: 16px;
+                padding: 1rem 1.05rem;
+                background: #ffffff;
+                box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+                min-height: 112px;
+                margin-bottom: 0.8rem;
+            }
+
+            .dashboard-card:hover {
+                border-color: #cbd5e1;
+                box-shadow: 0 6px 18px rgba(15, 23, 42, 0.06);
+                transition: 0.15s ease;
+            }
+
+            .dashboard-card-label {
+                font-size: 0.78rem;
+                color: #64748b;
+                font-weight: 700;
+                text-transform: uppercase;
+                letter-spacing: 0.045em;
+                margin-bottom: 0.45rem;
+            }
+
+            .dashboard-card-value {
+                font-size: 2rem;
+                line-height: 1.05;
+                color: #0f172a;
+                font-weight: 800;
+                margin-bottom: 0.3rem;
+            }
+
+            .dashboard-card-hint {
+                font-size: 0.82rem;
+                color: #64748b;
+            }
+
+            .status-pill {
+                display: inline-flex;
+                align-items: center;
+                gap: 0.38rem;
+                border-radius: 999px;
+                padding: 0.35rem 0.72rem;
+                font-size: 0.82rem;
+                font-weight: 700;
+                border: 1px solid #dbeafe;
+                background: #eff6ff;
+                color: #1d4ed8;
+                margin-right: 0.35rem;
+                margin-bottom: 0.35rem;
+            }
+
+            .status-pill.good {
+                border-color: #bbf7d0;
+                background: #f0fdf4;
+                color: #15803d;
+            }
+
+            .status-pill.warn {
+                border-color: #fde68a;
+                background: #fffbeb;
+                color: #b45309;
+            }
+
+            .status-pill.bad {
+                border-color: #fecaca;
+                background: #fef2f2;
+                color: #b91c1c;
+            }
+
+            .dashboard-section-title {
+                font-size: 1rem;
+                font-weight: 800;
+                color: #0f172a;
+                margin-top: 1.2rem;
+                margin-bottom: 0.55rem;
+            }
+
+            .workflow-step {
+                border: 1px solid #e5e7eb;
+                border-radius: 14px;
+                padding: 0.85rem 0.95rem;
+                background: #ffffff;
+                min-height: 88px;
+            }
+
+            .workflow-step-number {
+                width: 1.55rem;
+                height: 1.55rem;
+                border-radius: 999px;
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                background: #eff6ff;
+                color: #1d4ed8;
+                font-weight: 800;
+                font-size: 0.82rem;
+                margin-bottom: 0.45rem;
+            }
+
+            .workflow-step-title {
+                font-weight: 800;
+                color: #0f172a;
+                font-size: 0.9rem;
+                margin-bottom: 0.15rem;
+            }
+
+            .workflow-step-caption {
+                color: #64748b;
+                font-size: 0.8rem;
+                line-height: 1.35;
+            }
+
+            div[data-testid="stMetric"] {
+                background: transparent;
+            }
+
+            div[data-testid="stMetric"] label {
+                color: #64748b;
+            }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    def dashboard_escape(value) -> str:
+        text = str(value or "")
+        return (
+            text.replace("&", "&amp;")
+            .replace("<", "&lt;")
+            .replace(">", "&gt;")
+            .replace('"', "&quot;")
+        )
+
+    def render_dashboard_card(label: str, value, hint: str = "") -> None:
+        st.markdown(
+            f"""
+            <div class="dashboard-card">
+                <div class="dashboard-card-label">{dashboard_escape(label)}</div>
+                <div class="dashboard-card-value">{dashboard_escape(value)}</div>
+                <div class="dashboard-card-hint">{dashboard_escape(hint)}</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+    def render_status_pill(label: str, value: str, tone: str = "") -> None:
+        st.markdown(
+            f"""
+            <span class="status-pill {dashboard_escape(tone)}">
+                {dashboard_escape(label)}: {dashboard_escape(value)}
+            </span>
+            """,
+            unsafe_allow_html=True,
         )
 
     try:
         counts = table_counts()
-
-        metric_col1, metric_col2, metric_col3, metric_col4 = st.columns(4)
-
-        with metric_col1:
-            st.metric("Sites", counts.get("sites", 0))
-
-        with metric_col2:
-            st.metric("Sources", counts.get("sources", 0))
-
-        with metric_col3:
-            st.metric("Site-source links", counts.get("site_sources", 0))
-        
-        with metric_col4:
-            st.metric("Corrosion observations", counts.get("corrosion_observations", 0))
-
+        counts_error = ""
     except Exception as exc:
-        st.error(f"Could not read database counts: {exc}")
-        st.info("Go to the Settings tab and initialize the database if this is a new setup.")
-
-    st.write("#### Source PDFs")
+        counts = {}
+        counts_error = str(exc)
 
     existing_pdf_files = list_source_pdf_files()
     noncanonical_pdf_files = [
@@ -3278,16 +3438,122 @@ if active_page == "Dashboard":
         existing_source_codes = get_existing_source_codes()
     except Exception:
         existing_source_codes = set()
-    
+
     canonical_pdf_files = [
         pdf_path for pdf_path in existing_pdf_files
         if normalise_source_code(pdf_path.stem) == pdf_path.stem.strip().lower()
     ]
 
+    missing_pdf_files = [
+        pdf_path for pdf_path in canonical_pdf_files
+        if source_code_from_pdf_path(pdf_path) not in existing_source_codes
+    ]
+
+    backend_status = "Supabase" if str(DB_PATH).upper() == "SUPABASE" else "SQLite"
+    backend_tone = "good" if backend_status == "Supabase" else "warn"
+
+    try:
+        github_summary = str(get_github_config_summary())
+        github_status = (
+            "Not configured"
+            if "missing" in github_summary.lower() or "not configured" in github_summary.lower()
+            else "Ready"
+        )
+    except Exception:
+        github_status = "Unknown"
+
+    public_map_status = "Set" if MAP_WEBSITE_URL else "Missing"
+
+    try:
+        draft = load_app_draft(IMPORT_PREVIEW_DRAFT_KEY)
+        draft_status = "Available" if draft else "None"
+    except Exception:
+        draft_status = "Unknown"
+
+    st.markdown(
+        f"""
+        <div class="dashboard-hero">
+            <div class="dashboard-eyebrow">Curator overview</div>
+            <div class="dashboard-title">Corrosion Map data infrastructure</div>
+            <div class="dashboard-subtitle">
+                Monitor the database, source documents, publication readiness, and new corrosion-observation layer from one control panel.
+            </div>
+            <div style="margin-top: 0.85rem;">
+                <span class="status-pill {backend_tone}">Backend: {dashboard_escape(backend_status)}</span>
+                <span class="status-pill {'good' if github_status == 'Ready' else 'warn'}">GitHub: {dashboard_escape(github_status)}</span>
+                <span class="status-pill {'good' if public_map_status == 'Set' else 'warn'}">Public map: {dashboard_escape(public_map_status)}</span>
+                <span class="status-pill {'good' if draft_status == 'Available' else ''}">Import draft: {dashboard_escape(draft_status)}</span>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    if counts_error:
+        st.error(f"Could not read database counts: {counts_error}")
+        st.info("Go to the Settings tab and initialize the database if this is a new setup.")
+
+    st.markdown('<div class="dashboard-section-title">Database records</div>', unsafe_allow_html=True)
+
+    metric_col1, metric_col2, metric_col3, metric_col4 = st.columns(4)
+
+    with metric_col1:
+        render_dashboard_card(
+            "Sites",
+            counts.get("sites", 0),
+            "Curated exposure locations",
+        )
+
+    with metric_col2:
+        render_dashboard_card(
+            "Sources",
+            counts.get("sources", 0),
+            "Registered papers/reports",
+        )
+
+    with metric_col3:
+        render_dashboard_card(
+            "Evidence links",
+            counts.get("site_sources", 0),
+            "Site-source relationships",
+        )
+
+    with metric_col4:
+        render_dashboard_card(
+            "Corrosion observations",
+            counts.get("corrosion_observations", 0),
+            "Measurement-level rows",
+        )
+
+    st.markdown('<div class="dashboard-section-title">Source documents</div>', unsafe_allow_html=True)
+
+    pdf_col1, pdf_col2, pdf_col3 = st.columns(3)
+
+    with pdf_col1:
+        render_dashboard_card(
+            "PDF files",
+            len(existing_pdf_files),
+            "Detected in source_pdfs/",
+        )
+
+    with pdf_col2:
+        render_dashboard_card(
+            "Unregistered PDFs",
+            len(missing_pdf_files),
+            "Canonical files not yet in sources table",
+        )
+
+    with pdf_col3:
+        render_dashboard_card(
+            "PDF folder",
+            SOURCE_PDF_RELATIVE_DIR,
+            "Local/public source-document directory",
+        )
+
     if noncanonical_pdf_files:
         st.warning(
             "Some PDF filenames are not in canonical `sNNN.pdf` format. "
-            "You can rename them automatically before registration."
+            "Rename them before registration."
         )
 
         with st.expander("Show PDF files that will be renamed", expanded=False):
@@ -3321,88 +3587,107 @@ if active_page == "Dashboard":
                     + "\n".join(f"- {item}" for item in rename_result["failed"])
                 )
 
-            if rename_result["failed"]:
-                set_flash_message("\n\n".join(messages), level="warning")
-            else:
-                set_flash_message(
-                    "\n\n".join(messages) or "No PDF filename changes were needed.",
-                    level="success",
-                )
-
+            set_flash_message(
+                "\n\n".join(messages) or "No PDF filename changes were needed.",
+                level="warning" if rename_result["failed"] else "success",
+            )
             set_next_active_page("Sources")
             st.rerun()
 
-    missing_pdf_files = [
-        pdf_path for pdf_path in canonical_pdf_files
-        if source_code_from_pdf_path(pdf_path) not in existing_source_codes
-    ]
-
-    pdf_col1, pdf_col2, pdf_col3 = st.columns(3)
-
-    with pdf_col1:
-        st.metric("PDF files", len(existing_pdf_files))
-
-    with pdf_col2:
-        st.metric("Unregistered PDFs", len(missing_pdf_files))
-
-    with pdf_col3:
-        st.metric("PDF folder", SOURCE_PDF_RELATIVE_DIR)
-
     if missing_pdf_files:
         st.warning(
-            f"{len(missing_pdf_files)} PDF(s) in `source_pdfs/` are not registered yet. "
+            f"{len(missing_pdf_files)} canonical PDF file(s) in `source_pdfs/` are not registered yet. "
             "Go to the Sources tab to register them."
         )
     elif existing_pdf_files:
-        st.success("All detected PDFs are registered as sources.")
+        st.success("All detected canonical PDFs are registered as sources.")
     else:
         st.info("No PDFs found in `source_pdfs/` yet.")
 
-    st.write("#### System status")
+    st.markdown('<div class="dashboard-section-title">System status</div>', unsafe_allow_html=True)
 
     status_col1, status_col2, status_col3, status_col4 = st.columns(4)
 
-    backend_status = "Supabase" if str(DB_PATH).upper() == "SUPABASE" else "SQLite"
-
-    try:
-        github_summary = str(get_github_config_summary())
-        github_status = (
-            "No"
-            if "missing" in github_summary.lower() or "not configured" in github_summary.lower()
-            else "Yes"
-        )
-    except Exception:
-        github_status = "Unknown"
-
-    public_map_status = "Set" if MAP_WEBSITE_URL else "Missing"
-
-    try:
-        draft = load_app_draft(IMPORT_PREVIEW_DRAFT_KEY)
-        draft_status = "Yes" if draft else "No"
-    except Exception:
-        draft_status = "Unknown"
-
     with status_col1:
-        st.info(f"**Backend**\n\n{backend_status}")
+        render_dashboard_card(
+            "Backend",
+            backend_status,
+            "Current database mode",
+        )
 
     with status_col2:
-        st.info(f"**GitHub publish**\n\n{github_status}")
+        render_dashboard_card(
+            "GitHub publish",
+            github_status,
+            "Dataset upload readiness",
+        )
 
     with status_col3:
-        st.info(f"**Public map URL**\n\n{public_map_status}")
+        render_dashboard_card(
+            "Public map URL",
+            public_map_status,
+            MAP_WEBSITE_URL if MAP_WEBSITE_URL else "No URL configured",
+        )
 
     with status_col4:
-        st.info(f"**Import draft**\n\n{draft_status}")
+        render_dashboard_card(
+            "Import draft",
+            draft_status,
+            "Unsaved import-preview recovery",
+        )
 
-    st.write("#### Workflow")
-    st.markdown(
-        """
-        1. Register or upload source PDFs in **Sources**.
-        2. Add site records in **Sites**.
-        3. Correct, delete, or bulk-edit records in **Manage Records**.
-        4. Later, export website-ready data in **Import / Export**.
-        """
-    )
+    quick_col1, quick_col2, quick_col3, quick_col4 = st.columns(4)
+
+    with quick_col1:
+        if st.button("Add source", key="dashboard_go_sources", use_container_width=True):
+            set_next_active_page("Sources")
+            st.rerun()
+
+    with quick_col2:
+        if st.button("Add site", key="dashboard_go_sites", use_container_width=True):
+            set_next_active_page("Sites")
+            st.rerun()
+
+    with quick_col3:
+        if st.button("Import CSV", key="dashboard_go_import", use_container_width=True):
+            set_next_active_page("Import")
+            st.rerun()
+
+    with quick_col4:
+        if MAP_WEBSITE_URL:
+            st.link_button("Open public map", MAP_WEBSITE_URL, use_container_width=True)
+        else:
+            if st.button("Set public map URL", key="dashboard_go_settings", use_container_width=True):
+                set_next_active_page("Settings")
+                st.rerun()
+
+    st.markdown('<div class="dashboard-section-title">Workflow</div>', unsafe_allow_html=True)
+
+    workflow_col1, workflow_col2, workflow_col3, workflow_col4 = st.columns(4)
+
+    workflow_steps = [
+        ("1", "Register sources", "Add PDFs, titles, programmes, metals, and exposure periods."),
+        ("2", "Add sites", "Create or merge exposure-site records with coordinates."),
+        ("3", "Link evidence", "Attach source records to sites and preserve metadata."),
+        ("4", "Publish", "Export curated rows to the public website dataset."),
+    ]
+
+    for column, step in zip(
+        [workflow_col1, workflow_col2, workflow_col3, workflow_col4],
+        workflow_steps,
+    ):
+        number, title, caption = step
+        with column:
+            st.markdown(
+                f"""
+                <div class="workflow-step">
+                    <div class="workflow-step-number">{dashboard_escape(number)}</div>
+                    <div class="workflow-step-title">{dashboard_escape(title)}</div>
+                    <div class="workflow-step-caption">{dashboard_escape(caption)}</div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
 
 
 if active_page == "Sources":
