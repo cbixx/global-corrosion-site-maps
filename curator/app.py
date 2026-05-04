@@ -44,6 +44,10 @@ from db import (
     get_corrosion_observations,
     get_public_corrosion_observations,
     import_corrosion_observations,
+    delete_environmental_observations,
+    get_environmental_observations,
+    get_public_environmental_observations,
+    import_environmental_observations,
 )
 
 from importer import build_import_preview, search_osm_suggestions
@@ -403,6 +407,25 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 SOURCE_PDF_DIR = REPO_ROOT / "source_pdfs"
 SOURCE_PDF_RELATIVE_DIR = "source_pdfs"
 CORROSION_OUTPUT_CSV_PATH = REPO_ROOT / "data" / "corrosion_observations.csv"
+ENVIRONMENT_OUTPUT_CSV_PATH = REPO_ROOT / "data" / "environmental_observations.csv"
+
+ENVIRONMENT_REQUIRED_COLUMNS = [
+    "site_id",
+    "variable_name",
+    "value",
+    "unit",
+]
+
+ENVIRONMENT_OPTIONAL_COLUMNS = [
+    "aggregation",
+    "period_start",
+    "period_end",
+    "data_source",
+    "source_code",
+    "notes",
+]
+
+ENVIRONMENT_TEMPLATE_COLUMNS = ENVIRONMENT_REQUIRED_COLUMNS + ENVIRONMENT_OPTIONAL_COLUMNS
 
 CORROSION_REQUIRED_COLUMNS = [
     "site_id",
@@ -1352,6 +1375,155 @@ def export_corrosion_observations_to_website_csv() -> int:
 
     CORROSION_OUTPUT_CSV_PATH.parent.mkdir(parents=True, exist_ok=True)
     output_df.to_csv(CORROSION_OUTPUT_CSV_PATH, index=False, encoding="utf-8-sig")
+
+    return len(output_df)
+
+def normalize_environment_column_name(column_name: str) -> str:
+    text = str(column_name or "").strip()
+    text = text.replace("\ufeff", "")
+    text = text.strip().strip('"').strip("'")
+    text = text.lower()
+    text = re.sub(r"\s+", "_", text)
+    text = re.sub(r"[-/]+", "_", text)
+    text = re.sub(r"[^a-z0-9_]+", "_", text)
+    text = re.sub(r"_+", "_", text).strip("_")
+
+    aliases = {
+        "site": "site_id",
+        "siteid": "site_id",
+        "site_id": "site_id",
+        "site_code": "site_id",
+        "variable": "variable_name",
+        "variable_name": "variable_name",
+        "parameter": "variable_name",
+        "parameter_name": "variable_name",
+        "climate_variable": "variable_name",
+        "environment_variable": "variable_name",
+        "value": "value",
+        "mean_value": "value",
+        "unit": "unit",
+        "units": "unit",
+        "aggregation": "aggregation",
+        "statistic": "aggregation",
+        "period_start": "period_start",
+        "start_date": "period_start",
+        "from": "period_start",
+        "period_end": "period_end",
+        "end_date": "period_end",
+        "to": "period_end",
+        "data_source": "data_source",
+        "source_name": "data_source",
+        "source": "source_code",
+        "source_code": "source_code",
+        "literature_source": "source_code",
+        "notes": "notes",
+        "note": "notes",
+    }
+
+    return aliases.get(text, text)
+
+
+def read_environment_csv(uploaded_file) -> pd.DataFrame:
+    uploaded_file.seek(0)
+
+    df = pd.read_csv(
+        uploaded_file,
+        sep=None,
+        engine="python",
+        dtype=str,
+        keep_default_na=False,
+    )
+
+    df.columns = [
+        normalize_environment_column_name(column)
+        for column in df.columns
+    ]
+
+    df = df.loc[
+        :,
+        [
+            column for column in df.columns
+            if column and not column.startswith("unnamed")
+        ],
+    ]
+
+    for column in ENVIRONMENT_OPTIONAL_COLUMNS:
+        if column not in df.columns:
+            df[column] = ""
+
+    missing_columns = [
+        column for column in ENVIRONMENT_REQUIRED_COLUMNS
+        if column not in df.columns
+    ]
+
+    if missing_columns:
+        raise ValueError(
+            "The environmental CSV is missing required column(s): "
+            + ", ".join(missing_columns)
+            + ". Required columns are: "
+            + ", ".join(ENVIRONMENT_REQUIRED_COLUMNS)
+        )
+
+    df = df[ENVIRONMENT_TEMPLATE_COLUMNS].copy()
+
+    if "source_code" in df.columns:
+        df["source_code"] = df["source_code"].apply(normalise_source_code)
+
+    return df
+
+
+def make_environment_template_csv() -> str:
+    example_rows = pd.DataFrame(
+        [
+            {
+                "site_id": "JP-001",
+                "variable_name": "air_temperature",
+                "value": "16.8",
+                "unit": "°C",
+                "aggregation": "annual_mean",
+                "period_start": "2020-01-01",
+                "period_end": "2020-12-31",
+                "data_source": "NASA POWER",
+                "source_code": "",
+                "notes": "Example only",
+            },
+            {
+                "site_id": "JP-001",
+                "variable_name": "relative_humidity",
+                "value": "72",
+                "unit": "%",
+                "aggregation": "annual_mean",
+                "period_start": "2020-01-01",
+                "period_end": "2020-12-31",
+                "data_source": "NASA POWER",
+                "source_code": "",
+                "notes": "Example only",
+            },
+            {
+                "site_id": "JP-001",
+                "variable_name": "wind_speed",
+                "value": "3.4",
+                "unit": "m/s",
+                "aggregation": "annual_mean",
+                "period_start": "2020-01-01",
+                "period_end": "2020-12-31",
+                "data_source": "NASA POWER",
+                "source_code": "",
+                "notes": "Example only",
+            },
+        ],
+        columns=ENVIRONMENT_TEMPLATE_COLUMNS,
+    )
+
+    return example_rows.to_csv(index=False)
+
+
+def export_environmental_observations_to_website_csv() -> int:
+    rows = get_public_environmental_observations()
+    output_df = pd.DataFrame(rows)
+
+    ENVIRONMENT_OUTPUT_CSV_PATH.parent.mkdir(parents=True, exist_ok=True)
+    output_df.to_csv(ENVIRONMENT_OUTPUT_CSV_PATH, index=False, encoding="utf-8-sig")
 
     return len(output_df)
 
@@ -3211,6 +3383,7 @@ PAGE_OPTIONS = [
     "Sources",
     "Sites",
     "Corrosion Data",
+    "Environmental Data",
     "Manage Records",
     "Import",
     "Export / Publish",
@@ -3314,7 +3487,7 @@ if active_page == "Dashboard":
 
     render_section_title("Database records")
 
-    metric_col1, metric_col2, metric_col3, metric_col4 = st.columns(4)
+    metric_col1, metric_col2, metric_col3, metric_col4, metric_col5 = st.columns(5)
 
     with metric_col1:
         render_dashboard_card(
@@ -3342,6 +3515,13 @@ if active_page == "Dashboard":
             "Corrosion observations",
             counts.get("corrosion_observations", 0),
             "Measurement-level rows",
+        )
+
+    with metric_col5:
+        render_dashboard_card(
+            "Environmental observations",
+            counts.get("environmental_observations", 0),
+            "Climate/context rows",
         )
 
     render_section_title("Source documents")
@@ -4916,6 +5096,203 @@ if active_page == "Corrosion Data":
 
         with st.expander("Show website corrosion CSV path", expanded=False):
             st.code(CORROSION_OUTPUT_CSV_PATH.as_posix(), language="text")
+
+if active_page == "Environmental Data":
+    st.subheader("Environmental Data")
+    st.caption(
+        "Secondary climatic and environmental context data. "
+        "Each row represents one site-variable-period environmental observation."
+    )
+
+    st.info(
+        "Recommended structure: one environmental variable per row. "
+        "Do not combine temperature, humidity, wind speed, and pollutant values into one wide row."
+    )
+
+    st.write("### CSV import")
+
+    st.download_button(
+        "Download environmental observation CSV template",
+        data=make_environment_template_csv(),
+        file_name="environmental_observations_template.csv",
+        mime="text/csv",
+    )
+
+    uploaded_environment_csv = st.file_uploader(
+        "Upload environmental observation CSV",
+        type=["csv", "txt"],
+        key="environmental_observation_csv_upload",
+        help=(
+            "Required columns: site_id, variable_name, value, unit. "
+            "Optional columns: aggregation, period_start, period_end, data_source, source_code, notes."
+        ),
+    )
+
+    environment_preview_df = pd.DataFrame()
+
+    if uploaded_environment_csv is not None:
+        try:
+            environment_preview_df = read_environment_csv(uploaded_environment_csv)
+
+            st.success(f"Preview built: {len(environment_preview_df)} environmental observation row(s).")
+            st.dataframe(
+                environment_preview_df,
+                width="stretch",
+                height=get_table_height(len(environment_preview_df), max_height=420),
+            )
+
+            confirm_environment_import = st.checkbox(
+                "I reviewed the environmental observation preview and want to import these rows",
+                key="confirm_environmental_observation_import",
+            )
+
+            if st.button("Confirm environmental observation import", key="confirm_environmental_observation_import_button"):
+                if not confirm_environment_import:
+                    st.error("Tick the confirmation checkbox before importing.")
+                else:
+                    result = import_environmental_observations(
+                        environment_preview_df.to_dict("records")
+                    )
+
+                    message = (
+                        f"Imported/updated {result['inserted_or_updated']} environmental observation(s). "
+                        f"Skipped {result['skipped']} row(s)."
+                    )
+
+                    if result["skipped"]:
+                        set_flash_message(message, level="warning")
+                    else:
+                        set_flash_message(message, level="success")
+
+                    if result["messages"]:
+                        st.warning("Some rows were skipped or produced warnings.")
+                        st.code("\n".join(result["messages"][:80]), language="text")
+
+                    set_next_active_page("Environmental Data")
+                    st.rerun()
+
+        except Exception as exc:
+            st.error(f"Could not build environmental observation preview: {exc}")
+
+    st.divider()
+
+    st.write("### Existing environmental observations")
+
+    try:
+        environment_rows = get_environmental_observations()
+        environment_df = pd.DataFrame(environment_rows)
+    except Exception as exc:
+        environment_df = pd.DataFrame()
+        st.error(f"Could not load environmental observations: {exc}")
+
+    if environment_df.empty:
+        st.info("No environmental observations have been added yet.")
+    else:
+        search_environment = st.text_input(
+            "Search environmental observations",
+            placeholder="site_id, site label, variable name, data source, period...",
+            key="search_environmental_observations",
+        )
+
+        display_df = environment_df.copy()
+
+        if search_environment.strip():
+            query = search_environment.strip().lower()
+            display_df = display_df[
+                display_df.astype(str)
+                .agg(" ".join, axis=1)
+                .str.lower()
+                .str.contains(query, na=False)
+            ]
+
+        st.caption(f"Showing {len(display_df)} of {len(environment_df)} environmental observation row(s).")
+
+        table_df = display_df.copy()
+        table_df.insert(0, "delete", False)
+
+        edited_environment_df = st.data_editor(
+            table_df,
+            width="stretch",
+            height=get_table_height(len(table_df), max_height=520),
+            disabled=[
+                column for column in table_df.columns
+                if column != "delete"
+            ],
+            key="environmental_observations_editor",
+        )
+
+        selected_delete_ids = (
+            edited_environment_df.loc[
+                edited_environment_df["delete"].apply(normalise_bool_value),
+                "id",
+            ]
+            .astype(int)
+            .tolist()
+            if not edited_environment_df.empty
+            else []
+        )
+
+        delete_confirmed = st.checkbox(
+            "Confirm deletion of selected environmental observation row(s)",
+            key="confirm_delete_environmental_observations",
+        )
+
+        delete_col, export_col, github_col = st.columns(
+            [0.28, 0.36, 0.36],
+            vertical_alignment="bottom",
+        )
+
+        with delete_col:
+            if st.button("Delete selected environmental observations", key="delete_selected_environmental_observations"):
+                if not selected_delete_ids:
+                    st.error("Select at least one row to delete.")
+                elif not delete_confirmed:
+                    st.error("Tick the deletion confirmation checkbox first.")
+                else:
+                    deleted_count = delete_environmental_observations(selected_delete_ids)
+                    set_flash_message(f"Deleted {deleted_count} environmental observation row(s).")
+                    set_next_active_page("Environmental Data")
+                    st.rerun()
+
+        with export_col:
+            if st.button("Export environmental observations to website CSV", key="export_environmental_observations_csv"):
+                try:
+                    exported_count = export_environmental_observations_to_website_csv()
+                    set_flash_message(
+                        f"Exported {exported_count} environmental observation row(s) to "
+                        f"`{ENVIRONMENT_OUTPUT_CSV_PATH.relative_to(REPO_ROOT).as_posix()}`."
+                    )
+                    set_next_active_page("Environmental Data")
+                    st.rerun()
+                except Exception as exc:
+                    st.error(f"Could not export environmental observations: {exc}")
+
+        with github_col:
+            if st.button("Upload environmental CSV to GitHub", key="upload_environmental_csv_to_github"):
+                try:
+                    if not ENVIRONMENT_OUTPUT_CSV_PATH.exists():
+                        exported_count = export_environmental_observations_to_website_csv()
+                    else:
+                        exported_count = len(pd.read_csv(ENVIRONMENT_OUTPUT_CSV_PATH))
+
+                    result = publish_file_to_github(
+                        local_path=ENVIRONMENT_OUTPUT_CSV_PATH,
+                        commit_message="Update environmental observations dataset",
+                    )
+
+                    st.session_state.last_git_publish_output = str(result.get("output", result))
+                    set_flash_message(
+                        f"Uploaded environmental observations CSV to GitHub. "
+                        f"Rows available: {exported_count}."
+                    )
+                    set_next_active_page("Environmental Data")
+                    st.rerun()
+
+                except Exception as exc:
+                    st.error(f"Could not upload environmental observations CSV to GitHub: {exc}")
+
+        with st.expander("Show website environmental CSV path", expanded=False):
+            st.code(ENVIRONMENT_OUTPUT_CSV_PATH.as_posix(), language="text")
 
 if active_page == "Manage Records":
     st.subheader("Manage Records")

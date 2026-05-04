@@ -36,6 +36,10 @@ if TYPE_CHECKING:
         get_corrosion_observations,
         get_public_corrosion_observations,
         import_corrosion_observations,
+        delete_environmental_observations,
+        get_environmental_observations,
+        get_public_environmental_observations,
+        import_environmental_observations,
     )
 
 
@@ -95,6 +99,10 @@ _REQUIRED_EXPORTS = [
     "get_corrosion_observations",
     "get_public_corrosion_observations",
     "import_corrosion_observations",
+    "delete_environmental_observations",
+    "get_environmental_observations",
+    "get_public_environmental_observations",
+    "import_environmental_observations",
 ]
 
 _missing_exports = [
@@ -120,7 +128,3 @@ if _missing_exports:
         + f". Active backend: {_backend_module_name}. "
         + f"Backend file: {getattr(_backend, '__file__', 'unknown')}"
     )
-
-__all__ = _REQUIRED_EXPORTS + [
-    "SCHEMA_PATH",
-]

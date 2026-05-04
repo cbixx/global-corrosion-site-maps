@@ -32,7 +32,13 @@ def init_db() -> None:
 
 def table_counts() -> dict[str, int]:
     with get_connection() as conn:
-        tables = ["sites", "sources", "site_sources", "corrosion_observations"]
+        tables = [
+            "sites",
+            "sources",
+            "site_sources",
+            "corrosion_observations",
+            "environmental_observations",
+        ]
         counts = {}
         for table in tables:
             try:
@@ -125,6 +131,38 @@ def ensure_schema_updates() -> None:
                     corrosion_metric,
                     measurement_method,
                     specimen_condition
+                )
+            )
+            """
+        )
+
+        conn.execute(
+            """
+            create table if not exists environmental_observations (
+                id integer primary key autoincrement,
+                site_fk integer not null,
+                source_fk integer,
+                site_source_fk integer,
+                variable_name text not null,
+                value real not null,
+                unit text not null,
+                aggregation text not null default '',
+                period_start text not null default '',
+                period_end text not null default '',
+                data_source text not null default '',
+                notes text not null default '',
+                created_at text default current_timestamp,
+                updated_at text default current_timestamp,
+                foreign key(site_fk) references sites(id) on delete cascade,
+                foreign key(source_fk) references sources(id) on delete set null,
+                foreign key(site_source_fk) references site_sources(id) on delete set null,
+                unique(
+                    site_fk,
+                    variable_name,
+                    aggregation,
+                    period_start,
+                    period_end,
+                    data_source
                 )
             )
             """
@@ -1010,6 +1048,234 @@ def import_corrosion_observations(records: list[dict]) -> dict:
                     measurement_method,
                     specimen_condition,
                     exposure_condition,
+                    notes,
+                ),
+            )
+
+            result["inserted_or_updated"] += 1
+
+        conn.commit()
+
+    return result
+
+def get_environmental_observations() -> list[dict]:
+    with get_connection() as conn:
+        rows = conn.execute(
+            """
+            select
+                environmental_observations.id,
+                sites.site_id,
+                sites.site_label,
+                sites.modern_country_location,
+                sources.source_code,
+                sources.source_title,
+                environmental_observations.variable_name,
+                environmental_observations.value,
+                environmental_observations.unit,
+                environmental_observations.aggregation,
+                environmental_observations.period_start,
+                environmental_observations.period_end,
+                environmental_observations.data_source,
+                environmental_observations.notes,
+                environmental_observations.created_at,
+                environmental_observations.updated_at
+            from environmental_observations
+            join sites on sites.id = environmental_observations.site_fk
+            left join sources on sources.id = environmental_observations.source_fk
+            order by
+                sites.site_id,
+                environmental_observations.variable_name,
+                environmental_observations.period_start,
+                environmental_observations.data_source
+            """
+        ).fetchall()
+
+    return [dict(row) for row in rows]
+
+
+def get_public_environmental_observations() -> list[dict]:
+    with get_connection() as conn:
+        rows = conn.execute(
+            """
+            select
+                sites.site_id,
+                sites.site_label,
+                sites.latitude,
+                sites.longitude,
+                sites.modern_country_location,
+                sources.source_code,
+                sources.source_title,
+                environmental_observations.variable_name,
+                environmental_observations.value,
+                environmental_observations.unit,
+                environmental_observations.aggregation,
+                environmental_observations.period_start,
+                environmental_observations.period_end,
+                environmental_observations.data_source,
+                environmental_observations.notes
+            from environmental_observations
+            join sites on sites.id = environmental_observations.site_fk
+            left join sources on sources.id = environmental_observations.source_fk
+            order by
+                sites.site_id,
+                environmental_observations.variable_name,
+                environmental_observations.period_start,
+                environmental_observations.data_source
+            """
+        ).fetchall()
+
+    return [dict(row) for row in rows]
+
+
+def delete_environmental_observations(observation_ids: list[int]) -> int:
+    if not observation_ids:
+        return 0
+
+    placeholders = ", ".join(["?"] * len(observation_ids))
+
+    with get_connection() as conn:
+        cursor = conn.execute(
+            f"""
+            delete from environmental_observations
+            where id in ({placeholders})
+            """,
+            [int(observation_id) for observation_id in observation_ids],
+        )
+        conn.commit()
+        return cursor.rowcount
+
+
+def import_environmental_observations(records: list[dict]) -> dict:
+    result = {
+        "inserted_or_updated": 0,
+        "skipped": 0,
+        "messages": [],
+    }
+
+    with get_connection() as conn:
+        for row_number, record in enumerate(records, start=2):
+            site_id = str(record.get("site_id", "") or "").strip()
+            source_code = _normalise_source_code_for_corrosion(
+                str(record.get("source_code", "") or "").strip()
+            )
+            variable_name = str(record.get("variable_name", "") or "").strip()
+            unit = str(record.get("unit", "") or "").strip()
+            aggregation = str(record.get("aggregation", "") or "").strip()
+            period_start = str(record.get("period_start", "") or "").strip()
+            period_end = str(record.get("period_end", "") or "").strip()
+            data_source = str(record.get("data_source", "") or "").strip()
+            notes = str(record.get("notes", "") or "").strip()
+
+            try:
+                value = float(str(record.get("value", "")).strip())
+            except Exception:
+                result["skipped"] += 1
+                result["messages"].append(f"Row {row_number}: invalid value.")
+                continue
+
+            if not site_id or not variable_name or not unit:
+                result["skipped"] += 1
+                result["messages"].append(
+                    f"Row {row_number}: missing site_id, variable_name, or unit."
+                )
+                continue
+
+            site_row = conn.execute(
+                """
+                select id
+                from sites
+                where lower(trim(site_id)) = lower(trim(?))
+                limit 1
+                """,
+                (site_id,),
+            ).fetchone()
+
+            if site_row is None:
+                result["skipped"] += 1
+                result["messages"].append(f"Row {row_number}: site_id `{site_id}` not found.")
+                continue
+
+            source_fk = None
+            site_source_fk = None
+
+            if source_code:
+                source_row = conn.execute(
+                    """
+                    select id
+                    from sources
+                    where lower(trim(source_code)) = lower(trim(?))
+                    limit 1
+                    """,
+                    (source_code,),
+                ).fetchone()
+
+                if source_row is None:
+                    result["messages"].append(
+                        f"Row {row_number}: source_code `{source_code}` not found; imported without source link."
+                    )
+                else:
+                    source_fk = int(source_row["id"])
+
+                    link_row = conn.execute(
+                        """
+                        select id
+                        from site_sources
+                        where site_fk = ?
+                          and source_fk = ?
+                        limit 1
+                        """,
+                        (
+                            int(site_row["id"]),
+                            source_fk,
+                        ),
+                    ).fetchone()
+
+                    if link_row is not None:
+                        site_source_fk = int(link_row["id"])
+
+            conn.execute(
+                """
+                insert into environmental_observations (
+                    site_fk,
+                    source_fk,
+                    site_source_fk,
+                    variable_name,
+                    value,
+                    unit,
+                    aggregation,
+                    period_start,
+                    period_end,
+                    data_source,
+                    notes
+                )
+                values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                on conflict(
+                    site_fk,
+                    variable_name,
+                    aggregation,
+                    period_start,
+                    period_end,
+                    data_source
+                )
+                do update set
+                    source_fk = excluded.source_fk,
+                    site_source_fk = excluded.site_source_fk,
+                    value = excluded.value,
+                    unit = excluded.unit,
+                    notes = excluded.notes,
+                    updated_at = current_timestamp
+                """,
+                (
+                    int(site_row["id"]),
+                    source_fk,
+                    site_source_fk,
+                    variable_name,
+                    value,
+                    unit,
+                    aggregation,
+                    period_start,
+                    period_end,
+                    data_source,
                     notes,
                 ),
             )

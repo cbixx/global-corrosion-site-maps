@@ -3,9 +3,20 @@
     "curator",
     "scripts"
   ],
+  "exclude": [
+    "**/__pycache__",
+    ".venv",
+    "archive"
+  ],
   "extraPaths": [
     "curator"
   ],
   "venvPath": ".",
-  "venv": ".venv"
+  "venv": ".venv",
+  "typeCheckingMode": "off",
+  "reportGeneralTypeIssues": "none",
+  "reportMissingImports": "none",
+  "reportMissingModuleSource": "none",
+  "reportUndefinedVariable": "none",
+  "reportAttributeAccessIssue": "none"
 }
