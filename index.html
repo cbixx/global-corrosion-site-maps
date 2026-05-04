@@ -157,11 +157,10 @@
           <label class="control-label" for="climateLayerSelect">Climate/weather layer</label>
           <select id="climateLayerSelect" class="control-select">
             <option value="">None</option>
-            <option value="air_temperature">Air temperature</option>
-            <option value="precipitation">Precipitation</option>
-            <option value="wind_speed">Wind speed</option>
-            <option value="pressure">Sea-level pressure</option>
-            <option value="clouds">Cloud cover</option>
+            <option value="air_temperature">Air temperature — annual mean</option>
+            <option value="relative_humidity">Relative humidity — annual mean</option>
+            <option value="precipitation">Precipitation — annual total</option>
+            <option value="wind_speed">Wind speed — annual mean</option>
           </select>
         </div>
 
@@ -311,71 +310,72 @@
     const HORIZONTAL_WORLDS = 3;
     const DEFAULT_CENTER = [20, 20];
     const DEFAULT_ZOOM = 2.5;
-    const OPENWEATHERMAP_API_KEY = "";
+    const CLIMATE_LAYER_PERIOD_LABEL = "Last complete year";
     const DEFAULT_CLIMATE_LOOKUP_YEAR = new Date().getFullYear() - 1;
     const CLIMATE_LOOKUP_CACHE = new Map();
     const CLIMATE_LAYER_CONFIG = {
       air_temperature: {
         label: "Air temperature",
         unit: "°C",
-        layer: "temp_new",
-        source: "OpenWeatherMap weather tile layer",
+        aggregation: "Annual mean",
+        path: "data/map_layers/air_temperature_annual_mean.json",
+        gradient: {
+          0.00: "#2c7bb6",
+          0.45: "#ffffbf",
+          1.00: "#d7191c"
+        },
         legendStops: [
-          ["#821692", "≤ -40 °C"],
-          ["#821692", "-30 °C"],
-          ["#208cec", "-20 °C"],
-          ["#20c4e8", "-10 °C"],
-          ["#23dddd", "0 °C"],
-          ["#c2ff28", "10 °C"],
-          ["#fff028", "20 °C"],
-          ["#ffc228", "30 °C"],
-          ["#fc8014", "40 °C+"]
+          ["#2c7bb6", "cold"],
+          ["#ffffbf", "moderate"],
+          ["#d7191c", "hot"]
+        ]
+      },
+      relative_humidity: {
+        label: "Relative humidity",
+        unit: "%",
+        aggregation: "Annual mean",
+        path: "data/map_layers/relative_humidity_annual_mean.json",
+        gradient: {
+          0.00: "#f7fbff",
+          0.45: "#6baed6",
+          1.00: "#08306b"
+        },
+        legendStops: [
+          ["#f7fbff", "dry"],
+          ["#6baed6", "humid"],
+          ["#08306b", "very humid"]
         ]
       },
       precipitation: {
         label: "Precipitation",
-        unit: "mm",
-        layer: "precipitation_new",
-        source: "OpenWeatherMap weather tile layer",
+        unit: "mm/year",
+        aggregation: "Annual total",
+        path: "data/map_layers/precipitation_annual_sum.json",
+        gradient: {
+          0.00: "#fff7bc",
+          0.45: "#41b6c4",
+          1.00: "#253494"
+        },
         legendStops: [
-          ["#e5f5ff", "low"],
-          ["#8bd3ff", "moderate"],
-          ["#3b8cff", "high"],
-          ["#0b2f89", "very high"]
+          ["#fff7bc", "low"],
+          ["#41b6c4", "moderate"],
+          ["#253494", "high"]
         ]
       },
       wind_speed: {
         label: "Wind speed",
         unit: "m/s",
-        layer: "wind_new",
-        source: "OpenWeatherMap weather tile layer",
+        aggregation: "Annual mean",
+        path: "data/map_layers/wind_speed_annual_mean.json",
+        gradient: {
+          0.00: "#f7f7f7",
+          0.45: "#969696",
+          1.00: "#252525"
+        },
         legendStops: [
-          ["#ffffff", "calm"],
-          ["#bdbdbd", "moderate"],
-          ["#737373", "strong"],
-          ["#252525", "very strong"]
-        ]
-      },
-      pressure: {
-        label: "Sea-level pressure",
-        unit: "hPa",
-        layer: "pressure_new",
-        source: "OpenWeatherMap weather tile layer",
-        legendStops: [
-          ["#313695", "low"],
-          ["#ffffbf", "normal"],
-          ["#a50026", "high"]
-        ]
-      },
-      clouds: {
-        label: "Cloud cover",
-        unit: "%",
-        layer: "clouds_new",
-        source: "OpenWeatherMap weather tile layer",
-        legendStops: [
-          ["#ffffff", "clear"],
-          ["#cfd8dc", "partly cloudy"],
-          ["#607d8b", "cloudy"]
+          ["#f7f7f7", "calm"],
+          ["#969696", "moderate"],
+          ["#252525", "windy"]
         ]
       }
     };
@@ -660,7 +660,8 @@
     let corrosionHeatLayer = null;
 
     let activeClimateLayerKey = "";
-    let climateTileLayer = null;
+    let climateHeatLayer = null;
+    let climateLayerCache = new Map();
     let overlayLegendControl = null;
 
     let countryMiniMap = null;
@@ -2096,6 +2097,88 @@
       }
     }
 
+    function parseClimateLayerPoint(point) {
+      if (Array.isArray(point)) {
+        const lat = Number(point[0]);
+        const lon = Number(point[1]);
+        const value = Number(point[2]);
+
+        if (!Number.isFinite(lat) || !Number.isFinite(lon) || !Number.isFinite(value)) {
+          return null;
+        }
+
+        return { lat, lon, value };
+      }
+
+      const lat = Number(
+        point.lat ??
+        point.latitude ??
+        point.y
+      );
+
+      const lon = Number(
+        point.lon ??
+        point.lng ??
+        point.longitude ??
+        point.x
+      );
+
+      const value = Number(
+        point.value ??
+        point.mean ??
+        point.annual_mean ??
+        point.annual_sum
+      );
+
+      if (!Number.isFinite(lat) || !Number.isFinite(lon) || !Number.isFinite(value)) {
+        return null;
+      }
+
+      return { lat, lon, value };
+    }
+
+    function normaliseClimateIntensity(value, minValue, maxValue) {
+      if (!Number.isFinite(value)) return 0;
+
+      if (maxValue === minValue) {
+        return 0.7;
+      }
+
+      const intensity = (value - minValue) / (maxValue - minValue);
+
+      return Math.max(0.12, Math.min(1, intensity));
+    }
+
+    function getClimateLayerPoints(layerData) {
+      if (Array.isArray(layerData)) {
+        return layerData;
+      }
+
+      return (
+        layerData.points ||
+        layerData.values ||
+        layerData.data ||
+        []
+      );
+    }
+
+    async function fetchClimateLayerData(config) {
+      if (climateLayerCache.has(config.path)) {
+        return climateLayerCache.get(config.path);
+      }
+
+      const response = await fetch(`${config.path}?v=${Date.now()}`);
+
+      if (!response.ok) {
+        throw new Error(`Could not load ${config.path}. HTTP ${response.status}`);
+      }
+
+      const data = await response.json();
+      climateLayerCache.set(config.path, data);
+
+      return data;
+    }
+
     function clearClimateLayer(options = {}) {
       const resetSelect = options.resetSelect !== false;
       const updateStatus = options.updateStatus !== false;
@@ -2103,9 +2186,9 @@
 
       activeClimateLayerKey = "";
 
-      if (climateTileLayer) {
-        map.removeLayer(climateTileLayer);
-        climateTileLayer = null;
+      if (climateHeatLayer) {
+        map.removeLayer(climateHeatLayer);
+        climateHeatLayer = null;
       }
 
       const select = document.getElementById("climateLayerSelect");
@@ -2119,11 +2202,11 @@
       }
 
       if (updateStatus) {
-        setClimateStatus("Climate/weather overlay cleared.");
+        setClimateStatus("Climate/environment overlay cleared.");
       }
     }
 
-    function loadClimateLayer(layerKey) {
+    async function loadClimateLayer(layerKey) {
       clearClimateLayer({
         resetSelect: false,
         updateStatus: false,
@@ -2138,43 +2221,86 @@
       activeClimateLayerKey = layerKey || "";
 
       if (!activeClimateLayerKey) {
-        setClimateStatus("No climate/weather layer selected.");
+        setClimateStatus("No climate/environment layer selected.");
         return;
       }
 
       const config = CLIMATE_LAYER_CONFIG[activeClimateLayerKey];
 
       if (!config) {
-        setClimateStatus("Unknown climate/weather layer.");
+        setClimateStatus("Unknown climate/environment layer.");
         return;
       }
 
-      if (!OPENWEATHERMAP_API_KEY) {
-        setClimateStatus(
-          "OpenWeatherMap API key is missing. Add it to OPENWEATHERMAP_API_KEY in index.html for local testing."
-        );
-        return;
-      }
+      setClimateStatus(`Loading ${config.label.toLowerCase()} layer...`);
 
-      climateTileLayer = L.tileLayer(
-        `https://tile.openweathermap.org/map/${config.layer}/{z}/{x}/{y}.png?appid=${OPENWEATHERMAP_API_KEY}`,
-        {
-          opacity: 0.55,
-          pane: "climateHeatPane",
-          attribution: "Weather layer © OpenWeatherMap"
+      try {
+        const layerData = await fetchClimateLayerData(config);
+        const rawPoints = getClimateLayerPoints(layerData);
+
+        const parsedPoints = rawPoints
+          .map(parseClimateLayerPoint)
+          .filter(Boolean)
+          .filter(point => (
+            point.lat >= -TILE_LAT_LIMIT &&
+            point.lat <= TILE_LAT_LIMIT &&
+            point.lon >= -180 &&
+            point.lon <= 180
+          ));
+
+        if (!parsedPoints.length) {
+          setClimateStatus(`${config.label} layer loaded, but no valid points were found.`);
+          return;
         }
-      );
 
-      climateTileLayer.addTo(map);
+        const values = parsedPoints.map(point => point.value);
 
-      renderOverlayLegend(
-        config.label,
-        config.source,
-        config.legendStops,
-        "This is a weather tile overlay, not a long-term measured site exposure record."
-      );
+        const minValue = Number.isFinite(Number(layerData.min))
+          ? Number(layerData.min)
+          : Math.min(...values);
 
-      setClimateStatus(`${config.label} overlay active.`);
+        const maxValue = Number.isFinite(Number(layerData.max))
+          ? Number(layerData.max)
+          : Math.max(...values);
+
+        const heatPoints = parsedPoints.map(point => [
+          point.lat,
+          point.lon,
+          normaliseClimateIntensity(point.value, minValue, maxValue)
+        ]);
+
+        climateHeatLayer = L.heatLayer(heatPoints, {
+          pane: "climateHeatPane",
+          radius: 34,
+          blur: 26,
+          maxZoom: 7,
+          minOpacity: 0.32,
+          gradient: config.gradient
+        });
+
+        climateHeatLayer.addTo(map);
+
+        const metadata = layerData.metadata || {};
+        const period = metadata.period || metadata.period_label || CLIMATE_LAYER_PERIOD_LABEL;
+        const source = metadata.source || "Open-Meteo generated layer";
+
+        renderOverlayLegend(
+          config.label,
+          `${config.aggregation} · ${period}`,
+          config.legendStops,
+          `${parsedPoints.length.toLocaleString()} grid point(s). Source: ${source}. Range: ${minValue.toFixed(2)}–${maxValue.toFixed(2)} ${config.unit}.`
+        );
+
+        setClimateStatus(
+          `${config.label} layer rendered from ${parsedPoints.length.toLocaleString()} grid point(s).`
+        );
+
+      } catch (error) {
+        setClimateStatus(
+          `${config.label} layer could not be loaded. Generate ${config.path} first.`
+        );
+        console.error(error);
+      }
     }
 
     function fitRows(rows) {
