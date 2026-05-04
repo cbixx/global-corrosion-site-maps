@@ -322,6 +322,8 @@
     const HORIZONTAL_WORLDS = 3;
     const DEFAULT_CENTER = [20, 20];
     const DEFAULT_ZOOM = 2.5;
+    const DEFAULT_CLIMATE_LOOKUP_YEAR = new Date().getFullYear() - 1;
+    const CLIMATE_LOOKUP_CACHE = new Map();
     const CLIMATE_LAYER_CONFIG = {
       air_temperature: {
         label: "Air temperature",
@@ -797,6 +799,17 @@
       });
     });
 
+    document.addEventListener("click", function(event) {
+      const climateButton = event.target.closest(".climate-fetch-button");
+
+      if (!climateButton) return;
+
+      event.preventDefault();
+      event.stopPropagation();
+
+      handleClimateFetchButtonClick(climateButton);
+    });
+
     function escapeHtml(value) {
       if (value === null || value === undefined) return '';
       return String(value)
@@ -905,6 +918,168 @@
           <strong>Steel corrosion rate:</strong> ${escapeHtml(formatCorrosionRate(rate))}
         </div>
       `;
+    }
+
+    function buildClimateApiPopupSection(row) {
+      const rowIndex = Number.isFinite(row._rowIndex) ? row._rowIndex : "";
+      const year = DEFAULT_CLIMATE_LOOKUP_YEAR;
+
+      return `
+        <div class="climate-popup-line">
+          <strong>Environmental context:</strong>
+          <div>
+            <button
+              class="climate-fetch-button"
+              type="button"
+              data-row-index="${escapeHtml(rowIndex)}"
+            >
+              Fetch ${escapeHtml(year)} climate summary
+            </button>
+          </div>
+          <div
+            id="climatePopupResult-${escapeHtml(rowIndex)}"
+            class="climate-popup-result"
+          >
+            Coordinate-based climate estimate available on request.
+          </div>
+        </div>
+      `;
+    }
+
+    function getClimatePopupResultElement(rowIndex) {
+      return document.getElementById(`climatePopupResult-${rowIndex}`);
+    }
+
+    function meanOfNumbers(values) {
+      const cleanValues = values
+        .map(value => Number(value))
+        .filter(value => Number.isFinite(value));
+
+      if (!cleanValues.length) return null;
+
+      return cleanValues.reduce((sum, value) => sum + value, 0) / cleanValues.length;
+    }
+
+    function sumOfNumbers(values) {
+      const cleanValues = values
+        .map(value => Number(value))
+        .filter(value => Number.isFinite(value));
+
+      if (!cleanValues.length) return null;
+
+      return cleanValues.reduce((sum, value) => sum + value, 0);
+    }
+
+    function formatClimateValue(value, decimals = 1) {
+      if (!Number.isFinite(value)) return "—";
+      return value.toFixed(decimals);
+    }
+
+    function buildOpenMeteoArchiveUrl(row, year = DEFAULT_CLIMATE_LOOKUP_YEAR) {
+      const params = new URLSearchParams({
+        latitude: String(row._lat),
+        longitude: String(row._lon),
+        start_date: `${year}-01-01`,
+        end_date: `${year}-12-31`,
+        daily: [
+          "temperature_2m_mean",
+          "relative_humidity_2m_mean",
+          "precipitation_sum",
+          "wind_speed_10m_mean"
+        ].join(","),
+        temperature_unit: "celsius",
+        wind_speed_unit: "ms",
+        precipitation_unit: "mm",
+        timezone: "auto"
+      });
+
+      return `https://archive-api.open-meteo.com/v1/archive?${params.toString()}`;
+    }
+
+    async function fetchOpenMeteoClimateSummary(row, year = DEFAULT_CLIMATE_LOOKUP_YEAR) {
+      const cacheKey = [
+        getSiteId(row),
+        row._lat,
+        row._lon,
+        year
+      ].join("|");
+
+      if (CLIMATE_LOOKUP_CACHE.has(cacheKey)) {
+        return CLIMATE_LOOKUP_CACHE.get(cacheKey);
+      }
+
+      const url = buildOpenMeteoArchiveUrl(row, year);
+      const response = await fetch(url);
+
+      if (!response.ok) {
+        throw new Error(`Open-Meteo request failed: HTTP ${response.status}`);
+      }
+
+      const data = await response.json();
+      const daily = data.daily || {};
+
+      const summary = {
+        year,
+        source: "Open-Meteo Historical Weather API",
+        latitude: data.latitude,
+        longitude: data.longitude,
+        timezone: data.timezone || "",
+        temperatureMeanC: meanOfNumbers(daily.temperature_2m_mean || []),
+        relativeHumidityMeanPercent: meanOfNumbers(daily.relative_humidity_2m_mean || []),
+        precipitationTotalMm: sumOfNumbers(daily.precipitation_sum || []),
+        windSpeedMeanMs: meanOfNumbers(daily.wind_speed_10m_mean || []),
+        dayCount: Array.isArray(daily.time) ? daily.time.length : 0
+      };
+
+      CLIMATE_LOOKUP_CACHE.set(cacheKey, summary);
+
+      return summary;
+    }
+
+    function renderClimateSummaryHtml(summary) {
+      return `
+        <div class="climate-popup-grid">
+          <div><strong>Period:</strong> ${escapeHtml(summary.year)}</div>
+          <div><strong>Mean air temperature:</strong> ${escapeHtml(formatClimateValue(summary.temperatureMeanC, 1))} °C</div>
+          <div><strong>Mean relative humidity:</strong> ${escapeHtml(formatClimateValue(summary.relativeHumidityMeanPercent, 1))} %</div>
+          <div><strong>Total precipitation:</strong> ${escapeHtml(formatClimateValue(summary.precipitationTotalMm, 0))} mm/year</div>
+          <div><strong>Mean wind speed:</strong> ${escapeHtml(formatClimateValue(summary.windSpeedMeanMs, 2))} m/s</div>
+        </div>
+        <div class="climate-popup-note">
+          Estimated from gridded/reanalysis weather data at this coordinate.
+          Source: ${escapeHtml(summary.source)}.
+          Days returned: ${escapeHtml(summary.dayCount)}.
+        </div>
+      `;
+    }
+
+    async function handleClimateFetchButtonClick(button) {
+      const rowIndex = Number(button.getAttribute("data-row-index"));
+      const row = allRows.find(item => item._rowIndex === rowIndex);
+      const resultElement = getClimatePopupResultElement(rowIndex);
+
+      if (!row || !resultElement) return;
+
+      if (isNaN(row._lat) || isNaN(row._lon)) {
+        resultElement.textContent = "Climate lookup failed: this site has invalid coordinates.";
+        return;
+      }
+
+      button.disabled = true;
+      button.textContent = "Fetching climate summary...";
+      resultElement.textContent = "Contacting Open-Meteo historical weather API...";
+
+      try {
+        const summary = await fetchOpenMeteoClimateSummary(row);
+        resultElement.innerHTML = renderClimateSummaryHtml(summary);
+        button.textContent = `Refresh ${summary.year} climate summary`;
+      } catch (error) {
+        resultElement.textContent = "Climate lookup failed. Check browser console or network connection.";
+        button.textContent = "Retry climate summary";
+        console.error(error);
+      } finally {
+        button.disabled = false;
+      }
     }
 
     function findCsvColumn(row, possibleNames) {
@@ -1056,6 +1231,7 @@
       }
 
       popupContent += buildCorrosionPopupSection(row);
+      popupContent += buildClimateApiPopupSection(row);
 
       if (resources.length > 0 || notes) {
         popupContent += `<div class="action-row">`;
