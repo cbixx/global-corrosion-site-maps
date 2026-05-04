@@ -160,6 +160,33 @@
         </div>
       </div>
 
+      <div class="control-section environment-section">
+        <h3>Climate/environment overlay</h3>
+
+        <div class="control-group">
+          <label class="control-label" for="climateLayerSelect">Climate layer</label>
+          <select id="climateLayerSelect" class="control-select">
+            <option value="">None</option>
+            <option value="air_temperature">Air temperature — annual mean</option>
+            <option value="relative_humidity">Relative humidity — annual mean</option>
+            <option value="precipitation">Precipitation — annual total</option>
+            <option value="wind_speed">Wind speed — annual mean</option>
+          </select>
+        </div>
+
+        <div id="climateLayerStatus" class="small-status">
+          No climate/environment layer selected.
+        </div>
+
+        <div id="climateLegend" class="climate-legend" hidden></div>
+
+        <div class="button-row">
+          <button id="clearClimateLayerBtn" type="button">
+            Clear climate overlay
+          </button>
+        </div>
+      </div>
+
       <div id="activeFilterChips" class="filter-chips" hidden></div>
 
       <div class="result-box">
@@ -295,6 +322,52 @@
     const HORIZONTAL_WORLDS = 3;
     const DEFAULT_CENTER = [20, 20];
     const DEFAULT_ZOOM = 2.5;
+    const CLIMATE_LAYER_CONFIG = {
+      air_temperature: {
+        label: "Air temperature",
+        unit: "°C",
+        aggregation: "Annual mean",
+        path: "data/map_layers/air_temperature_annual_mean.json",
+        gradient: {
+          0.00: "#2c7bb6",
+          0.45: "#ffffbf",
+          1.00: "#d7191c"
+        }
+      },
+      relative_humidity: {
+        label: "Relative humidity",
+        unit: "%",
+        aggregation: "Annual mean",
+        path: "data/map_layers/relative_humidity_annual_mean.json",
+        gradient: {
+          0.00: "#f7fbff",
+          0.45: "#6baed6",
+          1.00: "#08306b"
+        }
+      },
+      precipitation: {
+        label: "Precipitation",
+        unit: "mm/year",
+        aggregation: "Annual total",
+        path: "data/map_layers/precipitation_annual_sum.json",
+        gradient: {
+          0.00: "#fff7bc",
+          0.45: "#41b6c4",
+          1.00: "#253494"
+        }
+      },
+      wind_speed: {
+        label: "Wind speed",
+        unit: "m/s",
+        aggregation: "Annual mean",
+        path: "data/map_layers/wind_speed_annual_mean.json",
+        gradient: {
+          0.00: "#f7f7f7",
+          0.45: "#969696",
+          1.00: "#252525"
+        }
+      }
+    };
     const DIRECTORY_COUNTRY_LIST = [
       "Afghanistan",
       "Albania",
@@ -536,6 +609,9 @@
     map.createPane('corrosionHeatPane');
     map.getPane('corrosionHeatPane').style.zIndex = 450;
     map.getPane('corrosionHeatPane').style.pointerEvents = 'none';
+    map.createPane('climateHeatPane');
+    map.getPane('climateHeatPane').style.zIndex = 430;
+    map.getPane('climateHeatPane').style.pointerEvents = 'none';
 
     function updatePanFeel() {
       const z = map.getZoom();
@@ -571,6 +647,10 @@
     let corrosionRatesBySiteId = new Map();
     let corrosionOverlayActive = false;
     let corrosionHeatLayer = null;
+
+    let activeClimateLayerKey = "";
+    let climateHeatLayer = null;
+    let climateLayerCache = new Map();
 
     let countryMiniMap = null;
     let countryMiniMarkerLayer = null;
@@ -1795,6 +1875,248 @@
       if (status) status.textContent = "Corrosion-rate overlay cleared.";
     }
 
+    function getClimateStatusElement() {
+      return document.getElementById("climateLayerStatus");
+    }
+
+    function getClimateLegendElement() {
+      return document.getElementById("climateLegend");
+    }
+
+    function setClimateStatus(message) {
+      const status = getClimateStatusElement();
+
+      if (status) {
+        status.textContent = message;
+      }
+    }
+
+    function clearClimateLegend() {
+      const legend = getClimateLegendElement();
+
+      if (!legend) return;
+
+      legend.hidden = true;
+      legend.innerHTML = "";
+    }
+
+    function renderClimateLegend(config, minValue, maxValue, pointCount, metadata = {}) {
+      const legend = getClimateLegendElement();
+
+      if (!legend) return;
+
+      const minText = `${minValue.toFixed(2)} ${config.unit}`;
+      const maxText = `${maxValue.toFixed(2)} ${config.unit}`;
+      const period = metadata.period || metadata.period_label || "configured period";
+      const source = metadata.source || metadata.data_source || "pre-generated climate layer";
+
+      legend.hidden = false;
+      legend.innerHTML = `
+        <div class="climate-legend-title">
+          ${escapeHtml(config.label)} · ${escapeHtml(config.aggregation)}
+        </div>
+        <div class="climate-legend-gradient"></div>
+        <div class="climate-legend-scale">
+          <span>${escapeHtml(minText)}</span>
+          <span>${escapeHtml(maxText)}</span>
+        </div>
+        <div class="climate-legend-note">
+          ${pointCount.toLocaleString()} grid point${pointCount === 1 ? "" : "s"} ·
+          ${escapeHtml(period)} · ${escapeHtml(source)}
+        </div>
+      `;
+    }
+
+    function parseClimateLayerPoint(point) {
+      if (Array.isArray(point)) {
+        const lat = Number(point[0]);
+        const lon = Number(point[1]);
+        const value = Number(point[2]);
+
+        if (!Number.isFinite(lat) || !Number.isFinite(lon) || !Number.isFinite(value)) {
+          return null;
+        }
+
+        return { lat, lon, value };
+      }
+
+      const lat = Number(
+        point.lat ??
+        point.latitude ??
+        point.y
+      );
+
+      const lon = Number(
+        point.lon ??
+        point.lng ??
+        point.longitude ??
+        point.x
+      );
+
+      const value = Number(
+        point.value ??
+        point.mean ??
+        point.annual_mean ??
+        point.annual_sum
+      );
+
+      if (!Number.isFinite(lat) || !Number.isFinite(lon) || !Number.isFinite(value)) {
+        return null;
+      }
+
+      return { lat, lon, value };
+    }
+
+    function normaliseClimateIntensity(value, minValue, maxValue) {
+      if (!Number.isFinite(value)) return 0;
+
+      if (maxValue === minValue) {
+        return 0.7;
+      }
+
+      const intensity = (value - minValue) / (maxValue - minValue);
+
+      return Math.max(0.12, Math.min(1, intensity));
+    }
+
+    function getClimateLayerPoints(layerData) {
+      if (Array.isArray(layerData)) {
+        return layerData;
+      }
+
+      return (
+        layerData.points ||
+        layerData.values ||
+        layerData.data ||
+        []
+      );
+    }
+
+    async function fetchClimateLayerData(config) {
+      if (climateLayerCache.has(config.path)) {
+        return climateLayerCache.get(config.path);
+      }
+
+      const response = await fetch(`${config.path}?v=${Date.now()}`);
+
+      if (!response.ok) {
+        throw new Error(`Could not load ${config.path}. HTTP ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      climateLayerCache.set(config.path, data);
+
+      return data;
+    }
+
+    async function loadClimateLayer(layerKey) {
+      if (climateHeatLayer) {
+        map.removeLayer(climateHeatLayer);
+        climateHeatLayer = null;
+      }
+
+      activeClimateLayerKey = layerKey || "";
+      clearClimateLegend();
+
+      if (!activeClimateLayerKey) {
+        setClimateStatus("No climate/environment layer selected.");
+        return;
+      }
+
+      const config = CLIMATE_LAYER_CONFIG[activeClimateLayerKey];
+
+      if (!config) {
+        setClimateStatus("Unknown climate/environment layer.");
+        return;
+      }
+
+      setClimateStatus(`Loading ${config.label.toLowerCase()} layer...`);
+
+      try {
+        const layerData = await fetchClimateLayerData(config);
+        const rawPoints = getClimateLayerPoints(layerData);
+
+        const parsedPoints = rawPoints
+          .map(parseClimateLayerPoint)
+          .filter(Boolean)
+          .filter(point => (
+            point.lat >= -TILE_LAT_LIMIT &&
+            point.lat <= TILE_LAT_LIMIT &&
+            point.lon >= -180 &&
+            point.lon <= 180
+          ));
+
+        if (!parsedPoints.length) {
+          setClimateStatus(
+            `${config.label} layer loaded, but no valid points were found.`
+          );
+          return;
+        }
+
+        const values = parsedPoints.map(point => point.value);
+        const minValue = Number.isFinite(Number(layerData.min))
+          ? Number(layerData.min)
+          : Math.min(...values);
+        const maxValue = Number.isFinite(Number(layerData.max))
+          ? Number(layerData.max)
+          : Math.max(...values);
+
+        const heatPoints = parsedPoints.map(point => [
+          point.lat,
+          point.lon,
+          normaliseClimateIntensity(point.value, minValue, maxValue)
+        ]);
+
+        climateHeatLayer = L.heatLayer(heatPoints, {
+          pane: "climateHeatPane",
+          radius: 34,
+          blur: 26,
+          maxZoom: 7,
+          minOpacity: 0.32,
+          gradient: config.gradient
+        });
+
+        climateHeatLayer.addTo(map);
+
+        setClimateStatus(
+          `${config.label} layer rendered from ${parsedPoints.length.toLocaleString()} grid point(s).`
+        );
+
+        renderClimateLegend(
+          config,
+          minValue,
+          maxValue,
+          parsedPoints.length,
+          layerData.metadata || layerData
+        );
+
+      } catch (error) {
+        setClimateStatus(
+          `${config.label} layer could not be loaded. Check that ${config.path} exists.`
+        );
+        console.error(error);
+      }
+    }
+
+    function clearClimateLayer() {
+      activeClimateLayerKey = "";
+
+      if (climateHeatLayer) {
+        map.removeLayer(climateHeatLayer);
+        climateHeatLayer = null;
+      }
+
+      const select = document.getElementById("climateLayerSelect");
+
+      if (select) {
+        select.value = "";
+      }
+
+      clearClimateLegend();
+      setClimateStatus("Climate/environment overlay cleared.");
+    }
+
     function fitRows(rows) {
       const bounds = rows
         .filter(row => !isNaN(row._lat) && !isNaN(row._lon))
@@ -1958,6 +2280,14 @@
 
         document.getElementById('clearCorrosionCsvBtn')?.addEventListener('click', function() {
           clearCorrosionOverlay();
+        });
+
+        document.getElementById('climateLayerSelect')?.addEventListener('change', function(event) {
+          loadClimateLayer(event.target.value);
+        });
+
+        document.getElementById('clearClimateLayerBtn')?.addEventListener('click', function() {
+          clearClimateLayer();
         });
 
         document.getElementById('closeCountryPopupBtn')?.addEventListener('click', function() {

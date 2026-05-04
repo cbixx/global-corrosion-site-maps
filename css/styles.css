@@ -1033,3 +1033,70 @@ html, body {
     border-top: 1px solid rgba(0, 0, 0, 0.12);
     font-weight: 600;
 }
+
+.environment-section {
+    margin-top: 16px;
+    padding-top: 12px;
+    border-top: 1px solid rgba(0, 0, 0, 0.12);
+}
+
+.environment-section h3 {
+    margin-bottom: 10px;
+}
+
+.environment-section .button-row {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-top: 10px;
+}
+
+.environment-section .button-row button {
+    flex: 1 1 auto;
+    padding: 6px 8px;
+    border-radius: 8px;
+    border: 1px solid rgba(0, 0, 0, 0.18);
+    background: #ffffff;
+    cursor: pointer;
+    font-size: 0.78rem;
+}
+
+.environment-section .button-row button:hover {
+    background: #efefef;
+}
+
+.climate-legend {
+    margin-top: 8px;
+    padding: 8px 10px;
+    border: 1px solid #dddddd;
+    border-radius: 8px;
+    background: #ffffff;
+    font-size: 0.76rem;
+    color: #374151;
+}
+
+.climate-legend-title {
+    font-weight: 700;
+    margin-bottom: 6px;
+}
+
+.climate-legend-gradient {
+    height: 10px;
+    border-radius: 999px;
+    background: linear-gradient(90deg, #2c7bb6, #ffffbf, #d7191c);
+    margin-bottom: 5px;
+}
+
+.climate-legend-scale {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    font-size: 0.72rem;
+    color: #4b5563;
+}
+
+.climate-legend-note {
+    margin-top: 6px;
+    color: #6b7280;
+    line-height: 1.35;
+}
