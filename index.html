@@ -135,23 +135,13 @@
       <div class="control-section corrosion-section">
         <h3>Corrosion-rate overlay</h3>
 
-        <label class="file-label" for="corrosionCsvInput">
-          Import corrosion-rate CSV
-        </label>
-
-        <input
-          id="corrosionCsvInput"
-          type="file"
-          accept=".csv"
-        />
-
         <div id="corrosionImportStatus" class="small-status">
-          No corrosion-rate table imported.
+          Curated corrosion overlay is not loaded.
         </div>
 
         <div class="button-row">
-          <button id="exportCorrosionCsvBtn" type="button">
-            Export current corrosion CSV
+          <button id="loadCorrosionCsvBtn" type="button">
+            Load curated corrosion overlay
           </button>
 
           <button id="clearCorrosionCsvBtn" type="button">
@@ -164,21 +154,20 @@
         <h3>Climate/environment overlay</h3>
 
         <div class="control-group">
-          <label class="control-label" for="climateLayerSelect">Climate layer</label>
+          <label class="control-label" for="climateLayerSelect">Climate/weather layer</label>
           <select id="climateLayerSelect" class="control-select">
             <option value="">None</option>
-            <option value="air_temperature">Air temperature — annual mean</option>
-            <option value="relative_humidity">Relative humidity — annual mean</option>
-            <option value="precipitation">Precipitation — annual total</option>
-            <option value="wind_speed">Wind speed — annual mean</option>
+            <option value="air_temperature">Air temperature</option>
+            <option value="precipitation">Precipitation</option>
+            <option value="wind_speed">Wind speed</option>
+            <option value="pressure">Sea-level pressure</option>
+            <option value="clouds">Cloud cover</option>
           </select>
         </div>
 
         <div id="climateLayerStatus" class="small-status">
-          No climate/environment layer selected.
+          No climate/weather layer selected.
         </div>
-
-        <div id="climateLegend" class="climate-legend" hidden></div>
 
         <div class="button-row">
           <button id="clearClimateLayerBtn" type="button">
@@ -322,52 +311,72 @@
     const HORIZONTAL_WORLDS = 3;
     const DEFAULT_CENTER = [20, 20];
     const DEFAULT_ZOOM = 2.5;
+    const OPENWEATHERMAP_API_KEY = "";
     const DEFAULT_CLIMATE_LOOKUP_YEAR = new Date().getFullYear() - 1;
     const CLIMATE_LOOKUP_CACHE = new Map();
     const CLIMATE_LAYER_CONFIG = {
       air_temperature: {
         label: "Air temperature",
         unit: "°C",
-        aggregation: "Annual mean",
-        path: "data/map_layers/air_temperature_annual_mean.json",
-        gradient: {
-          0.00: "#2c7bb6",
-          0.45: "#ffffbf",
-          1.00: "#d7191c"
-        }
-      },
-      relative_humidity: {
-        label: "Relative humidity",
-        unit: "%",
-        aggregation: "Annual mean",
-        path: "data/map_layers/relative_humidity_annual_mean.json",
-        gradient: {
-          0.00: "#f7fbff",
-          0.45: "#6baed6",
-          1.00: "#08306b"
-        }
+        layer: "temp_new",
+        source: "OpenWeatherMap weather tile layer",
+        legendStops: [
+          ["#821692", "≤ -40 °C"],
+          ["#821692", "-30 °C"],
+          ["#208cec", "-20 °C"],
+          ["#20c4e8", "-10 °C"],
+          ["#23dddd", "0 °C"],
+          ["#c2ff28", "10 °C"],
+          ["#fff028", "20 °C"],
+          ["#ffc228", "30 °C"],
+          ["#fc8014", "40 °C+"]
+        ]
       },
       precipitation: {
         label: "Precipitation",
-        unit: "mm/year",
-        aggregation: "Annual total",
-        path: "data/map_layers/precipitation_annual_sum.json",
-        gradient: {
-          0.00: "#fff7bc",
-          0.45: "#41b6c4",
-          1.00: "#253494"
-        }
+        unit: "mm",
+        layer: "precipitation_new",
+        source: "OpenWeatherMap weather tile layer",
+        legendStops: [
+          ["#e5f5ff", "low"],
+          ["#8bd3ff", "moderate"],
+          ["#3b8cff", "high"],
+          ["#0b2f89", "very high"]
+        ]
       },
       wind_speed: {
         label: "Wind speed",
         unit: "m/s",
-        aggregation: "Annual mean",
-        path: "data/map_layers/wind_speed_annual_mean.json",
-        gradient: {
-          0.00: "#f7f7f7",
-          0.45: "#969696",
-          1.00: "#252525"
-        }
+        layer: "wind_new",
+        source: "OpenWeatherMap weather tile layer",
+        legendStops: [
+          ["#ffffff", "calm"],
+          ["#bdbdbd", "moderate"],
+          ["#737373", "strong"],
+          ["#252525", "very strong"]
+        ]
+      },
+      pressure: {
+        label: "Sea-level pressure",
+        unit: "hPa",
+        layer: "pressure_new",
+        source: "OpenWeatherMap weather tile layer",
+        legendStops: [
+          ["#313695", "low"],
+          ["#ffffbf", "normal"],
+          ["#a50026", "high"]
+        ]
+      },
+      clouds: {
+        label: "Cloud cover",
+        unit: "%",
+        layer: "clouds_new",
+        source: "OpenWeatherMap weather tile layer",
+        legendStops: [
+          ["#ffffff", "clear"],
+          ["#cfd8dc", "partly cloudy"],
+          ["#607d8b", "cloudy"]
+        ]
       }
     };
     const DIRECTORY_COUNTRY_LIST = [
@@ -651,8 +660,8 @@
     let corrosionHeatLayer = null;
 
     let activeClimateLayerKey = "";
-    let climateHeatLayer = null;
-    let climateLayerCache = new Map();
+    let climateTileLayer = null;
+    let overlayLegendControl = null;
 
     let countryMiniMap = null;
     let countryMiniMarkerLayer = null;
@@ -1915,121 +1924,10 @@
       }
     }
 
-    function importCorrosionCsvFile(file) {
-      const status = document.getElementById("corrosionImportStatus");
+    function clearCorrosionOverlay(options = {}) {
+      const updateStatus = options.updateStatus !== false;
+      const removeLegend = options.removeLegend !== false;
 
-      if (!status) return;
-
-      if (!file) {
-        status.textContent = "No file selected.";
-        return;
-      }
-
-      if (!allRows.length) {
-        status.textContent = "Dataset is not loaded yet. Try again after the map finishes loading.";
-        return;
-      }
-
-      Papa.parse(file, {
-        header: true,
-        skipEmptyLines: true,
-        complete: function(results) {
-          const rows = results.data || [];
-
-          if (!rows.length) {
-            status.textContent = "The imported CSV is empty.";
-            return;
-          }
-
-          const firstRow = rows[0];
-
-          const siteIdColumn = findCsvColumn(firstRow, [
-            "site_id",
-            "site id",
-            "siteId",
-            "Site ID"
-          ]);
-
-          const rateColumn = findCsvColumn(firstRow, [
-            "steel_corrosion_rate",
-            "steel corrosion rate",
-            "corrosion_rate",
-            "corrosion rate"
-          ]);
-
-          if (!siteIdColumn || !rateColumn) {
-            status.textContent =
-              "Import failed. Required columns: site_id and steel_corrosion_rate.";
-            return;
-          }
-
-          const importedRates = new Map();
-          const unknownSiteIds = [];
-          const invalidRows = [];
-
-          rows.forEach((row, index) => {
-            const siteId = normalizeText(row[siteIdColumn]).toUpperCase();
-            const rate = parseCorrosionNumber(row[rateColumn]);
-
-            if (!siteId || !Number.isFinite(rate)) {
-              invalidRows.push(index + 2);
-              return;
-            }
-
-            if (!allSiteIds.has(siteId)) {
-              unknownSiteIds.push(siteId);
-              return;
-            }
-
-            importedRates.set(siteId, rate);
-          });
-
-          corrosionRatesBySiteId = importedRates;
-          corrosionOverlayActive = true;
-
-          renderMarkers(visibleRows);
-          updateCorrosionHeatLayer();
-
-          if (appShell.classList.contains("directory-open")) {
-            renderCountryDirectory(visibleRows);
-          }
-
-          let message = `Imported ${importedRates.size} matched corrosion-rate record(s).`;
-
-          if (unknownSiteIds.length) {
-            message += ` ${unknownSiteIds.length} site_id value(s) did not match existing sites.`;
-          }
-
-          if (invalidRows.length) {
-            message += ` ${invalidRows.length} invalid row(s) skipped.`;
-          }
-
-          status.textContent = message;
-        },
-        error: function(error) {
-          status.textContent = `CSV import failed: ${error.message}`;
-        }
-      });
-    }
-
-    function exportCurrentCorrosionCsv() {
-      if (!corrosionRatesBySiteId.size) {
-        alert("No corrosion-rate data is currently imported.");
-        return;
-      }
-
-      const rows = Array.from(corrosionRatesBySiteId.entries()).map(
-        ([siteId, rate]) => ({
-          site_id: siteId,
-          steel_corrosion_rate: rate
-        })
-      );
-
-      const csv = Papa.unparse(rows);
-      downloadCsv("corrosion_rates_export.csv", csv);
-    }
-
-    function clearCorrosionOverlay() {
       corrosionRatesBySiteId = new Map();
       corrosionOverlayActive = false;
 
@@ -2044,253 +1942,239 @@
         renderCountryDirectory(visibleRows);
       }
 
-      const input = document.getElementById("corrosionCsvInput");
+      if (removeLegend) {
+        removeOverlayLegend();
+      }
+
+      if (updateStatus) {
+        const status = document.getElementById("corrosionImportStatus");
+        if (status) status.textContent = "Corrosion-rate overlay cleared.";
+      }
+    }
+
+    function isSteelMaterial(value) {
+      const text = normalizeText(value).toLowerCase();
+
+      return (
+        text.includes("steel") ||
+        text.includes("carbon steel") ||
+        text.includes("weathering steel")
+      );
+    }
+
+    function isCorrosionRateMetric(value) {
+      const text = normalizeText(value).toLowerCase();
+
+      return (
+        text === "corrosion_rate" ||
+        text.includes("corrosion rate") ||
+        text.includes("corrosion_rate")
+      );
+    }
+
+    function loadCuratedCorrosionOverlay() {
+      clearClimateLayer({
+        resetSelect: true,
+        updateStatus: true,
+        removeLegend: false
+      });
+
       const status = document.getElementById("corrosionImportStatus");
 
-      if (input) input.value = "";
-      if (status) status.textContent = "Corrosion-rate overlay cleared.";
+      if (status) {
+        status.textContent = "Loading curated corrosion observations...";
+      }
+
+      Papa.parse(`data/corrosion_observations.csv?v=${Date.now()}`, {
+        download: true,
+        header: true,
+        skipEmptyLines: true,
+        complete: function(results) {
+          const rows = results.data || [];
+          const groupedValues = new Map();
+
+          rows.forEach(row => {
+            const siteId = getSiteId(row);
+            const value = parseCorrosionNumber(row.value);
+
+            if (!siteId || !allSiteIds.has(siteId)) return;
+            if (!Number.isFinite(value)) return;
+
+            if (row.material && !isSteelMaterial(row.material)) return;
+            if (row.corrosion_metric && !isCorrosionRateMetric(row.corrosion_metric)) return;
+
+            if (!groupedValues.has(siteId)) {
+              groupedValues.set(siteId, []);
+            }
+
+            groupedValues.get(siteId).push(value);
+          });
+
+          const loadedRates = new Map();
+
+          groupedValues.forEach((values, siteId) => {
+            const meanValue = values.reduce((sum, value) => sum + value, 0) / values.length;
+            loadedRates.set(siteId, meanValue);
+          });
+
+          corrosionRatesBySiteId = loadedRates;
+          corrosionOverlayActive = true;
+
+          renderMarkers(visibleRows);
+          updateCorrosionHeatLayer();
+
+          renderOverlayLegend(
+            "Steel corrosion rate",
+            "Curated site-based observations",
+            [
+              ["#2c7bb6", "low"],
+              ["#ffffbf", "moderate"],
+              ["#fdae61", "high"],
+              ["#d7191c", "very high"]
+            ],
+            "Site-based heatmap from curator-exported corrosion observations."
+          );
+
+          if (status) {
+            status.textContent =
+              `Loaded ${loadedRates.size.toLocaleString()} site-matched curated steel corrosion-rate value(s).`;
+          }
+        },
+        error: function(error) {
+          if (status) {
+            status.textContent = `Could not load curated corrosion observations: ${error.message}`;
+          }
+        }
+      });
     }
 
-    function getClimateStatusElement() {
-      return document.getElementById("climateLayerStatus");
+    function removeOverlayLegend() {
+      if (overlayLegendControl) {
+        map.removeControl(overlayLegendControl);
+        overlayLegendControl = null;
+      }
     }
 
-    function getClimateLegendElement() {
-      return document.getElementById("climateLegend");
+    function renderOverlayLegend(title, subtitle, legendStops, note = "") {
+      removeOverlayLegend();
+
+      overlayLegendControl = L.control({ position: "bottomleft" });
+
+      overlayLegendControl.onAdd = function() {
+        const div = L.DomUtil.create("div", "overlay-legend-control");
+
+        const rowsHtml = legendStops.map(([color, label]) => `
+          <div class="overlay-legend-row">
+            <span class="overlay-legend-swatch" style="background:${escapeHtml(color)}"></span>
+            <span>${escapeHtml(label)}</span>
+          </div>
+        `).join("");
+
+        div.innerHTML = `
+          <div class="overlay-legend-title">${escapeHtml(title)}</div>
+          <div class="overlay-legend-subtitle">${escapeHtml(subtitle)}</div>
+          <div class="overlay-legend-rows">
+            ${rowsHtml}
+          </div>
+          ${note ? `<div class="overlay-legend-note">${escapeHtml(note)}</div>` : ""}
+        `;
+
+        L.DomEvent.disableClickPropagation(div);
+        L.DomEvent.disableScrollPropagation(div);
+
+        return div;
+      };
+
+      overlayLegendControl.addTo(map);
     }
 
     function setClimateStatus(message) {
-      const status = getClimateStatusElement();
+      const status = document.getElementById("climateLayerStatus");
 
       if (status) {
         status.textContent = message;
       }
     }
 
-    function clearClimateLegend() {
-      const legend = getClimateLegendElement();
+    function clearClimateLayer(options = {}) {
+      const resetSelect = options.resetSelect !== false;
+      const updateStatus = options.updateStatus !== false;
+      const removeLegend = options.removeLegend !== false;
 
-      if (!legend) return;
+      activeClimateLayerKey = "";
 
-      legend.hidden = true;
-      legend.innerHTML = "";
+      if (climateTileLayer) {
+        map.removeLayer(climateTileLayer);
+        climateTileLayer = null;
+      }
+
+      const select = document.getElementById("climateLayerSelect");
+
+      if (select && resetSelect) {
+        select.value = "";
+      }
+
+      if (removeLegend) {
+        removeOverlayLegend();
+      }
+
+      if (updateStatus) {
+        setClimateStatus("Climate/weather overlay cleared.");
+      }
     }
 
-    function renderClimateLegend(config, minValue, maxValue, pointCount, metadata = {}) {
-      const legend = getClimateLegendElement();
+    function loadClimateLayer(layerKey) {
+      clearClimateLayer({
+        resetSelect: false,
+        updateStatus: false,
+        removeLegend: true
+      });
 
-      if (!legend) return;
-
-      const minText = `${minValue.toFixed(2)} ${config.unit}`;
-      const maxText = `${maxValue.toFixed(2)} ${config.unit}`;
-      const period = metadata.period || metadata.period_label || "configured period";
-      const source = metadata.source || metadata.data_source || "pre-generated climate layer";
-
-      legend.hidden = false;
-      legend.innerHTML = `
-        <div class="climate-legend-title">
-          ${escapeHtml(config.label)} · ${escapeHtml(config.aggregation)}
-        </div>
-        <div class="climate-legend-gradient"></div>
-        <div class="climate-legend-scale">
-          <span>${escapeHtml(minText)}</span>
-          <span>${escapeHtml(maxText)}</span>
-        </div>
-        <div class="climate-legend-note">
-          ${pointCount.toLocaleString()} grid point${pointCount === 1 ? "" : "s"} ·
-          ${escapeHtml(period)} · ${escapeHtml(source)}
-        </div>
-      `;
-    }
-
-    function parseClimateLayerPoint(point) {
-      if (Array.isArray(point)) {
-        const lat = Number(point[0]);
-        const lon = Number(point[1]);
-        const value = Number(point[2]);
-
-        if (!Number.isFinite(lat) || !Number.isFinite(lon) || !Number.isFinite(value)) {
-          return null;
-        }
-
-        return { lat, lon, value };
-      }
-
-      const lat = Number(
-        point.lat ??
-        point.latitude ??
-        point.y
-      );
-
-      const lon = Number(
-        point.lon ??
-        point.lng ??
-        point.longitude ??
-        point.x
-      );
-
-      const value = Number(
-        point.value ??
-        point.mean ??
-        point.annual_mean ??
-        point.annual_sum
-      );
-
-      if (!Number.isFinite(lat) || !Number.isFinite(lon) || !Number.isFinite(value)) {
-        return null;
-      }
-
-      return { lat, lon, value };
-    }
-
-    function normaliseClimateIntensity(value, minValue, maxValue) {
-      if (!Number.isFinite(value)) return 0;
-
-      if (maxValue === minValue) {
-        return 0.7;
-      }
-
-      const intensity = (value - minValue) / (maxValue - minValue);
-
-      return Math.max(0.12, Math.min(1, intensity));
-    }
-
-    function getClimateLayerPoints(layerData) {
-      if (Array.isArray(layerData)) {
-        return layerData;
-      }
-
-      return (
-        layerData.points ||
-        layerData.values ||
-        layerData.data ||
-        []
-      );
-    }
-
-    async function fetchClimateLayerData(config) {
-      if (climateLayerCache.has(config.path)) {
-        return climateLayerCache.get(config.path);
-      }
-
-      const response = await fetch(`${config.path}?v=${Date.now()}`);
-
-      if (!response.ok) {
-        throw new Error(`Could not load ${config.path}. HTTP ${response.status}`);
-      }
-
-      const data = await response.json();
-
-      climateLayerCache.set(config.path, data);
-
-      return data;
-    }
-
-    async function loadClimateLayer(layerKey) {
-      if (climateHeatLayer) {
-        map.removeLayer(climateHeatLayer);
-        climateHeatLayer = null;
-      }
+      clearCorrosionOverlay({
+        updateStatus: true,
+        removeLegend: false
+      });
 
       activeClimateLayerKey = layerKey || "";
-      clearClimateLegend();
 
       if (!activeClimateLayerKey) {
-        setClimateStatus("No climate/environment layer selected.");
+        setClimateStatus("No climate/weather layer selected.");
         return;
       }
 
       const config = CLIMATE_LAYER_CONFIG[activeClimateLayerKey];
 
       if (!config) {
-        setClimateStatus("Unknown climate/environment layer.");
+        setClimateStatus("Unknown climate/weather layer.");
         return;
       }
 
-      setClimateStatus(`Loading ${config.label.toLowerCase()} layer...`);
+      if (!OPENWEATHERMAP_API_KEY) {
+        setClimateStatus(
+          "OpenWeatherMap API key is missing. Add it to OPENWEATHERMAP_API_KEY in index.html for local testing."
+        );
+        return;
+      }
 
-      try {
-        const layerData = await fetchClimateLayerData(config);
-        const rawPoints = getClimateLayerPoints(layerData);
-
-        const parsedPoints = rawPoints
-          .map(parseClimateLayerPoint)
-          .filter(Boolean)
-          .filter(point => (
-            point.lat >= -TILE_LAT_LIMIT &&
-            point.lat <= TILE_LAT_LIMIT &&
-            point.lon >= -180 &&
-            point.lon <= 180
-          ));
-
-        if (!parsedPoints.length) {
-          setClimateStatus(
-            `${config.label} layer loaded, but no valid points were found.`
-          );
-          return;
-        }
-
-        const values = parsedPoints.map(point => point.value);
-        const minValue = Number.isFinite(Number(layerData.min))
-          ? Number(layerData.min)
-          : Math.min(...values);
-        const maxValue = Number.isFinite(Number(layerData.max))
-          ? Number(layerData.max)
-          : Math.max(...values);
-
-        const heatPoints = parsedPoints.map(point => [
-          point.lat,
-          point.lon,
-          normaliseClimateIntensity(point.value, minValue, maxValue)
-        ]);
-
-        climateHeatLayer = L.heatLayer(heatPoints, {
+      climateTileLayer = L.tileLayer(
+        `https://tile.openweathermap.org/map/${config.layer}/{z}/{x}/{y}.png?appid=${OPENWEATHERMAP_API_KEY}`,
+        {
+          opacity: 0.55,
           pane: "climateHeatPane",
-          radius: 34,
-          blur: 26,
-          maxZoom: 7,
-          minOpacity: 0.32,
-          gradient: config.gradient
-        });
+          attribution: "Weather layer © OpenWeatherMap"
+        }
+      );
 
-        climateHeatLayer.addTo(map);
+      climateTileLayer.addTo(map);
 
-        setClimateStatus(
-          `${config.label} layer rendered from ${parsedPoints.length.toLocaleString()} grid point(s).`
-        );
+      renderOverlayLegend(
+        config.label,
+        config.source,
+        config.legendStops,
+        "This is a weather tile overlay, not a long-term measured site exposure record."
+      );
 
-        renderClimateLegend(
-          config,
-          minValue,
-          maxValue,
-          parsedPoints.length,
-          layerData.metadata || layerData
-        );
-
-      } catch (error) {
-        setClimateStatus(
-          `${config.label} layer could not be loaded. Check that ${config.path} exists.`
-        );
-        console.error(error);
-      }
-    }
-
-    function clearClimateLayer() {
-      activeClimateLayerKey = "";
-
-      if (climateHeatLayer) {
-        map.removeLayer(climateHeatLayer);
-        climateHeatLayer = null;
-      }
-
-      const select = document.getElementById("climateLayerSelect");
-
-      if (select) {
-        select.value = "";
-      }
-
-      clearClimateLegend();
-      setClimateStatus("Climate/environment overlay cleared.");
+      setClimateStatus(`${config.label} overlay active.`);
     }
 
     function fitRows(rows) {
@@ -2445,13 +2329,8 @@
           downloadCsv('visible_corrosion_sites.csv', csvText);
         });
 
-        document.getElementById('corrosionCsvInput')?.addEventListener('change', function(event) {
-          const file = event.target.files && event.target.files[0];
-          importCorrosionCsvFile(file);
-        });
-
-        document.getElementById('exportCorrosionCsvBtn')?.addEventListener('click', function() {
-          exportCurrentCorrosionCsv();
+        document.getElementById('loadCorrosionCsvBtn')?.addEventListener('click', function() {
+          loadCuratedCorrosionOverlay();
         });
 
         document.getElementById('clearCorrosionCsvBtn')?.addEventListener('click', function() {

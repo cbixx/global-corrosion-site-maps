@@ -1142,3 +1142,57 @@ html, body {
     font-size: 11px;
     line-height: 1.35;
 }
+
+.overlay-legend-control {
+    background: rgba(255, 255, 255, 0.96);
+    border: 1px solid #d7dee3;
+    border-radius: 10px;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.16);
+    padding: 10px 12px;
+    min-width: 190px;
+    max-width: 245px;
+    font-size: 12px;
+    color: #374151;
+    margin-bottom: 48px;
+    backdrop-filter: blur(4px);
+}
+
+.overlay-legend-title {
+    font-weight: 800;
+    color: #111827;
+    margin-bottom: 2px;
+}
+
+.overlay-legend-subtitle {
+    color: #6b7280;
+    font-size: 11px;
+    line-height: 1.35;
+    margin-bottom: 8px;
+}
+
+.overlay-legend-rows {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.overlay-legend-row {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+}
+
+.overlay-legend-swatch {
+    width: 18px;
+    height: 10px;
+    border-radius: 999px;
+    border: 1px solid rgba(0, 0, 0, 0.14);
+    flex-shrink: 0;
+}
+
+.overlay-legend-note {
+    margin-top: 8px;
+    color: #6b7280;
+    font-size: 11px;
+    line-height: 1.35;
+}
