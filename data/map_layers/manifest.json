@@ -1,0 +1,17 @@
+{
+  "default_period": "2025",
+  "periods": [
+    {
+      "key": "2025",
+      "label": "2025",
+      "description": "Annual climate summary for 2025",
+      "source": "Open-Meteo Historical Weather API",
+      "layers": {
+        "air_temperature": "data/map_layers/2025/air_temperature_annual_mean.json",
+        "relative_humidity": "data/map_layers/2025/relative_humidity_annual_mean.json",
+        "precipitation": "data/map_layers/2025/precipitation_annual_sum.json",
+        "wind_speed": "data/map_layers/2025/wind_speed_annual_mean.json"
+      }
+    }
+  ]
+}
