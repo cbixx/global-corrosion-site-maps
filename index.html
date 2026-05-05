@@ -660,7 +660,7 @@
     let corrosionHeatLayer = null;
 
     let activeClimateLayerKey = "";
-    let climateHeatLayer = null;
+    let climateGridLayer = null;
     let climateLayerCache = new Map();
     let overlayLegendControl = null;
 
@@ -2186,9 +2186,9 @@
 
       activeClimateLayerKey = "";
 
-      if (climateHeatLayer) {
-        map.removeLayer(climateHeatLayer);
-        climateHeatLayer = null;
+      if (climateGridLayer) {
+        map.removeLayer(climateGridLayer);
+        climateGridLayer = null;
       }
 
       const select = document.getElementById("climateLayerSelect");
@@ -2204,6 +2204,123 @@
       if (updateStatus) {
         setClimateStatus("Climate/environment overlay cleared.");
       }
+    }
+
+    function hexToRgb(hex) {
+      const cleanHex = String(hex || "").replace("#", "");
+
+      if (cleanHex.length !== 6) {
+        return { r: 0, g: 0, b: 0 };
+      }
+
+      return {
+        r: parseInt(cleanHex.slice(0, 2), 16),
+        g: parseInt(cleanHex.slice(2, 4), 16),
+        b: parseInt(cleanHex.slice(4, 6), 16)
+      };
+    }
+
+    function rgbToHex(r, g, b) {
+      const toHex = value => {
+        const cleanValue = Math.max(0, Math.min(255, Math.round(value)));
+        return cleanValue.toString(16).padStart(2, "0");
+      };
+
+      return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+    }
+
+    function interpolateColor(colorA, colorB, t) {
+      const a = hexToRgb(colorA);
+      const b = hexToRgb(colorB);
+
+      return rgbToHex(
+        a.r + (b.r - a.r) * t,
+        a.g + (b.g - a.g) * t,
+        a.b + (b.b - a.b) * t
+      );
+    }
+
+    function getClimateColor(value, minValue, maxValue, gradient) {
+      if (!Number.isFinite(value)) return "#cccccc";
+
+      if (maxValue === minValue) {
+        return Object.values(gradient)[0] || "#cccccc";
+      }
+
+      const normalized = Math.max(
+        0,
+        Math.min(1, (value - minValue) / (maxValue - minValue))
+      );
+
+      const stops = Object.keys(gradient)
+        .map(key => ({
+          position: Number(key),
+          color: gradient[key]
+        }))
+        .filter(stop => Number.isFinite(stop.position))
+        .sort((a, b) => a.position - b.position);
+
+      if (!stops.length) return "#cccccc";
+
+      if (normalized <= stops[0].position) {
+        return stops[0].color;
+      }
+
+      if (normalized >= stops[stops.length - 1].position) {
+        return stops[stops.length - 1].color;
+      }
+
+      for (let index = 0; index < stops.length - 1; index += 1) {
+        const left = stops[index];
+        const right = stops[index + 1];
+
+        if (normalized >= left.position && normalized <= right.position) {
+          const localT = (normalized - left.position) / (right.position - left.position);
+          return interpolateColor(left.color, right.color, localT);
+        }
+      }
+
+      return stops[stops.length - 1].color;
+    }
+
+    function renderClimateGridLayer(points, minValue, maxValue, gridStep, config) {
+      const layerGroup = L.layerGroup();
+      const halfStep = gridStep / 2;
+
+      points.forEach(point => {
+        const south = Math.max(-TILE_LAT_LIMIT, point.lat - halfStep);
+        const north = Math.min(TILE_LAT_LIMIT, point.lat + halfStep);
+        const west = Math.max(-180, point.lon - halfStep);
+        const east = Math.min(180, point.lon + halfStep);
+
+        if (south >= north || west >= east) return;
+
+        const color = getClimateColor(
+          point.value,
+          minValue,
+          maxValue,
+          config.gradient
+        );
+
+        const rectangle = L.rectangle(
+          [
+            [south, west],
+            [north, east]
+          ],
+          {
+            pane: "climateHeatPane",
+            stroke: false,
+            fill: true,
+            fillColor: color,
+            fillOpacity: 0.42,
+            interactive: false
+          }
+        );
+
+        rectangle.addTo(layerGroup);
+      });
+
+      return layerGroup;
     }
 
     async function loadClimateLayer(layerKey) {
@@ -2263,22 +2380,21 @@
           ? Number(layerData.max)
           : Math.max(...values);
 
-        const heatPoints = parsedPoints.map(point => [
-          point.lat,
-          point.lon,
-          normaliseClimateIntensity(point.value, minValue, maxValue)
-        ]);
+        const gridStep = Number(
+          metadata.grid_step_degrees ||
+          layerData.grid_step_degrees ||
+          15
+        );
 
-        climateHeatLayer = L.heatLayer(heatPoints, {
-          pane: "climateHeatPane",
-          radius: 34,
-          blur: 26,
-          maxZoom: 7,
-          minOpacity: 0.32,
-          gradient: config.gradient
-        });
+        climateGridLayer = renderClimateGridLayer(
+          parsedPoints,
+          minValue,
+          maxValue,
+          gridStep,
+          config
+        );
 
-        climateHeatLayer.addTo(map);
+        climateGridLayer.addTo(map);
 
         const metadata = layerData.metadata || {};
         const period = metadata.period || metadata.period_label || CLIMATE_LAYER_PERIOD_LABEL;
