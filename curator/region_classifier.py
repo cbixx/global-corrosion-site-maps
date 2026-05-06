@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
+import copy
 import math
 import re
 import urllib.request
@@ -79,7 +80,6 @@ ISLAND_COUNTRY_HINTS = {
     "singapore",
     "solomon islands",
     "sri lanka",
-    "taiwan",
     "tonga",
     "trinidad and tobago",
     "tuvalu",
@@ -128,6 +128,74 @@ HOT_ARID_PATTERNS = [
     r"\barabian desert\b",
     r"\bgobi\b",
 ]
+DEFAULT_REGION_CLASSIFICATION_SETTINGS = {
+    "distance_to_coast": {
+        "marine_km": 1.0,
+        "coastal_km": 10.0,
+        "near_coastal_km": 50.0,
+    },
+    "latitude_rules": {
+        "antarctic_latitude_max": -60.0,
+        "sub_antarctic_latitude_min": -60.0,
+        "sub_antarctic_latitude_max": -45.0,
+        "sub_arctic_latitude_min": 60.0,
+        "sub_arctic_latitude_max": 66.5,
+        "tropical_abs_latitude_max": 23.5,
+        "cold_abs_latitude_min": 50.0,
+        "extreme_cold_abs_latitude_min": 66.5,
+    },
+    "semantic_rules": {
+        "island_country_hints": sorted(ISLAND_COUNTRY_HINTS),
+        "island_text_patterns": ISLAND_TEXT_PATTERNS,
+        "urban_patterns": URBAN_PATTERNS,
+        "rural_patterns": RURAL_PATTERNS,
+        "industrial_patterns": INDUSTRIAL_PATTERNS,
+        "hot_arid_patterns": HOT_ARID_PATTERNS,
+    },
+}
+
+
+def get_default_region_classification_settings() -> dict[str, Any]:
+    return copy.deepcopy(DEFAULT_REGION_CLASSIFICATION_SETTINGS)
+
+
+def merge_region_classification_settings(settings: dict[str, Any] | None = None) -> dict[str, Any]:
+    merged = get_default_region_classification_settings()
+
+    if not isinstance(settings, dict):
+        return merged
+
+    for group_key, group_value in settings.items():
+        if isinstance(group_value, dict) and isinstance(merged.get(group_key), dict):
+            merged[group_key].update(group_value)
+        else:
+            merged[group_key] = group_value
+
+    return merged
+
+
+def _settings_number(settings: dict[str, Any], group: str, key: str, default: float) -> float:
+    try:
+        return float(settings.get(group, {}).get(key, default))
+    except Exception:
+        return float(default)
+
+
+def _settings_patterns(
+    settings: dict[str, Any],
+    group: str,
+    key: str,
+    fallback: list[str],
+) -> list[str]:
+    value = settings.get(group, {}).get(key, fallback)
+
+    if isinstance(value, list):
+        return [str(item).strip() for item in value if str(item).strip()]
+
+    if isinstance(value, str):
+        return [line.strip() for line in value.splitlines() if line.strip()]
+
+    return fallback
 
 
 @dataclass
@@ -327,7 +395,12 @@ def _distance_to_nearest_coast_km(lat: float, lon: float, geo_data: _GeoData) ->
     )
 
 
-def _classify_coastal_context(lat: float, lon: float, notes: list[str]) -> str | None:
+def _classify_coastal_context(
+    lat: float,
+    lon: float,
+    notes: list[str],
+    settings: dict[str, Any],
+) -> str | None:
     try:
         geo_data = _get_geo_data()
     except RuntimeError as exc:
@@ -343,13 +416,17 @@ def _classify_coastal_context(lat: float, lon: float, notes: list[str]) -> str |
         notes.append("Point appears offshore or outside the Natural Earth land polygon; classified as Marine.")
         return "Marine"
 
-    if distance_km <= 1:
+    marine_km = _settings_number(settings, "distance_to_coast", "marine_km", 1.0)
+    coastal_km = _settings_number(settings, "distance_to_coast", "coastal_km", 10.0)
+    near_coastal_km = _settings_number(settings, "distance_to_coast", "near_coastal_km", 50.0)
+
+    if distance_km <= marine_km:
         return "Marine"
 
-    if distance_km <= 10:
+    if distance_km <= coastal_km:
         return "Coastal"
 
-    if distance_km <= 50:
+    if distance_km <= near_coastal_km:
         return "Near-coastal"
 
     return "Inland"
@@ -358,64 +435,182 @@ def _classify_coastal_context(lat: float, lon: float, notes: list[str]) -> str |
 def _classify_island(
     text: str,
     modern_country_location: str | None,
+    settings: dict[str, Any],
 ) -> bool:
     country_text = str(modern_country_location or "").strip().lower()
 
-    if _has_pattern(text, ISLAND_TEXT_PATTERNS):
+    island_patterns = _settings_patterns(
+        settings,
+        "semantic_rules",
+        "island_text_patterns",
+        ISLAND_TEXT_PATTERNS,
+    )
+
+    island_country_hints = {
+        item.strip().lower()
+        for item in _settings_patterns(
+            settings,
+            "semantic_rules",
+            "island_country_hints",
+            sorted(ISLAND_COUNTRY_HINTS),
+        )
+    }
+
+    if _has_pattern(text, island_patterns):
         return True
 
-    if country_text in ISLAND_COUNTRY_HINTS:
+    if country_text in island_country_hints:
         return True
 
     return False
 
 
-def _classify_settlement(text: str) -> str | None:
-    if _has_pattern(text, URBAN_PATTERNS):
+def _classify_settlement(text: str, settings: dict[str, Any]) -> str | None:
+    urban_patterns = _settings_patterns(
+        settings,
+        "semantic_rules",
+        "urban_patterns",
+        URBAN_PATTERNS,
+    )
+
+    rural_patterns = _settings_patterns(
+        settings,
+        "semantic_rules",
+        "rural_patterns",
+        RURAL_PATTERNS,
+    )
+
+    if _has_pattern(text, urban_patterns):
         return "Urban"
 
-    if _has_pattern(text, RURAL_PATTERNS):
+    if _has_pattern(text, rural_patterns):
         return "Rural"
 
     return None
 
 
-def _classify_industrial(text: str) -> bool:
-    return _has_pattern(text, INDUSTRIAL_PATTERNS)
+def _classify_industrial(text: str, settings: dict[str, Any]) -> bool:
+    industrial_patterns = _settings_patterns(
+        settings,
+        "semantic_rules",
+        "industrial_patterns",
+        INDUSTRIAL_PATTERNS,
+    )
+
+    return _has_pattern(text, industrial_patterns)
 
 
-def _classify_polar_context(lat: float, text: str, island_detected: bool) -> list[str]:
+def _classify_polar_context(
+    lat: float,
+    text: str,
+    island_detected: bool,
+    settings: dict[str, Any],
+) -> list[str]:
     tags: list[str] = []
+
+    antarctic_latitude_max = _settings_number(
+        settings,
+        "latitude_rules",
+        "antarctic_latitude_max",
+        -60.0,
+    )
+
+    sub_antarctic_latitude_min = _settings_number(
+        settings,
+        "latitude_rules",
+        "sub_antarctic_latitude_min",
+        -60.0,
+    )
+
+    sub_antarctic_latitude_max = _settings_number(
+        settings,
+        "latitude_rules",
+        "sub_antarctic_latitude_max",
+        -45.0,
+    )
+
+    sub_arctic_latitude_min = _settings_number(
+        settings,
+        "latitude_rules",
+        "sub_arctic_latitude_min",
+        60.0,
+    )
+
+    sub_arctic_latitude_max = _settings_number(
+        settings,
+        "latitude_rules",
+        "sub_arctic_latitude_max",
+        66.5,
+    )
 
     if "sub-antarctic" in text or "subantarctic" in text:
         tags.append("Sub-Antarctic")
-    elif -60 < lat <= -45 and island_detected:
+    elif sub_antarctic_latitude_min < lat <= sub_antarctic_latitude_max and island_detected:
         tags.append("Sub-Antarctic")
 
-    if "antarctica" in text or lat <= -60:
+    if "antarctica" in text or lat <= antarctic_latitude_max:
         tags.append("Antarctic")
 
     if "sub-arctic" in text or "subarctic" in text:
         tags.append("Sub-arctic")
-    elif 60 <= lat < 66.5:
+    elif sub_arctic_latitude_min <= lat < sub_arctic_latitude_max:
         tags.append("Sub-arctic")
 
     return tags
 
 
-def _classify_climate_context(lat: float, text: str) -> str:
+def _classify_climate_context(
+    lat: float,
+    text: str,
+    settings: dict[str, Any],
+) -> str:
     abs_lat = abs(lat)
 
-    if _has_pattern(text, HOT_ARID_PATTERNS):
+    hot_arid_patterns = _settings_patterns(
+        settings,
+        "semantic_rules",
+        "hot_arid_patterns",
+        HOT_ARID_PATTERNS,
+    )
+
+    tropical_abs_latitude_max = _settings_number(
+        settings,
+        "latitude_rules",
+        "tropical_abs_latitude_max",
+        23.5,
+    )
+
+    cold_abs_latitude_min = _settings_number(
+        settings,
+        "latitude_rules",
+        "cold_abs_latitude_min",
+        50.0,
+    )
+
+    extreme_cold_abs_latitude_min = _settings_number(
+        settings,
+        "latitude_rules",
+        "extreme_cold_abs_latitude_min",
+        66.5,
+    )
+
+    antarctic_latitude_max = _settings_number(
+        settings,
+        "latitude_rules",
+        "antarctic_latitude_max",
+        -60.0,
+    )
+
+    if _has_pattern(text, hot_arid_patterns):
         return "Hot-arid"
 
-    if lat <= -60 or abs_lat >= 66.5:
+    if lat <= antarctic_latitude_max or abs_lat >= extreme_cold_abs_latitude_min:
         return "Extreme cold"
 
-    if abs_lat <= 23.5:
+    if abs_lat <= tropical_abs_latitude_max:
         return "Tropical"
 
-    if abs_lat >= 50:
+    if abs_lat >= cold_abs_latitude_min:
         return "Cold"
 
     return "Temperate"
@@ -458,6 +653,7 @@ def classify_region_category(
     current_region_category: str | None = "",
     modern_country_location: str | None = "",
     site_type: str | None = "",
+    settings: dict[str, Any] | None = None,
 ) -> RegionClassification:
     """
     Coordinate-based region-category classifier.
@@ -476,6 +672,8 @@ def classify_region_category(
 
     notes: list[str] = []
     existing_tags = _split_tags(current_region_category)
+
+    settings = merge_region_classification_settings(settings)
 
     try:
         lat = float(latitude)
@@ -500,35 +698,36 @@ def classify_region_category(
 
     inferred_tags: list[str] = []
 
-    coastal_context = _classify_coastal_context(lat, lon, notes)
+    coastal_context = _classify_coastal_context(lat, lon, notes, settings)
     if coastal_context:
         inferred_tags.append(coastal_context)
 
     island_detected = _classify_island(
         text=text,
         modern_country_location=modern_country_location,
+        settings=settings,
     )
 
     if island_detected:
         inferred_tags.append("Island")
         notes.append("Island flag inferred from location/site text or island-country hint.")
 
-    if _classify_industrial(text):
+    if _classify_industrial(text, settings):
         inferred_tags.append("Industrial")
         notes.append("Industrial flag inferred from site/location text.")
 
-    settlement_context = _classify_settlement(text)
+    settlement_context = _classify_settlement(text, settings)
     if settlement_context:
         inferred_tags.append(settlement_context)
         notes.append(f"Settlement context inferred as {settlement_context} from site/location text.")
 
-    polar_tags = _classify_polar_context(lat, text, island_detected)
+    polar_tags = _classify_polar_context(lat, text, island_detected, settings)
     inferred_tags.extend(polar_tags)
 
     if polar_tags:
         notes.append("Polar/subpolar context inferred from latitude and/or explicit text.")
 
-    climate_context = _classify_climate_context(lat, text)
+    climate_context = _classify_climate_context(lat, text, settings)
     inferred_tags.append(climate_context)
     notes.append(f"Broad climate context suggested as {climate_context} using latitude/text heuristic.")
 

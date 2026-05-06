@@ -24,6 +24,8 @@ from db import (
     delete_site_source_links,
     delete_table_rows,
     ensure_schema_updates,
+    get_app_setting,
+    set_app_setting,
     get_connection,
     get_existing_source_codes,
     get_metadata_options,
@@ -57,7 +59,11 @@ from exporter import (
     get_publishable_sites,
     publish_selected_sites_csv,
 )
-from region_classifier import classify_region_category
+from region_classifier import (
+    classify_region_category,
+    get_default_region_classification_settings,
+    merge_region_classification_settings,
+)
 from github_publish import (
     get_github_config_summary,
     publish_files_to_github,
@@ -451,6 +457,111 @@ DATAFRAME_MAX_HEIGHT = 420
 DATA_EDITOR_ROW_HEIGHT = 34
 DATA_EDITOR_HEADER_HEIGHT = 40
 DATA_EDITOR_EXTRA_PADDING = 0
+
+REGION_CLASSIFICATION_SETTINGS_KEY = "region_classification_rules"
+
+
+def get_region_classification_settings() -> dict[str, Any]:
+    saved_settings = get_app_setting(
+        REGION_CLASSIFICATION_SETTINGS_KEY,
+        default=None,
+    )
+
+    return merge_region_classification_settings(saved_settings)
+
+
+def save_region_classification_settings(settings: dict[str, Any]) -> None:
+    set_app_setting(
+        REGION_CLASSIFICATION_SETTINGS_KEY,
+        merge_region_classification_settings(settings),
+    )
+
+
+def lines_to_list(value: str) -> list[str]:
+    return [
+        line.strip()
+        for line in str(value or "").splitlines()
+        if line.strip()
+    ]
+
+
+def list_to_lines(value) -> str:
+    if isinstance(value, list):
+        return "\n".join(str(item).strip() for item in value if str(item).strip())
+
+    return str(value or "").strip()
+
+
+def build_region_settings_from_form(
+    current_settings: dict[str, Any],
+    form_prefix: str,
+) -> dict[str, Any]:
+    return {
+        "distance_to_coast": {
+            "marine_km": float(st.session_state[f"{form_prefix}_marine_km"]),
+            "coastal_km": float(st.session_state[f"{form_prefix}_coastal_km"]),
+            "near_coastal_km": float(st.session_state[f"{form_prefix}_near_coastal_km"]),
+        },
+        "latitude_rules": {
+            "antarctic_latitude_max": float(st.session_state[f"{form_prefix}_antarctic_latitude_max"]),
+            "sub_antarctic_latitude_min": float(st.session_state[f"{form_prefix}_sub_antarctic_latitude_min"]),
+            "sub_antarctic_latitude_max": float(st.session_state[f"{form_prefix}_sub_antarctic_latitude_max"]),
+            "sub_arctic_latitude_min": float(st.session_state[f"{form_prefix}_sub_arctic_latitude_min"]),
+            "sub_arctic_latitude_max": float(st.session_state[f"{form_prefix}_sub_arctic_latitude_max"]),
+            "tropical_abs_latitude_max": float(st.session_state[f"{form_prefix}_tropical_abs_latitude_max"]),
+            "cold_abs_latitude_min": float(st.session_state[f"{form_prefix}_cold_abs_latitude_min"]),
+            "extreme_cold_abs_latitude_min": float(st.session_state[f"{form_prefix}_extreme_cold_abs_latitude_min"]),
+        },
+        "semantic_rules": {
+            "island_country_hints": lines_to_list(st.session_state[f"{form_prefix}_island_country_hints"]),
+            "island_text_patterns": lines_to_list(st.session_state[f"{form_prefix}_island_text_patterns"]),
+            "urban_patterns": lines_to_list(st.session_state[f"{form_prefix}_urban_patterns"]),
+            "rural_patterns": lines_to_list(st.session_state[f"{form_prefix}_rural_patterns"]),
+            "industrial_patterns": lines_to_list(st.session_state[f"{form_prefix}_industrial_patterns"]),
+            "hot_arid_patterns": lines_to_list(st.session_state[f"{form_prefix}_hot_arid_patterns"]),
+        },
+    }
+
+
+def build_region_classification_preview(
+    site_rows: list[dict],
+    settings: dict[str, Any],
+    overwrite_existing: bool = False,
+) -> pd.DataFrame:
+    preview_rows = []
+
+    for row in site_rows:
+        current_region = str(row.get("region_category", "") or "").strip()
+
+        if current_region and not overwrite_existing:
+            continue
+
+        result = classify_region_category(
+            latitude=row.get("latitude"),
+            longitude=row.get("longitude"),
+            current_region_category=current_region,
+            modern_country_location=row.get("modern_country_location", ""),
+            site_type=row.get("site_type", ""),
+            settings=settings,
+        )
+
+        suggested_region = str(result.region_category or "").strip()
+
+        preview_rows.append(
+            {
+                "apply": True,
+                "id": int(row["id"]),
+                "site_id": row.get("site_id", ""),
+                "site_label": row.get("site_label", ""),
+                "latitude": row.get("latitude", ""),
+                "longitude": row.get("longitude", ""),
+                "current_region_category": current_region,
+                "suggested_region_category": suggested_region,
+                "notes": result.notes,
+            }
+        )
+
+    return pd.DataFrame(preview_rows)
 
 def display_app_path(path_value) -> str:
     text = str(path_value or "").strip()
@@ -2028,6 +2139,8 @@ def auto_fill_import_region_categories(preview_df: pd.DataFrame) -> pd.DataFrame
     if "warnings" not in updated_df.columns:
         updated_df["warnings"] = ""
 
+    region_settings = get_region_classification_settings()
+
     for row_index, row in updated_df.iterrows():
         current_region = str(row.get("region_category", "") or "").strip()
 
@@ -2046,6 +2159,7 @@ def auto_fill_import_region_categories(preview_df: pd.DataFrame) -> pd.DataFrame
             current_region_category=current_region,
             modern_country_location=str(row.get("modern_country_location", "") or ""),
             site_type=str(row.get("site_type", "") or ""),
+            settings=region_settings,
         )
 
         suggested_region = str(result.region_category or "").strip()
@@ -2244,6 +2358,7 @@ def auto_fill_site_preview_region_categories_from_current_coordinates(
 
     updated_count = 0
     skipped_count = 0
+    region_settings = get_region_classification_settings()
 
     for row_index, row in updated_df.iterrows():
         current_region = join_chip_values(row.get("region_category", ""))
@@ -2275,6 +2390,7 @@ def auto_fill_site_preview_region_categories_from_current_coordinates(
             current_region_category=current_region,
             modern_country_location=str(row.get("modern_country_location", "") or ""),
             site_type=str(row.get("site_type", "") or ""),
+            settings=region_settings,
         )
 
         suggested_region = str(result.region_category or "").strip()
@@ -5854,6 +5970,7 @@ if active_page == "Manage Records":
             ]
 
             preview_rows = []
+            region_settings = get_region_classification_settings()
 
             for row in selected_rows:
                 result = classify_region_category(
@@ -5862,6 +5979,7 @@ if active_page == "Manage Records":
                     current_region_category=row.get("region_category", ""),
                     modern_country_location=row.get("modern_country_location", ""),
                     site_type=row.get("site_type", ""),
+                    settings=region_settings,
                 )
 
                 preview_rows.append(
@@ -7273,6 +7391,345 @@ if active_page == "Settings":
 
     if st.button("Refresh app"):
         st.rerun()
+
+    st.divider()
+    st.write("#### Region classification rules")
+
+    st.caption(
+        "These rules control automatic region-category suggestions for future imports "
+        "and for the Manage Records auto-classification preview."
+    )
+
+    current_region_settings = get_region_classification_settings()
+    distance_settings = current_region_settings["distance_to_coast"]
+    latitude_settings = current_region_settings["latitude_rules"]
+    semantic_settings = current_region_settings["semantic_rules"]
+
+    form_prefix = "region_rule_settings"
+
+    with st.form("region_classification_settings_form"):
+        st.write("##### Distance-to-coast thresholds")
+
+        coast_col1, coast_col2, coast_col3 = st.columns(3)
+
+        with coast_col1:
+            st.number_input(
+                "Marine threshold, km",
+                min_value=0.0,
+                max_value=1000.0,
+                value=float(distance_settings.get("marine_km", 1.0)),
+                step=0.5,
+                key=f"{form_prefix}_marine_km",
+            )
+
+        with coast_col2:
+            st.number_input(
+                "Coastal threshold, km",
+                min_value=0.0,
+                max_value=1000.0,
+                value=float(distance_settings.get("coastal_km", 10.0)),
+                step=1.0,
+                key=f"{form_prefix}_coastal_km",
+            )
+
+        with coast_col3:
+            st.number_input(
+                "Near-coastal threshold, km",
+                min_value=0.0,
+                max_value=2000.0,
+                value=float(distance_settings.get("near_coastal_km", 50.0)),
+                step=5.0,
+                key=f"{form_prefix}_near_coastal_km",
+            )
+
+        st.write("##### Latitude-based polar and broad-climate rules")
+
+        lat_col1, lat_col2, lat_col3, lat_col4 = st.columns(4)
+
+        with lat_col1:
+            st.number_input(
+                "Antarctic if latitude ≤",
+                value=float(latitude_settings.get("antarctic_latitude_max", -60.0)),
+                step=1.0,
+                key=f"{form_prefix}_antarctic_latitude_max",
+            )
+
+        with lat_col2:
+            st.number_input(
+                "Sub-Antarctic lower latitude",
+                value=float(latitude_settings.get("sub_antarctic_latitude_min", -60.0)),
+                step=1.0,
+                key=f"{form_prefix}_sub_antarctic_latitude_min",
+            )
+
+        with lat_col3:
+            st.number_input(
+                "Sub-Antarctic upper latitude",
+                value=float(latitude_settings.get("sub_antarctic_latitude_max", -45.0)),
+                step=1.0,
+                key=f"{form_prefix}_sub_antarctic_latitude_max",
+            )
+
+        with lat_col4:
+            st.number_input(
+                "Sub-arctic if latitude ≥",
+                value=float(latitude_settings.get("sub_arctic_latitude_min", 60.0)),
+                step=1.0,
+                key=f"{form_prefix}_sub_arctic_latitude_min",
+            )
+
+        lat_col5, lat_col6, lat_col7, lat_col8 = st.columns(4)
+
+        with lat_col5:
+            st.number_input(
+                "Sub-arctic upper latitude",
+                value=float(latitude_settings.get("sub_arctic_latitude_max", 66.5)),
+                step=0.5,
+                key=f"{form_prefix}_sub_arctic_latitude_max",
+            )
+
+        with lat_col6:
+            st.number_input(
+                "Tropical if |latitude| ≤",
+                value=float(latitude_settings.get("tropical_abs_latitude_max", 23.5)),
+                step=0.5,
+                key=f"{form_prefix}_tropical_abs_latitude_max",
+            )
+
+        with lat_col7:
+            st.number_input(
+                "Cold if |latitude| ≥",
+                value=float(latitude_settings.get("cold_abs_latitude_min", 50.0)),
+                step=1.0,
+                key=f"{form_prefix}_cold_abs_latitude_min",
+            )
+
+        with lat_col8:
+            st.number_input(
+                "Extreme cold if |latitude| ≥",
+                value=float(latitude_settings.get("extreme_cold_abs_latitude_min", 66.5)),
+                step=0.5,
+                key=f"{form_prefix}_extreme_cold_abs_latitude_min",
+            )
+
+        st.write("##### Semantic tag rules")
+
+        st.caption(
+            "Enter one regular-expression pattern or one country hint per line. "
+            "These rules explain how non-distance tags such as Island, Industrial, Urban, and Rural are inferred."
+        )
+
+        sem_col1, sem_col2 = st.columns(2)
+
+        with sem_col1:
+            st.text_area(
+                "Island country hints",
+                value=list_to_lines(semantic_settings.get("island_country_hints", [])),
+                height=180,
+                key=f"{form_prefix}_island_country_hints",
+            )
+
+            st.text_area(
+                "Island text patterns",
+                value=list_to_lines(semantic_settings.get("island_text_patterns", [])),
+                height=120,
+                key=f"{form_prefix}_island_text_patterns",
+            )
+
+            st.text_area(
+                "Industrial text patterns",
+                value=list_to_lines(semantic_settings.get("industrial_patterns", [])),
+                height=120,
+                key=f"{form_prefix}_industrial_patterns",
+            )
+
+        with sem_col2:
+            st.text_area(
+                "Urban text patterns",
+                value=list_to_lines(semantic_settings.get("urban_patterns", [])),
+                height=120,
+                key=f"{form_prefix}_urban_patterns",
+            )
+
+            st.text_area(
+                "Rural text patterns",
+                value=list_to_lines(semantic_settings.get("rural_patterns", [])),
+                height=120,
+                key=f"{form_prefix}_rural_patterns",
+            )
+
+            st.text_area(
+                "Hot-arid text patterns",
+                value=list_to_lines(semantic_settings.get("hot_arid_patterns", [])),
+                height=120,
+                key=f"{form_prefix}_hot_arid_patterns",
+            )
+
+        settings_form_col1, settings_form_col2 = st.columns([0.28, 0.72])
+
+        with settings_form_col1:
+            save_region_rules_clicked = st.form_submit_button(
+                "Save rules for future classifications",
+                use_container_width=True,
+            )
+
+        with settings_form_col2:
+            reset_region_rules_clicked = st.form_submit_button(
+                "Reset to default rules",
+                use_container_width=True,
+            )
+
+    if save_region_rules_clicked:
+        new_settings = build_region_settings_from_form(
+            current_settings=current_region_settings,
+            form_prefix=form_prefix,
+        )
+
+        save_region_classification_settings(new_settings)
+        set_flash_message("Region classification rules saved for future automatic classifications.")
+        set_next_active_page("Settings")
+        st.rerun()
+
+    if reset_region_rules_clicked:
+        save_region_classification_settings(get_default_region_classification_settings())
+        st.session_state.pop("region_rules_existing_preview_df", None)
+        set_flash_message("Region classification rules reset to defaults.")
+        set_next_active_page("Settings")
+        st.rerun()
+
+    st.write("##### Apply rules to existing sites")
+
+    st.warning(
+        "Recommended workflow: preview first, then apply selected rows. "
+        "The safest bulk action is to fill only sites whose region_category is currently empty."
+    )
+
+    preview_col1, preview_col2 = st.columns([0.28, 0.72])
+
+    with preview_col1:
+        preview_existing_mode = st.radio(
+            "Existing-site preview mode",
+            options=[
+                "Only sites with empty region_category",
+                "All sites, preserving manual tags outside replaced dimensions",
+            ],
+            key="region_rules_existing_preview_mode",
+        )
+
+    with preview_col2:
+        if st.button("Preview effect on existing sites", key="preview_region_rules_existing_sites"):
+            try:
+                site_rows = get_table_rows("sites")
+                overwrite_existing = (
+                    preview_existing_mode
+                    == "All sites, preserving manual tags outside replaced dimensions"
+                )
+
+                settings_to_preview = get_region_classification_settings()
+
+                st.session_state["region_rules_existing_preview_df"] = (
+                    build_region_classification_preview(
+                        site_rows=site_rows,
+                        settings=settings_to_preview,
+                        overwrite_existing=overwrite_existing,
+                    )
+                )
+
+                st.rerun()
+            except Exception as exc:
+                st.error(f"Could not build region-classification preview: {exc}")
+
+    existing_preview_df = st.session_state.get("region_rules_existing_preview_df")
+
+    if isinstance(existing_preview_df, pd.DataFrame) and not existing_preview_df.empty:
+        edited_existing_preview_df = st.data_editor(
+            existing_preview_df,
+            hide_index=True,
+            width="stretch",
+            height=get_table_height(len(existing_preview_df), max_height=520),
+            num_rows="fixed",
+            key="region_rules_existing_preview_editor",
+            disabled=[
+                "id",
+                "site_id",
+                "site_label",
+                "latitude",
+                "longitude",
+                "current_region_category",
+                "notes",
+            ],
+            column_config={
+                "apply": st.column_config.CheckboxColumn(
+                    "Apply",
+                    help="Tick rows to update.",
+                    default=True,
+                ),
+                "id": None,
+                "suggested_region_category": st.column_config.TextColumn(
+                    "Suggested region category",
+                    help="You can edit the suggestion before applying.",
+                ),
+            },
+        )
+
+        apply_preview_col1, apply_preview_col2, apply_preview_col3 = st.columns(
+            [0.26, 0.26, 0.48],
+            vertical_alignment="bottom",
+        )
+
+        with apply_preview_col1:
+            apply_selected_existing = st.button(
+                "Apply selected preview rows",
+                key="apply_region_rules_selected_existing",
+                use_container_width=True,
+            )
+
+        with apply_preview_col2:
+            clear_existing_preview = st.button(
+                "Clear preview",
+                key="clear_region_rules_existing_preview",
+                use_container_width=True,
+            )
+
+        with apply_preview_col3:
+            confirm_existing_region_apply = st.checkbox(
+                "I reviewed the preview and want to update existing site region categories",
+                key="confirm_existing_region_rule_apply",
+            )
+
+        if apply_selected_existing:
+            if not confirm_existing_region_apply:
+                st.error("Tick the confirmation checkbox before updating existing sites.")
+            else:
+                selected_preview_rows = edited_existing_preview_df[
+                    edited_existing_preview_df["apply"].astype(bool)
+                ]
+
+                updated_count = 0
+
+                for _, row in selected_preview_rows.iterrows():
+                    suggested_value = str(row.get("suggested_region_category", "") or "").strip()
+
+                    if not suggested_value:
+                        continue
+
+                    updated_count += update_table_row(
+                        "sites",
+                        int(row["id"]),
+                        {"region_category": suggested_value},
+                    )
+
+                st.session_state.pop("region_rules_existing_preview_df", None)
+                set_flash_message(f"Updated region_category for {updated_count} existing site row(s).")
+                set_next_active_page("Settings")
+                st.rerun()
+
+        if clear_existing_preview:
+            st.session_state.pop("region_rules_existing_preview_df", None)
+            st.rerun()
+
+    elif isinstance(existing_preview_df, pd.DataFrame) and existing_preview_df.empty:
+        st.info("No existing sites matched the current preview mode.")
 
     st.write("#### Database maintenance")
 

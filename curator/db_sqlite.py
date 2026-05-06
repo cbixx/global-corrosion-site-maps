@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import sqlite3
+import json
 from pathlib import Path
 
 
@@ -164,6 +165,16 @@ def ensure_schema_updates() -> None:
                     period_end,
                     data_source
                 )
+            )
+            """
+        )
+
+        conn.execute(
+            """
+            create table if not exists app_settings (
+                setting_key text primary key,
+                payload_json text not null,
+                updated_at text default current_timestamp
             )
             """
         )
@@ -1285,6 +1296,61 @@ def import_environmental_observations(records: list[dict]) -> dict:
         conn.commit()
 
     return result
+
+def get_app_setting(setting_key: str, default=None):
+    setting_key = str(setting_key or "").strip()
+
+    if not setting_key:
+        return default
+
+    with get_connection() as conn:
+        row = conn.execute(
+            """
+            select payload_json
+            from app_settings
+            where setting_key = ?
+            """,
+            (setting_key,),
+        ).fetchone()
+
+    if row is None:
+        return default
+
+    try:
+        return json.loads(str(row["payload_json"]))
+    except Exception:
+        return default
+
+
+def set_app_setting(setting_key: str, value) -> None:
+    setting_key = str(setting_key or "").strip()
+
+    if not setting_key:
+        raise ValueError("setting_key is required.")
+
+    payload_json = json.dumps(
+        value,
+        ensure_ascii=False,
+        sort_keys=True,
+        default=str,
+    )
+
+    with get_connection() as conn:
+        conn.execute(
+            """
+            insert into app_settings (
+                setting_key,
+                payload_json,
+                updated_at
+            )
+            values (?, ?, current_timestamp)
+            on conflict(setting_key) do update set
+                payload_json = excluded.payload_json,
+                updated_at = current_timestamp
+            """,
+            (setting_key, payload_json),
+        )
+        conn.commit()
 
 if __name__ == "__main__":
     print("BASE_DIR =", BASE_DIR)
