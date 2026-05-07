@@ -5788,41 +5788,84 @@ if active_page == "Environmental Data":
 
         with st.expander(t("environment_show_csv_path", ui_language), expanded=False):
             st.code(ENVIRONMENT_OUTPUT_CSV_PATH.as_posix(), language="text")
-            
+
 if active_page == "Manage Records":
-    st.subheader("Manage Records")
+    def manage_table_label(table_name: str) -> str:
+        if table_name == "sites":
+            return t("manage_table_sites", ui_language)
+        if table_name == "sources":
+            return t("manage_table_sources", ui_language)
+        return str(table_name)
+
+    def manage_field_label(field_name: str) -> str:
+        field_key_map = {
+            "site_id": "manage_field_site_id",
+            "site_label": "manage_field_site_label",
+            "latitude": "manage_field_latitude",
+            "longitude": "manage_field_longitude",
+            "modern_country_location": "manage_field_modern_country_location",
+            "administering_country": "manage_field_administering_country",
+            "former_entity": "manage_field_former_entity",
+            "region_category": "manage_field_region_category",
+            "exposure_period": "manage_field_exposure_period",
+            "metal": "manage_field_metal",
+            "notes": "manage_field_notes",
+            "source_code": "manage_field_source_code",
+            "source_title": "manage_field_source_title",
+            "programme": "manage_field_programme",
+            "metals": "manage_field_metals",
+            "exposure_periods": "manage_field_exposure_periods",
+            "source_url": "manage_field_source_url",
+        }
+
+        return t(field_key_map.get(field_name, field_name), ui_language)
+
+    st.subheader(t("manage_title", ui_language))
     st.markdown('<div id="manage-records-top"></div>', unsafe_allow_html=True)
-    st.caption("Edit, delete, or bulk-update existing site and source records.")
+    st.caption(t("manage_caption", ui_language))
 
     manage_table = st.selectbox(
-        "Choose table to manage",
+        t("manage_choose_table", ui_language),
         options=["sites", "sources"],
         index=0,
         key="manage_table_select",
+        format_func=manage_table_label,
     )
 
     try:
         rows = get_table_rows(manage_table)
     except Exception as exc:
-        st.error(f"Could not load records: {exc}")
+        st.error(
+            t(
+                "manage_load_error",
+                ui_language,
+                error=str(exc),
+            )
+        )
         rows = []
 
     if not rows:
-        st.info(f"No records found in `{manage_table}`.")
+        st.info(
+            t(
+                "manage_no_records",
+                ui_language,
+                table=manage_table_label(manage_table),
+            )
+        )
         st.stop()
 
-    st.write("#### Browse records")
+    st.write(f"#### {t('manage_browse_records', ui_language)}")
 
     search_text = st.text_input(
-        "Search records",
-        placeholder="Search by site ID, label, source code, country, metal, programme, etc.",
+        t("manage_search_records", ui_language),
+        placeholder=t("manage_search_placeholder", ui_language),
         key=f"manage_search_{manage_table}",
     )
 
     filtered_rows = filter_records_by_search(rows, search_text)
 
     if not filtered_rows:
-        st.info("No records match the current search.")
+        st.info(t("manage_no_search_match", ui_language))
         st.stop()
 
     total_filtered_rows = len(filtered_rows)
@@ -5842,9 +5885,15 @@ if active_page == "Manage Records":
     page_rows = filtered_rows[start_index:end_index]
 
     st.caption(
-        f"Showing rows {start_index + 1}–{min(end_index, total_filtered_rows)} "
-        f"of {total_filtered_rows} matching record(s). "
-        f"Total records in `{manage_table}`: {len(rows)}."
+        t(
+            "manage_showing_rows",
+            ui_language,
+            start=start_index + 1,
+            end=min(end_index, total_filtered_rows),
+            filtered=total_filtered_rows,
+            table=manage_table_label(manage_table),
+            total=len(rows),
+        )
     )
 
     df_original = pd.DataFrame(page_rows).reset_index(drop=True)
@@ -5970,38 +6019,38 @@ if active_page == "Manage Records":
         column_config = {
             "id": None,
             "source_codes": st.column_config.MultiselectColumn(
-                "Source codes",
+                t("manage_column_source_codes", ui_language),
                 options=source_code_options,
                 accept_new_options=True,
                 width="large",
             ),
             "region_category": st.column_config.MultiselectColumn(
-                "Region category",
+                t("manage_column_region_category", ui_language),
                 options=region_options,
                 accept_new_options=True,
                 width="large",
             ),
             "programmes": st.column_config.MultiselectColumn(
-                "Programmes",
+                t("manage_column_programmes", ui_language),
                 options=programme_options,
                 accept_new_options=True,
                 width="large",
             ),
             "metal": st.column_config.MultiselectColumn(
-                "Metal",
+                t("manage_column_metal", ui_language),
                 options=metal_options,
                 accept_new_options=True,
                 width="large",
             ),
             "exposure_period": st.column_config.MultiselectColumn(
-                "Exposure period",
+                t("manage_column_exposure_period", ui_language),
                 options=exposure_options,
                 accept_new_options=True,
                 width="large",
             ),
             "delete": st.column_config.CheckboxColumn(
-                "Delete",
-                help="Tick records to delete, then click Delete selected records.",
+                t("manage_column_delete", ui_language),
+                help=t("manage_help_delete_column", ui_language),
                 default=False,
             ),
         }
@@ -6043,50 +6092,47 @@ if active_page == "Manage Records":
 
         column_config = {
             "programme": st.column_config.MultiselectColumn(
-                "Programme",
+                t("manage_column_programme", ui_language),
                 options=get_programme_options(include_blank=False),
                 accept_new_options=True,
-                help="Programme(s) associated with this source.",
+                help=t("manage_help_programme_column", ui_language),
                 width="medium",
             ),
             "source_code": st.column_config.TextColumn(
-                "Source code",
+                t("manage_column_source_code", ui_language),
                 width="small",
             ),
             "source_title": st.column_config.TextColumn(
-                "Source title",
+                t("manage_column_source_title", ui_language),
                 width="large",
             ),
             "metals": st.column_config.MultiselectColumn(
-                "Metals",
+                t("manage_column_metals", ui_language),
                 options=get_metal_options(),
                 accept_new_options=True,
-                help="Metal types associated with this source.",
+                help=t("manage_help_metals_column", ui_language),
                 width="large",
             ),
             "exposure_periods": st.column_config.MultiselectColumn(
-                "Exposure periods",
+                t("manage_column_exposure_periods", ui_language),
                 options=EXPOSURE_PERIOD_OPTIONS,
                 accept_new_options=True,
-                help="Exposure periods or durations associated with this source.",
+                help=t("manage_help_exposure_periods_column", ui_language),
                 width="large",
             ),
             "source_url": st.column_config.LinkColumn(
-                "Source URL",
-                help="PDF path or external source URL.",
+                t("manage_column_source_url", ui_language),
+                help=t("manage_help_source_url_column", ui_language),
                 width="medium",
             ),
             "delete": st.column_config.CheckboxColumn(
-                "Delete",
-                help="Tick records to delete, then click Delete selected records.",
+                t("manage_column_delete", ui_language),
+                help=t("manage_help_delete_column", ui_language),
                 default=False,
             ),
         }
 
-    st.caption(
-        "Edit cells directly in the table, or tick Delete for records you want to remove. "
-        "Nothing is changed in the database until you click a save/delete button."
-    )
+    st.caption(t("manage_edit_table_caption", ui_language))
 
     delete_state_key = f"delete_all_state_{manage_table}"
 
@@ -6122,16 +6168,16 @@ if active_page == "Manage Records":
 
         with confirm_checkbox_col:
             confirm_bulk_delete = st.checkbox(
-                "Confirm deletion of selected records",
+                t("manage_confirm_delete", ui_language),
                 key=f"confirm_delete_{manage_table}",
-        )
+            )
 
     action_left, action_right = st.columns([0.58, 0.42], vertical_alignment="bottom")
 
     with action_left:
         select_delete_clicked, deselect_delete_clicked = render_left_button_pair(
-            "Select all for deletion",
-            "Deselect all deletion",
+            t("manage_select_all_delete", ui_language),
+            t("manage_deselect_all_delete", ui_language),
             left_key=f"select_all_delete_{manage_table}",
             right_key=f"deselect_all_delete_{manage_table}",
             widths=BUTTON_PAIR_MEDIUM,
@@ -6153,14 +6199,14 @@ if active_page == "Manage Records":
 
         with delete_button_col:
             delete_clicked = st.button(
-                "Delete selected records",
+                t("manage_delete_selected", ui_language),
                 key=f"delete_selected_{manage_table}",
                 use_container_width=True,
             )
 
         with save_button_col:
             save_clicked = st.button(
-                "Save table edits",
+                t("manage_save_edits", ui_language),
                 key=f"save_edits_{manage_table}",
                 use_container_width=True,
             )
@@ -6188,15 +6234,21 @@ if active_page == "Manage Records":
 
                         if not is_canonical_source_code(new_normalised):
                             st.error(
-                                f"Invalid source code `{new_value}`. "
-                                "Source codes must use canonical `sNNN` format, for example `s021`."
+                                t(
+                                    "manage_invalid_source_code",
+                                    ui_language,
+                                    value=str(new_value),
+                                )
                             )
                             st.stop()
 
                         if source_code_exists(new_normalised, exclude_source_id=row_id):
                             st.error(
-                                f"Source code `{new_normalised}` already exists. "
-                                "This edit would create a duplicate source code."
+                                t(
+                                    "manage_duplicate_source_code",
+                                    ui_language,
+                                    source_code=new_normalised,
+                                )
                             )
                             st.stop()
                     else:
@@ -6256,10 +6308,16 @@ if active_page == "Manage Records":
                     )
 
         if updated_rows:
-            set_flash_message(f"Saved edits for {updated_rows} row(s).")
+            set_flash_message(
+                t(
+                    "manage_saved_edits",
+                    ui_language,
+                    count=updated_rows,
+                )
+            )
             st.rerun()
         else:
-            st.info("No changes detected.")
+            st.info(t("manage_no_changes", ui_language))
 
     if delete_clicked:
         if manage_table == "sources":
@@ -6276,18 +6334,29 @@ if active_page == "Manage Records":
             ]
 
         if not delete_ids:
-            st.error("Tick at least one record in the Delete column.")
+            st.error(t("manage_delete_select_error", ui_language))
         elif not confirm_bulk_delete:
-            st.error("Confirm deletion before deleting selected records.")
+            st.error(t("manage_delete_confirm_error", ui_language))
         else:
             try:
                 deleted_count = delete_table_rows(manage_table, delete_ids)
                 set_flash_message(
-                    f"Deleted {deleted_count} record(s) from `{manage_table}`."
+                    t(
+                        "manage_deleted_records",
+                        ui_language,
+                        count=deleted_count,
+                        table=manage_table_label(manage_table),
+                    )
                 )
                 st.rerun()
             except Exception as exc:
-                st.error(f"Delete failed: {exc}")
+                st.error(
+                    t(
+                        "manage_delete_failed",
+                        ui_language,
+                        error=str(exc),
+                    )
+                )
 
     render_pagination_controls(
         total_rows=total_filtered_rows,
@@ -6295,7 +6364,7 @@ if active_page == "Manage Records":
         page_size_key=page_size_key,
     )
 
-    st.write("#### Bulk edit selected records")
+    st.write(f"#### {t('manage_bulk_edit_heading', ui_language)}")
 
     row_label_to_id = {
         build_row_label(row, manage_table): int(row["id"])
@@ -6309,8 +6378,8 @@ if active_page == "Manage Records":
         st.session_state[bulk_selection_key] = []
 
     bulk_select_clicked, bulk_deselect_clicked = render_left_button_pair(
-        "Select all records for bulk edit",
-        "Deselect all records for bulk edit",
+        t("manage_select_all_bulk", ui_language),
+        t("manage_deselect_all_bulk", ui_language),
         left_key=f"select_all_bulk_rows_{manage_table}",
         right_key=f"deselect_all_bulk_rows_{manage_table}",
         widths=BUTTON_PAIR_LONG,
@@ -6325,7 +6394,7 @@ if active_page == "Manage Records":
         st.rerun()
 
     selected_row_labels = st.multiselect(
-        "Choose records to update",
+        t("manage_choose_records_update", ui_language),
         options=row_labels,
         key=bulk_selection_key,
     )
@@ -6336,10 +6405,10 @@ if active_page == "Manage Records":
     ]
 
     if manage_table == "sites":
-        st.write("#### Auto-assign region category for selected sites")
+        st.write(f"#### {t('manage_auto_region_heading', ui_language)}")
 
         if st.button(
-            "Preview automatic region categories",
+            t("manage_preview_auto_region", ui_language),
             key="preview_auto_region_categories",
             disabled=not selected_row_ids,
         ):
@@ -6401,14 +6470,14 @@ if active_page == "Manage Records":
                 ],
                 column_config={
                     "apply": st.column_config.CheckboxColumn(
-                        "Apply",
-                        help="Tick rows to update.",
+                        t("manage_auto_apply_column", ui_language),
+                        help=t("manage_auto_apply_help", ui_language),
                         default=True,
                     ),
                     "id": None,
                     "suggested_region_category": st.column_config.TextColumn(
-                        "Suggested region category",
-                        help="You can edit the suggestion before applying.",
+                        t("manage_auto_suggested_region", ui_language),
+                        help=t("manage_auto_suggested_region_help", ui_language),
                     ),
                 },
             )
@@ -6418,8 +6487,8 @@ if active_page == "Manage Records":
             ].copy()
 
             apply_auto_clicked, clear_auto_clicked = render_left_button_pair(
-                "Apply automatic region categories",
-                "Clear automatic region preview",
+                t("manage_apply_auto_region", ui_language),
+                t("manage_clear_auto_region", ui_language),
                 left_key="apply_auto_region_categories",
                 right_key="clear_auto_region_preview",
                 widths=(0.24, 0.24, 0.52),
@@ -6444,28 +6513,33 @@ if active_page == "Manage Records":
 
                 st.session_state.pop("auto_region_preview_df", None)
                 set_flash_message(
-                    f"Updated region_category for {updated_count} site row(s)."
+                    t(
+                        "manage_auto_region_updated",
+                        ui_language,
+                        count=updated_count,
+                    )
                 )
                 st.rerun()
 
             if clear_auto_clicked:
                 st.session_state.pop("auto_region_preview_df", None)
-                st.rerun() 
+                st.rerun()
 
     bulk_field = st.selectbox(
-        "Field to bulk update",
+        t("manage_field_bulk_update", ui_language),
         options=editable_columns,
         key=f"bulk_field_{manage_table}",
+        format_func=manage_field_label,
     )
 
     bulk_value = st.text_input(
-        "New value",
+        t("manage_new_value", ui_language),
         key=f"bulk_value_{manage_table}",
     )
 
-    if st.button("Apply bulk edit", key=f"apply_bulk_{manage_table}"):
+    if st.button(t("manage_apply_bulk_edit", ui_language), key=f"apply_bulk_{manage_table}"):
         if not selected_row_ids:
-            st.error("Select at least one record.")
+            st.error(t("manage_bulk_select_error", ui_language))
         else:
             try:
                 changed_count = bulk_update_table_rows(
@@ -6474,23 +6548,31 @@ if active_page == "Manage Records":
                     bulk_field,
                     bulk_value,
                 )
-                set_flash_message(f"Updated {changed_count} record(s).")
+                set_flash_message(
+                    t(
+                        "manage_bulk_updated",
+                        ui_language,
+                        count=changed_count,
+                    )
+                )
                 st.rerun()
             except Exception as exc:
-                st.error(f"Bulk edit failed: {exc}")
-
+                st.error(
+                    t(
+                        "manage_bulk_failed",
+                        ui_language,
+                        error=str(exc),
+                    )
+                )
 
 if active_page == "Import":
-    st.subheader("Import")
-    st.caption(
-        "Import flat CSV files, review the parsed site-source links, "
-        "and write selected rows into the curator database."
-    )
+    st.subheader(t("import_title", ui_language))
+    st.caption(t("import_caption", ui_language))
 
     import_success_message = st.session_state.pop("last_import_success_message", "")
 
     if import_success_message:
-        st.success(import_success_message)
+        st.success(t("import_success_message", ui_language, message=import_success_message))
 
     restored_import_preview_payload = st.session_state.get(
         "restored_import_preview_payload"
@@ -6508,9 +6590,12 @@ if active_page == "Import":
         )
 
         st.info(
-            "A restored import draft is currently active. "
-            f"Original file: `{restored_file_name}`. "
-            f"Draft saved at: `{restored_updated_at or 'unknown time'}`."
+            t(
+                "import_restored_draft_active",
+                ui_language,
+                file_name=restored_file_name,
+                updated_at=restored_updated_at or t("import_unknown_time", ui_language),
+            )
         )
 
         discard_active_draft_col, active_draft_spacer = st.columns(
@@ -6520,7 +6605,7 @@ if active_page == "Import":
 
         with discard_active_draft_col:
             if st.button(
-                "Discard active restored draft",
+                t("import_discard_active_draft", ui_language),
                 key="discard_active_import_preview_draft",
                 use_container_width=True,
             ):
@@ -6534,7 +6619,13 @@ if active_page == "Import":
             saved_import_draft = load_app_draft(IMPORT_PREVIEW_DRAFT_KEY)
         except Exception as exc:
             saved_import_draft = None
-            st.warning(f"Could not check for saved import draft: {exc}")
+            st.warning(
+                t(
+                    "import_check_saved_draft_error",
+                    ui_language,
+                    error=str(exc),
+                )
+            )
 
         if saved_import_draft:
             draft_payload = saved_import_draft.get("payload", {})
@@ -6546,10 +6637,16 @@ if active_page == "Import":
             draft_site_count = len(site_preview_payload.get("records", []))
 
             st.warning(
-                "Unsaved import draft found. "
-                f"Original file: `{draft_file_name}`. "
-                f"Draft saved at: `{saved_import_draft.get('updated_at', 'unknown time')}`. "
-                f"Preview sites in draft: {draft_site_count}."
+                t(
+                    "import_unsaved_draft_found",
+                    ui_language,
+                    file_name=draft_file_name,
+                    updated_at=saved_import_draft.get(
+                        "updated_at",
+                        t("import_unknown_time", ui_language),
+                    ),
+                    site_count=draft_site_count,
+                )
             )
 
             restore_col, discard_col, draft_spacer = st.columns(
@@ -6559,14 +6656,14 @@ if active_page == "Import":
 
             with restore_col:
                 restore_import_draft_clicked = st.button(
-                    "Restore import draft",
+                    t("import_restore_draft", ui_language),
                     key="restore_import_preview_draft",
                     use_container_width=True,
                 )
 
             with discard_col:
                 discard_import_draft_clicked = st.button(
-                    "Discard import draft",
+                    t("import_discard_draft", ui_language),
                     key="discard_import_preview_draft",
                     use_container_width=True,
                 )
@@ -6598,16 +6695,9 @@ if active_page == "Import":
                 refresh_import_preview_editor()
                 st.rerun()
 
-    st.write("### Import sites CSV")
+    st.write(f"### {t('import_sites_csv_heading', ui_language)}")
 
-    st.info(
-        "Minimal import format is supported. Recommended columns: "
-        "`site_label`, `modern_country_location`, `administering_country`, "
-        "`site_type`, `source_1`, `source_2`, and `notes`. "
-        "Optional columns such as `site_id`, `latitude`, `longitude`, "
-        "`former_entity`, `region_category`, `metal`, and `exposure_period` "
-        "may be omitted."
-    )
+    st.info(t("import_minimal_format_info", ui_language))
 
     if "import_upload_version" not in st.session_state:
         st.session_state["import_upload_version"] = 0
@@ -6615,15 +6705,9 @@ if active_page == "Import":
     import_upload_version = int(st.session_state["import_upload_version"])
 
     uploaded_import_csv = st.file_uploader(
-        required_label("Upload CSV file"),
+        required_label(t("import_upload_csv_file", ui_language)),
         type=["csv", "txt"],
-        help=(
-            "Minimum columns: site_label, modern_country_location, source_1. "
-            "Recommended columns: site_label, modern_country_location, administering_country, "
-            "site_type, source_1, source_2, notes. Optional columns such as site_id, "
-            "latitude, longitude, former_entity, region_category, exposure_period, and metal "
-            "are accepted but do not need to be present."
-        ),
+        help=t("import_upload_csv_help", ui_language),
         key=f"import_sites_csv_{import_upload_version}",
     )
 
@@ -6634,7 +6718,7 @@ if active_page == "Import":
     )
 
     st.download_button(
-        "Download CSV import template",
+        t("import_download_template", ui_language),
         data=import_template_csv.encode("utf-8-sig"),
         file_name="corrosion_map_import_template.csv",
         mime="text/csv",
@@ -6662,38 +6746,30 @@ if active_page == "Import":
 
     with import_col1:
         default_import_programme = st.selectbox(
-            "Default programme for imported sources",
+            t("import_default_programme", ui_language),
             options=get_programme_options(include_blank=True),
             key="default_import_programme",
         )
 
     with import_col2:
         geocode_missing_coordinates = st.checkbox(
-            "Auto-fill missing latitude/longitude using site label and country/location",
+            t("import_geocode_missing", ui_language),
             value=True,
-            help=(
-                "Uses OpenStreetMap/Nominatim through geopy. Rows that cannot be geocoded "
-                "will remain in the preview but will be unticked by default."
-            ),
+            help=t("import_geocode_missing_help", ui_language),
             key="geocode_missing_coordinates_import",
         )
 
         auto_fill_region_category_import = st.checkbox(
-            "Auto-fill missing region category from coordinates, country/location, and site type",
+            t("import_auto_fill_region", ui_language),
             value=True,
-            help=(
-                "The automatic classification is only a suggestion. Review the preview before confirming import."
-            ),
+            help=t("import_auto_fill_region_help", ui_language),
             key="auto_fill_region_category_import",
         )
 
         require_registered_source_metadata = st.checkbox(
-            "Require imported source codes to already exist with programme, metal, and exposure-period metadata",
+            t("import_require_registered_metadata", ui_language),
             value=True,
-            help=(
-                "Recommended. If enabled, rows linked to unregistered sources or incomplete source metadata "
-                "will be shown with warnings and unticked by default."
-            ),
+            help=t("import_require_registered_metadata_help", ui_language),
             key="require_registered_source_metadata_import",
         )
 
@@ -6701,34 +6777,13 @@ if active_page == "Import":
 
     if uploaded_import_csv is not None:
         rebuild_import_preview_clicked = st.button(
-            "Rebuild import preview from uploaded CSV",
+            t("import_rebuild_preview", ui_language),
             key="rebuild_import_preview_from_uploaded_csv",
-            help=(
-                "Use this after changing import settings, source metadata, or if you want to discard "
-                "cached preview results and rebuild from the uploaded CSV."
-            ),
+            help=t("import_rebuild_preview_help", ui_language),
         )
 
-    st.write("#### Import rules")
-
-    st.markdown(
-        """
-        - Minimal CSV format is supported. Recommended columns are:
-        `site_label`, `modern_country_location`, `administering_country`, `site_type`,
-        `source_1`, `source_2`, and `notes`.
-        - `source_1`, `source_2`, `source_3`, etc. are detected dynamically. Source codes are normalised to sNNN format; for example, s21 and 21 become s021.
-        - Missing `site_id` values are generated from `modern_country_location`; for Antarctic records,
-        `administering_country` can be included in the generated prefix.
-        - Missing latitude/longitude values can be geocoded from `site_label` and `modern_country_location`.
-        - Rows that cannot be geocoded remain visible in the preview but are unticked by default.
-        - Missing `region_category` values can be filled automatically from coordinates, country/location,
-        and site type.
-        - Programme, metal, and exposure-period values are inherited from the linked source records when
-        those sources already exist in the database.
-        - No database changes are made until you review the preview, tick the confirmation checkbox,
-        and click **Confirm selected import**.
-        """
-    )
+    st.write(f"#### {t('import_rules_heading', ui_language)}")
+    st.markdown(t("import_rules_markdown", ui_language))
 
     restored_import_preview_payload = st.session_state.get(
         "restored_import_preview_payload"
@@ -6748,21 +6803,16 @@ if active_page == "Import":
                 site_preview_df = dataframe_from_draft_payload(site_preview_payload)
 
                 if preview_df.empty or site_preview_df.empty:
-                    st.warning(
-                        "The saved import draft could not be restored because it does not contain "
-                        "a valid preview table. Discard this draft and rebuild the import preview."
-                    )
+                    st.warning(t("import_saved_draft_invalid", ui_language))
                     st.stop()
 
                 st.session_state["import_site_preview_override"] = site_preview_df.copy()
 
-                st.caption(
-                    "Using restored import draft. Review the table carefully before confirming import."
-                )
+                st.caption(t("import_using_restored_draft", ui_language))
 
             else:
                 if uploaded_import_csv is None:
-                    st.warning("Upload a CSV file or restore a valid import draft first.")
+                    st.warning(t("import_upload_or_restore_first", ui_language))
                     st.stop()
 
                 uploaded_csv_for_preview = uploaded_import_csv
@@ -6793,21 +6843,17 @@ if active_page == "Import":
                     refresh_import_preview_editor()
 
                     loading_message = (
-                        "Building import preview. Geocoding missing coordinates may take around "
-                        "1 second per unresolved site..."
+                        t("import_building_preview_geocode", ui_language)
                         if geocode_missing_coordinates
-                        else "Building import preview..."
+                        else t("import_building_preview", ui_language)
                     )
 
                     with st.status(loading_message, expanded=True) as import_status:
-                        st.write("Reading CSV and normalising headers...")
-                        st.write("Checking existing sites, sources, and site-source links...")
+                        st.write(t("import_status_reading_csv", ui_language))
+                        st.write(t("import_status_checking_records", ui_language))
 
                         if geocode_missing_coordinates:
-                            st.write(
-                                "Contacting OpenStreetMap/Nominatim for missing coordinates. "
-                                "Please wait; the app is intentionally slowing requests to avoid rate-limit problems."
-                            )
+                            st.write(t("import_status_contacting_osm", ui_language))
 
                         preview_df = build_import_preview(
                             uploaded_file=uploaded_csv_for_preview,
@@ -6821,14 +6867,14 @@ if active_page == "Import":
                             require_existing_source_metadata=require_registered_source_metadata,
                         )
 
-                        st.write("Checking whether imported sites match existing site records...")
+                        st.write(t("import_status_checking_site_matches", ui_language))
                         preview_df = annotate_import_preview_for_upsert(preview_df)
 
                         if auto_fill_region_category_import:
-                            st.write("Auto-filling missing region categories where possible...")
+                            st.write(t("import_status_auto_filling_regions", ui_language))
                             preview_df = auto_fill_import_region_categories(preview_df)
 
-                        st.write("Preparing the import preview table...")
+                        st.write(t("import_status_preparing_table", ui_language))
                         site_preview_df = build_site_level_import_preview(preview_df)
 
                         st.session_state["cached_import_preview_signature"] = (
@@ -6838,7 +6884,7 @@ if active_page == "Import":
                         st.session_state["cached_import_site_preview_df"] = site_preview_df.copy()
 
                         import_status.update(
-                            label="Import preview is ready.",
+                            label=t("import_status_preview_ready", ui_language),
                             state="complete",
                             expanded=False,
                         )
@@ -6846,10 +6892,7 @@ if active_page == "Import":
                 else:
                     preview_df = st.session_state["cached_import_preview_df"].copy()
                     site_preview_df = st.session_state["cached_import_site_preview_df"].copy()
-                    st.caption(
-                        "Using cached import preview. Table edits should now be much faster. "
-                        "Click 'Rebuild import preview from uploaded CSV' only when needed."
-                    )
+                    st.caption(t("import_using_cached_preview", ui_language))
 
             if "import_site_preview_override" in st.session_state:
                 override_df = st.session_state["import_site_preview_override"]
@@ -6858,9 +6901,15 @@ if active_page == "Import":
                     site_preview_df = override_df.copy()
 
             if preview_df.empty:
-                st.warning("The uploaded file did not produce any importable preview rows.")
+                st.warning(t("import_no_preview_rows", ui_language))
             else:
-                st.success(f"Parsed {len(preview_df)} preview row(s).")
+                st.success(
+                    t(
+                        "import_parsed_preview_rows",
+                        ui_language,
+                        count=len(preview_df),
+                    )
+                )
 
                 last_region_fill_message = st.session_state.pop(
                     "last_import_region_fill_message",
@@ -6871,8 +6920,8 @@ if active_page == "Import":
                     st.info(last_region_fill_message)
 
                 select_import_clicked, deselect_import_clicked = render_left_button_pair(
-                    "Select all import sites",
-                    "Deselect all import sites",
+                    t("import_select_all_sites", ui_language),
+                    t("import_deselect_all_sites", ui_language),
                     left_key="select_all_import_sites",
                     right_key="deselect_all_import_sites",
                     widths=BUTTON_PAIR_MEDIUM,
@@ -6981,65 +7030,65 @@ if active_page == "Import":
                     key=f"import_preview_editor_{import_preview_editor_version}",
                     column_config={
                         "import_selected": st.column_config.CheckboxColumn(
-                            "Import",
-                            help="Untick sites that should be skipped.",
+                            t("import_column_import", ui_language),
+                            help=t("import_column_import_help", ui_language),
                             default=True,
                         ),
                         "source_codes": st.column_config.MultiselectColumn(
-                            "Source codes",
+                            t("import_column_source_codes", ui_language),
                             options=source_code_chip_options,
                             accept_new_options=True,
                             width="large",
                         ),
                         "programmes": st.column_config.MultiselectColumn(
-                            "Programmes",
+                            t("import_column_programmes", ui_language),
                             options=programme_chip_options,
                             accept_new_options=True,
                             width="large",
                         ),
                         "metals": st.column_config.MultiselectColumn(
-                            "Metals",
+                            t("import_column_metals", ui_language),
                             options=metal_chip_options,
                             accept_new_options=True,
                             width="large",
                         ),
                         "exposure_periods": st.column_config.MultiselectColumn(
-                            "Exposure periods",
+                            t("import_column_exposure_periods", ui_language),
                             options=exposure_chip_options,
                             accept_new_options=True,
                             width="large",
                         ),
                         "retry_osm": st.column_config.CheckboxColumn(
-                            "Retry OSM",
-                            help="Tick rows to retry OpenStreetMap/Nominatim lookup using geocode_query or site label.",
+                            t("import_column_retry_osm", ui_language),
+                            help=t("import_column_retry_osm_help", ui_language),
                             default=False,
                         ),
                         "apply_osm_suggestion": st.column_config.CheckboxColumn(
-                            "Apply OSM",
-                            help="Tick rows where the suggested OSM coordinates should replace latitude/longitude.",
+                            t("import_column_apply_osm", ui_language),
+                            help=t("import_column_apply_osm_help", ui_language),
                             default=False,
                         ),
                         "geocode_query": st.column_config.TextColumn(
-                            "Geocode query",
-                            help="Optional search phrase used only for OSM lookup. This does not replace the site label.",
+                            t("import_column_geocode_query", ui_language),
+                            help=t("import_column_geocode_query_help", ui_language),
                             width="medium",
                         ),
                         "osm_suggestion": st.column_config.TextColumn(
-                            "OSM suggestion",
-                            help="Best place name found by OSM/Nominatim. Review before applying.",
+                            t("import_column_osm_suggestion", ui_language),
+                            help=t("import_column_osm_suggestion_help", ui_language),
                             width="large",
                         ),
                         "osm_full_label": st.column_config.TextColumn(
-                            "OSM full label",
-                            help="Full OpenStreetMap/Nominatim result used for checking whether the suggestion is correct.",
+                            t("import_column_osm_full_label", ui_language),
+                            help=t("import_column_osm_full_label_help", ui_language),
                             width="large",
                         ),
                         "osm_suggestion_latitude": st.column_config.TextColumn(
-                            "OSM lat",
+                            t("import_column_osm_lat", ui_language),
                             width="small",
                         ),
                         "osm_suggestion_longitude": st.column_config.TextColumn(
-                            "OSM lon",
+                            t("import_column_osm_lon", ui_language),
                             width="small",
                         ),
                     },
@@ -7072,19 +7121,19 @@ if active_page == "Import":
                     )
 
                 osm_retry_clicked, osm_apply_clicked = render_left_button_pair(
-                    "Retry OSM for selected/missing sites",
-                    "Apply selected OSM suggestions",
+                    t("import_retry_osm", ui_language),
+                    t("import_apply_osm", ui_language),
                     left_key="retry_osm_for_import_preview",
                     right_key="apply_osm_suggestions_import_preview",
                     widths=BUTTON_PAIR_LONG,
                 )
 
                 if osm_retry_clicked:
-                    with st.status("Retrying OpenStreetMap/Nominatim lookup...", expanded=True) as osm_status:
-                        st.write("Retrying rows ticked in Retry OSM and rows still missing coordinates...")
+                    with st.status(t("import_status_retrying_osm", ui_language), expanded=True) as osm_status:
+                        st.write(t("import_status_retrying_osm_rows", ui_language))
                         site_preview_df = retry_osm_for_site_preview(edited_site_preview_df)
                         osm_status.update(
-                            label="OSM retry finished. Review suggestions before importing.",
+                            label=t("import_status_osm_finished", ui_language),
                             state="complete",
                             expanded=False,
                         )
@@ -7106,7 +7155,7 @@ if active_page == "Import":
 
                 with region_fill_col:
                     fill_regions_clicked = st.button(
-                        "Auto-fill missing region categories from current coordinates",
+                        t("import_auto_fill_regions_button", ui_language),
                         key="auto_fill_import_regions_from_current_coordinates",
                         use_container_width=True,
                     )
@@ -7121,13 +7170,17 @@ if active_page == "Import":
 
                     st.session_state["import_site_preview_override"] = site_preview_df
                     st.session_state["last_import_region_fill_message"] = (
-                        f"Region-category auto-fill completed. "
-                        f"Filled: {updated_count}; skipped/no change: {skipped_count}."
+                        t(
+                            "import_region_fill_message",
+                            ui_language,
+                            filled=updated_count,
+                            skipped=skipped_count,
+                        )
                     )
                     refresh_import_preview_editor()
                     st.rerun()
 
-                if st.button("Reset import preview edits", key="reset_import_preview_edits"):
+                if st.button(t("import_reset_preview_edits", ui_language), key="reset_import_preview_edits"):
                     st.session_state.pop("import_site_preview_override", None)
                     refresh_import_preview_editor()
                     st.rerun()
@@ -7158,13 +7211,13 @@ if active_page == "Import":
 
                 draft_saved = autosave_app_draft(
                     draft_key=IMPORT_PREVIEW_DRAFT_KEY,
-                    draft_label="Import preview",
+                    draft_label=t("import_preview_draft_label", ui_language),
                     payload=import_preview_draft_payload,
                     interval_seconds=8,
                 )
 
                 if draft_saved:
-                    st.caption("Import preview draft auto-saved.")
+                    st.caption(t("import_preview_draft_saved", ui_language))
 
                 selected_site_count = int(
                     normalise_bool_column(edited_site_preview_df, "import_selected").sum()
@@ -7180,13 +7233,13 @@ if active_page == "Import":
                 metric1, metric2, metric3 = st.columns(3)
 
                 with metric1:
-                    st.metric("Preview sites", len(edited_site_preview_df))
+                    st.metric(t("import_metric_preview_sites", ui_language), len(edited_site_preview_df))
 
                 with metric2:
-                    st.metric("Selected sites", selected_site_count)
+                    st.metric(t("import_metric_selected_sites", ui_language), selected_site_count)
 
                 with metric3:
-                    st.metric("Selected site-source links", selected_link_count)
+                    st.metric(t("import_metric_selected_links", ui_language), selected_link_count)
 
                 new_source_codes: list[str] = []
 
@@ -7200,49 +7253,50 @@ if active_page == "Import":
 
                 if new_source_codes:
                     st.warning(
-                        "New source code(s) detected in the imported CSV and not currently registered "
-                        "in the curator database: "
-                        + ", ".join(new_source_codes)
-                        + ". Recommended workflow: register these sources first and assign programme, "
-                        "metal, and exposure-period metadata before confirming the import."
-                    )   
+                        t(
+                            "import_new_sources_warning",
+                            ui_language,
+                            source_codes=", ".join(new_source_codes),
+                        )
+                    )
 
                 if warning_count:
-                    with st.expander("Show site rows with warnings", expanded=False):
+                    with st.expander(t("import_show_warning_rows", ui_language), expanded=False):
                         warning_df = edited_site_preview_df[
                             edited_site_preview_df["warnings"].astype(str).str.len() > 0
                         ]
                         st.dataframe(warning_df, width="stretch")
 
                         st.download_button(
-                            "Download warning rows as CSV",
+                            t("import_download_warning_rows", ui_language),
                             data=warning_df.to_csv(index=False).encode("utf-8-sig"),
                             file_name="import_warning_rows.csv",
                             mime="text/csv",
                             key="download_import_warning_rows",
                         )
 
-                st.write("#### Confirm import")
+                st.write(f"#### {t('import_confirm_heading', ui_language)}")
 
                 confirm_import_checked = st.checkbox(
-                    required_label("I reviewed the preview and want to write the selected rows into the database."),
+                    required_label(t("import_confirm_checkbox", ui_language)),
                     key="confirm_import_checked",
                 )
 
-                if st.button("Confirm selected import", type="primary", key="confirm_selected_import"):
+                if st.button(t("import_confirm_button", ui_language), type="primary", key="confirm_selected_import"):
                     if not confirm_import_checked:
-                        st.error("Tick the confirmation checkbox before importing.")
+                        st.error(t("import_confirm_error", ui_language))
                     elif selected_site_count == 0:
-                        st.error("Select at least one site to import.")
+                        st.error(t("import_select_site_error", ui_language))
                     else:
                         try:
                             result = confirm_import_preview(edited_preview_df)
 
-                            success_message = (
-                                "Import confirmed and written to database. "
-                                f"Sites processed: {result['sites']}. "
-                                f"Sources processed: {result['sources']}. "
-                                f"Site-source links processed: {result['links']}."
+                            success_message = t(
+                                "import_success_written",
+                                ui_language,
+                                sites=result["sites"],
+                                sources=result["sources"],
+                                links=result["links"],
                             )
 
                             st.session_state["last_import_success_message"] = success_message
@@ -7268,25 +7322,38 @@ if active_page == "Import":
                             st.rerun()
 
                         except Exception as exc:
-                            st.error(f"Import failed: {exc}")
+                            st.error(
+                                t(
+                                    "import_failed",
+                                    ui_language,
+                                    error=str(exc),
+                                )
+                            )
 
         except Exception as exc:
-            st.error(f"Could not build import preview: {exc}")
+            st.error(
+                t(
+                    "import_preview_build_failed",
+                    ui_language,
+                    error=str(exc),
+                )
+            )
 
     st.divider()
 
 if active_page == "Export / Publish":
-    st.subheader("Export / Publish")
-    st.caption(
-        "Select curated site records and publish them to the website-facing dataset."
-    )
+    st.subheader(t("publish_title", ui_language))
+    st.caption(t("publish_caption", ui_language))
 
-    st.write("### Website dataset")
-    st.write(f"Live website file: `{display_app_path(OUTPUT_CSV_PATH)}`")
-    st.caption(
-        "The website reads `data/sites.csv`. Each publish also creates a dated batch snapshot "
-        "inside `data/publish_batches/`."
+    st.write(f"### {t('publish_website_dataset_heading', ui_language)}")
+    st.write(
+        t(
+            "publish_live_file",
+            ui_language,
+            path=display_app_path(OUTPUT_CSV_PATH),
+        )
     )
+    st.caption(t("publish_dataset_caption", ui_language))
 
     try:
         publishable_rows = get_publishable_sites()
@@ -7294,10 +7361,16 @@ if active_page == "Export / Publish":
     except Exception as exc:
         publishable_rows = []
         live_published_site_ids = set()
-        st.error(f"Could not load publishable site records: {exc}")
+        st.error(
+            t(
+                "publish_load_error",
+                ui_language,
+                error=str(exc),
+            )
+        )
 
     if not publishable_rows:
-        st.info("No curated sites are available for publishing yet.")
+        st.info(t("publish_no_curated_sites", ui_language))
     else:
         publish_df = pd.DataFrame(publishable_rows)
 
@@ -7311,8 +7384,11 @@ if active_page == "Export / Publish":
 
         if duplicate_site_ids:
             st.error(
-                "Duplicate site_id values exist in the curation database and must be fixed before publishing: "
-                + ", ".join(sorted(set(duplicate_site_ids)))
+                t(
+                    "publish_duplicate_site_ids",
+                    ui_language,
+                    site_ids=", ".join(sorted(set(duplicate_site_ids))),
+                )
             )
 
         already_published_df = publish_df[
@@ -7324,10 +7400,10 @@ if active_page == "Export / Publish":
         ].copy()
         edited_unpublished_df = pd.DataFrame()
 
-        st.write("### Yet to be published")
+        st.write(f"### {t('publish_unpublished_heading', ui_language)}")
 
         if unpublished_df.empty:
-            st.success("All curated sites are currently present in the website dataset.")
+            st.success(t("publish_all_sites_already_present", ui_language))
         else:
             unpublished_publish_default_key = "unpublished_publish_default"
 
@@ -7335,8 +7411,8 @@ if active_page == "Export / Publish":
                 st.session_state[unpublished_publish_default_key] = False
 
             select_unpublished_clicked, deselect_unpublished_clicked = render_left_button_pair(
-                "Select all unpublished sites",
-                "Deselect unpublished sites",
+                t("publish_select_all_unpublished", ui_language),
+                t("publish_deselect_unpublished", ui_language),
                 left_key="select_all_unpublished_publish",
                 right_key="deselect_all_unpublished_publish",
                 widths=BUTTON_PAIR_LONG,
@@ -7386,8 +7462,8 @@ if active_page == "Export / Publish":
                 key="unpublished_sites_publish_editor",
                 column_config={
                     "publish": st.column_config.CheckboxColumn(
-                        "Publish",
-                        help="Tick sites that should be added to the website dataset.",
+                        t("publish_column_publish", ui_language),
+                        help=t("publish_unpublished_help", ui_language),
                         default=False,
                     ),
                 },
@@ -7397,10 +7473,10 @@ if active_page == "Export / Publish":
                 ],
             )
 
-        st.write("### Already published")
+        st.write(f"### {t('publish_published_heading', ui_language)}")
 
         if already_published_df.empty:
-            st.info("No curated sites are currently present in the website dataset.")
+            st.info(t("publish_no_currently_published", ui_language))
             edited_published_df = pd.DataFrame()
         else:
             published_publish_default_key = "published_publish_default"
@@ -7409,8 +7485,8 @@ if active_page == "Export / Publish":
                 st.session_state[published_publish_default_key] = True
 
             keep_published_clicked, remove_published_clicked = render_left_button_pair(
-                "Keep all already published sites",
-                "Remove all already published from next website dataset",
+                t("publish_keep_all_published", ui_language),
+                t("publish_remove_all_published", ui_language),
                 left_key="select_all_published_publish",
                 right_key="deselect_all_published_publish",
                 widths=BUTTON_PAIR_EXTRA_LONG,
@@ -7461,8 +7537,8 @@ if active_page == "Export / Publish":
                 key="published_sites_publish_editor",
                 column_config={
                     "publish": st.column_config.CheckboxColumn(
-                        "Publish",
-                        help="Keep ticked if this site should remain on the website.",
+                        t("publish_column_publish", ui_language),
+                        help=t("publish_published_help", ui_language),
                         default=True,
                     ),
                 },
@@ -7498,41 +7574,38 @@ if active_page == "Export / Publish":
         metric_pub_1, metric_pub_2, metric_pub_3 = st.columns(3)
 
         with metric_pub_1:
-            st.metric("Curated sites", len(publish_df))
+            st.metric(t("publish_metric_curated_sites", ui_language), len(publish_df))
 
         with metric_pub_2:
-            st.metric("Already published", len(already_published_df))
+            st.metric(t("publish_metric_already_published", ui_language), len(already_published_df))
 
         with metric_pub_3:
-            st.metric("Selected for next website dataset", len(selected_site_db_ids))
+            st.metric(t("publish_metric_selected_next", ui_language), len(selected_site_db_ids))
 
-        st.write("#### Confirm website publish")
+        st.write(f"#### {t('publish_confirm_heading', ui_language)}")
 
         confirm_publish_checked = st.checkbox(
-            required_label("I reviewed the selected sites and want to update the website dataset."),
+            required_label(t("publish_confirm_checkbox", ui_language)),
             key="confirm_publish_checked",
         )
 
         publish_to_github_after_export = st.checkbox(
-            "After confirming publish, upload the website dataset to GitHub using the API",
+            t("publish_upload_after_export", ui_language),
             value=False,
             key="publish_to_github_after_export",
         )
 
         git_commit_message = st.text_input(
-            "Git commit message",
-            value="Update corrosion map website dataset",
+            t("publish_git_commit_message", ui_language),
+            value=t("publish_default_commit_message", ui_language),
             key="git_commit_message",
         )
 
-        with st.expander("Quick remove already published site(s) from public map", expanded=False):
-            st.caption(
-                "Use this to remove one or more already published sites from the public map "
-                "without deleting them from the curator database."
-            )
+        with st.expander(t("publish_quick_remove_heading", ui_language), expanded=False):
+            st.caption(t("publish_quick_remove_caption", ui_language))
 
             if already_published_df.empty:
-                st.info("No already published sites are available to remove.")
+                st.info(t("publish_no_published_to_remove", ui_language))
             else:
                 published_remove_label_to_id = {}
 
@@ -7545,7 +7618,7 @@ if active_page == "Export / Publish":
                     published_remove_label_to_id[label] = int(row["site_db_id"])
 
                 selected_remove_labels = st.multiselect(
-                    "Published site(s) to remove from public map",
+                    t("publish_sites_to_remove", ui_language),
                     options=list(published_remove_label_to_id.keys()),
                     key="quick_remove_published_site_labels",
                 )
@@ -7556,19 +7629,19 @@ if active_page == "Export / Publish":
                 ]
 
                 confirm_quick_remove = st.checkbox(
-                    "I understand this removes the selected site(s) from the public map dataset, but does not delete them from the curator database.",
+                    t("publish_quick_remove_confirm", ui_language),
                     key="confirm_quick_remove_published_sites",
                 )
 
                 if st.button(
-                    "Remove selected site(s) from public map and upload to GitHub",
+                    t("publish_quick_remove_button", ui_language),
                     key="quick_remove_published_sites_from_map",
                     type="secondary",
                 ):
                     if not selected_remove_site_db_ids:
-                        st.error("Select at least one already published site to remove.")
+                        st.error(t("publish_quick_remove_select_error", ui_language))
                     elif not confirm_quick_remove:
-                        st.error("Tick the confirmation checkbox before removing published site(s).")
+                        st.error(t("publish_quick_remove_confirm_error", ui_language))
                     else:
                         keep_site_db_ids = [
                             int(row["site_db_id"])
@@ -7578,10 +7651,7 @@ if active_page == "Export / Publish":
                         ]
 
                         if not keep_site_db_ids:
-                            st.error(
-                                "This shortcut would publish an empty website dataset. "
-                                "Use the normal publish table if you truly intend to remove every site."
-                            )
+                            st.error(t("publish_quick_remove_empty_error", ui_language))
                         else:
                             try:
                                 result = publish_selected_sites_csv(keep_site_db_ids)
@@ -7594,7 +7664,7 @@ if active_page == "Export / Publish":
                                     batch_path=str(result["batch_path"]),
                                     commit_message=(
                                         git_commit_message.strip()
-                                        or "Remove published site from corrosion map website dataset"
+                                        or t("publish_quick_remove_commit_fallback", ui_language)
                                     ),
                                 )
 
@@ -7604,16 +7674,17 @@ if active_page == "Export / Publish":
                                 if bool(github_result["ok"]):
                                     st.session_state.website_publish_ready_for_git = False
                                     set_flash_message(
-                                        "Selected published site(s) removed from the public map dataset "
-                                        "and uploaded to GitHub. The map may take a few seconds or minutes "
-                                        "to show the change.",
+                                        t("publish_quick_remove_success", ui_language),
                                         level="success",
                                     )
                                 else:
                                     st.session_state.website_publish_ready_for_git = True
                                     set_flash_message(
-                                        "The local website dataset was updated, but GitHub upload did not complete: "
-                                        + str(github_result["message"]),
+                                        t(
+                                            "publish_quick_remove_partial",
+                                            ui_language,
+                                            message=str(github_result["message"]),
+                                        ),
                                         level="warning",
                                     )
 
@@ -7621,7 +7692,13 @@ if active_page == "Export / Publish":
                                 st.rerun()
 
                             except Exception as exc:
-                                st.error(f"Could not remove selected published site(s): {exc}")
+                                st.error(
+                                    t(
+                                        "publish_quick_remove_failed",
+                                        ui_language,
+                                        error=str(exc),
+                                    )
+                                )
 
         publish_button_col, map_button_col = st.columns(
             [0.68, 0.32],
@@ -7629,13 +7706,17 @@ if active_page == "Export / Publish":
         )
 
         with publish_button_col:
-            if st.button("Confirm publish to website", type="primary", key="confirm_publish_to_website"):
+            if st.button(
+                t("publish_confirm_button", ui_language),
+                type="primary",
+                key="confirm_publish_to_website",
+            ):
                 if duplicate_site_ids:
-                    st.error("Fix duplicate site_id values before publishing.")
+                    st.error(t("publish_fix_duplicates_error", ui_language))
                 elif not selected_site_db_ids:
-                    st.error("Select at least one site to publish.")
+                    st.error(t("publish_select_site_error", ui_language))
                 elif not confirm_publish_checked:
-                    st.error("Tick the confirmation checkbox before publishing.")
+                    st.error(t("publish_confirm_required_error", ui_language))
                 else:
                     try:
                         result = publish_selected_sites_csv(selected_site_db_ids)
@@ -7644,11 +7725,12 @@ if active_page == "Export / Publish":
 
                         st.session_state.website_publish_ready_for_git = True
 
-                        publish_message = (
-                            "Website dataset published successfully. "
-                            f"Published sites: {result['rows']}. "
-                            f"Live file: {display_app_path(result['live_path'])}. "
-                            f"Batch snapshot: {result['batch_name']}."
+                        publish_message = t(
+                            "publish_success_message",
+                            ui_language,
+                            rows=result["rows"],
+                            live_file=display_app_path(result["live_path"]),
+                            batch_name=result["batch_name"],
                         )
 
                         if publish_to_github_after_export:
@@ -7670,13 +7752,21 @@ if active_page == "Export / Publish":
                             else:
                                 st.session_state.website_publish_ready_for_git = True
                                 set_flash_message(
-                                    publish_message + " However, GitHub API publish did not complete: "
-                                    + str(github_result["message"]),
+                                    t(
+                                        "publish_github_partial",
+                                        ui_language,
+                                        publish_message=publish_message,
+                                        github_message=str(github_result["message"]),
+                                    ),
                                     level="warning",
                                 )
                         else:
                             set_flash_message(
-                                publish_message + " You can now use the separate GitHub API upload button.",
+                                t(
+                                    "publish_ready_for_manual_upload",
+                                    ui_language,
+                                    publish_message=publish_message,
+                                ),
                                 level="success",
                             )
 
@@ -7684,21 +7774,28 @@ if active_page == "Export / Publish":
                         st.rerun()
 
                     except Exception as exc:
-                        st.error(f"Website publish failed: {exc}")
+                        st.error(
+                            t(
+                                "publish_failed",
+                                ui_language,
+                                error=str(exc),
+                            )
+                        )
+
         with map_button_col:
             if MAP_WEBSITE_URL:
                 st.link_button(
-                    "Open public map website ↗",
+                    t("publish_open_public_map", ui_language),
                     MAP_WEBSITE_URL,
                     use_container_width=True,
                 )
             else:
-                st.info("Set MAP_WEBSITE_URL in secrets to enable the map shortcut.")
+                st.info(t("publish_missing_map_url", ui_language))
 
-            st.caption("Published changes may take a few seconds or minutes to appear on the map.")
-        
+            st.caption(t("publish_map_delay_caption", ui_language))
+
         st.divider()
-        st.write("#### Upload latest website publish to GitHub")
+        st.write(f"#### {t('publish_upload_latest_heading', ui_language)}")
 
         if st.session_state.last_git_publish_message:
             if st.session_state.website_publish_ready_for_git:
@@ -7707,30 +7804,28 @@ if active_page == "Export / Publish":
                 st.success(st.session_state.last_git_publish_message)
 
         if st.session_state.last_git_publish_output:
-            with st.expander("Show last Git command output", expanded=False):
+            with st.expander(t("publish_show_last_git_output", ui_language), expanded=False):
                 st.code(st.session_state.last_git_publish_output, language="text")
 
-        if st.button("Check GitHub API configuration", key="check_github_api_config"):
+        if st.button(t("publish_check_github_config", ui_language), key="check_github_api_config"):
             st.session_state.git_status_preview = get_github_config_summary()
 
         if "git_status_preview" in st.session_state:
-            with st.expander("GitHub API configuration", expanded=False):
+            with st.expander(t("publish_github_config_expander", ui_language), expanded=False):
                 st.code(st.session_state.git_status_preview, language="text")
 
         manual_commit_disabled = not bool(st.session_state.website_publish_ready_for_git)
 
         if manual_commit_disabled:
-            st.info(
-                "GitHub upload is disabled until you successfully confirm a website publish in this app session."
-            )
+            st.info(t("publish_manual_upload_disabled", ui_language))
 
         if st.button(
-            "Upload latest website publish to GitHub",
+            t("publish_upload_latest_button", ui_language),
             key="upload_latest_publish_to_github",
             disabled=manual_commit_disabled,
         ):
             if not st.session_state.last_publish_live_path or not st.session_state.last_publish_batch_path:
-                st.error("No latest publish file paths are available. Confirm website publish first.")
+                st.error(t("publish_no_latest_paths_error", ui_language))
             else:
                 github_result = publish_files_to_github(
                     live_path=st.session_state.last_publish_live_path,
