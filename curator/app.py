@@ -1223,6 +1223,7 @@ def optional_label(label: str) -> str:
     return f"{label} (optional)"
 
 SITE_FORM_KEYS = [
+    "location_query",
     "site_label_input",
     "site_latitude",
     "site_longitude",
@@ -1262,6 +1263,17 @@ SOURCE_METADATA_FORM_KEYS = [
     "combined_assign_source_metadata_mode",
 ]
 
+SITE_SOURCE_LINK_FORM_KEYS = [
+    "link_sites_selected",
+    "link_sources_selected",
+    "last_link_source_signature",
+    "link_source_order",
+    "link_metals_selected",
+    "link_exposure_periods_selected",
+    "link_notes",
+    "link_update_site_summary",
+]
+
 def clear_source_metadata_form_state() -> None:
     for key in SOURCE_METADATA_FORM_KEYS:
         st.session_state.pop(key, None)
@@ -1276,6 +1288,10 @@ def clear_site_form_state() -> None:
 
 def clear_source_form_state() -> None:
     for key in SOURCE_FORM_KEYS:
+        st.session_state.pop(key, None)
+
+def clear_site_source_link_form_state() -> None:
+    for key in SITE_SOURCE_LINK_FORM_KEYS:
         st.session_state.pop(key, None)
 
 def get_source_metadata_by_code() -> dict[str, dict[str, str]]:
@@ -2958,6 +2974,55 @@ def translate_status(value: str, language: str) -> str:
     return t(status_key_map.get(str(value), str(value)), language)
 
 
+def ui_text(english: str, chinese: str) -> str:
+    return chinese if ui_language == "zh" else english
+
+
+def suggest_region_tags_for_add_site_form(
+    latitude,
+    longitude,
+    modern_country_location: str,
+    site_type: str = "",
+    current_region_category: str = "",
+) -> tuple[list[str], str]:
+    latitude_text = str(latitude or "").strip()
+    longitude_text = str(longitude or "").strip()
+
+    if not latitude_text or not longitude_text:
+        return [], ui_text(
+            "Latitude and longitude are required before region classification.",
+            "进行区域分类前需要先填写纬度和经度。",
+        )
+
+    try:
+        latitude_value = float(latitude_text)
+        longitude_value = float(longitude_text)
+    except (TypeError, ValueError):
+        return [], ui_text(
+            "Latitude and longitude must be valid numbers before region classification.",
+            "进行区域分类前，纬度和经度必须是有效数字。",
+        )
+
+    result = classify_region_category(
+        latitude=latitude_value,
+        longitude=longitude_value,
+        current_region_category=current_region_category,
+        modern_country_location=modern_country_location,
+        site_type=site_type,
+        settings=get_region_classification_settings(),
+    )
+
+    suggested_region = str(result.region_category or "").strip()
+
+    if not suggested_region:
+        return [], ui_text(
+            "No region category could be inferred from the current coordinates.",
+            "无法根据当前坐标推断区域类别。",
+        )
+
+    return split_chip_values(suggested_region), str(result.notes or "").strip()
+
+
 def show_flash_message() -> None:
     flash = st.session_state.pop("flash_message", None)
 
@@ -3542,6 +3607,33 @@ st.set_page_config(
 )
 inject_app_styles()
 
+st.markdown(
+    """
+    <style>
+    @media (max-width: 900px) {
+        div[data-testid="column"] {
+            min-width: 280px !important;
+            flex: 1 1 100% !important;
+        }
+
+        .stButton > button,
+        .stDownloadButton > button,
+        a[data-testid="stLinkButton"] {
+            white-space: normal !important;
+            min-height: 2.55rem;
+        }
+
+        div[data-testid="stDataFrame"],
+        div[data-testid="stDataEditor"] {
+            max-width: 100%;
+            overflow-x: auto;
+        }
+    }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
 require_curator_login()
 
 sync_browser_language_preferences()
@@ -3645,6 +3737,9 @@ if st.session_state.pop("clear_site_form_after_success", False):
 if st.session_state.pop("clear_source_metadata_after_success", False):
     clear_source_metadata_form_state()
 
+if st.session_state.pop("clear_site_source_link_after_success", False):
+    clear_site_source_link_form_state()
+
 if "location_search_message" not in st.session_state:
     st.session_state.location_search_message = ""
 
@@ -3707,8 +3802,7 @@ def run_location_search() -> None:
 
         if results:
             st.session_state.selected_location_label = results[0]["label"]
-            st.session_state.location_search_message = ""
-            apply_selected_location()
+            st.session_state.location_search_message = "Location suggestions found. Review them and click Apply selected location."
         else:
             st.session_state.selected_location_label = None
             st.session_state.location_search_message = "No matching locations found."
@@ -4839,11 +4933,31 @@ if active_page == "Sites":
         t("sites_search_place", ui_language),
         placeholder=t("sites_search_place_placeholder", ui_language),
         key="location_query",
-        on_change=run_location_search,
     )
 
-    if st.button(t("sites_search_location_button", ui_language), key="search_location_button"):
-        run_location_search()
+    lookup_search_col, lookup_clear_col, lookup_spacer_col = st.columns(
+        [0.20, 0.20, 0.60],
+        vertical_alignment="bottom",
+    )
+
+    with lookup_search_col:
+        if st.button(
+            t("sites_search_location_button", ui_language),
+            key="search_location_button",
+            use_container_width=True,
+        ):
+            run_location_search()
+
+    with lookup_clear_col:
+        if st.button(
+            ui_text("Clear lookup", "清除搜索"),
+            key="clear_location_lookup_button",
+            use_container_width=True,
+        ):
+            st.session_state.location_results = []
+            st.session_state.selected_location_label = None
+            st.session_state.location_search_message = ""
+            st.rerun()
 
     if st.session_state.location_search_message:
         message = str(st.session_state.location_search_message)
@@ -4855,6 +4969,13 @@ if active_page == "Sites":
             st.warning(t("sites_enter_place_first", ui_language))
         elif message == "No matching locations found.":
             st.warning(t("sites_no_matching_locations", ui_language))
+        elif message.startswith("Location suggestions found"):
+            st.info(
+                ui_text(
+                    "Location suggestions found. Review them and click Apply selected location.",
+                    "已找到地点建议。请检查后点击“应用选定地点”。",
+                )
+            )
         else:
             st.warning(message)
 
@@ -4869,13 +4990,11 @@ if active_page == "Sites":
             or st.session_state.selected_location_label not in labels
         ):
             st.session_state.selected_location_label = labels[0]
-            apply_selected_location()
 
         selected_label = st.radio(
             t("sites_suggested_locations", ui_language),
             options=labels,
             key="selected_location_label",
-            on_change=apply_selected_location,
         )
 
         selected_location = next(
@@ -4897,6 +5016,26 @@ if active_page == "Sites":
                     longitude=selected_location["longitude"],
                 )
             )
+
+            apply_location_col, apply_location_spacer = st.columns(
+                [0.34, 0.66],
+                vertical_alignment="bottom",
+            )
+
+            with apply_location_col:
+                if st.button(
+                    ui_text("Apply selected location to Add Site form", "应用选定地点到添加站点表单"),
+                    key="apply_selected_location_to_site_form",
+                    type="primary",
+                    use_container_width=True,
+                ):
+                    apply_selected_location()
+                    st.success(
+                        ui_text(
+                            "Selected location applied to latitude, longitude, and country/location fields.",
+                            "已将选定地点应用到纬度、经度和国家/地区字段。",
+                        )
+                    )
 
     st.divider()
 
@@ -5007,6 +5146,50 @@ if active_page == "Sites":
 
         former_entity = resolve_option_value(selected_former_entity, custom_former_entity)
 
+        region_suggest_col, region_clear_col, region_spacer_col = st.columns(
+            [0.28, 0.20, 0.52],
+            vertical_alignment="bottom",
+        )
+
+        with region_suggest_col:
+            if st.button(
+                ui_text("Suggest region from coordinates", "根据坐标建议区域类别"),
+                key="suggest_region_for_add_site",
+                use_container_width=True,
+            ):
+                suggested_region_tags, region_note = suggest_region_tags_for_add_site_form(
+                    latitude=latitude,
+                    longitude=longitude,
+                    modern_country_location=modern_country_location,
+                    site_type=site_type,
+                    current_region_category=normalize_region_category(
+                        st.session_state.get("region_tags_select", [])
+                    ),
+                )
+
+                if suggested_region_tags:
+                    st.session_state.region_tags_select = suggested_region_tags
+                    st.success(
+                        ui_text(
+                            "Region category suggested. Review the tags before adding the site.",
+                            "已建议区域类别。添加站点前请检查标签。",
+                        )
+                    )
+
+                    if region_note:
+                        st.caption(region_note)
+                else:
+                    st.warning(region_note)
+
+        with region_clear_col:
+            if st.button(
+                ui_text("Clear region", "清除区域"),
+                key="clear_region_tags_for_add_site",
+                use_container_width=True,
+            ):
+                st.session_state.region_tags_select = []
+                st.rerun()
+
         selected_region_tags = st.multiselect(
             site_optional_label("sites_region_category_tags"),
             options=REGION_TAG_OPTIONS,
@@ -5101,6 +5284,18 @@ if active_page == "Sites":
                     latitude_value = float(latitude)
                     longitude_value = float(longitude)
 
+                    region_category_to_save = region_category
+
+                    if not region_category_to_save.strip():
+                        auto_region_tags, _ = suggest_region_tags_for_add_site_form(
+                            latitude=latitude_value,
+                            longitude=longitude_value,
+                            modern_country_location=modern_country_location,
+                            site_type=site_type,
+                            current_region_category="",
+                        )
+                        region_category_to_save = normalize_region_category(auto_region_tags)
+
                     site_db_id, site_action, match_reason = upsert_site_record(
                         {
                             "site_id": site_id,
@@ -5111,7 +5306,7 @@ if active_page == "Sites":
                             "modern_country_location": modern_country_location,
                             "administering_country": administering_country,
                             "former_entity": former_entity,
-                            "region_category": region_category,
+                            "region_category": region_category_to_save,
                             "exposure_period": exposure_period,
                             "metal": metal,
                             "notes": site_notes,
@@ -5380,6 +5575,7 @@ if active_page == "Sites":
                             message += t("sites_flash_site_summary_updated", ui_language)
 
                         set_flash_message(message)
+                        st.session_state.clear_site_source_link_after_success = True
                         st.rerun()
 
                     except Exception as exc:
