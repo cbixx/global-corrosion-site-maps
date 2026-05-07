@@ -4624,27 +4624,36 @@ if active_page == "Sources":
                             )
                         )
 
-                        
-if active_page == "Sites":
-    st.subheader("Sites")
-    st.caption("Search a location, confirm coordinates, classify the site, and add it to the database.")
 
-    st.write("### Location lookup")
+if active_page == "Sites":
+    def site_optional_label(label_key: str) -> str:
+        return f"{t(label_key, ui_language)} ({t('common_optional', ui_language)})"
+
+    st.subheader(t("sites_title", ui_language))
+    st.caption(t("sites_caption", ui_language))
+
+    st.write(f"### {t('sites_location_lookup', ui_language)}")
 
     location_query = st.text_input(
-        "Search place",
-        placeholder="e.g. Berlin, Germany",
+        t("sites_search_place", ui_language),
+        placeholder=t("sites_search_place_placeholder", ui_language),
         key="location_query",
         on_change=run_location_search,
     )
 
-    if st.button("Search location", key="search_location_button"):
+    if st.button(t("sites_search_location_button", ui_language), key="search_location_button"):
         run_location_search()
 
     if st.session_state.location_search_message:
-        message = st.session_state.location_search_message
+        message = str(st.session_state.location_search_message)
+
         if message.startswith("Location search failed"):
-            st.error(message)
+            error_text = message.replace("Location search failed:", "", 1).strip()
+            st.error(t("sites_location_search_failed", ui_language, error=error_text))
+        elif message == "Enter a place name first.":
+            st.warning(t("sites_enter_place_first", ui_language))
+        elif message == "No matching locations found.":
+            st.warning(t("sites_no_matching_locations", ui_language))
         else:
             st.warning(message)
 
@@ -4662,7 +4671,7 @@ if active_page == "Sites":
             apply_selected_location()
 
         selected_label = st.radio(
-            "Suggested locations",
+            t("sites_suggested_locations", ui_language),
             options=labels,
             key="selected_location_label",
             on_change=apply_selected_location,
@@ -4675,37 +4684,44 @@ if active_page == "Sites":
 
         if selected_location:
             st.info(
-                f"Selected: {selected_location['label']}\n\n"
-                f"Full match: {selected_location.get('full_label', selected_location['label'])}\n\n"
-                f"Latitude: {selected_location['latitude']}, "
-                f"Longitude: {selected_location['longitude']}"
+                t(
+                    "sites_selected_location_info",
+                    ui_language,
+                    label=selected_location["label"],
+                    full_match=selected_location.get(
+                        "full_label",
+                        selected_location["label"],
+                    ),
+                    latitude=selected_location["latitude"],
+                    longitude=selected_location["longitude"],
+                )
             )
 
     st.divider()
 
-    st.write("### Add site")
-    st.caption("* Required field")
+    st.write(f"### {t('sites_add_site_heading', ui_language)}")
+    st.caption(t("common_required_field", ui_language))
 
     with st.container():
         site_label = st.text_input(
-            required_label("Site label"),
-            placeholder="e.g. Berlin",
+            required_label(t("sites_site_label", ui_language)),
+            placeholder=t("sites_site_label_placeholder", ui_language),
             key="site_label_input",
         )
 
         selected_site_type = st.selectbox(
-            optional_label("Site type"),
+            site_optional_label("sites_site_type"),
             options=SITE_TYPE_OPTIONS,
             key="site_type_select",
-            help="Classify the site type where known, e.g. City, Research station, Industrial site.",
+            help=t("sites_site_type_help", ui_language),
         )
 
         custom_site_type = ""
 
         if selected_site_type == "Other / custom":
             custom_site_type = st.text_input(
-                optional_label("Custom site type"),
-                placeholder="Enter custom site type",
+                site_optional_label("sites_custom_site_type"),
+                placeholder=t("sites_custom_site_type_placeholder", ui_language),
                 key="custom_site_type_input",
             )
 
@@ -4715,27 +4731,27 @@ if active_page == "Sites":
 
         with col1:
             latitude = st.text_input(
-                required_label("Latitude"),
+                required_label(t("sites_latitude", ui_language)),
                 key="site_latitude",
-                placeholder="e.g. 50.0755",
+                placeholder=t("sites_latitude_placeholder", ui_language),
             )
 
         with col2:
             longitude = st.text_input(
-                required_label("Longitude"),
+                required_label(t("sites_longitude", ui_language)),
                 key="site_longitude",
-                placeholder="e.g. 14.4378",
+                placeholder=t("sites_longitude_placeholder", ui_language),
             )
 
         modern_country_location = st.text_input(
-            required_label("Modern country / location"),
+            required_label(t("sites_modern_country_location", ui_language)),
             key="site_modern_country_location",
-            placeholder="e.g. Germany or Antarctica",
+            placeholder=t("sites_modern_country_location_placeholder", ui_language),
         )
 
         administering_country = st.text_input(
-            optional_label("Administering country"),
-            placeholder="Used for Antarctic IDs such as AQ-RU-001",
+            site_optional_label("sites_administering_country"),
+            placeholder=t("sites_administering_country_placeholder", ui_language),
             key="administering_country_input",
         )
 
@@ -4749,10 +4765,16 @@ if active_page == "Sites":
 
         if site_id_prefix:
             suggested_site_id = get_next_site_id_for_prefix(site_id_prefix)
-            st.caption(f"Suggested site ID: `{suggested_site_id}`")
+            st.caption(
+                t(
+                    "sites_suggested_site_id",
+                    ui_language,
+                    site_id=suggested_site_id,
+                )
+            )
         else:
             suggested_site_id = ""
-            st.caption("Suggested site ID will appear after modern country / location is entered.")
+            st.caption(t("sites_suggested_site_id_pending", ui_language))
 
         previous_suggested_site_id = st.session_state.get("last_suggested_site_id", "")
         current_site_id_value = st.session_state.get("site_id_input", "")
@@ -4763,16 +4785,13 @@ if active_page == "Sites":
         st.session_state.last_suggested_site_id = suggested_site_id
 
         site_id = st.text_input(
-            required_label("Site ID"),
+            required_label(t("sites_site_id", ui_language)),
             key="site_id_input",
-            help=(
-                "Automatically suggested from the country/location. "
-                "For Antarctica, administering country is included when provided."
-            ),
+            help=t("sites_site_id_help", ui_language),
         )
 
         selected_former_entity = st.selectbox(
-            optional_label("Former entity"),
+            site_optional_label("sites_former_entity"),
             options=FORMER_ENTITY_OPTIONS,
             key="former_entity_select",
         )
@@ -4780,35 +4799,41 @@ if active_page == "Sites":
         custom_former_entity = ""
         if selected_former_entity == "Other / custom":
             custom_former_entity = st.text_input(
-                "Custom former entity",
-                placeholder="Enter custom former entity",
+                site_optional_label("sites_custom_former_entity"),
+                placeholder=t("sites_custom_former_entity_placeholder", ui_language),
                 key="custom_former_entity_input",
             )
 
         former_entity = resolve_option_value(selected_former_entity, custom_former_entity)
 
         selected_region_tags = st.multiselect(
-            optional_label("Region category tags"),
+            site_optional_label("sites_region_category_tags"),
             options=REGION_TAG_OPTIONS,
-            help="Choose one or more tags. They will be combined into a normalized region category.",
+            help=t("sites_region_category_help", ui_language),
             key="region_tags_select",
         )
 
         region_category = normalize_region_category(selected_region_tags)
 
         if region_category:
-            st.caption(f"Saved region category: {region_category}")
+            st.caption(
+                t(
+                    "sites_saved_region_category",
+                    ui_language,
+                    value=region_category,
+                )
+            )
 
         exposure_period = st.text_input(
-            optional_label("Exposure period"),
-            placeholder="e.g. 1987–1991 or 1 year",
+            site_optional_label("sites_exposure_period"),
+            placeholder=t("sites_exposure_period_placeholder", ui_language),
             key="exposure_period_input",
         )
 
         selected_metals = st.multiselect(
-            optional_label("Metal"),
+            site_optional_label("sites_metal"),
             options=get_metal_options(),
-            help="Choose one or more metals. Type a new value and press Enter to add a custom metal.",
+            help=t("sites_metal_help", ui_language),
             key="metals_select",
             accept_new_options=True,
         )
@@ -4816,15 +4841,24 @@ if active_page == "Sites":
         metal = normalize_metal_selection(selected_metals)
 
         if metal:
-            st.caption(f"Saved metal field: {metal}")
+            st.caption(
+                t(
+                    "sites_saved_metal_field",
+                    ui_language,
+                    value=metal,
+                )
+            )
 
         site_notes = st.text_area(
-            optional_label("Site notes"),
-            placeholder="Optional notes about the site",
+            site_optional_label("sites_site_notes"),
+            placeholder=t("sites_site_notes_placeholder", ui_language),
             key="site_notes_input",
         )
 
-        submit_site = st.button("Add site", key="add_site_button")
+        submit_site = st.button(
+            t("sites_add_site_button", ui_language),
+            key="add_site_button",
+        )
 
         site_match_preview = preview_site_upsert_match(
             site_id=site_id,
@@ -4835,23 +4869,32 @@ if active_page == "Sites":
         )
 
         if site_match_preview.get("will_merge"):
-            st.warning(site_match_preview["message"])
+            st.warning(
+                t(
+                    "sites_existing_site_warning",
+                    ui_language,
+                    existing_site_id=site_match_preview.get("existing_site_id", ""),
+                    existing_site_label=site_match_preview.get("existing_site_label", ""),
+                    existing_country=site_match_preview.get("existing_country", ""),
+                    match_reason=site_match_preview.get("match_reason", ""),
+                )
+            )
         elif site_match_preview.get("checked"):
-            st.success(site_match_preview["message"])
+            st.success(t("sites_no_existing_site_match", ui_language))
         elif site_match_preview.get("message"):
-            st.info(site_match_preview["message"])
+            st.info(str(site_match_preview.get("message", "")))
 
         if submit_site:
             if not site_id.strip():
-                st.error("Site ID is required.")
+                st.error(t("sites_validation_site_id_required", ui_language))
             elif not site_label.strip():
-                st.error("Site label is required.")
+                st.error(t("sites_validation_site_label_required", ui_language))
             elif not latitude.strip():
-                st.error("Latitude is required.")
+                st.error(t("sites_validation_latitude_required", ui_language))
             elif not longitude.strip():
-                st.error("Longitude is required.")
+                st.error(t("sites_validation_longitude_required", ui_language))
             elif not modern_country_location.strip():
-                st.error("Modern country / location is required.")
+                st.error(t("sites_validation_modern_country_required", ui_language))
             else:
                 try:
                     latitude_value = float(latitude)
@@ -4879,41 +4922,59 @@ if active_page == "Sites":
                     st.session_state.clear_site_form_after_success = True
 
                     if site_action == "created":
-                        set_flash_message(f"Site '{site_label.strip()}' added successfully.")
+                        set_flash_message(
+                            t(
+                                "sites_flash_site_added",
+                                ui_language,
+                                site_label=site_label.strip(),
+                            )
+                        )
                     else:
                         set_flash_message(
-                            f"Site '{site_label.strip()}' already existed. "
-                            f"The existing site row was updated instead of creating a duplicate. "
-                            f"Match basis: {match_reason}."
+                            t(
+                                "sites_flash_site_merged",
+                                ui_language,
+                                site_label=site_label.strip(),
+                                match_reason=match_reason,
+                            )
                         )
 
                     st.rerun()
                 except ValueError:
-                    st.error("Latitude and longitude must be valid numbers.")
+                    st.error(t("sites_validation_lat_lon_numbers", ui_language))
                 except Exception as exc:
-                    st.error(f"Could not add site: {exc}")
+                    st.error(
+                        t(
+                            "sites_error_could_not_add_site",
+                            ui_language,
+                            error=str(exc),
+                        )
+                    )
 
     st.divider()
 
-    st.write("### Source evidence for existing site(s)")
-    st.caption(
-        "Attach one or more sources to site records, and record the metals and exposure periods "
-        "reported by those sources for the selected site(s)."
-    )
+    st.write(f"### {t('sites_source_evidence_heading', ui_language)}")
+    st.caption(t("sites_source_evidence_caption", ui_language))
 
-    with st.expander("Attach source(s) to site(s)", expanded=True):
+    with st.expander(t("sites_attach_sources_expander", ui_language), expanded=True):
         try:
             site_options = get_site_options()
             source_options = get_source_options()
         except Exception as exc:
             site_options = []
             source_options = []
-            st.error(f"Could not load site/source options: {exc}")
+            st.error(
+                t(
+                    "sites_error_load_site_source_options",
+                    ui_language,
+                    error=str(exc),
+                )
+            )
 
         if not site_options:
-            st.info("No sites available yet. Add at least one site first.")
+            st.info(t("sites_no_sites_available", ui_language))
         elif not source_options:
-            st.info("No sources available yet. Add at least one source first.")
+            st.info(t("sites_no_sources_available", ui_language))
         else:
             site_label_to_id = {
                 build_site_option_label(row): int(row["id"])
@@ -4934,11 +4995,11 @@ if active_page == "Sites":
             if "link_sources_selected" not in st.session_state:
                 st.session_state["link_sources_selected"] = []
 
-            st.write("##### Site selection")
+            st.write(f"##### {t('sites_site_selection', ui_language)}")
 
             select_link_sites_clicked, deselect_link_sites_clicked = render_left_button_pair(
-                "Select all sites",
-                "Deselect all sites",
+                t("sites_select_all_sites", ui_language),
+                t("sites_deselect_all_sites", ui_language),
                 left_key="select_all_link_sites",
                 right_key="deselect_all_link_sites",
                 widths=BUTTON_PAIR_COMPACT,
@@ -4953,17 +5014,17 @@ if active_page == "Sites":
                 st.rerun()
 
             selected_site_labels = st.multiselect(
-                required_label("Choose site(s)"),
+                required_label(t("sites_choose_sites", ui_language)),
                 options=site_link_labels,
-                help="Choose one or more sites. Multiple selection allows bulk source linking.",
+                help=t("sites_choose_sites_help", ui_language),
                 key="link_sites_selected",
             )
 
-            st.write("##### Source selection")
+            st.write(f"##### {t('sites_source_selection', ui_language)}")
 
             select_link_sources_clicked, deselect_link_sources_clicked = render_left_button_pair(
-                "Select all sources",
-                "Deselect all sources",
+                t("sites_select_all_sources", ui_language),
+                t("sites_deselect_all_sources", ui_language),
                 left_key="select_all_link_sources",
                 right_key="deselect_all_link_sources",
                 widths=BUTTON_PAIR_COMPACT,
@@ -4978,9 +5039,9 @@ if active_page == "Sites":
                 st.rerun()
 
             selected_source_labels = st.multiselect(
-                required_label("Choose source(s)"),
+                required_label(t("sites_choose_sources", ui_language)),
                 options=source_link_labels,
-                help="Choose one or more sources to attach to the selected site(s).",
+                help=t("sites_choose_sources_help", ui_language),
                 key="link_sources_selected",
             )
 
@@ -5016,28 +5077,28 @@ if active_page == "Sites":
 
             if suggested_link_metals or suggested_link_exposure_periods:
                 st.info(
-                    f"Suggested from selected source(s):\n\n"
-                    f"Metals: {suggested_link_metals or '—'}\n\n"
-                    f"Exposure period(s): {suggested_link_exposure_periods or '—'}"
+                    t(
+                        "sites_suggested_from_sources",
+                        ui_language,
+                        metals=suggested_link_metals or "—",
+                        exposure_periods=suggested_link_exposure_periods or "—",
+                    )
                 )
 
             source_order = st.number_input(
-                required_label("Source order"),
+                required_label(t("sites_source_order", ui_language)),
                 min_value=1,
                 max_value=99,
                 value=1,
                 step=1,
-                help="Controls source ordering later when exported to the website.",
+                help=t("sites_source_order_help", ui_language),
                 key="link_source_order",
             )
 
             selected_link_metals = st.multiselect(
-                optional_label("Metal(s) for this site-source link"),
+                site_optional_label("sites_link_metals"),
                 options=get_metal_options(),
-                help=(
-                    "Defaults to the selected source metadata. "
-                    "You can customise this for the specific site-source relationship."
-                ),
+                help=t("sites_link_metals_help", ui_language),
                 key="link_metals_selected",
                 accept_new_options=True,
             )
@@ -5045,12 +5106,9 @@ if active_page == "Sites":
             link_metals = normalize_metal_selection(selected_link_metals)
 
             selected_link_exposure_periods = st.multiselect(
-                optional_label("Exposure period(s) for this site-source link"),
+                site_optional_label("sites_link_exposure_periods"),
                 options=EXPOSURE_PERIOD_OPTIONS,
-                help=(
-                    "Defaults to the selected source metadata. "
-                    "You can customise this for the specific site-source relationship."
-                ),
+                help=t("sites_link_exposure_periods_help", ui_language),
                 key="link_exposure_periods_selected",
                 accept_new_options=True,
             )
@@ -5060,28 +5118,43 @@ if active_page == "Sites":
             )
 
             link_notes = st.text_area(
-                optional_label("Notes for this site-source relationship"),
-                placeholder="Optional notes, e.g. table number, exposure series, extraction remarks.",
+                site_optional_label("sites_link_notes"),
+                placeholder=t("sites_link_notes_placeholder", ui_language),
                 key="link_notes",
             )
 
             update_site_summary = st.checkbox(
-                "After linking, add missing metals/exposure periods to the site-level summary fields",
+                t("sites_update_site_summary", ui_language),
                 value=True,
                 key="link_update_site_summary",
             )
 
             if link_metals:
-                st.caption(f"Site-source metal field: {link_metals}")
+                st.caption(
+                    t(
+                        "sites_site_source_metal_field",
+                        ui_language,
+                        value=link_metals,
+                    )
+                )
 
             if link_exposure_periods.strip():
-                st.caption(f"Site-source exposure period field: {link_exposure_periods.strip()}")
+                st.caption(
+                    t(
+                        "sites_site_source_exposure_field",
+                        ui_language,
+                        value=link_exposure_periods.strip(),
+                    )
+                )
 
-            if st.button("Attach selected source(s)", key="attach_sources_to_sites"):
+            if st.button(
+                t("sites_attach_selected_sources", ui_language),
+                key="attach_sources_to_sites",
+            ):
                 if not selected_site_ids:
-                    st.error("Select at least one site.")
+                    st.error(t("sites_error_select_one_site", ui_language))
                 elif not selected_source_ids:
-                    st.error("Select at least one source.")
+                    st.error(t("sites_error_select_one_source", ui_language))
                 else:
                     try:
                         changed_count = bulk_upsert_site_source_links(
@@ -5096,35 +5169,48 @@ if active_page == "Sites":
                         if update_site_summary:
                             merge_metadata_for_multiple_sites(selected_site_ids)
 
-                        message = f"Created or updated {changed_count} site-source link(s)."
+                        message = t(
+                            "sites_flash_links_updated",
+                            ui_language,
+                            count=changed_count,
+                        )
 
                         if update_site_summary:
-                            message += " Site-level metal and exposure-period fields were merged and updated."
+                            message += t("sites_flash_site_summary_updated", ui_language)
 
                         set_flash_message(message)
                         st.rerun()
 
                     except Exception as exc:
-                        st.error(f"Could not attach source(s): {exc}")
+                        st.error(
+                            t(
+                                "sites_error_could_not_attach_sources",
+                                ui_language,
+                                error=str(exc),
+                            )
+                        )
 
-    with st.expander("Review or delete existing site-source links", expanded=False):
+    with st.expander(t("sites_review_delete_links_expander", ui_language), expanded=False):
         try:
             link_rows = get_site_source_links()
         except Exception as exc:
             link_rows = []
-            st.error(f"Could not load site-source links: {exc}")
+            st.error(
+                t(
+                    "sites_error_load_links",
+                    ui_language,
+                    error=str(exc),
+                )
+            )
 
         if not link_rows:
-            st.info("No site-source links have been created yet.")
+            st.info(t("sites_no_links_created", ui_language))
         else:
             link_df_original = pd.DataFrame(link_rows)
             link_df_editor = link_df_original.copy()
             link_df_editor.insert(0, "delete", False)
 
-            st.caption(
-                "Tick Delete for site-source links you want to remove. "
-                "This removes only the relationship record, not the site, source, or PDF."
-            )
+            st.caption(t("sites_delete_links_caption", ui_language))
 
             edited_link_df = st.data_editor(
                 link_df_editor,
@@ -5139,8 +5225,8 @@ if active_page == "Sites":
                 key="site_source_links_editor",
                 column_config={
                     "delete": st.column_config.CheckboxColumn(
-                        "Delete",
-                        help="Tick links to delete, then click Delete selected links.",
+                        t("sites_delete_column", ui_language),
+                        help=t("sites_delete_column_help", ui_language),
                         default=False,
                     )
                 },
@@ -5153,7 +5239,7 @@ if active_page == "Sites":
             ]
 
             confirm_delete_links = st.checkbox(
-                "Confirm deletion of selected site-source links",
+                t("sites_confirm_delete_links", ui_language),
                 key="confirm_delete_site_source_links",
             )
 
@@ -5161,53 +5247,56 @@ if active_page == "Sites":
 
             with link_delete_right:
                 delete_links_clicked = st.button(
-                    "Delete selected site-source links",
+                    t("sites_delete_selected_links", ui_language),
                     key="delete_site_source_links",
                     use_container_width=True,
                 )
 
             if delete_links_clicked:
                 if not delete_link_ids:
-                    st.error("Tick at least one site-source link first.")
+                    st.error(t("sites_error_tick_link_first", ui_language))
                 elif not confirm_delete_links:
-                    st.error("Confirm deletion before deleting selected site-source links.")
+                    st.error(t("sites_error_confirm_delete_links", ui_language))
                 else:
                     try:
                         deleted_count = delete_site_source_links(delete_link_ids)
-                        set_flash_message(f"Deleted {deleted_count} site-source link(s).")
+                        set_flash_message(
+                            t(
+                                "sites_flash_deleted_links",
+                                ui_language,
+                                count=deleted_count,
+                            )
+                        )
                         st.rerun()
                     except Exception as exc:
-                        st.error(f"Could not delete selected links: {exc}")
+                        st.error(
+                            t(
+                                "sites_error_could_not_delete_links",
+                                ui_language,
+                                error=str(exc),
+                            )
+                        )
 
 if active_page == "Corrosion Data":
-    st.subheader("Corrosion Data")
-    st.caption(
-        "Primary measurement-level corrosion data. "
-        "Each row represents one site-source-material-exposure corrosion observation."
-    )
+    st.subheader(t("corrosion_title", ui_language))
+    st.caption(t("corrosion_caption", ui_language))
 
-    st.info(
-        "Recommended structure: one corrosion value per row. "
-        "Do not combine steel and zinc corrosion rates into one wide row."
-    )
+    st.info(t("corrosion_structure_info", ui_language))
 
-    st.write("### CSV import")
+    st.write(f"### {t('corrosion_csv_import', ui_language)}")
 
     st.download_button(
-        "Download corrosion observation CSV template",
+        t("corrosion_download_template", ui_language),
         data=make_corrosion_template_csv(),
         file_name="corrosion_observations_template.csv",
         mime="text/csv",
     )
 
     uploaded_corrosion_csv = st.file_uploader(
-        "Upload corrosion observation CSV",
+        t("corrosion_upload_csv", ui_language),
         type=["csv", "txt"],
         key="corrosion_observation_csv_upload",
-        help=(
-            "Required columns: site_id, source_code, material, exposure_period, "
-            "corrosion_metric, value, unit."
-        ),
+        help=t("corrosion_upload_csv_help", ui_language),
     )
 
     corrosion_preview_df = pd.DataFrame()
@@ -5216,7 +5305,14 @@ if active_page == "Corrosion Data":
         try:
             corrosion_preview_df = read_corrosion_csv(uploaded_corrosion_csv)
 
-            st.success(f"Preview built: {len(corrosion_preview_df)} corrosion observation row(s).")
+            st.success(
+                t(
+                    "corrosion_preview_built",
+                    ui_language,
+                    count=len(corrosion_preview_df),
+                )
+            )
+
             st.dataframe(
                 corrosion_preview_df,
                 width="stretch",
@@ -5224,21 +5320,26 @@ if active_page == "Corrosion Data":
             )
 
             confirm_corrosion_import = st.checkbox(
-                "I reviewed the corrosion observation preview and want to import these rows",
+                t("corrosion_confirm_import_checkbox", ui_language),
                 key="confirm_corrosion_observation_import",
             )
 
-            if st.button("Confirm corrosion observation import", key="confirm_corrosion_observation_import_button"):
+            if st.button(
+                t("corrosion_confirm_import_button", ui_language),
+                key="confirm_corrosion_observation_import_button",
+            ):
                 if not confirm_corrosion_import:
-                    st.error("Tick the confirmation checkbox before importing.")
+                    st.error(t("corrosion_import_confirm_error", ui_language))
                 else:
                     result = import_corrosion_observations(
                         corrosion_preview_df.to_dict("records")
                     )
 
-                    message = (
-                        f"Imported/updated {result['inserted_or_updated']} corrosion observation(s). "
-                        f"Skipped {result['skipped']} row(s)."
+                    message = t(
+                        "corrosion_import_result",
+                        ui_language,
+                        imported=result["inserted_or_updated"],
+                        skipped=result["skipped"],
                     )
 
                     if result["skipped"]:
@@ -5247,32 +5348,44 @@ if active_page == "Corrosion Data":
                         set_flash_message(message, level="success")
 
                     if result["messages"]:
-                        st.warning("Some rows were skipped or produced warnings.")
+                        st.warning(t("corrosion_import_warning_rows", ui_language))
                         st.code("\n".join(result["messages"][:80]), language="text")
 
                     set_next_active_page("Corrosion Data")
                     st.rerun()
 
         except Exception as exc:
-            st.error(f"Could not build corrosion observation preview: {exc}")
+            st.error(
+                t(
+                    "corrosion_preview_build_error",
+                    ui_language,
+                    error=str(exc),
+                )
+            )
 
     st.divider()
 
-    st.write("### Existing corrosion observations")
+    st.write(f"### {t('corrosion_existing_heading', ui_language)}")
 
     try:
         corrosion_rows = get_corrosion_observations()
         corrosion_df = pd.DataFrame(corrosion_rows)
     except Exception as exc:
         corrosion_df = pd.DataFrame()
-        st.error(f"Could not load corrosion observations: {exc}")
+        st.error(
+            t(
+                "corrosion_load_error",
+                ui_language,
+                error=str(exc),
+            )
+        )
 
     if corrosion_df.empty:
-        st.info("No corrosion observations have been added yet.")
+        st.info(t("corrosion_no_observations", ui_language))
     else:
         search_corrosion = st.text_input(
-            "Search corrosion observations",
-            placeholder="site_id, site label, source code, material, exposure period...",
+            t("corrosion_search_label", ui_language),
+            placeholder=t("corrosion_search_placeholder", ui_language),
             key="search_corrosion_observations",
         )
 
@@ -5287,7 +5400,14 @@ if active_page == "Corrosion Data":
                 .str.contains(query, na=False)
             ]
 
-        st.caption(f"Showing {len(display_df)} of {len(corrosion_df)} corrosion observation row(s).")
+        st.caption(
+            t(
+                "corrosion_showing_rows",
+                ui_language,
+                shown=len(display_df),
+                total=len(corrosion_df),
+            )
+        )
 
         table_df = display_df.copy()
         table_df.insert(0, "delete", False)
@@ -5315,7 +5435,7 @@ if active_page == "Corrosion Data":
         )
 
         delete_confirmed = st.checkbox(
-            "Confirm deletion of selected corrosion observation row(s)",
+            t("corrosion_confirm_delete_checkbox", ui_language),
             key="confirm_delete_corrosion_observations",
         )
 
@@ -5325,32 +5445,57 @@ if active_page == "Corrosion Data":
         )
 
         with delete_col:
-            if st.button("Delete selected corrosion observations", key="delete_selected_corrosion_observations"):
+            if st.button(
+                t("corrosion_delete_selected", ui_language),
+                key="delete_selected_corrosion_observations",
+            ):
                 if not selected_delete_ids:
-                    st.error("Select at least one row to delete.")
+                    st.error(t("corrosion_delete_select_error", ui_language))
                 elif not delete_confirmed:
-                    st.error("Tick the deletion confirmation checkbox first.")
+                    st.error(t("corrosion_delete_confirm_error", ui_language))
                 else:
                     deleted_count = delete_corrosion_observations(selected_delete_ids)
-                    set_flash_message(f"Deleted {deleted_count} corrosion observation row(s).")
+                    set_flash_message(
+                        t(
+                            "corrosion_deleted_rows",
+                            ui_language,
+                            count=deleted_count,
+                        )
+                    )
                     set_next_active_page("Corrosion Data")
                     st.rerun()
 
         with export_col:
-            if st.button("Export corrosion observations to website CSV", key="export_corrosion_observations_csv"):
+            if st.button(
+                t("corrosion_export_csv", ui_language),
+                key="export_corrosion_observations_csv",
+            ):
                 try:
                     exported_count = export_corrosion_observations_to_website_csv()
                     set_flash_message(
-                        f"Exported {exported_count} corrosion observation row(s) to "
-                        f"`{CORROSION_OUTPUT_CSV_PATH.relative_to(REPO_ROOT).as_posix()}`."
+                        t(
+                            "corrosion_exported_csv",
+                            ui_language,
+                            count=exported_count,
+                            path=CORROSION_OUTPUT_CSV_PATH.relative_to(REPO_ROOT).as_posix(),
+                        )
                     )
                     set_next_active_page("Corrosion Data")
                     st.rerun()
                 except Exception as exc:
-                    st.error(f"Could not export corrosion observations: {exc}")
+                    st.error(
+                        t(
+                            "corrosion_export_error",
+                            ui_language,
+                            error=str(exc),
+                        )
+                    )
 
         with github_col:
-            if st.button("Upload corrosion CSV to GitHub", key="upload_corrosion_csv_to_github"):
+            if st.button(
+                t("corrosion_upload_github", ui_language),
+                key="upload_corrosion_csv_to_github",
+            ):
                 try:
                     if not CORROSION_OUTPUT_CSV_PATH.exists():
                         exported_count = export_corrosion_observations_to_website_csv()
@@ -5364,47 +5509,47 @@ if active_page == "Corrosion Data":
 
                     st.session_state.last_git_publish_output = str(result.get("output", result))
                     set_flash_message(
-                        f"Uploaded corrosion observations CSV to GitHub. "
-                        f"Rows available: {exported_count}."
+                        t(
+                            "corrosion_uploaded_github",
+                            ui_language,
+                            count=exported_count,
+                        )
                     )
                     set_next_active_page("Corrosion Data")
                     st.rerun()
 
                 except Exception as exc:
-                    st.error(f"Could not upload corrosion observations CSV to GitHub: {exc}")
+                    st.error(
+                        t(
+                            "corrosion_upload_github_error",
+                            ui_language,
+                            error=str(exc),
+                        )
+                    )
 
-        with st.expander("Show website corrosion CSV path", expanded=False):
+        with st.expander(t("corrosion_show_csv_path", ui_language), expanded=False):
             st.code(CORROSION_OUTPUT_CSV_PATH.as_posix(), language="text")
 
 if active_page == "Environmental Data":
-    st.subheader("Environmental Data")
-    st.caption(
-        "Secondary climatic and environmental context data. "
-        "Each row represents one site-variable-period environmental observation."
-    )
+    st.subheader(t("environment_title", ui_language))
+    st.caption(t("environment_caption", ui_language))
 
-    st.info(
-        "Recommended structure: one environmental variable per row. "
-        "Do not combine temperature, humidity, wind speed, and pollutant values into one wide row."
-    )
+    st.info(t("environment_structure_info", ui_language))
 
-    st.write("### CSV import")
+    st.write(f"### {t('environment_csv_import', ui_language)}")
 
     st.download_button(
-        "Download environmental observation CSV template",
+        t("environment_download_template", ui_language),
         data=make_environment_template_csv(),
         file_name="environmental_observations_template.csv",
         mime="text/csv",
     )
 
     uploaded_environment_csv = st.file_uploader(
-        "Upload environmental observation CSV",
+        t("environment_upload_csv", ui_language),
         type=["csv", "txt"],
         key="environmental_observation_csv_upload",
-        help=(
-            "Required columns: site_id, variable_name, value, unit. "
-            "Optional columns: aggregation, period_start, period_end, data_source, source_code, notes."
-        ),
+        help=t("environment_upload_csv_help", ui_language),
     )
 
     environment_preview_df = pd.DataFrame()
@@ -5413,7 +5558,14 @@ if active_page == "Environmental Data":
         try:
             environment_preview_df = read_environment_csv(uploaded_environment_csv)
 
-            st.success(f"Preview built: {len(environment_preview_df)} environmental observation row(s).")
+            st.success(
+                t(
+                    "environment_preview_built",
+                    ui_language,
+                    count=len(environment_preview_df),
+                )
+            )
+
             st.dataframe(
                 environment_preview_df,
                 width="stretch",
@@ -5421,21 +5573,26 @@ if active_page == "Environmental Data":
             )
 
             confirm_environment_import = st.checkbox(
-                "I reviewed the environmental observation preview and want to import these rows",
+                t("environment_confirm_import_checkbox", ui_language),
                 key="confirm_environmental_observation_import",
             )
 
-            if st.button("Confirm environmental observation import", key="confirm_environmental_observation_import_button"):
+            if st.button(
+                t("environment_confirm_import_button", ui_language),
+                key="confirm_environmental_observation_import_button",
+            ):
                 if not confirm_environment_import:
-                    st.error("Tick the confirmation checkbox before importing.")
+                    st.error(t("environment_import_confirm_error", ui_language))
                 else:
                     result = import_environmental_observations(
                         environment_preview_df.to_dict("records")
                     )
 
-                    message = (
-                        f"Imported/updated {result['inserted_or_updated']} environmental observation(s). "
-                        f"Skipped {result['skipped']} row(s)."
+                    message = t(
+                        "environment_import_result",
+                        ui_language,
+                        imported=result["inserted_or_updated"],
+                        skipped=result["skipped"],
                     )
 
                     if result["skipped"]:
@@ -5444,32 +5601,44 @@ if active_page == "Environmental Data":
                         set_flash_message(message, level="success")
 
                     if result["messages"]:
-                        st.warning("Some rows were skipped or produced warnings.")
+                        st.warning(t("environment_import_warning_rows", ui_language))
                         st.code("\n".join(result["messages"][:80]), language="text")
 
                     set_next_active_page("Environmental Data")
                     st.rerun()
 
         except Exception as exc:
-            st.error(f"Could not build environmental observation preview: {exc}")
+            st.error(
+                t(
+                    "environment_preview_build_error",
+                    ui_language,
+                    error=str(exc),
+                )
+            )
 
     st.divider()
 
-    st.write("### Existing environmental observations")
+    st.write(f"### {t('environment_existing_heading', ui_language)}")
 
     try:
         environment_rows = get_environmental_observations()
         environment_df = pd.DataFrame(environment_rows)
     except Exception as exc:
         environment_df = pd.DataFrame()
-        st.error(f"Could not load environmental observations: {exc}")
+        st.error(
+            t(
+                "environment_load_error",
+                ui_language,
+                error=str(exc),
+            )
+        )
 
     if environment_df.empty:
-        st.info("No environmental observations have been added yet.")
+        st.info(t("environment_no_observations", ui_language))
     else:
         search_environment = st.text_input(
-            "Search environmental observations",
-            placeholder="site_id, site label, variable name, data source, period...",
+            t("environment_search_label", ui_language),
+            placeholder=t("environment_search_placeholder", ui_language),
             key="search_environmental_observations",
         )
 
@@ -5484,7 +5653,14 @@ if active_page == "Environmental Data":
                 .str.contains(query, na=False)
             ]
 
-        st.caption(f"Showing {len(display_df)} of {len(environment_df)} environmental observation row(s).")
+        st.caption(
+            t(
+                "environment_showing_rows",
+                ui_language,
+                shown=len(display_df),
+                total=len(environment_df),
+            )
+        )
 
         table_df = display_df.copy()
         table_df.insert(0, "delete", False)
@@ -5498,6 +5674,12 @@ if active_page == "Environmental Data":
                 if column != "delete"
             ],
             key="environmental_observations_editor",
+            column_config={
+                "delete": st.column_config.CheckboxColumn(
+                    t("environment_delete_column", ui_language),
+                    default=False,
+                ),
+            },
         )
 
         selected_delete_ids = (
@@ -5512,7 +5694,7 @@ if active_page == "Environmental Data":
         )
 
         delete_confirmed = st.checkbox(
-            "Confirm deletion of selected environmental observation row(s)",
+            t("environment_confirm_delete_checkbox", ui_language),
             key="confirm_delete_environmental_observations",
         )
 
@@ -5522,32 +5704,57 @@ if active_page == "Environmental Data":
         )
 
         with delete_col:
-            if st.button("Delete selected environmental observations", key="delete_selected_environmental_observations"):
+            if st.button(
+                t("environment_delete_selected", ui_language),
+                key="delete_selected_environmental_observations",
+            ):
                 if not selected_delete_ids:
-                    st.error("Select at least one row to delete.")
+                    st.error(t("environment_delete_select_error", ui_language))
                 elif not delete_confirmed:
-                    st.error("Tick the deletion confirmation checkbox first.")
+                    st.error(t("environment_delete_confirm_error", ui_language))
                 else:
                     deleted_count = delete_environmental_observations(selected_delete_ids)
-                    set_flash_message(f"Deleted {deleted_count} environmental observation row(s).")
+                    set_flash_message(
+                        t(
+                            "environment_deleted_rows",
+                            ui_language,
+                            count=deleted_count,
+                        )
+                    )
                     set_next_active_page("Environmental Data")
                     st.rerun()
 
         with export_col:
-            if st.button("Export environmental observations to website CSV", key="export_environmental_observations_csv"):
+            if st.button(
+                t("environment_export_csv", ui_language),
+                key="export_environmental_observations_csv",
+            ):
                 try:
                     exported_count = export_environmental_observations_to_website_csv()
                     set_flash_message(
-                        f"Exported {exported_count} environmental observation row(s) to "
-                        f"`{ENVIRONMENT_OUTPUT_CSV_PATH.relative_to(REPO_ROOT).as_posix()}`."
+                        t(
+                            "environment_exported_csv",
+                            ui_language,
+                            count=exported_count,
+                            path=ENVIRONMENT_OUTPUT_CSV_PATH.relative_to(REPO_ROOT).as_posix(),
+                        )
                     )
                     set_next_active_page("Environmental Data")
                     st.rerun()
                 except Exception as exc:
-                    st.error(f"Could not export environmental observations: {exc}")
+                    st.error(
+                        t(
+                            "environment_export_error",
+                            ui_language,
+                            error=str(exc),
+                        )
+                    )
 
         with github_col:
-            if st.button("Upload environmental CSV to GitHub", key="upload_environmental_csv_to_github"):
+            if st.button(
+                t("environment_upload_github", ui_language),
+                key="upload_environmental_csv_to_github",
+            ):
                 try:
                     if not ENVIRONMENT_OUTPUT_CSV_PATH.exists():
                         exported_count = export_environmental_observations_to_website_csv()
@@ -5561,18 +5768,27 @@ if active_page == "Environmental Data":
 
                     st.session_state.last_git_publish_output = str(result.get("output", result))
                     set_flash_message(
-                        f"Uploaded environmental observations CSV to GitHub. "
-                        f"Rows available: {exported_count}."
+                        t(
+                            "environment_uploaded_github",
+                            ui_language,
+                            count=exported_count,
+                        )
                     )
                     set_next_active_page("Environmental Data")
                     st.rerun()
 
                 except Exception as exc:
-                    st.error(f"Could not upload environmental observations CSV to GitHub: {exc}")
+                    st.error(
+                        t(
+                            "environment_upload_github_error",
+                            ui_language,
+                            error=str(exc),
+                        )
+                    )
 
-        with st.expander("Show website environmental CSV path", expanded=False):
+        with st.expander(t("environment_show_csv_path", ui_language), expanded=False):
             st.code(ENVIRONMENT_OUTPUT_CSV_PATH.as_posix(), language="text")
-
+            
 if active_page == "Manage Records":
     st.subheader("Manage Records")
     st.markdown('<div id="manage-records-top"></div>', unsafe_allow_html=True)
