@@ -1196,3 +1196,113 @@ html, body {
     font-size: 11px;
     line-height: 1.35;
 }
+
+.leaflet-popup-content {
+    min-width: 310px;
+    max-width: 360px;
+}
+
+.popup-tabs {
+    margin-top: 8px;
+}
+
+.popup-tab-list {
+    display: flex;
+    gap: 4px;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.14);
+    margin-bottom: 8px;
+}
+
+.popup-tab-button {
+    flex: 1 1 0;
+    border: 0;
+    border-bottom: 2px solid transparent;
+    background: transparent;
+    color: #4b5563;
+    cursor: pointer;
+    padding: 7px 5px 6px;
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 1.2;
+    border-radius: 6px 6px 0 0;
+}
+
+.popup-tab-button:hover {
+    background: #f3f7fa;
+    color: #1f2937;
+}
+
+.popup-tab-button.active {
+    color: #1f6feb;
+    border-bottom-color: #1f6feb;
+    background: #eef4ff;
+}
+
+.popup-tab-panel {
+    display: none;
+    max-height: 260px;
+    overflow-y: auto;
+    padding: 2px 2px 4px;
+}
+
+.popup-tab-panel.active {
+    display: block;
+}
+
+.popup-section-title {
+    font-size: 13px;
+    font-weight: 800;
+    color: #1f2937;
+    margin: 2px 0 8px;
+}
+
+.popup-tab-placeholder {
+    background: #f8fafc;
+    border: 1px dashed #cbd5e1;
+    border-radius: 8px;
+    color: #64748b;
+    font-size: 12px;
+    line-height: 1.45;
+    padding: 10px;
+}
+
+.popup-tab-note {
+    margin-top: 8px;
+    color: #6b7280;
+    font-size: 11px;
+    line-height: 1.35;
+}
+
+.popup-metric-card {
+    background: #f8fafc;
+    border: 1px solid #d7dee3;
+    border-radius: 10px;
+    padding: 10px 12px;
+}
+
+.popup-metric-label {
+    font-size: 11px;
+    color: #64748b;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.popup-metric-value {
+    margin-top: 4px;
+    font-size: 18px;
+    color: #111827;
+    font-weight: 800;
+}
+
+.popup-tab-panel .corrosion-popup-line,
+.popup-tab-panel .climate-popup-line {
+    margin-top: 0;
+    padding-top: 0;
+    border-top: 0;
+}
+
+.popup-tab-panel .action-row {
+    padding-top: 8px;
+    border-top: 1px solid rgba(0, 0, 0, 0.10);
+}

@@ -820,6 +820,32 @@
       handleClimateFetchButtonClick(climateButton);
     });
 
+    document.addEventListener("click", function(event) {
+      const tabButton = event.target.closest(".popup-tab-button");
+
+      if (!tabButton) return;
+
+      const tabRoot = tabButton.closest(".popup-tabs");
+
+      if (!tabRoot) return;
+
+      event.preventDefault();
+      event.stopPropagation();
+
+      const targetTab = tabButton.getAttribute("data-tab");
+
+      tabRoot.querySelectorAll(".popup-tab-button").forEach(button => {
+        const isActive = button.getAttribute("data-tab") === targetTab;
+        button.classList.toggle("active", isActive);
+        button.setAttribute("aria-selected", isActive ? "true" : "false");
+      });
+
+      tabRoot.querySelectorAll(".popup-tab-panel").forEach(panel => {
+        const isActive = panel.getAttribute("data-panel") === targetTab;
+        panel.classList.toggle("active", isActive);
+      });
+    });
+
     function escapeHtml(value) {
       if (value === null || value === undefined) return '';
       return String(value)
@@ -953,6 +979,109 @@
             Coordinate-based climate estimate available on request.
           </div>
         </div>
+      `;
+    }
+
+    function buildSiteDataPopupPanel(row) {
+      const resources = row._resources || [];
+      const notes = row.notes || '';
+
+      let html = `
+        <div class="popup-row"><strong>Site ID:</strong> ${escapeHtml(row.site_id || '')}</div>
+      `;
+
+      if (row.site_type) {
+        html += `<div class="popup-row"><strong>Site type:</strong> ${escapeHtml(row.site_type)}</div>`;
+      }
+
+      if (row.modern_country_location) {
+        html += `<div class="popup-row"><strong>Country/location:</strong> ${escapeHtml(row.modern_country_location)}</div>`;
+      }
+
+      if (row.administering_country) {
+        html += `<div class="popup-row"><strong>Administering country:</strong> ${escapeHtml(row.administering_country)}</div>`;
+      }
+
+      if (row.former_entity) {
+        html += `<div class="popup-row"><strong>Former entity:</strong> ${escapeHtml(row.former_entity)}</div>`;
+      }
+
+      if (row.region_category) {
+        html += `<div class="popup-row"><strong>Region:</strong> ${escapeHtml(row.region_category)}</div>`;
+      }
+
+      if (row.exposure_period) {
+        html += `<div class="popup-row"><strong>Exposure period:</strong> ${escapeHtml(row.exposure_period)}</div>`;
+      }
+
+      if (row.metal) {
+        html += `<div class="popup-row"><strong>Metal:</strong> ${escapeHtml(row.metal)}</div>`;
+      }
+
+      if (resources.length > 0 || notes) {
+        html += `<div class="action-row">`;
+
+        resources.forEach(resource => {
+          html += `
+            <a class="resource-link" href="${escapeHtml(resource.url)}" target="_blank" rel="noopener noreferrer">
+              ${escapeHtml(resource.label)}
+            </a>
+          `;
+        });
+
+        if (notes) {
+          html += `
+            <div class="notes-wrap">
+              <button class="notes-button" type="button" aria-expanded="false">Notes</button>
+              <div class="notes-panel">${escapeHtml(notes)}</div>
+            </div>
+          `;
+        }
+
+        html += `</div>`;
+      }
+
+      return html;
+    }
+
+    function buildCorrosionPopupPanel(row) {
+      if (!corrosionOverlayActive) {
+        return `
+          <div class="popup-tab-placeholder">
+            Curated corrosion data has not been loaded for this map session.
+            Use <strong>Load curated corrosion overlay</strong> in the side panel to display available corrosion observations.
+          </div>
+        `;
+      }
+
+      const rate = getCorrosionRate(row);
+
+      if (rate === undefined) {
+        return `
+          <div class="popup-tab-placeholder">
+            No curated corrosion observation is currently available for this site.
+          </div>
+        `;
+      }
+
+      return `
+        <div class="popup-section-title">Curated corrosion observation</div>
+
+        <div class="popup-metric-card">
+          <div class="popup-metric-label">Steel corrosion rate</div>
+          <div class="popup-metric-value">${escapeHtml(formatCorrosionRate(rate))}</div>
+        </div>
+
+        <div class="popup-tab-note">
+          This value is derived from the curator-exported corrosion observation dataset currently loaded into the website overlay.
+        </div>
+      `;
+    }
+
+    function buildEnvironmentalPopupPanel(row) {
+      return `
+        <div class="popup-section-title">Coordinate-based environmental context</div>
+        ${buildClimateApiPopupSection(row)}
       `;
     }
 
@@ -1210,63 +1339,57 @@
      }
 
     function buildPopup(row) {
-      const resources = row._resources || [];
-      const notes = row.notes || '';
+      const siteTitle = row.site_label || 'Unnamed site';
 
-      let popupContent = `
-        <div class="popup-title">${escapeHtml(row.site_label || 'Unnamed site')}</div>
-        <div class="popup-row"><strong>Site ID:</strong> ${escapeHtml(row.site_id || '')}</div>
-        <div class="popup-row"><strong>Site type:</strong> ${escapeHtml(row.site_type || '')}</div>
-        <div class="popup-row"><strong>Country/location:</strong> ${escapeHtml(row.modern_country_location || '')}</div>
-     `;
+      return `
+        <div class="popup-title">${escapeHtml(siteTitle)}</div>
 
-      if (row.administering_country) {
-        popupContent += `<div class="popup-row"><strong>Administering country:</strong> ${escapeHtml(row.administering_country)}</div>`;
-      }
+        <div class="popup-tabs">
+          <div class="popup-tab-list" role="tablist" aria-label="Site popup sections">
+            <button
+              class="popup-tab-button active"
+              type="button"
+              role="tab"
+              aria-selected="true"
+              data-tab="site"
+            >
+              Site data
+            </button>
 
-      if (row.former_entity) {
-        popupContent += `<div class="popup-row"><strong>Former entity:</strong> ${escapeHtml(row.former_entity)}</div>`;
-      }
+            <button
+              class="popup-tab-button"
+              type="button"
+              role="tab"
+              aria-selected="false"
+              data-tab="corrosion"
+            >
+              Corrosion data
+            </button>
 
-      if (row.region_category) {
-        popupContent += `<div class="popup-row"><strong>Region:</strong> ${escapeHtml(row.region_category)}</div>`;
-      }
+            <button
+              class="popup-tab-button"
+              type="button"
+              role="tab"
+              aria-selected="false"
+              data-tab="environment"
+            >
+              Environmental data
+            </button>
+          </div>
 
-      if (row.exposure_period) {
-        popupContent += `<div class="popup-row"><strong>Exposure period:</strong> ${escapeHtml(row.exposure_period)}</div>`;
-      }
+          <div class="popup-tab-panel active" data-panel="site">
+            ${buildSiteDataPopupPanel(row)}
+          </div>
 
-      if (row.metal) {
-        popupContent += `<div class="popup-row"><strong>Metal:</strong> ${escapeHtml(row.metal)}</div>`;
-      }
+          <div class="popup-tab-panel" data-panel="corrosion">
+            ${buildCorrosionPopupPanel(row)}
+          </div>
 
-      popupContent += buildCorrosionPopupSection(row);
-      popupContent += buildClimateApiPopupSection(row);
-
-      if (resources.length > 0 || notes) {
-        popupContent += `<div class="action-row">`;
-
-        resources.forEach(resource => {
-          popupContent += `
-            <a class="resource-link" href="${escapeHtml(resource.url)}" target="_blank" rel="noopener noreferrer">
-              ${escapeHtml(resource.label)}
-            </a>
-          `;
-        });
-
-        if (notes) {
-          popupContent += `
-            <div class="notes-wrap">
-              <button class="notes-button" type="button" aria-expanded="false">Notes</button>
-              <div class="notes-panel">${escapeHtml(notes)}</div>
-            </div>
-          `;
-        }
-
-        popupContent += `</div>`;
-      }
-
-      return popupContent;
+          <div class="popup-tab-panel" data-panel="environment">
+            ${buildEnvironmentalPopupPanel(row)}
+          </div>
+        </div>
+      `;
     }
 
     function populateSelect(selectId, values) {
