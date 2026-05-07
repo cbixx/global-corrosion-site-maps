@@ -3864,17 +3864,26 @@ if active_page == "Dashboard":
 
 
 if active_page == "Sources":
-    st.subheader("Sources")
-    st.caption("Register PDFs, add source records, and classify source programmes.")
+    def source_optional_label(label_key: str) -> str:
+        return f"{t(label_key, ui_language)} ({t('common_optional', ui_language)})"
 
-    with st.expander("Register existing PDFs from source_pdfs/", expanded=False):
+    st.subheader(t("sources_title", ui_language))
+    st.caption(t("sources_caption", ui_language))
+
+    with st.expander(t("sources_register_existing_pdfs", ui_language), expanded=False):
         existing_pdf_files = list_source_pdf_files()
 
         try:
             existing_source_codes = get_existing_source_codes()
         except Exception as exc:
             existing_source_codes = set()
-            st.error(f"Could not read existing source codes: {exc}")
+            st.error(
+                t(
+                    "sources_error_read_existing_source_codes",
+                    ui_language,
+                    error=str(exc),
+                )
+            )
 
         noncanonical_pdf_files = [
             pdf_path for pdf_path in existing_pdf_files
@@ -3887,18 +3896,18 @@ if active_page == "Sources":
         ]
 
         if noncanonical_pdf_files:
-            st.warning(
-                "Some PDF filenames are not in canonical `sNNN.pdf` format. "
-                "Rename them before registering PDFs as sources."
-            )
+            st.warning(t("sources_warning_noncanonical_pdfs_register", ui_language))
 
-            with st.expander("Show PDF files that should be renamed", expanded=False):
+            with st.expander(
+                t("sources_expander_show_pdfs_should_rename", ui_language),
+                expanded=False,
+            ):
                 for pdf_path in noncanonical_pdf_files:
                     canonical_name = suggested_source_pdf_name(pdf_path.stem)
                     st.write(f"- `{pdf_path.name}` → `{canonical_name}`")
 
             if st.button(
-                "Rename PDFs to canonical source-code filenames",
+                t("sources_button_rename_pdfs", ui_language),
                 key="rename_noncanonical_source_pdfs_from_sources_page",
             ):
                 rename_result = rename_noncanonical_source_pdf_files()
@@ -3907,24 +3916,28 @@ if active_page == "Sources":
 
                 if rename_result["renamed"]:
                     messages.append(
-                        "Renamed PDF file(s):\n"
+                        t("sources_renamed_pdf_files", ui_language)
+                        + ":\n"
                         + "\n".join(f"- {item}" for item in rename_result["renamed"])
                     )
 
                 if rename_result["skipped"]:
                     messages.append(
-                        "Skipped PDF file(s):\n"
+                        t("sources_skipped_pdf_files", ui_language)
+                        + ":\n"
                         + "\n".join(f"- {item}" for item in rename_result["skipped"])
                     )
 
                 if rename_result["failed"]:
                     messages.append(
-                        "Failed PDF rename(s):\n"
+                        t("sources_failed_pdf_renames", ui_language)
+                        + ":\n"
                         + "\n".join(f"- {item}" for item in rename_result["failed"])
                     )
 
                 set_flash_message(
-                    "\n\n".join(messages) or "No PDF filename changes were needed.",
+                    "\n\n".join(messages)
+                    or t("sources_no_pdf_filename_changes", ui_language),
                     level="warning" if rename_result["failed"] else "success",
                 )
                 set_next_active_page("Sources")
@@ -3936,30 +3949,39 @@ if active_page == "Sources":
         ]
 
         if not existing_pdf_files:
-            st.info("No PDFs found in `source_pdfs/`.")
+            st.info(t("sources_no_pdfs_found", ui_language))
         elif not missing_pdf_files:
-            st.success("All PDFs in `source_pdfs/` are already registered as sources.")
+            st.success(t("sources_all_pdfs_registered", ui_language))
         else:
-            st.write(f"{len(missing_pdf_files)} unregistered PDF(s) found in `source_pdfs/`.")
+            st.write(
+                t(
+                    "sources_unregistered_pdfs_found",
+                    ui_language,
+                    count=len(missing_pdf_files),
+                )
+            )
 
-            with st.expander("Preview unregistered PDFs", expanded=False):
+            with st.expander(
+                t("sources_preview_unregistered_pdfs", ui_language),
+                expanded=False,
+            ):
                 for pdf_path in missing_pdf_files:
                     st.write(
                         f"- `{pdf_path.name}` → source code `{source_code_from_pdf_path(pdf_path)}`"
                     )
 
             default_programme_for_scan = st.selectbox(
-                "Programme for registered PDFs",
+                t("sources_programme_for_registered_pdfs", ui_language),
                 options=get_programme_options(include_blank=True),
                 key="register_existing_pdf_programme",
-                help="This programme will be applied to all PDFs registered in this scan. Type a new value to add a new programme.",
+                help=t("sources_programme_for_registered_pdfs_help", ui_language),
                 accept_new_options=True,
             )
 
             scan_programme = default_programme_for_scan.strip()
 
             selected_scan_metals = st.multiselect(
-                "Metal(s) for registered PDFs",
+                t("sources_metals_for_registered_pdfs", ui_language),
                 options=get_metal_options(),
                 key="register_existing_pdf_metals",
                 accept_new_options=True,
@@ -3968,7 +3990,7 @@ if active_page == "Sources":
             scan_metals = normalize_metal_selection(selected_scan_metals)
 
             selected_scan_exposure_periods = st.multiselect(
-                "Exposure period(s) for registered PDFs",
+                t("sources_exposure_periods_for_registered_pdfs", ui_language),
                 options=EXPOSURE_PERIOD_OPTIONS,
                 key="register_existing_pdf_exposure_periods",
                 accept_new_options=True,
@@ -3978,7 +4000,7 @@ if active_page == "Sources":
                 selected_scan_exposure_periods
             )
 
-            if st.button("Register missing PDFs"):
+            if st.button(t("sources_register_missing_pdfs", ui_language)):
                 registered_count = 0
 
                 for pdf_path in missing_pdf_files:
@@ -3999,19 +4021,32 @@ if active_page == "Sources":
                         )
                         registered_count += 1
                     except Exception as exc:
-                        st.warning(f"Could not register `{pdf_path.name}`: {exc}")
+                        st.warning(
+                            t(
+                                "sources_could_not_register_pdf",
+                                ui_language,
+                                file_name=pdf_path.name,
+                                error=str(exc),
+                            )
+                        )
 
                 set_next_active_page("Sources")
                 add_metadata_options("programme", split_chip_values(scan_programme))
                 add_metadata_options("metal", split_chip_values(scan_metals))
-                set_flash_message(f"Registered {registered_count} PDF source(s).")
+                set_flash_message(
+                    t(
+                        "sources_registered_pdf_sources",
+                        ui_language,
+                        count=registered_count,
+                    )
+                )
                 st.rerun()
-    
-    with st.expander("Upload source PDF(s) to GitHub", expanded=False):
+
+    with st.expander(t("sources_upload_pdfs_github", ui_language), expanded=False):
         existing_pdf_files = list_source_pdf_files()
 
         if not existing_pdf_files:
-            st.info("No PDF files found in `source_pdfs/`.")
+            st.info(t("sources_no_pdf_files_found", ui_language))
         else:
             pdf_label_to_path = {
                 pdf_path.name: pdf_path
@@ -4019,17 +4054,17 @@ if active_page == "Sources":
             }
 
             selected_pdf_labels = st.multiselect(
-                "Choose PDF file(s) to upload to GitHub",
+                t("sources_choose_pdfs_upload_github", ui_language),
                 options=list(pdf_label_to_path.keys()),
                 key="source_pdfs_to_upload_to_github",
             )
 
             if st.button(
-                "Upload selected source PDF(s) to GitHub",
+                t("sources_upload_selected_pdfs_github", ui_language),
                 key="upload_selected_source_pdfs_to_github",
             ):
                 if not selected_pdf_labels:
-                    st.error("Select at least one PDF file.")
+                    st.error(t("sources_select_at_least_one_pdf", ui_language))
                 else:
                     upload_messages = []
                     uploaded_count = 0
@@ -4066,22 +4101,33 @@ if active_page == "Sources":
 
                     if failed_count:
                         st.warning(
-                            f"PDF GitHub upload completed with failures. "
-                            f"Uploaded/updated: {uploaded_count}; skipped unchanged: {skipped_count}; "
-                            f"failed: {failed_count}."
+                            t(
+                                "sources_pdf_github_upload_completed_failures",
+                                ui_language,
+                                uploaded=uploaded_count,
+                                skipped=skipped_count,
+                                failed=failed_count,
+                            )
                         )
                     else:
                         st.success(
-                            f"PDF GitHub upload completed. "
-                            f"Uploaded/updated: {uploaded_count}; skipped unchanged: {skipped_count}."
+                            t(
+                                "sources_pdf_github_upload_completed",
+                                ui_language,
+                                uploaded=uploaded_count,
+                                skipped=skipped_count,
+                            )
                         )
 
-                    with st.expander("Show PDF GitHub upload details", expanded=True):
+                    with st.expander(
+                        t("sources_show_pdf_github_upload_details", ui_language),
+                        expanded=True,
+                    ):
                         st.code("\n".join(upload_messages), language="text")
 
     st.divider()
 
-    st.write("### Add source")
+    st.write(f"### {t('sources_add_source_heading', ui_language)}")
 
     suggested_source_code = get_next_source_code()
 
@@ -4089,36 +4135,33 @@ if active_page == "Sources":
         st.session_state["add_source_code"] = suggested_source_code
 
     st.caption(
-        f"Next suggested source code: `{suggested_source_code}`. "
-        "Source codes are normalised to the canonical `sNNN` format."
+        t(
+            "sources_next_source_code_caption",
+            ui_language,
+            source_code=suggested_source_code,
+        )
     )
 
     with st.form("add_source_form", clear_on_submit=False):
-        st.caption("* Required field")
+        st.caption(t("common_required_field", ui_language))
 
         source_code = st.text_input(
-            required_label("Source code"),
+            required_label(t("sources_source_code", ui_language)),
             placeholder=f"e.g. {suggested_source_code}",
-            help=(
-                "Use canonical source-code format: s001, s002, s003, etc. "
-                "Inputs such as 21, S21, or s21 will be normalised to s021."
-            ),
+            help=t("sources_source_code_help", ui_language),
             key="add_source_code",
         )
 
         source_title = st.text_input(
-            optional_label("Source title"),
-            placeholder="Paper/report title",
+            source_optional_label("sources_source_title"),
+            placeholder=t("sources_source_title_placeholder", ui_language),
             key="add_source_title",
         )
 
         selected_programme = st.selectbox(
-            required_label("Source programme"),
+            required_label(t("sources_source_programme", ui_language)),
             options=get_programme_options(include_blank=True),
-            help=(
-                "Required. Classify the source by major corrosion exposure programme where applicable. "
-                "Type a new value to add a new programme."
-            ),
+            help=t("sources_source_programme_help", ui_language),
             accept_new_options=True,
             key="add_source_programme",
         )
@@ -4126,12 +4169,9 @@ if active_page == "Sources":
         source_programme = selected_programme.strip()
 
         selected_source_metals = st.multiselect(
-            required_label("Metal(s) covered by this source"),
+            required_label(t("sources_source_metals", ui_language)),
             options=get_metal_options(),
-            help=(
-                "Required. These become default metals when this source is linked to a site. "
-                "Type a new value and press Enter to add a new metal."
-            ),
+            help=t("sources_source_metals_help", ui_language),
             key="add_source_metals",
             accept_new_options=True,
         )
@@ -4139,12 +4179,9 @@ if active_page == "Sources":
         source_metals = normalize_metal_selection(selected_source_metals)
 
         selected_source_exposure_periods = st.multiselect(
-            required_label("Exposure period(s) covered by this source"),
+            required_label(t("sources_source_exposure_periods", ui_language)),
             options=EXPOSURE_PERIOD_OPTIONS,
-            help=(
-                "Required. These become default exposure periods when this source is linked to a site. "
-                "Type a new value and press Enter to add a custom duration."
-            ),
+            help=t("sources_source_exposure_periods_help", ui_language),
             key="add_source_exposure_periods",
             accept_new_options=True,
         )
@@ -4154,35 +4191,34 @@ if active_page == "Sources":
         )
 
         uploaded_pdf = st.file_uploader(
-            optional_label("Upload source PDF"),
+            source_optional_label("sources_upload_source_pdf"),
             type=["pdf"],
-            help="The PDF will be copied into source_pdfs/ and linked from the website later.",
+            help=t("sources_upload_source_pdf_help", ui_language),
             key="add_source_uploaded_pdf",
         )
 
         upload_source_pdf_to_github = st.checkbox(
-            optional_label("After adding this source, upload the PDF to GitHub"),
+            source_optional_label("sources_upload_pdf_github_after_add"),
             value=True,
-            help=(
-                "Recommended for the online app. Streamlit's hosted file system is not permanent, "
-                "so uploaded PDFs should be committed to GitHub if they need to remain accessible."
-            ),
+            help=t("sources_upload_pdf_github_after_add_help", ui_language),
             key="upload_source_pdf_to_github_after_add",
         )
 
         external_url = st.text_input(
-            optional_label("External URL"),
-            placeholder="If a PDF is uploaded, the uploaded PDF path will be used.",
+            source_optional_label("sources_external_url"),
+            placeholder=t("sources_external_url_placeholder", ui_language),
             key="add_source_external_url",
         )
 
         source_notes = st.text_area(
-            optional_label("Source notes"),
-            placeholder="Optional notes",
+            source_optional_label("sources_source_notes"),
+            placeholder=t("sources_source_notes_placeholder", ui_language),
             key="add_source_notes",
         )
 
-        submit_source = st.form_submit_button("Add source")
+        submit_source = st.form_submit_button(
+            t("sources_add_source_button", ui_language)
+        )
 
         if submit_source:
             validation_errors = []
@@ -4191,28 +4227,39 @@ if active_page == "Sources":
             source_code = normalise_source_code(raw_source_code)
 
             if not raw_source_code.strip():
-                validation_errors.append("Source code is required.")
+                validation_errors.append(
+                    t("sources_validation_source_code_required", ui_language)
+                )
             elif not is_canonical_source_code(source_code):
                 validation_errors.append(
-                    "Source code must follow the canonical format `sNNN`, for example `s021`."
+                    t("sources_validation_source_code_canonical", ui_language)
                 )
             elif source_code_exists(source_code):
                 validation_errors.append(
-                    f"Source code `{source_code}` already exists. "
-                    "Use the existing source record instead of creating a duplicate."
+                    t(
+                        "sources_validation_source_code_duplicate",
+                        ui_language,
+                        source_code=source_code,
+                    )
                 )
 
             if not source_programme.strip():
-                validation_errors.append("Source programme is required.")
+                validation_errors.append(
+                    t("sources_validation_programme_required", ui_language)
+                )
 
             if not source_metals.strip():
-                validation_errors.append("At least one source metal is required.")
+                validation_errors.append(
+                    t("sources_validation_metal_required", ui_language)
+                )
 
             if not source_exposure_periods.strip():
-                validation_errors.append("At least one source exposure period is required.")
+                validation_errors.append(
+                    t("sources_validation_exposure_required", ui_language)
+                )
 
             if validation_errors:
-                st.error("Please complete the required field(s). Your entered information has been kept.")
+                st.error(t("sources_validation_required_fields", ui_language))
                 for error in validation_errors:
                     st.warning(error)
             else:
@@ -4221,20 +4268,20 @@ if active_page == "Sources":
                     flash_message = ""
 
                     with st.status(
-                        "Adding source and processing PDF...",
+                        t("sources_status_adding_source", ui_language),
                         expanded=True,
                     ) as source_status:
                         local_file_name = ""
                         source_url = external_url.strip()
 
                         if uploaded_pdf is not None:
-                            st.write("Saving uploaded PDF into source_pdfs/...")
+                            st.write(t("sources_status_saving_pdf", ui_language))
                             local_file_name, source_url = save_uploaded_source_pdf(
                                 uploaded_pdf,
                                 source_code,
                             )
 
-                        st.write("Writing source metadata to database...")
+                        st.write(t("sources_status_writing_metadata", ui_language))
                         insert_source(
                             source_code=source_code,
                             source_title=source_title,
@@ -4246,16 +4293,20 @@ if active_page == "Sources":
                             notes=source_notes,
                         )
 
-                        st.write("Updating metadata option lists...")
+                        st.write(t("sources_status_updating_options", ui_language))
                         set_next_active_page("Sources")
                         add_metadata_options("programme", split_chip_values(source_programme))
                         add_metadata_options("metal", split_chip_values(source_metals))
 
-                        flash_message = f"Source '{source_code.strip()}' added successfully."
+                        flash_message = t(
+                            "sources_flash_source_added",
+                            ui_language,
+                            source_code=source_code.strip(),
+                        )
 
                         if uploaded_pdf is not None and upload_source_pdf_to_github:
                             try:
-                                st.write("Uploading source PDF to GitHub...")
+                                st.write(t("sources_status_uploading_pdf_github", ui_language))
                                 pdf_local_path = REPO_ROOT / source_url
 
                                 github_pdf_result = publish_file_to_github(
@@ -4263,20 +4314,24 @@ if active_page == "Sources":
                                     commit_message=f"Upload source PDF {local_file_name}",
                                 )
 
-                                flash_message += " Uploaded source PDF to GitHub."
+                                flash_message += t(
+                                    "sources_flash_uploaded_pdf_github",
+                                    ui_language,
+                                )
                                 st.session_state.last_git_publish_output = str(
                                     github_pdf_result["output"]
                                 )
 
                             except Exception as github_exc:
                                 flash_level = "warning"
-                                flash_message += (
-                                    " However, the source PDF was not uploaded to GitHub: "
-                                    + str(github_exc)
+                                flash_message += t(
+                                    "sources_flash_pdf_not_uploaded",
+                                    ui_language,
+                                    error=str(github_exc),
                                 )
 
                         source_status.update(
-                            label="Source processing completed.",
+                            label=t("sources_status_processing_completed", ui_language),
                             state="complete",
                             expanded=False,
                         )
@@ -4286,12 +4341,20 @@ if active_page == "Sources":
                     st.rerun()
 
                 except Exception as exc:
-                    st.error(f"Could not add source: {exc}")
+                    st.error(
+                        t(
+                            "sources_error_could_not_add_source",
+                            ui_language,
+                            error=str(exc),
+                        )
+                    )
 
     st.divider()
 
-    with st.expander("Assign programme, metals, and exposure periods to existing sources", expanded=True):
-        
+    with st.expander(
+        t("sources_assign_metadata_expander", ui_language),
+        expanded=True,
+    ):
         try:
             with get_connection() as conn:
                 source_rows = conn.execute(
@@ -4306,10 +4369,16 @@ if active_page == "Sources":
 
         except Exception as exc:
             source_records = []
-            st.error(f"Could not load sources: {exc}")
+            st.error(
+                t(
+                    "sources_error_could_not_load_sources",
+                    ui_language,
+                    error=str(exc),
+                )
+            )
 
         if not source_records:
-            st.info("No sources available yet. Add or register sources first.")
+            st.info(t("sources_no_sources_available", ui_language))
         else:
             source_labels = []
             source_label_to_id = {}
@@ -4317,8 +4386,8 @@ if active_page == "Sources":
 
             for row in source_records:
                 source_code = row["source_code"]
-                source_title = row["source_title"] or "Untitled"
-                programme = row["programme"] or "No programme"
+                source_title = row["source_title"] or t("sources_untitled", ui_language)
+                programme = row["programme"] or t("sources_no_programme", ui_language)
 
                 label = f"{source_code} — {source_title} [{programme}]"
 
@@ -4332,8 +4401,8 @@ if active_page == "Sources":
                 st.session_state[source_selection_key] = []
 
             select_sources_clicked, deselect_sources_clicked = render_left_button_pair(
-                "Select all sources",
-                "Deselect all sources",
+                t("sources_select_all_sources", ui_language),
+                t("sources_deselect_all_sources", ui_language),
                 left_key="select_all_combined_source_metadata",
                 right_key="deselect_all_combined_source_metadata",
                 widths=BUTTON_PAIR_COMPACT,
@@ -4348,7 +4417,7 @@ if active_page == "Sources":
                 st.rerun()
 
             selected_source_labels = st.multiselect(
-                "Choose source(s) to update",
+                t("sources_choose_sources_update", ui_language),
                 options=source_labels,
                 key=source_selection_key,
             )
@@ -4369,7 +4438,7 @@ if active_page == "Sources":
                     if int(row["id"]) in selected_source_ids
                 ]
 
-                st.caption("Current metadata for selected source(s):")
+                st.caption(t("sources_current_metadata_selected", ui_language))
                 st.dataframe(
                     pd.DataFrame(selected_preview)[
                         [
@@ -4383,16 +4452,16 @@ if active_page == "Sources":
                     width="stretch",
                 )
 
-            st.write("#### Metadata to assign")
+            st.write(f"#### {t('sources_metadata_to_assign', ui_language)}")
 
             apply_programme_update = st.checkbox(
-                "Update programme",
+                t("sources_update_programme", ui_language),
                 value=True,
                 key="combined_update_programme_checkbox",
             )
 
             apply_material_exposure_update = st.checkbox(
-                "Update metals and exposure periods",
+                t("sources_update_metals_exposure", ui_language),
                 value=False,
                 key="combined_update_material_exposure_checkbox",
             )
@@ -4401,17 +4470,23 @@ if active_page == "Sources":
 
             if apply_programme_update:
                 selected_programmes_to_apply = st.multiselect(
-                    "Programme(s) to assign",
+                    t("sources_programmes_to_assign", ui_language),
                     options=get_programme_options(include_blank=False),
                     key="combined_programme_to_apply",
-                    help="Choose programme(s), or type a new value and press Enter.",
+                    help=t("sources_programmes_to_assign_help", ui_language),
                     accept_new_options=True,
                 )
 
                 programme_to_apply = normalize_programme_selection(selected_programmes_to_apply)
 
                 if programme_to_apply:
-                    st.caption(f"Programme field to apply: {programme_to_apply}")
+                    st.caption(
+                        t(
+                            "sources_programme_field_to_apply",
+                            ui_language,
+                            value=programme_to_apply,
+                        )
+                    )
 
             source_metals = ""
             source_exposure_periods = ""
@@ -4419,20 +4494,20 @@ if active_page == "Sources":
 
             if apply_material_exposure_update:
                 selected_source_metals = st.multiselect(
-                    "Metal(s) to assign",
+                    t("sources_metals_to_assign", ui_language),
                     options=get_metal_options(),
                     key="combined_assign_source_metals",
-                    help="Choose metals, or type a new value and press Enter.",
+                    help=t("sources_metals_to_assign_help", ui_language),
                     accept_new_options=True,
                 )
 
                 source_metals = normalize_metal_selection(selected_source_metals)
 
                 selected_source_exposure_periods = st.multiselect(
-                    "Exposure period(s) / duration(s) to assign",
+                    t("sources_exposure_periods_to_assign", ui_language),
                     options=EXPOSURE_PERIOD_OPTIONS,
                     key="combined_assign_source_exposure_periods",
-                    help="Choose exposure periods, or type a new value and press Enter.",
+                    help=t("sources_exposure_periods_to_assign_help", ui_language),
                     accept_new_options=True,
                 )
 
@@ -4441,16 +4516,18 @@ if active_page == "Sources":
                 )
 
                 update_mode_label = st.radio(
-                    "Metal/exposure update mode",
+                    t("sources_metadata_update_mode", ui_language),
                     options=[
                         "Replace existing metals and exposure periods",
                         "Add only missing values to existing metadata",
                     ],
                     index=1,
                     key="combined_assign_source_metadata_mode",
-                    help=(
-                        "Replace overwrites metal/exposure metadata. "
-                        "Add missing values preserves existing values and removes duplicates."
+                    help=t("sources_metadata_update_mode_help", ui_language),
+                    format_func=lambda option: (
+                        t("sources_update_mode_replace", ui_language)
+                        if option == "Replace existing metals and exposure periods"
+                        else t("sources_update_mode_merge", ui_language)
                     ),
                 )
 
@@ -4461,35 +4538,45 @@ if active_page == "Sources":
                 )
 
                 if source_metals:
-                    st.caption(f"Metal field to apply: {source_metals}")
+                    st.caption(
+                        t(
+                            "sources_metal_field_to_apply",
+                            ui_language,
+                            value=source_metals,
+                        )
+                    )
 
                 if source_exposure_periods:
-                    st.caption(f"Exposure-period field to apply: {source_exposure_periods}")
+                    st.caption(
+                        t(
+                            "sources_exposure_field_to_apply",
+                            ui_language,
+                            value=source_exposure_periods,
+                        )
+                    )
 
-            if st.button("Apply metadata to selected source(s)", key="apply_combined_source_metadata"):
+            if st.button(
+                t("sources_apply_metadata_button", ui_language),
+                key="apply_combined_source_metadata",
+            ):
                 if not selected_source_ids:
-                    st.error("Select at least one source.")
+                    st.error(t("sources_error_select_one_source", ui_language))
                 elif not apply_programme_update and not apply_material_exposure_update:
-                    st.error("Choose at least one update type.")
+                    st.error(t("sources_error_choose_update_type", ui_language))
                 elif apply_programme_update and not programme_to_apply.strip():
-                    st.error("Select or enter a programme.")
+                    st.error(t("sources_error_select_programme", ui_language))
                 elif (
                     apply_material_exposure_update
                     and update_mode == "merge"
                     and not (source_metals.strip() or source_exposure_periods.strip())
                 ):
-                    st.error(
-                        "To add missing source metadata, select at least one metal or at least one exposure period."
-                    )
+                    st.error(t("sources_error_merge_requires_metadata", ui_language))
                 elif (
                     apply_material_exposure_update
                     and update_mode == "replace"
                     and (not source_metals.strip() or not source_exposure_periods.strip())
                 ):
-                    st.error(
-                        "Replace mode requires at least one metal and at least one exposure period. "
-                        "Use merge mode if you only want to add metals or only exposure periods."
-                    )
+                    st.error(t("sources_error_replace_requires_metadata", ui_language))
                 else:
                     try:
                         programme_updated_count = 0
@@ -4518,17 +4605,26 @@ if active_page == "Sources":
                             add_metadata_options("metal", split_chip_values(source_metals))
 
                         set_flash_message(
-                            "Updated selected source record(s). "
-                            f"Programme updates: {programme_updated_count}. "
-                            f"Metal/exposure updates: {metadata_updated_count}."
+                            t(
+                                "sources_flash_updated_metadata",
+                                ui_language,
+                                programme_count=programme_updated_count,
+                                metadata_count=metadata_updated_count,
+                            )
                         )
 
                         st.rerun()
 
                     except Exception as exc:
-                        st.error(f"Could not update selected source metadata: {exc}")
+                        st.error(
+                            t(
+                                "sources_error_could_not_update_metadata",
+                                ui_language,
+                                error=str(exc),
+                            )
+                        )
 
-
+                        
 if active_page == "Sites":
     st.subheader("Sites")
     st.caption("Search a location, confirm coordinates, classify the site, and add it to the database.")
