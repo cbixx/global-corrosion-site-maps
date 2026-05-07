@@ -78,6 +78,8 @@ from ui_styles import (
     render_workflow_step,
 )
 
+from i18n import t, language_code
+
 def get_geolocator() -> Nominatim:
     return Nominatim(user_agent="corrosion_map_curator")
 
@@ -3363,28 +3365,42 @@ inject_app_styles()
 
 require_curator_login()
 
+if "ui_language_label" not in st.session_state:
+    st.session_state.ui_language_label = "English"
+
+ui_language = language_code(st.session_state.ui_language_label)
+
 manual_col_title, manual_col_controls = st.columns(
     [0.72, 0.28],
     vertical_alignment="center",
 )
 
 with manual_col_title:
-    st.title("Corrosion Map Curator")
-    st.caption("Local curation app for managing sites, sources, and site-source links.")
+    st.title(t("app_title", ui_language))
+    st.caption(t("app_caption", ui_language))
 
 with manual_col_controls:
-    manual_button_col, logout_button_col = st.columns(
-        [0.66, 0.34],
+    language_col, manual_button_col, logout_button_col = st.columns(
+        [0.34, 0.42, 0.24],
         gap="small",
         vertical_alignment="center",
     )
 
+    with language_col:
+        selected_language_label = st.selectbox(
+            t("language_label", ui_language),
+            options=["English", "中文"],
+            key="ui_language_label",
+            label_visibility="collapsed",
+        )
+        ui_language = language_code(selected_language_label)
+
     with manual_button_col:
-        with st.popover("📘 User Manual", use_container_width=True):
+        with st.popover(t("user_manual_button", ui_language), use_container_width=True):
             manual_language = st.segmented_control(
-                "Manual language",
+                t("manual_language", ui_language),
                 options=["English", "中文"],
-                default="English",
+                default="中文" if ui_language == "zh" else "English",
                 key="manual_language_selector",
             )
 
@@ -3392,8 +3408,9 @@ with manual_col_controls:
                 st.markdown(get_user_manual_english())
             else:
                 st.markdown(get_user_manual_chinese())
+
     with logout_button_col:
-        if st.button("Log out", key="curator_logout_button", use_container_width=True):
+        if st.button(t("logout", ui_language), key="curator_logout_button", use_container_width=True):
             st.session_state.curator_logged_in = False
             st.rerun()
 
@@ -3506,6 +3523,18 @@ PAGE_OPTIONS = [
     "Settings",
 ]
 
+PAGE_LABEL_KEYS = {
+    "Dashboard": "nav_dashboard",
+    "Sources": "nav_sources",
+    "Sites": "nav_sites",
+    "Corrosion Data": "nav_corrosion_data",
+    "Environmental Data": "nav_environmental_data",
+    "Manage Records": "nav_manage_records",
+    "Import": "nav_import",
+    "Export / Publish": "nav_export_publish",
+    "Settings": "nav_settings",
+}
+
 if "next_active_page" in st.session_state:
     st.session_state.active_page = st.session_state.pop("next_active_page")
 elif "active_page" not in st.session_state:
@@ -3515,12 +3544,13 @@ if st.session_state.active_page not in PAGE_OPTIONS:
     st.session_state.active_page = "Dashboard"
 
 active_page = st.segmented_control(
-    "Navigation",
+    t("navigation", ui_language),
     options=PAGE_OPTIONS,
     key="active_page",
     selection_mode="single",
     label_visibility="collapsed",
     width="stretch",
+    format_func=lambda page: t(PAGE_LABEL_KEYS.get(page, page), ui_language),
 )
 
 if active_page is None:
@@ -3754,25 +3784,25 @@ if active_page == "Dashboard":
     quick_col1, quick_col2, quick_col3, quick_col4 = st.columns(4)
 
     with quick_col1:
-        if st.button("Add source", key="dashboard_go_sources", use_container_width=True):
+        if st.button(t("common_add_source", ui_language), key="dashboard_go_sources", use_container_width=True):
             set_next_active_page("Sources")
             st.rerun()
 
     with quick_col2:
-        if st.button("Add site", key="dashboard_go_sites", use_container_width=True):
+        if st.button(t("common_add_site", ui_language), key="dashboard_go_sites", use_container_width=True):
             set_next_active_page("Sites")
             st.rerun()
 
     with quick_col3:
-        if st.button("Import CSV", key="dashboard_go_import", use_container_width=True):
+        if st.button(t("common_import_csv", ui_language), key="dashboard_go_import", use_container_width=True):
             set_next_active_page("Import")
             st.rerun()
 
     with quick_col4:
         if MAP_WEBSITE_URL:
-            st.link_button("Open public map", MAP_WEBSITE_URL, use_container_width=True)
+            st.link_button(t("common_open_public_map", ui_language), MAP_WEBSITE_URL, use_container_width=True)
         else:
-            if st.button("Set public map URL", key="dashboard_go_settings", use_container_width=True):
+            if st.button(t("common_set_public_map_url", ui_language), key="dashboard_go_settings", use_container_width=True):
                 set_next_active_page("Settings")
                 st.rerun()
 
