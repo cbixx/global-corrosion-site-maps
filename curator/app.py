@@ -7439,33 +7439,30 @@ if active_page == "Export / Publish":
                 st.rerun()
 
 if active_page == "Settings":
-    st.subheader("Settings")
-    st.caption("Maintenance tools and database safety controls.")
+    st.subheader(t("settings_title", ui_language))
+    st.caption(t("settings_caption", ui_language))
 
-    st.write("#### Paths")
+    st.write(f"#### {t('settings_section_paths', ui_language)}")
     if str(DB_PATH).upper() == "SUPABASE":
-        st.write("Database backend: `SUPABASE`")
+        st.write(f"{t('settings_database_backend', ui_language)}: `SUPABASE`")
     else:
         if str(DB_PATH).upper() == "SUPABASE":
-            st.write("Database backend: `SUPABASE`")
+            st.write(f"{t('settings_database_backend', ui_language)}: `SUPABASE`")
         else:
-            st.write("Database backend: `Local SQLite`")
-            st.write(f"Database file: `{display_app_path(DB_PATH)}`")
+            st.write(f"{t('settings_database_backend', ui_language)}: `{t('settings_database_backend_sqlite', ui_language)}`")
+            st.write(f"{t('settings_database_file', ui_language)}: `{display_app_path(DB_PATH)}`")
 
-    st.write(f"Source PDF folder: `{SOURCE_PDF_RELATIVE_DIR}/`")
+    st.write(f"{t('settings_source_pdf_folder', ui_language)}: `{SOURCE_PDF_RELATIVE_DIR}/`")
 
-    st.write("#### App controls")
+    st.write(f"#### {t('settings_section_app_controls', ui_language)}")
 
-    if st.button("Refresh app"):
+    if st.button(t("settings_button_refresh_app", ui_language)):
         st.rerun()
 
     st.divider()
-    st.write("#### Region classification rules")
+    st.write(f"#### {t('settings_section_region_rules', ui_language)}")
 
-    st.caption(
-        "These rules control automatic region-category suggestions for future imports "
-        "and for the Manage Records auto-classification preview."
-    )
+    st.caption(t("settings_region_rules_caption", ui_language))
 
     current_region_settings = get_region_classification_settings()
     distance_settings = current_region_settings["distance_to_coast"]
@@ -7475,13 +7472,13 @@ if active_page == "Settings":
     form_prefix = "region_rule_settings"
 
     with st.form("region_classification_settings_form"):
-        st.write("##### Distance-to-coast thresholds")
+        st.write(f"##### {t('settings_distance_thresholds', ui_language)}")
 
         coast_col1, coast_col2, coast_col3 = st.columns(3)
 
         with coast_col1:
             st.number_input(
-                "Marine threshold, km",
+                t("settings_marine_threshold_km", ui_language),
                 min_value=0.0,
                 max_value=1000.0,
                 value=float(distance_settings.get("marine_km", 1.0)),
@@ -7491,7 +7488,7 @@ if active_page == "Settings":
 
         with coast_col2:
             st.number_input(
-                "Coastal threshold, km",
+                t("settings_coastal_threshold_km", ui_language),
                 min_value=0.0,
                 max_value=1000.0,
                 value=float(distance_settings.get("coastal_km", 10.0)),
@@ -7501,7 +7498,7 @@ if active_page == "Settings":
 
         with coast_col3:
             st.number_input(
-                "Near-coastal threshold, km",
+                t("settings_near_coastal_threshold_km", ui_language),
                 min_value=0.0,
                 max_value=2000.0,
                 value=float(distance_settings.get("near_coastal_km", 50.0)),
@@ -7509,13 +7506,13 @@ if active_page == "Settings":
                 key=f"{form_prefix}_near_coastal_km",
             )
 
-        st.write("##### Latitude-based polar and broad-climate rules")
+        st.write(f"##### {t('settings_latitude_rules', ui_language)}")
 
         lat_col1, lat_col2, lat_col3, lat_col4 = st.columns(4)
 
         with lat_col1:
             st.number_input(
-                "Antarctic if latitude ≤",
+                t("settings_antarctic_latitude_max", ui_language),
                 value=float(latitude_settings.get("antarctic_latitude_max", -60.0)),
                 step=1.0,
                 key=f"{form_prefix}_antarctic_latitude_max",
@@ -7523,7 +7520,7 @@ if active_page == "Settings":
 
         with lat_col2:
             st.number_input(
-                "Sub-Antarctic lower latitude",
+                t("settings_sub_antarctic_latitude_min", ui_language),
                 value=float(latitude_settings.get("sub_antarctic_latitude_min", -60.0)),
                 step=1.0,
                 key=f"{form_prefix}_sub_antarctic_latitude_min",
@@ -7531,7 +7528,7 @@ if active_page == "Settings":
 
         with lat_col3:
             st.number_input(
-                "Sub-Antarctic upper latitude",
+                t("settings_sub_antarctic_latitude_max", ui_language),
                 value=float(latitude_settings.get("sub_antarctic_latitude_max", -45.0)),
                 step=1.0,
                 key=f"{form_prefix}_sub_antarctic_latitude_max",
@@ -7539,7 +7536,7 @@ if active_page == "Settings":
 
         with lat_col4:
             st.number_input(
-                "Sub-arctic if latitude ≥",
+                t("settings_sub_arctic_latitude_min", ui_language),
                 value=float(latitude_settings.get("sub_arctic_latitude_min", 60.0)),
                 step=1.0,
                 key=f"{form_prefix}_sub_arctic_latitude_min",
@@ -7549,7 +7546,7 @@ if active_page == "Settings":
 
         with lat_col5:
             st.number_input(
-                "Sub-arctic upper latitude",
+                t("settings_sub_arctic_latitude_max", ui_language),
                 value=float(latitude_settings.get("sub_arctic_latitude_max", 66.5)),
                 step=0.5,
                 key=f"{form_prefix}_sub_arctic_latitude_max",
@@ -7557,7 +7554,7 @@ if active_page == "Settings":
 
         with lat_col6:
             st.number_input(
-                "Tropical if |latitude| ≤",
+                t("settings_tropical_abs_latitude_max", ui_language),
                 value=float(latitude_settings.get("tropical_abs_latitude_max", 23.5)),
                 step=0.5,
                 key=f"{form_prefix}_tropical_abs_latitude_max",
@@ -7565,7 +7562,7 @@ if active_page == "Settings":
 
         with lat_col7:
             st.number_input(
-                "Cold if |latitude| ≥",
+                t("settings_cold_abs_latitude_min", ui_language),
                 value=float(latitude_settings.get("cold_abs_latitude_min", 50.0)),
                 step=1.0,
                 key=f"{form_prefix}_cold_abs_latitude_min",
@@ -7573,38 +7570,35 @@ if active_page == "Settings":
 
         with lat_col8:
             st.number_input(
-                "Extreme cold if |latitude| ≥",
+                t("settings_extreme_cold_abs_latitude_min", ui_language),
                 value=float(latitude_settings.get("extreme_cold_abs_latitude_min", 66.5)),
                 step=0.5,
                 key=f"{form_prefix}_extreme_cold_abs_latitude_min",
             )
 
-        st.write("##### Semantic tag rules")
+        st.write(f"##### {t('settings_semantic_rules', ui_language)}")
 
-        st.caption(
-            "Enter one regular-expression pattern or one country hint per line. "
-            "These rules explain how non-distance tags such as Island, Industrial, Urban, and Rural are inferred."
-        )
+        st.caption(t("settings_semantic_rules_caption", ui_language))
 
         sem_col1, sem_col2 = st.columns(2)
 
         with sem_col1:
             st.text_area(
-                "Island country hints",
+                t("settings_island_country_hints", ui_language),
                 value=list_to_lines(semantic_settings.get("island_country_hints", [])),
                 height=180,
                 key=f"{form_prefix}_island_country_hints",
             )
 
             st.text_area(
-                "Island text patterns",
+                t("settings_island_text_patterns", ui_language),
                 value=list_to_lines(semantic_settings.get("island_text_patterns", [])),
                 height=120,
                 key=f"{form_prefix}_island_text_patterns",
             )
 
             st.text_area(
-                "Industrial text patterns",
+                t("settings_industrial_text_patterns", ui_language),
                 value=list_to_lines(semantic_settings.get("industrial_patterns", [])),
                 height=120,
                 key=f"{form_prefix}_industrial_patterns",
@@ -7612,21 +7606,21 @@ if active_page == "Settings":
 
         with sem_col2:
             st.text_area(
-                "Urban text patterns",
+                t("settings_urban_text_patterns", ui_language),
                 value=list_to_lines(semantic_settings.get("urban_patterns", [])),
                 height=120,
                 key=f"{form_prefix}_urban_patterns",
             )
 
             st.text_area(
-                "Rural text patterns",
+                t("settings_rural_text_patterns", ui_language),
                 value=list_to_lines(semantic_settings.get("rural_patterns", [])),
                 height=120,
                 key=f"{form_prefix}_rural_patterns",
             )
 
             st.text_area(
-                "Hot-arid text patterns",
+                t("settings_hot_arid_text_patterns", ui_language),
                 value=list_to_lines(semantic_settings.get("hot_arid_patterns", [])),
                 height=120,
                 key=f"{form_prefix}_hot_arid_patterns",
@@ -7636,13 +7630,13 @@ if active_page == "Settings":
 
         with settings_form_col1:
             save_region_rules_clicked = st.form_submit_button(
-                "Save rules for future classifications",
+                t("settings_save_region_rules", ui_language),
                 use_container_width=True,
             )
 
         with settings_form_col2:
             reset_region_rules_clicked = st.form_submit_button(
-                "Reset to default rules",
+                t("settings_reset_region_rules", ui_language),
                 use_container_width=True,
             )
 
@@ -7653,38 +7647,40 @@ if active_page == "Settings":
         )
 
         save_region_classification_settings(new_settings)
-        set_flash_message("Region classification rules saved for future automatic classifications.")
+        set_flash_message(t("settings_region_rules_saved", ui_language))
         set_next_active_page("Settings")
         st.rerun()
 
     if reset_region_rules_clicked:
         save_region_classification_settings(get_default_region_classification_settings())
         st.session_state.pop("region_rules_existing_preview_df", None)
-        set_flash_message("Region classification rules reset to defaults.")
+        set_flash_message(t("settings_region_rules_reset", ui_language))
         set_next_active_page("Settings")
         st.rerun()
 
-    st.write("##### Apply rules to existing sites")
+    st.write(f"##### {t('settings_apply_rules_existing', ui_language)}")
 
-    st.warning(
-        "Recommended workflow: preview first, then apply selected rows. "
-        "The safest bulk action is to fill only sites whose region_category is currently empty."
-    )
+    st.warning(t("settings_apply_rules_existing_warning", ui_language))
 
     preview_col1, preview_col2 = st.columns([0.28, 0.72])
 
     with preview_col1:
         preview_existing_mode = st.radio(
-            "Existing-site preview mode",
+            t("settings_existing_preview_mode", ui_language),
             options=[
                 "Only sites with empty region_category",
                 "All sites, preserving manual tags outside replaced dimensions",
             ],
             key="region_rules_existing_preview_mode",
+            format_func=lambda option: (
+                t("settings_preview_mode_empty_only", ui_language)
+                if option == "Only sites with empty region_category"
+                else t("settings_preview_mode_all_sites", ui_language)
+            ),
         )
 
     with preview_col2:
-        if st.button("Preview effect on existing sites", key="preview_region_rules_existing_sites"):
+        if st.button(t("settings_preview_existing_sites", ui_language), key="preview_region_rules_existing_sites"):
             try:
                 site_rows = get_table_rows("sites")
                 overwrite_existing = (
@@ -7704,7 +7700,13 @@ if active_page == "Settings":
 
                 st.rerun()
             except Exception as exc:
-                st.error(f"Could not build region-classification preview: {exc}")
+                st.error(
+                    t(
+                        "settings_preview_build_error",
+                        ui_language,
+                        error=str(exc),
+                    )
+                )
 
     existing_preview_df = st.session_state.get("region_rules_existing_preview_df")
 
@@ -7727,14 +7729,14 @@ if active_page == "Settings":
             ],
             column_config={
                 "apply": st.column_config.CheckboxColumn(
-                    "Apply",
-                    help="Tick rows to update.",
+                    t("settings_editor_apply", ui_language),
+                    help=t("settings_editor_apply_help", ui_language),
                     default=True,
                 ),
                 "id": None,
                 "suggested_region_category": st.column_config.TextColumn(
-                    "Suggested region category",
-                    help="You can edit the suggestion before applying.",
+                    t("settings_editor_suggested_region", ui_language),
+                    help=t("settings_editor_suggested_region_help", ui_language),
                 ),
             },
         )
@@ -7746,27 +7748,27 @@ if active_page == "Settings":
 
         with apply_preview_col1:
             apply_selected_existing = st.button(
-                "Apply selected preview rows",
+                t("settings_apply_selected_preview_rows", ui_language),
                 key="apply_region_rules_selected_existing",
                 use_container_width=True,
             )
 
         with apply_preview_col2:
             clear_existing_preview = st.button(
-                "Clear preview",
+                t("settings_clear_preview", ui_language),
                 key="clear_region_rules_existing_preview",
                 use_container_width=True,
             )
 
         with apply_preview_col3:
             confirm_existing_region_apply = st.checkbox(
-                "I reviewed the preview and want to update existing site region categories",
+                t("settings_confirm_existing_region_apply", ui_language),
                 key="confirm_existing_region_rule_apply",
             )
 
         if apply_selected_existing:
             if not confirm_existing_region_apply:
-                st.error("Tick the confirmation checkbox before updating existing sites.")
+                st.error(t("settings_confirm_existing_region_apply_error", ui_language))
             else:
                 selected_preview_rows = edited_existing_preview_df[
                     edited_existing_preview_df["apply"].astype(bool)
@@ -7787,7 +7789,13 @@ if active_page == "Settings":
                     )
 
                 st.session_state.pop("region_rules_existing_preview_df", None)
-                set_flash_message(f"Updated region_category for {updated_count} existing site row(s).")
+                set_flash_message(
+                    t(
+                        "settings_existing_sites_updated",
+                        ui_language,
+                        count=updated_count,
+                    )
+                )
                 set_next_active_page("Settings")
                 st.rerun()
 
@@ -7796,24 +7804,21 @@ if active_page == "Settings":
             st.rerun()
 
     elif isinstance(existing_preview_df, pd.DataFrame) and existing_preview_df.empty:
-        st.info("No existing sites matched the current preview mode.")
+        st.info(t("settings_no_existing_sites_matched", ui_language))
 
-    st.write("#### Database maintenance")
+    st.write(f"#### {t('settings_section_database_maintenance', ui_language)}")
 
-    st.warning(
-        "Resetting the database deletes the local curation tables and recreates them. "
-        "Use this only for testing or if you have a backup."
-    )
+    st.write(f"#### {t('settings_section_database_maintenance', ui_language)}")
 
     confirm_reset = st.checkbox(
-        "I understand this will reset the local curation database.",
+        t("settings_confirm_database_reset", ui_language),
         key="confirm_database_reset",
     )
 
-    if st.button("Initialize / reset database"):
+    if st.button(t("settings_button_initialize_reset_database", ui_language)):
         if not confirm_reset:
-            st.error("Tick the confirmation checkbox before resetting the database.")
+            st.error(t("settings_database_reset_confirm_error", ui_language))
         else:
             init_db()
-            set_flash_message("Database initialized successfully.")
+            set_flash_message(t("settings_database_initialized", ui_language))
             st.rerun()
