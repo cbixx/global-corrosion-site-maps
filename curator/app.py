@@ -2778,6 +2778,19 @@ def set_flash_message(message: str, level: str = "success") -> None:
 def set_next_active_page(page_name: str) -> None:
     st.session_state["next_active_page"] = page_name
 
+def translate_status(value: str, language: str) -> str:
+    status_key_map = {
+        "Ready": "status_ready",
+        "Missing": "status_missing",
+        "Not configured": "status_not_configured",
+        "Unknown": "status_unknown",
+        "Available": "status_available",
+        "None": "status_none",
+        "Set": "status_set",
+    }
+
+    return t(status_key_map.get(str(value), str(value)), language)
+
 
 def show_flash_message() -> None:
     flash = st.session_state.pop("flash_message", None)
@@ -3611,16 +3624,24 @@ if active_page == "Dashboard":
     st.markdown(
         f"""
         <div class="dashboard-hero">
-            <div class="dashboard-eyebrow">Curator overview</div>
-            <div class="dashboard-title">Corrosion Map data infrastructure</div>
+            <div class="dashboard-eyebrow">{escape_html(t("dashboard_hero_eyebrow", ui_language))}</div>
+            <div class="dashboard-title">{escape_html(t("dashboard_hero_title", ui_language))}</div>
             <div class="dashboard-subtitle">
-                Monitor the database, source documents, publication readiness, and new corrosion-observation layer from one control panel.
+                {escape_html(t("dashboard_hero_subtitle", ui_language))}
             </div>
             <div style="margin-top: 0.85rem;">
-                <span class="status-pill {backend_tone}">Backend: {escape_html(backend_status)}</span>
-                <span class="status-pill {'good' if github_status == 'Ready' else 'warn'}">GitHub: {escape_html(github_status)}</span>
-                <span class="status-pill {'good' if public_map_status == 'Set' else 'warn'}">Public map: {escape_html(public_map_status)}</span>
-                <span class="status-pill {'good' if draft_status == 'Available' else ''}">Import draft: {escape_html(draft_status)}</span>
+                <span class="status-pill {backend_tone}">
+                    {escape_html(t("dashboard_status_backend", ui_language))}: {escape_html(backend_status)}
+                </span>
+                <span class="status-pill {'good' if github_status == 'Ready' else 'warn'}">
+                    {escape_html(t("dashboard_status_github", ui_language))}: {escape_html(translate_status(github_status, ui_language))}
+                </span>
+                <span class="status-pill {'good' if public_map_status == 'Set' else 'warn'}">
+                    {escape_html(t("dashboard_status_public_map", ui_language))}: {escape_html(translate_status(public_map_status, ui_language))}
+                </span>
+                <span class="status-pill {'good' if draft_status == 'Available' else ''}">
+                    {escape_html(t("dashboard_status_import_draft", ui_language))}: {escape_html(translate_status(draft_status, ui_language))}
+                </span>
             </div>
         </div>
         """,
@@ -3631,83 +3652,80 @@ if active_page == "Dashboard":
         st.error(f"Could not read database counts: {counts_error}")
         st.info("Go to the Settings tab and initialize the database if this is a new setup.")
 
-    render_section_title("Database records")
+    render_section_title(t("dashboard_section_database_records", ui_language))
 
     metric_col1, metric_col2, metric_col3, metric_col4, metric_col5 = st.columns(5)
 
     with metric_col1:
         render_dashboard_card(
-            "Sites",
+            t("dashboard_card_sites", ui_language),
             counts.get("sites", 0),
-            "Curated exposure locations",
+            t("dashboard_card_sites_hint", ui_language),
         )
 
     with metric_col2:
         render_dashboard_card(
-            "Sources",
+            t("dashboard_card_sources", ui_language),
             counts.get("sources", 0),
-            "Registered papers/reports",
+            t("dashboard_card_sources_hint", ui_language),
         )
 
     with metric_col3:
         render_dashboard_card(
-            "Evidence links",
+            t("dashboard_card_evidence_links", ui_language),
             counts.get("site_sources", 0),
-            "Site-source relationships",
+            t("dashboard_card_evidence_links_hint", ui_language),
         )
 
     with metric_col4:
         render_dashboard_card(
-            "Corrosion observations",
+            t("dashboard_card_corrosion_observations", ui_language),
             counts.get("corrosion_observations", 0),
-            "Measurement-level rows",
+            t("dashboard_card_corrosion_observations_hint", ui_language),
         )
 
     with metric_col5:
         render_dashboard_card(
-            "Environmental observations",
+            t("dashboard_card_environmental_observations", ui_language),
             counts.get("environmental_observations", 0),
-            "Climate/context rows",
+            t("dashboard_card_environmental_observations_hint", ui_language),
         )
 
-    render_section_title("Source documents")
+    render_section_title(t("dashboard_section_source_documents", ui_language))
 
     pdf_col1, pdf_col2, pdf_col3 = st.columns(3)
 
     with pdf_col1:
         render_dashboard_card(
-            "PDF files",
+            t("dashboard_card_pdf_files", ui_language),
             len(existing_pdf_files),
-            "Detected in source_pdfs/",
+            t("dashboard_card_pdf_files_hint", ui_language),
         )
 
     with pdf_col2:
         render_dashboard_card(
-            "Unregistered PDFs",
+            t("dashboard_card_unregistered_pdfs", ui_language),
             len(missing_pdf_files),
-            "Canonical files not yet in sources table",
+            t("dashboard_card_unregistered_pdfs_hint", ui_language),
         )
 
     with pdf_col3:
         render_dashboard_card(
-            "PDF folder",
+            t("dashboard_card_pdf_folder", ui_language),
             SOURCE_PDF_RELATIVE_DIR,
-            "Local/public source-document directory",
+            t("dashboard_card_pdf_folder_hint", ui_language),
         )
 
     if noncanonical_pdf_files:
-        st.warning(
-            "Some PDF filenames are not in canonical `sNNN.pdf` format. "
-            "Rename them before registration."
-        )
+        st.warning(t("dashboard_warning_noncanonical_pdfs", ui_language))
 
-        with st.expander("Show PDF files that will be renamed", expanded=False):
+        with st.expander(t("dashboard_expander_show_pdf_renames", ui_language), expanded=False):
             for pdf_path in noncanonical_pdf_files:
                 canonical_name = suggested_source_pdf_name(pdf_path.stem)
                 st.write(f"- `{pdf_path.name}` → `{canonical_name}`")
 
         if st.button(
-            "Rename PDFs to canonical source-code filenames",
+            t("dashboard_button_rename_pdfs", ui_language),
             key="rename_noncanonical_source_pdfs",
         ):
             rename_result = rename_noncanonical_source_pdf_files()
@@ -3741,44 +3759,47 @@ if active_page == "Dashboard":
 
     if missing_pdf_files:
         st.warning(
-            f"{len(missing_pdf_files)} canonical PDF file(s) in `source_pdfs/` are not registered yet. "
-            "Go to the Sources tab to register them."
+            t(
+                "dashboard_warning_missing_pdfs",
+                ui_language,
+                count=len(missing_pdf_files),
+            )
         )
     elif existing_pdf_files:
-        st.success("All detected canonical PDFs are registered as sources.")
+        st.success(t("dashboard_success_all_pdfs_registered", ui_language))
     else:
-        st.info("No PDFs found in `source_pdfs/` yet.")
+        st.info(t("dashboard_info_no_pdfs", ui_language))
 
-    render_section_title("System status")
+    render_section_title(t("dashboard_section_system_status", ui_language))
 
     status_col1, status_col2, status_col3, status_col4 = st.columns(4)
 
     with status_col1:
         render_dashboard_card(
-            "Backend",
+            t("dashboard_card_backend", ui_language),
             backend_status,
-            "Current database mode",
+            t("dashboard_card_backend_hint", ui_language),
         )
 
     with status_col2:
         render_dashboard_card(
-            "GitHub publish",
-            github_status,
-            "Dataset upload readiness",
+            t("dashboard_card_github_publish", ui_language),
+            translate_status(github_status, ui_language),
+            t("dashboard_card_github_publish_hint", ui_language),
         )
 
     with status_col3:
         render_dashboard_card(
-            "Public map URL",
-            public_map_status,
-            MAP_WEBSITE_URL if MAP_WEBSITE_URL else "No URL configured",
+            t("dashboard_card_public_map_url", ui_language),
+            translate_status(public_map_status, ui_language),
+            MAP_WEBSITE_URL if MAP_WEBSITE_URL else t("dashboard_public_map_missing", ui_language),
         )
 
     with status_col4:
         render_dashboard_card(
-            "Import draft",
-            draft_status,
-            "Unsaved import-preview recovery",
+            t("dashboard_card_import_draft", ui_language),
+            translate_status(draft_status, ui_language),
+            t("dashboard_card_import_draft_hint", ui_language),
         )
 
     quick_col1, quick_col2, quick_col3, quick_col4 = st.columns(4)
@@ -3806,15 +3827,31 @@ if active_page == "Dashboard":
                 set_next_active_page("Settings")
                 st.rerun()
 
-    render_section_title("Workflow")
+    render_section_title(t("dashboard_section_workflow", ui_language))
 
     workflow_col1, workflow_col2, workflow_col3, workflow_col4 = st.columns(4)
 
     workflow_steps = [
-        ("1", "Register sources", "Add PDFs, titles, programmes, metals, and exposure periods."),
-        ("2", "Add sites", "Create or merge exposure-site records with coordinates."),
-        ("3", "Link evidence", "Attach source records to sites and preserve metadata."),
-        ("4", "Publish", "Export curated rows to the public website dataset."),
+        (
+            "1",
+            t("dashboard_workflow_register_sources_title", ui_language),
+            t("dashboard_workflow_register_sources_caption", ui_language),
+        ),
+        (
+            "2",
+            t("dashboard_workflow_add_sites_title", ui_language),
+            t("dashboard_workflow_add_sites_caption", ui_language),
+        ),
+        (
+            "3",
+            t("dashboard_workflow_link_evidence_title", ui_language),
+            t("dashboard_workflow_link_evidence_caption", ui_language),
+        ),
+        (
+            "4",
+            t("dashboard_workflow_publish_title", ui_language),
+            t("dashboard_workflow_publish_caption", ui_language),
+        ),
     ]
 
     for column, step in zip(
