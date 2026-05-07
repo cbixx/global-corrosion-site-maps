@@ -12,6 +12,7 @@ from datetime import datetime, timezone
 import pandas as pd
 import pycountry
 import streamlit as st
+import streamlit.components.v1 as components
 from geopy.geocoders import Nominatim
 from geopy.location import Location
 
@@ -2778,6 +2779,171 @@ def set_flash_message(message: str, level: str = "success") -> None:
 def set_next_active_page(page_name: str) -> None:
     st.session_state["next_active_page"] = page_name
 
+BROWSER_LANGUAGE_STORAGE_KEY = "corrosion_map_ui_language_label"
+BROWSER_LANGUAGE_PROMPT_SUPPRESS_KEY = "corrosion_map_ui_language_prompt_suppressed"
+LANGUAGE_OPTIONS = ["English", "中文"]
+
+
+def get_query_param_value(name: str, default: str = "") -> str:
+    try:
+        value = st.query_params.get(name, default)
+    except Exception:
+        return default
+
+    if isinstance(value, list):
+        return str(value[0]) if value else default
+
+    return str(value or default)
+
+
+def sync_browser_language_preferences() -> None:
+    """
+    Read browser localStorage through a tiny hidden JavaScript component.
+
+    Python cannot directly read browser localStorage, so JavaScript copies the saved
+    browser preference into URL query parameters. Streamlit can then read those
+    query parameters on the next rerun/reload.
+    """
+    components.html(
+        f"""
+        <script>
+        (function() {{
+            const languageKey = {json.dumps(BROWSER_LANGUAGE_STORAGE_KEY)};
+            const suppressKey = {json.dumps(BROWSER_LANGUAGE_PROMPT_SUPPRESS_KEY)};
+
+            const savedLanguage = window.parent.localStorage.getItem(languageKey) || "";
+            const promptSuppressed = window.parent.localStorage.getItem(suppressKey) || "";
+
+            const url = new URL(window.parent.location.href);
+            let changed = false;
+
+            if (savedLanguage && url.searchParams.get("ui_lang") !== savedLanguage) {{
+                url.searchParams.set("ui_lang", savedLanguage);
+                changed = true;
+            }}
+
+            if (promptSuppressed && url.searchParams.get("ui_lang_prompt_suppressed") !== promptSuppressed) {{
+                url.searchParams.set("ui_lang_prompt_suppressed", promptSuppressed);
+                changed = true;
+            }}
+
+            if (changed) {{
+                window.parent.history.replaceState(null, "", url.toString());
+                window.parent.location.reload();
+            }}
+        }})();
+        </script>
+        """,
+        height=0,
+    )
+
+
+def write_browser_language_preferences(
+    language_label: str = "",
+    suppress_prompt: bool = False,
+    reload_page: bool = True,
+) -> None:
+    language_label = str(language_label or "").strip()
+
+    components.html(
+        f"""
+        <script>
+        (function() {{
+            const languageKey = {json.dumps(BROWSER_LANGUAGE_STORAGE_KEY)};
+            const suppressKey = {json.dumps(BROWSER_LANGUAGE_PROMPT_SUPPRESS_KEY)};
+            const languageLabel = {json.dumps(language_label)};
+            const suppressPrompt = {json.dumps(bool(suppress_prompt))};
+
+            const url = new URL(window.parent.location.href);
+
+            if (languageLabel) {{
+                window.parent.localStorage.setItem(languageKey, languageLabel);
+                url.searchParams.set("ui_lang", languageLabel);
+            }}
+
+            if (suppressPrompt) {{
+                window.parent.localStorage.setItem(suppressKey, "1");
+                url.searchParams.set("ui_lang_prompt_suppressed", "1");
+            }}
+
+            window.parent.history.replaceState(null, "", url.toString());
+
+            if ({json.dumps(bool(reload_page))}) {{
+                window.setTimeout(function() {{
+                    window.parent.location.reload();
+                }}, 120);
+            }}
+        }})();
+        </script>
+        """,
+        height=0,
+    )
+
+
+def browser_language_prompt_is_suppressed() -> bool:
+    if st.session_state.get("browser_language_prompt_suppressed") is True:
+        return True
+
+    return get_query_param_value("ui_lang_prompt_suppressed", "") == "1"
+
+
+def show_language_save_dialog(selected_language_label: str, ui_language: str) -> None:
+    @st.dialog(t("language_save_dialog_title", ui_language))
+    def _language_save_dialog() -> None:
+        st.write(
+            t(
+                "language_save_dialog_body",
+                ui_language,
+                language_label=selected_language_label,
+            )
+        )
+
+        do_not_show_again = st.checkbox(
+            t("language_save_do_not_show_again", ui_language),
+            key="language_save_do_not_show_again",
+        )
+
+        save_col, not_now_col = st.columns(2)
+
+        with save_col:
+            if st.button(
+                t("language_save_button", ui_language),
+                type="primary",
+                use_container_width=True,
+                key="save_browser_language_preference",
+            ):
+                st.session_state["pending_browser_language_save_label"] = ""
+                st.session_state["browser_language_prompt_suppressed"] = bool(do_not_show_again)
+
+                write_browser_language_preferences(
+                    language_label=selected_language_label,
+                    suppress_prompt=bool(do_not_show_again),
+                    reload_page=True,
+                )
+
+                st.success(t("language_saved_to_browser", ui_language))
+
+        with not_now_col:
+            if st.button(
+                t("language_not_now_button", ui_language),
+                use_container_width=True,
+                key="do_not_save_browser_language_preference",
+            ):
+                st.session_state["pending_browser_language_save_label"] = ""
+
+                if do_not_show_again:
+                    st.session_state["browser_language_prompt_suppressed"] = True
+
+                    write_browser_language_preferences(
+                        language_label="",
+                        suppress_prompt=True,
+                        reload_page=True,
+                    )
+                else:
+                    st.rerun()
+
+    _language_save_dialog()
+
 def translate_status(value: str, language: str) -> str:
     status_key_map = {
         "Ready": "status_ready",
@@ -3378,8 +3544,21 @@ inject_app_styles()
 
 require_curator_login()
 
+sync_browser_language_preferences()
+
+browser_saved_language_label = get_query_param_value("ui_lang", "")
+
 if "ui_language_label" not in st.session_state:
-    st.session_state.ui_language_label = "English"
+    if browser_saved_language_label in LANGUAGE_OPTIONS:
+        st.session_state.ui_language_label = browser_saved_language_label
+    else:
+        st.session_state.ui_language_label = "English"
+
+if "last_seen_ui_language_label" not in st.session_state:
+    st.session_state.last_seen_ui_language_label = st.session_state.ui_language_label
+
+if "pending_browser_language_save_label" not in st.session_state:
+    st.session_state.pending_browser_language_save_label = ""
 
 ui_language = language_code(st.session_state.ui_language_label)
 
@@ -3400,13 +3579,25 @@ with manual_col_controls:
     )
 
     with language_col:
+        previous_language_label = st.session_state.get(
+            "last_seen_ui_language_label",
+            st.session_state.ui_language_label,
+        )
+
         selected_language_label = st.selectbox(
             t("language_label", ui_language),
-            options=["English", "中文"],
+            options=LANGUAGE_OPTIONS,
             key="ui_language_label",
             label_visibility="collapsed",
         )
+
         ui_language = language_code(selected_language_label)
+
+        if selected_language_label != previous_language_label:
+            st.session_state.last_seen_ui_language_label = selected_language_label
+
+            if not browser_language_prompt_is_suppressed():
+                st.session_state.pending_browser_language_save_label = selected_language_label
 
     with manual_button_col:
         with st.popover(t("user_manual_button", ui_language), use_container_width=True):
@@ -3426,6 +3617,16 @@ with manual_col_controls:
         if st.button(t("logout", ui_language), key="curator_logout_button", use_container_width=True):
             st.session_state.curator_logged_in = False
             st.rerun()
+
+    pending_browser_language_save_label = str(
+        st.session_state.get("pending_browser_language_save_label", "") or ""
+    ).strip()
+
+    if pending_browser_language_save_label:
+        show_language_save_dialog(
+            selected_language_label=pending_browser_language_save_label,
+            ui_language=ui_language,
+        )
 
 show_flash_message()
 

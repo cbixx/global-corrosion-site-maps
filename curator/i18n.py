@@ -730,6 +730,13 @@ and click **Confirm selected import**.
         "publish_manual_upload_disabled": "GitHub upload is disabled until you successfully confirm a website publish in this app session.",
         "publish_upload_latest_button": "Upload latest website publish to GitHub",
         "publish_no_latest_paths_error": "No latest publish file paths are available. Confirm website publish first.",
+
+        "language_save_dialog_title": "Save language preference?",
+        "language_save_dialog_body": "You switched to {language_label}. Save this language on this browser so the app opens with the same interface next time?",
+        "language_save_do_not_show_again": "Do not show this again on this browser",
+        "language_save_button": "Save on this browser",
+        "language_not_now_button": "Not now",
+        "language_saved_to_browser": "Language preference saved on this browser.",
     },
     "zh": {
         "app_title": "腐蚀地图数据管理工具",
@@ -1449,6 +1456,14 @@ and click **Confirm selected import**.
         "publish_manual_upload_disabled": "在本次程序运行中成功确认一次网站发布前，GitHub 上传按钮会被禁用。",
         "publish_upload_latest_button": "上传最新网站发布结果到 GitHub",
         "publish_no_latest_paths_error": "没有可用的最新发布文件路径。请先确认网站发布。",
+                
+        "language_label": "语言 / Language",
+        "language_save_dialog_title": "是否保存语言偏好？",
+        "language_save_dialog_body": "你已切换到 {language_label}。是否将该语言保存在当前浏览器中，使下次打开程序时自动使用相同界面语言？",
+        "language_save_do_not_show_again": "不要在此浏览器上再次显示此提示",
+        "language_save_button": "保存在此浏览器",
+        "language_not_now_button": "暂不保存",
+        "language_saved_to_browser": "语言偏好已保存在此浏览器。",
     },
 }
 
