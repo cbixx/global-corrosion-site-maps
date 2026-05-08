@@ -300,6 +300,25 @@
     </div>
   </div>
 
+  <div id="sourceDetailsOverlay" class="source-details-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="sourceDetailsTitle">
+    <div class="source-details-box">
+      <div class="source-details-header">
+        <div>
+          <div class="source-details-kicker">Linked source</div>
+          <h2 id="sourceDetailsTitle">Source details</h2>
+        </div>
+
+        <button id="closeSourceDetailsBtn" type="button" class="source-details-close" aria-label="Close source details">
+          ×
+        </button>
+      </div>
+
+      <div id="sourceDetailsBody" class="source-details-body">
+        Source metadata is loading.
+      </div>
+    </div>
+  </div>
+
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
@@ -655,6 +674,10 @@
     let allSiteIds = new Set();
     let markersBySiteId = new Map();
 
+    let publicSourcesByCode = new Map();
+    let publicSourcesByUrl = new Map();
+    let publicSourcesLoaded = false;
+
     let corrosionRatesBySiteId = new Map();
     let corrosionOverlayActive = false;
     let corrosionHeatLayer = null;
@@ -846,6 +869,258 @@
       });
     });
 
+    document.addEventListener("click", function(event) {
+      const sourceButton = event.target.closest(".source-detail-button");
+
+      if (!sourceButton) return;
+
+      event.preventDefault();
+      event.stopPropagation();
+
+      const rowIndex = Number(sourceButton.getAttribute("data-row-index"));
+      const sourceIndex = Number(sourceButton.getAttribute("data-source-index"));
+      const row = allRows.find(item => item._rowIndex === rowIndex);
+      const resource = row && row._resources ? row._resources[sourceIndex] : null;
+
+      openSourceDetails(resource);
+    });
+
+    document.getElementById("closeSourceDetailsBtn")?.addEventListener("click", function() {
+      closeSourceDetails();
+    });
+
+    document.getElementById("sourceDetailsOverlay")?.addEventListener("click", function(event) {
+      if (event.target.id === "sourceDetailsOverlay") {
+        closeSourceDetails();
+      }
+    });
+
+    document.addEventListener("keydown", function(event) {
+      if (event.key === "Escape") {
+        closeSourceDetails();
+      }
+    });
+
+    function normalizeSourceCode(value) {
+      const text = normalizeText(value).toLowerCase();
+      const match = text.match(/s\d{3}/i);
+      return match ? match[0].toLowerCase() : "";
+    }
+
+    function normalizeComparableUrl(value) {
+      const raw = normalizeText(value);
+      if (!raw) return "";
+
+      try {
+        const parsed = new URL(raw, window.location.href);
+
+        if (!["http:", "https:"].includes(parsed.protocol)) {
+          return "";
+        }
+
+        parsed.hash = "";
+        return parsed.href.replace(/\/$/, "").toLowerCase();
+      } catch {
+        return "";
+      }
+    }
+
+    function extractExternalSourceUrl(value) {
+      const raw = normalizeText(value);
+      if (!raw) return "";
+
+      if (/^source_pdfs[\/]/i.test(raw)) {
+        return "";
+      }
+
+      try {
+        const parsed = new URL(raw, window.location.href);
+
+        if (["http:", "https:"].includes(parsed.protocol)) {
+          return parsed.href;
+        }
+
+        return "";
+      } catch {
+        return "";
+      }
+    }
+
+    function findSourceDetails(resource) {
+      if (!resource) return null;
+
+      if (resource.sourceCode && publicSourcesByCode.has(resource.sourceCode)) {
+        return publicSourcesByCode.get(resource.sourceCode);
+      }
+
+      const comparableUrl = normalizeComparableUrl(resource.externalUrl || resource.originalValue);
+
+      if (comparableUrl && publicSourcesByUrl.has(comparableUrl)) {
+        return publicSourcesByUrl.get(comparableUrl);
+      }
+
+      return null;
+    }
+
+    function sourceButtonLabel(resource, fallbackLabel) {
+      const details = findSourceDetails(resource);
+
+      if (details && details.source_code) {
+        return details.source_code.toUpperCase();
+      }
+
+      if (resource && resource.sourceCode) {
+        return resource.sourceCode.toUpperCase();
+      }
+
+      return fallbackLabel;
+    }
+
+    function sourceButtonTitle(resource, fallbackLabel) {
+      const details = findSourceDetails(resource);
+
+      if (details && details.source_title) {
+        return details.source_title;
+      }
+
+      if (resource && resource.sourceCode) {
+        return `Open metadata for ${resource.sourceCode.toUpperCase()}`;
+      }
+
+      return fallbackLabel;
+    }
+
+    function formatSourceType(value) {
+      return normalizeText(value)
+        .replace(/_/g, " ")
+        .replace(/\b\w/g, letter => letter.toUpperCase());
+    }
+
+    function buildSourceDetailsHtml(resource) {
+      const details = findSourceDetails(resource);
+
+      if (!resource) {
+        return `
+          <div class="source-details-empty">
+            No source record could be identified for this button.
+          </div>
+        `;
+      }
+
+      if (!details) {
+        const externalUrl = extractExternalSourceUrl(resource.originalValue || resource.externalUrl);
+
+        return `
+          <div class="source-details-empty">
+            <strong>${escapeHtml(resource.label || "Source")}</strong><br>
+            Public citation metadata was not found for this source reference.
+            ${resource.sourceCode ? `<br>Detected source code: ${escapeHtml(resource.sourceCode.toUpperCase())}` : ""}
+            ${externalUrl ? `<div class="source-details-actions"><a class="source-details-url" href="${escapeHtml(externalUrl)}" target="_blank" rel="noopener noreferrer">Open public source page</a></div>` : ""}
+          </div>
+        `;
+      }
+
+      const publicUrl = extractExternalSourceUrl(details.public_url);
+      const doi = normalizeText(details.doi);
+      const citation = normalizeText(details.display_citation);
+      const notes = normalizeText(details.notes);
+
+      return `
+        <div class="source-details-code">${escapeHtml(details.source_code || resource.sourceCode || "")}</div>
+        <h3 class="source-details-name">${escapeHtml(details.source_title || "Untitled source")}</h3>
+
+        <div class="source-details-grid">
+          ${details.source_type ? `<div><strong>Source type:</strong> ${escapeHtml(formatSourceType(details.source_type))}</div>` : ""}
+          ${details.authors_or_organization ? `<div><strong>Author/organization:</strong> ${escapeHtml(details.authors_or_organization)}</div>` : ""}
+          ${details.publication_year ? `<div><strong>Year:</strong> ${escapeHtml(details.publication_year)}</div>` : ""}
+          ${doi ? `<div><strong>DOI:</strong> ${escapeHtml(doi)}</div>` : ""}
+        </div>
+
+        ${citation ? `
+          <div class="source-details-citation">
+            <div class="source-details-label">Suggested citation</div>
+            <div>${escapeHtml(citation)}</div>
+          </div>
+        ` : ""}
+
+        ${notes ? `
+          <div class="source-details-notes">
+            <div class="source-details-label">Notes</div>
+            <div>${escapeHtml(notes)}</div>
+          </div>
+        ` : ""}
+
+        ${publicUrl ? `
+          <div class="source-details-actions">
+            <a class="source-details-url" href="${escapeHtml(publicUrl)}" target="_blank" rel="noopener noreferrer">
+              Open public source page
+            </a>
+          </div>
+        ` : ""}
+      `;
+    }
+
+    function openSourceDetails(resource) {
+      const overlay = document.getElementById("sourceDetailsOverlay");
+      const body = document.getElementById("sourceDetailsBody");
+
+      if (!overlay || !body) return;
+
+      body.innerHTML = buildSourceDetailsHtml(resource);
+      overlay.classList.remove("hidden");
+    }
+
+    function closeSourceDetails() {
+      const overlay = document.getElementById("sourceDetailsOverlay");
+
+      if (overlay) {
+        overlay.classList.add("hidden");
+      }
+    }
+
+    function loadPublicSources() {
+      return new Promise(resolve => {
+        Papa.parse(`data/sources_public.csv?v=${Date.now()}`, {
+          download: true,
+          header: true,
+          skipEmptyLines: true,
+          complete: function(results) {
+            publicSourcesByCode = new Map();
+            publicSourcesByUrl = new Map();
+
+            (results.data || []).forEach(rawSource => {
+              const source = {};
+
+              Object.keys(rawSource || {}).forEach(key => {
+                source[key] = normalizeText(rawSource[key]);
+              });
+
+              const sourceCode = normalizeSourceCode(source.source_code);
+
+              if (sourceCode) {
+                source.source_code = sourceCode;
+                publicSourcesByCode.set(sourceCode, source);
+              }
+
+              const publicUrl = normalizeComparableUrl(source.public_url);
+
+              if (publicUrl) {
+                publicSourcesByUrl.set(publicUrl, source);
+              }
+            });
+
+            publicSourcesLoaded = true;
+            resolve();
+          },
+          error: function(error) {
+            console.warn("Could not load public source metadata.", error);
+            publicSourcesLoaded = false;
+            resolve();
+          }
+        });
+      });
+    }
+
     function escapeHtml(value) {
       if (value === null || value === undefined) return '';
       return String(value)
@@ -985,6 +1260,7 @@
     function buildSiteDataPopupPanel(row) {
       const resources = row._resources || [];
       const notes = row.notes || '';
+      const rowIndex = Number.isFinite(row._rowIndex) ? row._rowIndex : '';
 
       let html = `
         <div class="popup-row"><strong>Site ID:</strong> ${escapeHtml(row.site_id || '')}</div>
@@ -1021,11 +1297,20 @@
       if (resources.length > 0 || notes) {
         html += `<div class="action-row">`;
 
-        resources.forEach(resource => {
+        resources.forEach((resource, index) => {
+          const label = sourceButtonLabel(resource, `Source ${index + 1}`);
+          const title = sourceButtonTitle(resource, label);
+
           html += `
-            <a class="resource-link" href="${escapeHtml(resource.url)}" target="_blank" rel="noopener noreferrer">
-              ${escapeHtml(resource.label)}
-            </a>
+            <button
+              class="resource-link source-detail-button"
+              type="button"
+              data-row-index="${escapeHtml(rowIndex)}"
+              data-source-index="${escapeHtml(index)}"
+              title="${escapeHtml(title)}"
+            >
+              ${escapeHtml(label)}
+            </button>
           `;
         });
 
@@ -1281,7 +1566,7 @@
       );
     }
 
-     function collectResources(row) {
+    function collectResources(row) {
       return Object.keys(row)
       .filter(key => /^source_\d+$/i.test(key))
       .sort((a, b) => {
@@ -1290,18 +1575,25 @@
         return aNum - bNum;
       })
       .map(key => {
-        const url = sanitizeUrl(row[key]);
-        if (!url) return null;
+        const originalValue = normalizeText(row[key]);
+        if (!originalValue) return null;
 
         const sourceNumber = key.split('_')[1];
         const labelKey = `source_label_${sourceNumber}`;
+        const sourceCode = normalizeSourceCode(originalValue);
+        const externalUrl = extractExternalSourceUrl(originalValue);
         const label = row[labelKey]
           ? normalizeText(row[labelKey])
-          : `Source ${sourceNumber}`;
-        
+          : sourceCode
+            ? sourceCode.toUpperCase()
+            : `Source ${sourceNumber}`;
+
         return {
           label: label || `Source ${sourceNumber}`,
-          url
+          sourceNumber,
+          sourceCode,
+          externalUrl,
+          originalValue
         };
       })
       .filter(Boolean);
@@ -1329,7 +1621,7 @@
         row.exposure_period,
         row.metal,
         row._notes,
-        ...row._resources.map(resource => `${resource.label} ${resource.url}`)
+        ...row._resources.map(resource => `${resource.label} ${resource.sourceCode || ''}`)
       ]
         .filter(Boolean)
         .join(' ')
@@ -1496,7 +1788,11 @@
       ).size;
 
       const sourceCount = new Set(
-        rows.flatMap(row => (row._resources || []).map(resource => resource.url))
+        rows.flatMap(row =>
+          (row._resources || []).map(resource =>
+            resource.sourceCode || resource.externalUrl || resource.originalValue
+          )
+        )
       ).size;
 
       document.getElementById('statVisibleSites').textContent = visibleCount.toLocaleString();
@@ -1608,22 +1904,28 @@
 
     function buildDirectorySourceLinks(row) {
       const resources = row._resources || [];
+      const rowIndex = Number.isFinite(row._rowIndex) ? row._rowIndex : '';
 
       if (!resources.length) {
         return `<span class="directory-muted">No source link</span>`;
       }
 
-      return resources.map((resource, index) => `
-        <a
-          class="directory-source-link"
-          href="${escapeHtml(resource.url)}"
-          target="_blank"
-          rel="noopener noreferrer"
-          title="${escapeHtml(resource.label || `Source ${index + 1}`)}"
-        >
-          ${escapeHtml(resource.label || `S${index + 1}`)}
-        </a>
-      `).join('');
+      return resources.map((resource, index) => {
+        const label = sourceButtonLabel(resource, `S${index + 1}`);
+        const title = sourceButtonTitle(resource, label);
+
+        return `
+          <button
+            class="directory-source-link source-detail-button"
+            type="button"
+            data-row-index="${escapeHtml(rowIndex)}"
+            data-source-index="${escapeHtml(index)}"
+            title="${escapeHtml(title)}"
+          >
+            ${escapeHtml(label)}
+          </button>
+        `;
+      }).join('');
     }
 
     function rowMatchesDirectorySearch(row, query, directoryCountry) {
@@ -2633,7 +2935,8 @@
       }
     }
 
-    Papa.parse(`data/sites.csv?v=${Date.now()}`, {
+    function loadSiteData() {
+      Papa.parse(`data/sites.csv?v=${Date.now()}`, {
       download: true,
       header: true,
       skipEmptyLines: true,
@@ -2724,7 +3027,10 @@
           map.invalidateSize();
         }, 100);
       }
-    });
+      });
+    }
+
+    loadPublicSources().then(loadSiteData);
   </script>
 </body>
 </html>
