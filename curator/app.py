@@ -225,6 +225,28 @@ PROGRAMME_OPTIONS = [
     "Other / independent",
 ]
 
+SOURCE_KIND_OPTIONS = [
+    "",
+    "Literature",
+    "Dataset",
+    "Standard",
+    "Technical report",
+    "Website",
+    "Other / independent",
+]
+
+SOURCE_TYPE_OPTIONS = [
+    "",
+    "Journal Article",
+    "Conference Paper",
+    "Technical Report",
+    "Standard",
+    "Dataset",
+    "Book / Chapter",
+    "Website / Web Page",
+    "Other",
+]
+
 METAL_OPTIONS = [
     "Carbon steel",
     "Weathering steel",
@@ -324,6 +346,26 @@ def normalize_programme_selection(selected_programmes: list[str]) -> str:
 
     unique_programmes = list(dict.fromkeys(cleaned_programmes))
     return ", ".join(unique_programmes)
+
+def build_default_display_citation(
+    authors_or_organization: str,
+    publication_year: str,
+    source_title: str,
+) -> str:
+    authors = str(authors_or_organization or "").strip()
+    year = str(publication_year or "").strip()
+    title = str(source_title or "").strip()
+
+    if authors and year and title:
+        return f"{authors}. ({year}). {title}."
+
+    if authors and title:
+        return f"{authors}. {title}."
+
+    if year and title:
+        return f"({year}). {title}."
+
+    return title
 
 
 def resolve_option_value(selected_option: str, custom_value: str) -> str:
@@ -1243,7 +1285,15 @@ SITE_FORM_KEYS = [
 
 SOURCE_FORM_KEYS = [
     "add_source_code",
+    "add_source_kind",
+    "add_source_type",
     "add_source_title",
+    "add_source_authors_or_organization",
+    "add_source_publication_year",
+    "add_source_doi",
+    "add_source_public_url",
+    "add_source_display_citation",
+    "add_source_public_notes",
     "add_source_programme",
     "add_source_metals",
     "add_source_exposure_periods",
@@ -3634,9 +3684,9 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-require_curator_login()
-
 sync_browser_language_preferences()
+
+require_curator_login()
 
 browser_saved_language_label = get_query_param_value("ui_lang", "")
 
@@ -4456,6 +4506,56 @@ if active_page == "Sources":
             key="add_source_title",
         )
 
+        source_kind = st.selectbox(
+            source_optional_label("Source kind"),
+            options=SOURCE_KIND_OPTIONS,
+            key="add_source_kind",
+            accept_new_options=True,
+        )
+
+        source_type = st.selectbox(
+            source_optional_label("Source type"),
+            options=SOURCE_TYPE_OPTIONS,
+            key="add_source_type",
+            accept_new_options=True,
+        )
+
+        authors_or_organization = st.text_input(
+            source_optional_label("Authors or organization"),
+            placeholder="e.g. Surman, B. Y. R.; ISO; ASTM; ICP Materials",
+            key="add_source_authors_or_organization",
+        )
+
+        publication_year = st.text_input(
+            source_optional_label("Publication year"),
+            placeholder="e.g. 2014",
+            key="add_source_publication_year",
+        )
+
+        doi = st.text_input(
+            source_optional_label("DOI"),
+            placeholder="e.g. 10.1108/ACMM-12-2013-1328",
+            key="add_source_doi",
+        )
+
+        public_url = st.text_input(
+            source_optional_label("Public URL"),
+            placeholder="DOI page, publisher page, dataset page, or public landing page",
+            key="add_source_public_url",
+        )
+
+        display_citation = st.text_area(
+            source_optional_label("Suggested citation"),
+            placeholder="Leave blank to auto-generate from authors, year, and title.",
+            key="add_source_display_citation",
+        )
+
+        public_notes = st.text_area(
+            source_optional_label("Public notes"),
+            placeholder="Safe note shown on the public source-details popup.",
+            key="add_source_public_notes",
+        )
+
         selected_programme = st.selectbox(
             required_label(t("sources_source_programme", ui_language)),
             options=get_programme_options(include_blank=True),
@@ -4580,6 +4680,17 @@ if active_page == "Sources":
                             )
 
                         st.write(t("sources_status_writing_metadata", ui_language))
+
+                        public_url_to_save = public_url.strip() or external_url.strip()
+                        display_citation_to_save = (
+                            display_citation.strip()
+                            or build_default_display_citation(
+                                authors_or_organization=authors_or_organization,
+                                publication_year=publication_year,
+                                source_title=source_title,
+                            )
+                        )
+
                         insert_source(
                             source_code=source_code,
                             source_title=source_title,
@@ -4589,6 +4700,14 @@ if active_page == "Sources":
                             local_file_name=local_file_name,
                             source_url=source_url,
                             notes=source_notes,
+                            source_kind=source_kind,
+                            source_type=source_type,
+                            authors_or_organization=authors_or_organization,
+                            publication_year=publication_year,
+                            doi=doi,
+                            public_url=public_url_to_save,
+                            display_citation=display_citation_to_save,
+                            public_notes=public_notes,
                         )
 
                         st.write(t("sources_status_updating_options", ui_language))
