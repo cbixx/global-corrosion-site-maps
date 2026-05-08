@@ -1454,3 +1454,88 @@ html, body {
 .directory-source-link.source-detail-button {
     color: #1f6feb;
 }
+
+/* Site notes overlay */
+.note-details-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 6100;
+    background: rgba(15, 23, 42, 0.42);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 18px;
+}
+
+.note-details-overlay.hidden {
+    display: none;
+}
+
+.note-details-box {
+    width: min(620px, 94vw);
+    max-height: 82vh;
+    background: #ffffff;
+    border-radius: 16px;
+    box-shadow: 0 18px 42px rgba(15, 23, 42, 0.30);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+.note-details-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 14px;
+    padding: 16px 18px 12px;
+    border-bottom: 1px solid rgba(15, 23, 42, 0.12);
+}
+
+.note-details-kicker {
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #607d8b;
+    font-weight: 800;
+    margin-bottom: 4px;
+}
+
+.note-details-header h2 {
+    margin: 0;
+    font-size: 20px;
+    line-height: 1.2;
+    color: #111827;
+}
+
+.note-details-close {
+    border: 0;
+    background: transparent;
+    font-size: 28px;
+    line-height: 1;
+    cursor: pointer;
+    color: #4b5563;
+}
+
+.note-details-close:hover {
+    color: #111827;
+}
+
+.note-details-body {
+    padding: 16px 18px 18px;
+    overflow-y: auto;
+    font-size: 13px;
+    line-height: 1.55;
+    color: #374151;
+}
+
+.note-details-text {
+    white-space: pre-wrap;
+}
+
+.note-details-empty {
+    padding: 11px 12px;
+    border: 1px solid #d7dee3;
+    border-radius: 10px;
+    background: #f8fafc;
+    color: #64748b;
+}

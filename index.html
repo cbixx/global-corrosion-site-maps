@@ -319,6 +319,25 @@
     </div>
   </div>
 
+  <div id="noteDetailsOverlay" class="note-details-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="noteDetailsTitle">
+    <div class="note-details-box">
+      <div class="note-details-header">
+        <div>
+          <div class="note-details-kicker">Site note</div>
+          <h2 id="noteDetailsTitle">Notes</h2>
+        </div>
+
+        <button id="closeNoteDetailsBtn" type="button" class="note-details-close" aria-label="Close notes">
+          ×
+        </button>
+      </div>
+
+      <div id="noteDetailsBody" class="note-details-body">
+        No notes available.
+      </div>
+    </div>
+  </div>
+
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
@@ -815,21 +834,27 @@
     setRailState(!sidebar.classList.contains('sidebar-collapsed'));
 
     document.addEventListener('click', function(event) {
-      const clickedButton = event.target.closest('.notes-button');
+      const noteButton = event.target.closest('.note-detail-button');
 
-      if (clickedButton) {
-        const wrap = clickedButton.closest('.notes-wrap');
-        const isOpen = wrap.classList.toggle('open');
-        clickedButton.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
-        event.stopPropagation();
-        return;
+      if (!noteButton) return;
+
+      event.preventDefault();
+      event.stopPropagation();
+
+      const rowIndex = Number(noteButton.getAttribute("data-row-index"));
+      const row = allRows.find(item => item._rowIndex === rowIndex);
+
+      openNoteDetails(row ? row.notes : "");
+    }, true);
+
+    document.getElementById("closeNoteDetailsBtn")?.addEventListener("click", function() {
+      closeNoteDetails();
+    });
+
+    document.getElementById("noteDetailsOverlay")?.addEventListener("click", function(event) {
+      if (event.target.id === "noteDetailsOverlay") {
+        closeNoteDetails();
       }
-
-      document.querySelectorAll('.notes-wrap.open').forEach(wrap => {
-        wrap.classList.remove('open');
-        const button = wrap.querySelector('.notes-button');
-        if (button) button.setAttribute('aria-expanded', 'false');
-      });
     });
 
     document.addEventListener("click", function(event) {
@@ -883,7 +908,7 @@
       const resource = row && row._resources ? row._resources[sourceIndex] : null;
 
       openSourceDetails(resource);
-    });
+    }, true);
 
     document.getElementById("closeSourceDetailsBtn")?.addEventListener("click", function() {
       closeSourceDetails();
@@ -898,6 +923,7 @@
     document.addEventListener("keydown", function(event) {
       if (event.key === "Escape") {
         closeSourceDetails();
+        closeNoteDetails();
       }
     });
 
@@ -962,29 +988,50 @@
       return null;
     }
 
-    function sourceButtonLabel(resource, fallbackLabel) {
+    function formatSourceCodeLabel(sourceCode) {
+      const normalized = normalizeSourceCode(sourceCode);
+
+      if (!normalized) return "";
+
+      const numberText = normalized.replace(/^s/i, "");
+      const number = Number(numberText);
+
+      if (Number.isFinite(number)) {
+        return `Source ${number}`;
+      }
+
+      return normalized.toUpperCase();
+    }
+
+    function sourceButtonLabel(resource, fallbackLabel = "Source details") {
       const details = findSourceDetails(resource);
 
-      if (details && details.source_code) {
-        return details.source_code.toUpperCase();
-      }
+      const labelFromDetails = details && details.source_code
+        ? formatSourceCodeLabel(details.source_code)
+        : "";
 
-      if (resource && resource.sourceCode) {
-        return resource.sourceCode.toUpperCase();
-      }
+      if (labelFromDetails) return labelFromDetails;
+
+      const labelFromResource = resource && resource.sourceCode
+        ? formatSourceCodeLabel(resource.sourceCode)
+        : "";
+
+      if (labelFromResource) return labelFromResource;
 
       return fallbackLabel;
     }
 
-    function sourceButtonTitle(resource, fallbackLabel) {
+    function sourceButtonTitle(resource, fallbackLabel = "Open source details") {
       const details = findSourceDetails(resource);
 
+      const stableLabel = sourceButtonLabel(resource, fallbackLabel);
+
       if (details && details.source_title) {
-        return details.source_title;
+        return `${stableLabel}: ${details.source_title}`;
       }
 
       if (resource && resource.sourceCode) {
-        return `Open metadata for ${resource.sourceCode.toUpperCase()}`;
+        return `Open metadata for ${stableLabel}`;
       }
 
       return fallbackLabel;
@@ -1026,7 +1073,7 @@
       const notes = normalizeText(details.notes);
 
       return `
-        <div class="source-details-code">${escapeHtml(details.source_code || resource.sourceCode || "")}</div>
+        <div class="source-details-code">${escapeHtml(sourceButtonLabel(resource, "Source details"))}</div>
         <h3 class="source-details-name">${escapeHtml(details.source_title || "Untitled source")}</h3>
 
         <div class="source-details-grid">
@@ -1072,6 +1119,29 @@
 
     function closeSourceDetails() {
       const overlay = document.getElementById("sourceDetailsOverlay");
+
+      if (overlay) {
+        overlay.classList.add("hidden");
+      }
+    }
+
+    function openNoteDetails(noteText) {
+      const overlay = document.getElementById("noteDetailsOverlay");
+      const body = document.getElementById("noteDetailsBody");
+
+      if (!overlay || !body) return;
+
+      const cleanNote = normalizeText(noteText);
+
+      body.innerHTML = cleanNote
+        ? `<div class="note-details-text">${escapeHtml(cleanNote)}</div>`
+        : `<div class="note-details-empty">No notes are available for this site.</div>`;
+
+      overlay.classList.remove("hidden");
+    }
+
+    function closeNoteDetails() {
+      const overlay = document.getElementById("noteDetailsOverlay");
 
       if (overlay) {
         overlay.classList.add("hidden");
@@ -1298,7 +1368,7 @@
         html += `<div class="action-row">`;
 
         resources.forEach((resource, index) => {
-          const label = sourceButtonLabel(resource, `Source ${index + 1}`);
+          const label = sourceButtonLabel(resource, "Source details");
           const title = sourceButtonTitle(resource, label);
 
           html += `
@@ -1316,10 +1386,14 @@
 
         if (notes) {
           html += `
-            <div class="notes-wrap">
-              <button class="notes-button" type="button" aria-expanded="false">Notes</button>
-              <div class="notes-panel">${escapeHtml(notes)}</div>
-            </div>
+            <button
+              class="notes-button note-detail-button"
+              type="button"
+              data-row-index="${escapeHtml(rowIndex)}"
+              title="Open site notes"
+            >
+              Notes
+            </button>
           `;
         }
 
@@ -1911,7 +1985,7 @@
       }
 
       return resources.map((resource, index) => {
-        const label = sourceButtonLabel(resource, `S${index + 1}`);
+        const label = sourceButtonLabel(resource, "Source details");
         const title = sourceButtonTitle(resource, label);
 
         return `
