@@ -457,6 +457,10 @@ def build_site_id_prefix(
 REPO_ROOT = Path(__file__).resolve().parents[1]
 SOURCE_PDF_DIR = REPO_ROOT / "source_pdfs"
 SOURCE_PDF_RELATIVE_DIR = "source_pdfs"
+
+# Legacy PDF workflows are disabled until private Cloudflare R2 storage is integrated.
+LEGACY_LOCAL_PDF_WORKFLOW_ENABLED = False
+GITHUB_PDF_UPLOAD_ENABLED = False
 CORROSION_OUTPUT_CSV_PATH = REPO_ROOT / "data" / "corrosion_observations.csv"
 ENVIRONMENT_OUTPUT_CSV_PATH = REPO_ROOT / "data" / "environmental_observations.csv"
 
@@ -3172,8 +3176,8 @@ A source normally includes:
 - programme, such as `ICP/UNECE`, `MICAT`, `ISOCORRAG`, or another programme;
 - metals covered by the source;
 - exposure periods or durations covered by the source;
-- PDF path or external URL;
-- notes.
+- public URL, DOI, and public citation metadata;
+- internal notes where needed.
 
 Add or register sources before linking them to sites.
 
@@ -3219,7 +3223,7 @@ Go to **Sources**.
 
 Use this page to:
 
-- register existing PDFs from the `source_pdfs/` folder;
+- enter source citation metadata, DOI/public URLs, programme, metals, and exposure periods;
 - add a new source manually;
 - assign programme, metals, and exposure periods to sources;
 - update existing source metadata in batches.
@@ -3231,9 +3235,9 @@ Minimum recommended fields for a source are:
 - programme;
 - metals;
 - exposure periods;
-- PDF path or URL where available.
+- public URL or DOI landing page where available.
 
-Important: in the online version, uploaded PDFs may not be permanently stored unless they are later committed to GitHub or moved to persistent storage. The database metadata is persistent, but the hosted file system should not be treated as permanent PDF storage.
+Important: PDF upload is temporarily disabled until private Cloudflare R2 storage is integrated. For now, store source citation metadata and public URLs in the database, and keep real PDFs in a private local archive.
 
 #### Step 2 — Add sites
 
@@ -3368,7 +3372,7 @@ Please avoid the following unless you know exactly why you are doing it:
 - do not use the **Settings** page for database reset or maintenance unless instructed;
 - do not delete sources that are still linked to sites;
 - do not delete sites that are still intended to appear on the map;
-- do not assume uploaded PDFs are permanently stored in the online app;
+- do not upload real PDFs until private Cloudflare R2 storage is enabled;
 - do not publish immediately after import without reviewing the imported rows;
 - do not share the curator password or GitHub/Supabase credentials publicly.
 
@@ -3431,7 +3435,7 @@ def get_user_manual_chinese() -> str:
 - 研究计划，例如 `ICP/UNECE`、`MICAT`、`ISOCORRAG` 或其他计划；
 - 该资料涉及的金属材料；
 - 该资料涉及的暴露时间或暴露周期；
-- PDF 路径或外部链接；
+- 公开 URL、DOI 和公开引用元数据；
 - 备注。
 
 建议先添加或注册资料来源，再将其关联到站点。
@@ -3478,7 +3482,7 @@ def get_user_manual_chinese() -> str:
 
 此页面可用于：
 
-- 注册 `source_pdfs/` 文件夹中已有的 PDF；
+- 输入资料来源的引用元数据、DOI/公开 URL、研究计划、金属材料和暴露时间；
 - 手动添加新的资料来源；
 - 为资料来源分配研究计划、金属材料和暴露时间；
 - 批量更新已有资料来源的元数据。
@@ -3490,9 +3494,9 @@ def get_user_manual_chinese() -> str:
 - 研究计划；
 - 金属材料；
 - 暴露时间；
-- PDF 路径或外部链接，如有。
+- 公开 URL 或 DOI 页面，如有。
 
-重要提示：在线版本中的 PDF 上传不一定是永久存储，除非之后将 PDF 提交到 GitHub 或转移到其他持久化存储。数据库中的文字元数据是持久的，但在线托管环境中的文件系统不应被视为永久 PDF 存储位置。
+重要提示：在 Cloudflare R2 等私有存储集成完成前，PDF 上传功能暂时禁用。目前请只在数据库中保存资料来源的引用元数据和公开 URL，并将真实 PDF 保存在私有本地档案中。
 
 #### 步骤 2 — 添加站点
 
@@ -3627,7 +3631,7 @@ def get_user_manual_chinese() -> str:
 - 不要随意使用 **Settings** 页面中的数据库重置或维护功能；
 - 不要删除仍然与站点关联的资料来源；
 - 不要删除仍然需要出现在地图上的站点；
-- 不要假设在线上传的 PDF 会永久保存；
+- 在 Cloudflare R2 等私有存储启用之前，不要上传真实 PDF；
 - 不要在导入后未经检查就立即发布；
 - 不要公开分享 curator 密码、GitHub token 或 Supabase 凭据。
 
@@ -4218,6 +4222,12 @@ if active_page == "Sources":
     st.subheader(t("sources_title", ui_language))
     st.caption(t("sources_caption", ui_language))
 
+    if not LEGACY_LOCAL_PDF_WORKFLOW_ENABLED:
+        st.info(
+            "PDF upload/registration is temporarily disabled while private Cloudflare R2 storage is being prepared. "
+            "For now, enter source citation metadata, DOI/public URL, programme, metals, and exposure periods only."
+        )
+
     with st.expander(t("sources_register_existing_pdfs", ui_language), expanded=False):
         existing_pdf_files = list_source_pdf_files()
 
@@ -4348,7 +4358,15 @@ if active_page == "Sources":
                 selected_scan_exposure_periods
             )
 
-            if st.button(t("sources_register_missing_pdfs", ui_language)):
+            st.warning(
+                "Legacy local PDF registration is disabled while private PDF storage is being prepared."
+            )
+
+            if st.button(
+                t("sources_register_missing_pdfs", ui_language),
+                disabled=not LEGACY_LOCAL_PDF_WORKFLOW_ENABLED,
+                help="Legacy local PDF registration is disabled until private R2 storage is integrated.",
+            ):
                 registered_count = 0
 
                 for pdf_path in missing_pdf_files:
@@ -4410,6 +4428,8 @@ if active_page == "Sources":
             if st.button(
                 t("sources_upload_selected_pdfs_github", ui_language),
                 key="upload_selected_source_pdfs_to_github",
+                disabled=not GITHUB_PDF_UPLOAD_ENABLED,
+                help="Legacy GitHub PDF upload is disabled. Use private R2 storage after it is integrated.",
             ):
                 if not selected_pdf_labels:
                     st.error(t("sources_select_at_least_one_pdf", ui_language))
@@ -4588,18 +4608,12 @@ if active_page == "Sources":
             selected_source_exposure_periods
         )
 
-        uploaded_pdf = st.file_uploader(
-            source_optional_label("sources_upload_source_pdf"),
-            type=["pdf"],
-            help=t("sources_upload_source_pdf_help", ui_language),
-            key="add_source_uploaded_pdf",
-        )
+        uploaded_pdf = None
+        upload_source_pdf_to_github = False
 
-        upload_source_pdf_to_github = st.checkbox(
-            source_optional_label("sources_upload_pdf_github_after_add"),
-            value=False,
-            help=t("sources_upload_pdf_github_after_add_help", ui_language),
-            key="upload_source_pdf_to_github_after_add",
+        st.info(
+            "PDF upload is temporarily disabled until private Cloudflare R2 storage is integrated. "
+            "Please add source metadata and public DOI/URL fields only for now."
         )
 
         external_url = st.text_input(
