@@ -4494,7 +4494,7 @@ if active_page == "Sources":
 
         upload_source_pdf_to_github = st.checkbox(
             source_optional_label("sources_upload_pdf_github_after_add"),
-            value=True,
+            value=False,
             help=t("sources_upload_pdf_github_after_add_help", ui_language),
             key="upload_source_pdf_to_github_after_add",
         )

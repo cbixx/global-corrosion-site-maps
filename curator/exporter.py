@@ -85,17 +85,13 @@ def write_website_csv(
 
 
 def source_export_value(row: Any) -> str:
-    source_url = clean_value(row["source_url"])
-    local_file_name = clean_value(row["local_file_name"])
-    source_code = clean_value(row["source_code"])
+    """
+    Public website export should reference the stable source code only.
 
-    if source_url:
-        return source_url
-
-    if local_file_name:
-        return f"source_pdfs/{local_file_name}"
-
-    return source_code
+    Private/local PDF paths and raw source URLs must not be written into
+    data/sites.csv. Public citation/URL metadata belongs in data/sources_public.csv.
+    """
+    return clean_value(row["source_code"])
 
 
 def get_publishable_sites() -> list[dict[str, Any]]:
