@@ -15,6 +15,21 @@ REPO_ROOT = BASE_DIR.parent
 OUTPUT_CSV_PATH = REPO_ROOT / "data" / "sites.csv"
 PUBLISH_BATCH_DIR = REPO_ROOT / "data" / "publish_batches"
 
+SOURCES_PUBLIC_CSV_PATH = REPO_ROOT / "data" / "sources_public.csv"
+
+PUBLIC_SOURCE_COLUMNS = [
+    "source_code",
+    "source_kind",
+    "source_type",
+    "source_title",
+    "authors_or_organization",
+    "publication_year",
+    "doi",
+    "public_url",
+    "notes",
+    "display_citation",
+]
+
 
 BASE_SITE_COLUMNS = [
     "site_id",
@@ -92,6 +107,60 @@ def source_export_value(row: Any) -> str:
     data/sites.csv. Public citation/URL metadata belongs in data/sources_public.csv.
     """
     return clean_value(row["source_code"])
+
+def get_public_source_rows() -> list[dict[str, str]]:
+    """
+    Export public-safe source metadata for the website.
+
+    This intentionally excludes local_file_name, source_url, and any private PDF path.
+    """
+    with get_connection() as conn:
+        rows = conn.execute(
+            """
+            select
+                source_code,
+                source_kind,
+                source_type,
+                source_title,
+                authors_or_organization,
+                publication_year,
+                doi,
+                public_url,
+                public_notes,
+                display_citation
+            from sources
+            where source_code is not null
+            order by source_code
+            """
+        ).fetchall()
+
+    export_rows: list[dict[str, str]] = []
+
+    for row in rows:
+        export_rows.append(
+            {
+                "source_code": clean_value(row["source_code"]),
+                "source_kind": clean_value(row["source_kind"]),
+                "source_type": clean_value(row["source_type"]),
+                "source_title": clean_value(row["source_title"]),
+                "authors_or_organization": clean_value(row["authors_or_organization"]),
+                "publication_year": clean_value(row["publication_year"]),
+                "doi": clean_value(row["doi"]),
+                "public_url": clean_value(row["public_url"]),
+                "notes": clean_value(row["public_notes"]),
+                "display_citation": clean_value(row["display_citation"]),
+            }
+        )
+
+    return export_rows
+
+
+def write_sources_public_csv(
+    output_path: Path = SOURCES_PUBLIC_CSV_PATH,
+) -> int:
+    source_rows = get_public_source_rows()
+    write_website_csv(output_path, source_rows, PUBLIC_SOURCE_COLUMNS)
+    return len(source_rows)
 
 
 def get_publishable_sites() -> list[dict[str, Any]]:
@@ -296,8 +365,9 @@ def publish_selected_sites_csv(
 
     batch_path = get_next_publish_batch_path()
 
-    # Live website file read by index.html
+    # Live website files read by index.html
     write_website_csv(output_path, export_rows, fieldnames)
+    source_rows_count = write_sources_public_csv(SOURCES_PUBLIC_CSV_PATH)
 
     # Archived snapshot of this publish event
     write_website_csv(batch_path, export_rows, fieldnames)
@@ -308,4 +378,6 @@ def publish_selected_sites_csv(
         "live_path": str(output_path),
         "batch_path": str(batch_path),
         "batch_name": batch_path.name,
+        "sources_public_path": str(SOURCES_PUBLIC_CSV_PATH),
+        "sources_public_rows": source_rows_count,
     }

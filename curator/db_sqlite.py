@@ -78,6 +78,23 @@ def ensure_schema_updates() -> None:
             if "exposure_periods" not in source_column_names:
                 conn.execute("ALTER TABLE sources ADD COLUMN exposure_periods text")
 
+            source_public_metadata_columns = {
+                "source_kind": "text",
+                "source_type": "text",
+                "authors_or_organization": "text",
+                "publication_year": "text",
+                "doi": "text",
+                "public_url": "text",
+                "display_citation": "text",
+                "public_notes": "text",
+            }
+
+            for column_name, column_type in source_public_metadata_columns.items():
+                if column_name not in source_column_names:
+                    conn.execute(
+                        f"ALTER TABLE sources ADD COLUMN {column_name} {column_type}"
+                    )
+
         if "site_sources" in table_names:
             link_columns = conn.execute("PRAGMA table_info(site_sources)").fetchall()
             link_column_names = {row["name"] for row in link_columns}
@@ -190,13 +207,29 @@ def insert_source(
     local_file_name: str = "",
     source_url: str = "",
     notes: str = "",
+    source_kind: str = "",
+    source_type: str = "",
+    authors_or_organization: str = "",
+    publication_year: str = "",
+    doi: str = "",
+    public_url: str = "",
+    display_citation: str = "",
+    public_notes: str = "",
 ) -> None:
     with get_connection() as conn:
         conn.execute(
             """
             insert into sources (
                 source_code,
+                source_kind,
+                source_type,
                 source_title,
+                authors_or_organization,
+                publication_year,
+                doi,
+                public_url,
+                display_citation,
+                public_notes,
                 programme,
                 metals,
                 exposure_periods,
@@ -204,11 +237,19 @@ def insert_source(
                 source_url,
                 notes
             )
-            values (?, ?, ?, ?, ?, ?, ?, ?)
+            values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 source_code.strip(),
+                source_kind.strip(),
+                source_type.strip(),
                 source_title.strip(),
+                authors_or_organization.strip(),
+                publication_year.strip(),
+                doi.strip(),
+                public_url.strip(),
+                display_citation.strip(),
+                public_notes.strip(),
                 programme.strip(),
                 metals.strip(),
                 exposure_periods.strip(),
@@ -374,7 +415,15 @@ EDITABLE_COLUMNS = {
     },
     "sources": {
         "source_code",
+        "source_kind",
+        "source_type",
         "source_title",
+        "authors_or_organization",
+        "publication_year",
+        "doi",
+        "public_url",
+        "display_citation",
+        "public_notes",
         "programme",
         "metals",
         "exposure_periods",
