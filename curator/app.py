@@ -6577,7 +6577,15 @@ if active_page == "Manage Records":
     else:
         editable_columns = [
             "source_code",
+            "source_kind",
+            "source_type",
             "source_title",
+            "authors_or_organization",
+            "publication_year",
+            "doi",
+            "public_url",
+            "display_citation",
+            "public_notes",
             "programme",
             "metals",
             "exposure_periods",
@@ -6587,7 +6595,15 @@ if active_page == "Manage Records":
 
         required_source_columns = [
             "source_code",
+            "source_kind",
+            "source_type",
             "source_title",
+            "authors_or_organization",
+            "publication_year",
+            "doi",
+            "public_url",
+            "display_citation",
+            "public_notes",
             "programme",
             "metals",
             "exposure_periods",
@@ -6621,6 +6637,40 @@ if active_page == "Manage Records":
                 t("manage_column_source_code", ui_language),
                 width="small",
             ),
+
+            "source_kind": st.column_config.TextColumn(
+                "Source kind",
+                width="medium",
+            ),
+            "source_type": st.column_config.TextColumn(
+                "Source type",
+                width="medium",
+            ),
+            "authors_or_organization": st.column_config.TextColumn(
+                "Authors / organization",
+                width="large",
+            ),
+            "publication_year": st.column_config.TextColumn(
+                "Year",
+                width="small",
+            ),
+            "doi": st.column_config.TextColumn(
+                "DOI",
+                width="medium",
+            ),
+            "public_url": st.column_config.LinkColumn(
+                "Public URL",
+                width="medium",
+            ),
+            "display_citation": st.column_config.TextColumn(
+                "Suggested citation",
+                width="large",
+            ),
+            "public_notes": st.column_config.TextColumn(
+                "Public notes",
+                width="large",
+            ),
+
             "source_title": st.column_config.TextColumn(
                 t("manage_column_source_title", ui_language),
                 width="large",
