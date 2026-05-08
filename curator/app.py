@@ -3766,6 +3766,9 @@ if "last_publish_live_path" not in st.session_state:
 
 if "last_publish_batch_path" not in st.session_state:
     st.session_state.last_publish_batch_path = ""
+
+if "last_publish_sources_public_path" not in st.session_state:
+    st.session_state.last_publish_sources_public_path = ""
     
 def apply_selected_location() -> None:
     selected_label = st.session_state.get("selected_location_label")
@@ -8056,6 +8059,10 @@ if active_page == "Export / Publish":
                                 st.session_state.last_publish_live_path = str(result["live_path"])
                                 st.session_state.last_publish_batch_path = str(result["batch_path"])
 
+                                st.session_state.last_publish_sources_public_path = str(
+                                    result.get("sources_public_path", "")
+                                )
+
                                 github_result = publish_files_to_github(
                                     live_path=str(result["live_path"]),
                                     batch_path=str(result["batch_path"]),
@@ -8063,6 +8070,9 @@ if active_page == "Export / Publish":
                                         git_commit_message.strip()
                                         or t("publish_quick_remove_commit_fallback", ui_language)
                                     ),
+                                    extra_paths=[
+                                        str(result["sources_public_path"]),
+                                    ] if result.get("sources_public_path") else None,
                                 )
 
                                 st.session_state.last_git_publish_output = str(github_result["output"])
@@ -8135,6 +8145,9 @@ if active_page == "Export / Publish":
                                 live_path=str(result["live_path"]),
                                 batch_path=str(result["batch_path"]),
                                 commit_message=git_commit_message,
+                                extra_paths=[
+                                    str(result["sources_public_path"]),
+                                ] if result.get("sources_public_path") else None,
                             )
 
                             st.session_state.last_git_publish_output = str(github_result["output"])
@@ -8224,10 +8237,16 @@ if active_page == "Export / Publish":
             if not st.session_state.last_publish_live_path or not st.session_state.last_publish_batch_path:
                 st.error(t("publish_no_latest_paths_error", ui_language))
             else:
+                extra_paths = []
+
+                if st.session_state.get("last_publish_sources_public_path"):
+                    extra_paths.append(st.session_state.last_publish_sources_public_path)
+
                 github_result = publish_files_to_github(
                     live_path=st.session_state.last_publish_live_path,
                     batch_path=st.session_state.last_publish_batch_path,
                     commit_message=git_commit_message,
+                    extra_paths=extra_paths,
                 )
 
                 st.session_state.last_git_publish_output = str(github_result["output"])

@@ -223,16 +223,36 @@ def publish_files_to_github(
     live_path: str | Path,
     batch_path: str | Path,
     commit_message: str,
+    extra_paths: list[str | Path] | None = None,
 ) -> dict[str, Any]:
     config = get_github_publish_config()
     client = GitHubContentsClient(config)
 
-    live_path = Path(live_path)
-    batch_path = Path(batch_path)
+    publish_paths = [
+        Path(live_path),
+        Path(batch_path),
+    ]
+
+    if extra_paths:
+        for extra_path in extra_paths:
+            publish_paths.append(Path(extra_path))
+
+    # Avoid duplicate uploads while preserving order.
+    unique_publish_paths: list[Path] = []
+    seen_paths: set[str] = set()
+
+    for path in publish_paths:
+        resolved_key = str(path.resolve()).lower()
+
+        if resolved_key in seen_paths:
+            continue
+
+        seen_paths.add(resolved_key)
+        unique_publish_paths.append(path)
 
     uploads = []
 
-    for local_path in [live_path, batch_path]:
+    for local_path in unique_publish_paths:
         repo_path = repo_path_from_local_path(local_path)
 
         upload_result = client.put_file(
