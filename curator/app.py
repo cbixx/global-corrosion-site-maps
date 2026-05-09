@@ -71,6 +71,13 @@ from github_publish import (
     publish_file_to_github,
 )
 
+try:
+    from r2_storage import get_r2_storage_usage
+    R2_STORAGE_IMPORT_ERROR = ""
+except Exception as exc:
+    get_r2_storage_usage = None
+    R2_STORAGE_IMPORT_ERROR = str(exc)
+
 from ui_styles import (
     escape_html,
     inject_app_styles,
@@ -3031,6 +3038,98 @@ def translate_status(value: str, language: str) -> str:
 def ui_text(english: str, chinese: str) -> str:
     return chinese if ui_language == "zh" else english
 
+R2_FREE_TIER_REFERENCE_GB = 10.0
+R2_STORAGE_WARNING_GB = 8.0
+R2_STORAGE_STRONG_WARNING_GB = 9.0
+R2_STORAGE_URGENT_WARNING_GB = 9.5
+
+
+def format_storage_amount(total_bytes: int) -> str:
+    total_bytes = int(total_bytes or 0)
+    total_mb = total_bytes / (1024 * 1024)
+    total_gb = total_bytes / (1024 * 1024 * 1024)
+
+    if total_gb >= 1:
+        return f"{total_gb:.2f} GB"
+
+    if total_mb >= 1:
+        return f"{total_mb:.2f} MB"
+
+    total_kb = total_bytes / 1024
+
+    if total_kb >= 1:
+        return f"{total_kb:.2f} KB"
+
+    return f"{total_bytes} B"
+
+
+def render_r2_storage_meter(ui_language: str) -> None:
+    if get_r2_storage_usage is None:
+        st.info(t("dashboard_r2_meter_unavailable", ui_language))
+
+        if R2_STORAGE_IMPORT_ERROR:
+            st.caption(R2_STORAGE_IMPORT_ERROR)
+
+        return
+
+    try:
+        usage = get_r2_storage_usage(prefix="source_pdfs/")
+    except Exception as exc:
+        st.warning(
+            t(
+                "dashboard_r2_meter_load_failed",
+                ui_language,
+                error=str(exc),
+            )
+        )
+        return
+
+    object_count = int(usage.get("object_count", 0) or 0)
+    total_bytes = int(usage.get("total_bytes", 0) or 0)
+    total_gb = float(usage.get("total_gb", 0.0) or 0.0)
+
+    limit_gb = R2_FREE_TIER_REFERENCE_GB
+    progress_value = min(max(total_gb / limit_gb, 0.0), 1.0)
+    percent_used = (total_gb / limit_gb) * 100 if limit_gb else 0.0
+    remaining_gb = max(limit_gb - total_gb, 0.0)
+
+    r2_col1, r2_col2, r2_col3 = st.columns(3)
+
+    with r2_col1:
+        render_dashboard_card(
+            t("dashboard_card_r2_objects", ui_language),
+            object_count,
+            t("dashboard_card_r2_objects_hint", ui_language),
+        )
+
+    with r2_col2:
+        render_dashboard_card(
+            t("dashboard_card_r2_storage_used", ui_language),
+            format_storage_amount(total_bytes),
+            t(
+                "dashboard_card_r2_storage_used_hint",
+                ui_language,
+                percent_used=f"{percent_used:.3f}",
+            ),
+        )
+
+    with r2_col3:
+        render_dashboard_card(
+            t("dashboard_card_r2_reference_remaining", ui_language),
+            f"{remaining_gb:.3f} GB",
+            t("dashboard_card_r2_reference_remaining_hint", ui_language),
+        )
+
+    st.progress(progress_value)
+
+    if total_gb >= R2_STORAGE_URGENT_WARNING_GB:
+        st.error(t("dashboard_r2_storage_urgent_warning", ui_language))
+    elif total_gb >= R2_STORAGE_STRONG_WARNING_GB:
+        st.warning(t("dashboard_r2_storage_strong_warning", ui_language))
+    elif total_gb >= R2_STORAGE_WARNING_GB:
+        st.warning(t("dashboard_r2_storage_warning", ui_language))
+    else:
+        st.success(t("dashboard_r2_storage_safe", ui_language))
 
 def suggest_region_tags_for_add_site_form(
     latitude,
@@ -4121,6 +4220,9 @@ if active_page == "Dashboard":
         st.success(t("dashboard_success_all_pdfs_registered", ui_language))
     else:
         st.info(t("dashboard_info_no_pdfs", ui_language))
+
+    render_section_title(t("dashboard_section_private_pdf_storage", ui_language))
+    render_r2_storage_meter(ui_language)
 
     render_section_title(t("dashboard_section_system_status", ui_language))
 
