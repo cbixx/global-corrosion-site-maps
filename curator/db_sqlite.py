@@ -78,6 +78,9 @@ def ensure_schema_updates() -> None:
             if "exposure_periods" not in source_column_names:
                 conn.execute("ALTER TABLE sources ADD COLUMN exposure_periods text")
 
+            if "private_pdf_object_key" not in source_column_names:
+                conn.execute("ALTER TABLE sources ADD COLUMN private_pdf_object_key text")
+
             source_public_metadata_columns = {
                 "source_kind": "text",
                 "source_type": "text",
@@ -430,6 +433,7 @@ EDITABLE_COLUMNS = {
         "local_file_name",
         "source_url",
         "notes",
+        "private_pdf_object_key",
     },
 }
 

@@ -79,6 +79,7 @@ EDITABLE_COLUMNS = {
         "local_file_name",
         "source_url",
         "notes",
+        "private_pdf_object_key",
     },
 }
 
@@ -219,6 +220,10 @@ def ensure_schema_updates() -> None:
     Non-destructive Supabase schema updates needed by the app.
     """
     with get_connection() as conn:
+        conn.execute(
+            "alter table sources add column if not exists private_pdf_object_key text"
+        )
+
 
         source_public_metadata_columns = {
             "source_kind": "text",
