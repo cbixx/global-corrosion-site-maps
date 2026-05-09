@@ -1,8 +1,10 @@
-streamlit
+﻿streamlit
 pandas
 pycountry
 geopy
 shapely
 pyshp
 requests
-psycopg[binary,pool]boto3
+psycopg[binary,pool]
+boto3
+
