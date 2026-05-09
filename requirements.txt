@@ -5,4 +5,4 @@ geopy
 shapely
 pyshp
 requests
-psycopg[binary,pool]
+psycopg[binary,pool]boto3
