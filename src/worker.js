@@ -42,13 +42,14 @@ async function serveIndex(request, env, audience = "public") {
 
   let html = await response.text();
 
-  const audienceScript = `
+  const injectedHead = `
+  <base href="/">
   <script>
     window.CORROSION_MAP_AUDIENCE = ${JSON.stringify(audience)};
   </script>
   `;
 
-  html = html.replace("</head>", `${audienceScript}\n</head>`);
+  html = html.replace("</head>", `${injectedHead}\n</head>`);
 
   const headers = new Headers(response.headers);
   headers.set("content-type", "text/html; charset=utf-8");
@@ -127,6 +128,10 @@ export default {
           "cache-control": "no-store",
         },
       });
+    }
+
+    if (path === "/api/team/map") {
+      return serveIndex(request, env, "team");
     }
 
     if (path === "/team") {
