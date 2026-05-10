@@ -5,7 +5,12 @@
 
   "assets": {
     "directory": "./",
-    "binding": "ASSETS"
+    "binding": "ASSETS",
+    "run_worker_first": [
+      "/team",
+      "/team/*",
+      "/api/team/*"
+    ]
   },
 
   "r2_buckets": [

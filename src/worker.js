@@ -90,6 +90,20 @@ export default {
     const url = new URL(request.url);
     const path = url.pathname.replace(/\/+$/, "") || "/";
 
+    if (path === "/api/team/debug") {
+      return Response.json({
+        ok: true,
+        message: "Worker route is active.",
+        path,
+        teamPdfApiEnabled: env.ENABLE_TEAM_PDF_API === "true",
+        hasR2Binding: Boolean(env.SOURCE_PDF_BUCKET),
+      }, {
+        headers: {
+          "cache-control": "no-store",
+        },
+      });
+    }
+
     if (path === "/team") {
       return serveIndex(request, env);
     }
