@@ -362,6 +362,7 @@
     })();
 
     const TEAM_MODE = MAP_AUDIENCE === "team";
+    console.log("Corrosion map audience:", MAP_AUDIENCE, "team mode:", TEAM_MODE, "path:", window.location.pathname);
     const CLIMATE_LAYER_PERIOD_LABEL = "Last complete year";
     const DEFAULT_CLIMATE_LOOKUP_YEAR = new Date().getFullYear() - 1;
     const CLIMATE_LOOKUP_CACHE = new Map();
