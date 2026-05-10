@@ -29,11 +29,36 @@ function textResponse(message, status = 200) {
   });
 }
 
-async function serveIndex(request, env) {
+async function serveIndex(request, env, audience = "public") {
   const url = new URL(request.url);
   const indexUrl = new URL("/index.html", url);
 
-  return env.ASSETS.fetch(new Request(indexUrl, request));
+  const response = await env.ASSETS.fetch(new Request(indexUrl, request));
+  const contentType = response.headers.get("content-type") || "";
+
+  if (!contentType.includes("text/html")) {
+    return response;
+  }
+
+  let html = await response.text();
+
+  const audienceScript = `
+  <script>
+    window.CORROSION_MAP_AUDIENCE = ${JSON.stringify(audience)};
+  </script>
+  `;
+
+  html = html.replace("</head>", `${audienceScript}\n</head>`);
+
+  const headers = new Headers(response.headers);
+  headers.set("content-type", "text/html; charset=utf-8");
+  headers.set("cache-control", "no-store");
+
+  return new Response(html, {
+    status: response.status,
+    statusText: response.statusText,
+    headers,
+  });
 }
 
 async function handleTeamSourcePdf(request, env) {
@@ -105,7 +130,7 @@ export default {
     }
 
     if (path === "/team") {
-      return serveIndex(request, env);
+      return serveIndex(request, env, "team");
     }
 
     if (path === "/api/team/source-pdf") {
