@@ -34,22 +34,26 @@ async function serveIndex(request, env, audience = "public") {
   const indexUrl = new URL("/index.html", url);
 
   const response = await env.ASSETS.fetch(new Request(indexUrl, request));
-  const contentType = response.headers.get("content-type") || "";
 
-  if (!contentType.includes("text/html")) {
+  if (!response.ok) {
     return response;
   }
 
   let html = await response.text();
 
   const injectedHead = `
+  <!-- corrosion-map-audience-injection -->
   <base href="/">
   <script>
     window.CORROSION_MAP_AUDIENCE = ${JSON.stringify(audience)};
   </script>
   `;
 
-  html = html.replace("</head>", `${injectedHead}\n</head>`);
+  if (html.includes("</head>")) {
+    html = html.replace("</head>", `${injectedHead}\n</head>`);
+  } else {
+    html = `${injectedHead}\n${html}`;
+  }
 
   const headers = new Headers(response.headers);
   headers.set("content-type", "text/html; charset=utf-8");
