@@ -1,0 +1,21 @@
+{
+  "name": "global-corrosion-site-maps",
+  "main": "src/worker.js",
+  "compatibility_date": "2026-05-10",
+
+  "assets": {
+    "directory": "./",
+    "binding": "ASSETS"
+  },
+
+  "r2_buckets": [
+    {
+      "binding": "SOURCE_PDF_BUCKET",
+      "bucket_name": "corrosion-source-pdfs"
+    }
+  ],
+
+  "vars": {
+    "ENABLE_TEAM_PDF_API": "false"
+  }
+}

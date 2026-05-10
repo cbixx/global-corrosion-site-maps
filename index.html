@@ -348,6 +348,20 @@
     const HORIZONTAL_WORLDS = 3;
     const DEFAULT_CENTER = [20, 20];
     const DEFAULT_ZOOM = 2.5;
+
+    const MAP_AUDIENCE = (() => {
+      const explicitAudience = String(window.CORROSION_MAP_AUDIENCE || "").trim().toLowerCase();
+
+      if (explicitAudience) {
+        return explicitAudience;
+      }
+
+      const cleanPath = window.location.pathname.replace(/\/+$/, "").toLowerCase();
+
+      return cleanPath.endsWith("/team") ? "team" : "public";
+    })();
+
+    const TEAM_MODE = MAP_AUDIENCE === "team";
     const CLIMATE_LAYER_PERIOD_LABEL = "Last complete year";
     const DEFAULT_CLIMATE_LOOKUP_YEAR = new Date().getFullYear() - 1;
     const CLIMATE_LOOKUP_CACHE = new Map();
@@ -920,6 +934,25 @@
       }
     });
 
+    document.addEventListener("click", function(event) {
+      const privatePdfButton = event.target.closest(".source-details-private-pdf");
+
+      if (!privatePdfButton) return;
+
+      event.preventDefault();
+      event.stopPropagation();
+
+      const sourceCode = normalizeSourceCode(privatePdfButton.getAttribute("data-source-code"));
+
+      if (!sourceCode) {
+        window.alert("Private PDF could not be opened because the source code is invalid.");
+        return;
+      }
+
+      const privatePdfUrl = `/api/team/source-pdf?source_code=${encodeURIComponent(sourceCode)}`;
+      window.open(privatePdfUrl, "_blank", "noopener,noreferrer");
+    });
+
     document.addEventListener("keydown", function(event) {
       if (event.key === "Escape") {
         closeSourceDetails();
@@ -1043,6 +1076,48 @@
         .replace(/\b\w/g, letter => letter.toUpperCase());
     }
 
+    function buildPrivatePdfActionHtml(sourceCode) {
+      const normalizedSourceCode = normalizeSourceCode(sourceCode);
+
+      if (!TEAM_MODE || !normalizedSourceCode) {
+        return "";
+      }
+
+      return `
+        <button
+          class="source-details-private-pdf"
+          type="button"
+          data-source-code="${escapeHtml(normalizedSourceCode)}"
+          title="Open private team PDF"
+        >
+          Open private PDF
+        </button>
+      `;
+    }
+
+    function buildSourceDetailsActionsHtml(publicUrl, sourceCode) {
+      const publicButtonHtml = publicUrl
+        ? `
+          <a class="source-details-url" href="${escapeHtml(publicUrl)}" target="_blank" rel="noopener noreferrer">
+            Open public source page
+          </a>
+        `
+        : "";
+
+      const privatePdfButtonHtml = buildPrivatePdfActionHtml(sourceCode);
+
+      if (!publicButtonHtml && !privatePdfButtonHtml) {
+        return "";
+      }
+
+      return `
+        <div class="source-details-actions">
+          ${publicButtonHtml}
+          ${privatePdfButtonHtml}
+        </div>
+      `;
+    }
+
     function buildSourceDetailsHtml(resource) {
       const details = findSourceDetails(resource);
 
@@ -1062,7 +1137,7 @@
             <strong>${escapeHtml(resource.label || "Source")}</strong><br>
             Public citation metadata was not found for this source reference.
             ${resource.sourceCode ? `<br>Detected source code: ${escapeHtml(resource.sourceCode.toUpperCase())}` : ""}
-            ${externalUrl ? `<div class="source-details-actions"><a class="source-details-url" href="${escapeHtml(externalUrl)}" target="_blank" rel="noopener noreferrer">Open public source page</a></div>` : ""}
+            ${buildSourceDetailsActionsHtml(externalUrl, resource.sourceCode)}
           </div>
         `;
       }
@@ -1097,13 +1172,7 @@
           </div>
         ` : ""}
 
-        ${publicUrl ? `
-          <div class="source-details-actions">
-            <a class="source-details-url" href="${escapeHtml(publicUrl)}" target="_blank" rel="noopener noreferrer">
-              Open public source page
-            </a>
-          </div>
-        ` : ""}
+        ${buildSourceDetailsActionsHtml(publicUrl, details.source_code)}
       `;
     }
 

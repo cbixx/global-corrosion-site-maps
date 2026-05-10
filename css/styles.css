@@ -1427,6 +1427,10 @@ html, body {
 
 .source-details-actions {
     margin-top: 14px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
 }
 
 .source-details-url {
@@ -1442,6 +1446,24 @@ html, body {
 
 .source-details-url:hover {
     background: #174ea6;
+}
+
+.source-details-private-pdf {
+    display: inline-block;
+    padding: 8px 12px;
+    background: #374151;
+    color: #ffffff !important;
+    text-decoration: none;
+    border: 0;
+    border-radius: 8px;
+    font-weight: 700;
+    font-size: 13px;
+    cursor: pointer;
+    font-family: inherit;
+}
+
+.source-details-private-pdf:hover {
+    background: #111827;
 }
 
 .resource-link.source-detail-button,
