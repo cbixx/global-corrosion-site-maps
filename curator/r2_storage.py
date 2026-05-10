@@ -122,6 +122,35 @@ def upload_file_to_r2(
         "size_bytes": local_path.stat().st_size,
     }
 
+def upload_bytes_to_r2(
+    file_bytes: bytes,
+    object_key: str,
+    content_type: str = "application/pdf",
+) -> dict[str, Any]:
+    if not file_bytes:
+        raise ValueError("No file bytes were provided for R2 upload.")
+
+    client = get_r2_client()
+    bucket_name = get_r2_bucket_name()
+
+    extra_args = {}
+
+    if content_type:
+        extra_args["ContentType"] = content_type
+
+    client.put_object(
+        Bucket=bucket_name,
+        Key=object_key,
+        Body=file_bytes,
+        **extra_args,
+    )
+
+    return {
+        "bucket": bucket_name,
+        "object_key": object_key,
+        "size_bytes": len(file_bytes),
+    }
+
 
 def object_exists_in_r2(object_key: str) -> bool:
     client = get_r2_client()

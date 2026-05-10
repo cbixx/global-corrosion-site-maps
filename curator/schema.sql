@@ -37,6 +37,7 @@ create table sources (
     exposure_periods text,
     local_file_name text,
     source_url text,
+    private_pdf_object_key text,
     notes text,
     created_at text default current_timestamp
 );

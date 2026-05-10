@@ -72,10 +72,18 @@ from github_publish import (
 )
 
 try:
-    from r2_storage import get_r2_storage_usage
+    from r2_storage import (
+        build_source_pdf_object_key,
+        generate_private_pdf_url,
+        get_r2_storage_usage,
+        upload_bytes_to_r2,
+    )
     R2_STORAGE_IMPORT_ERROR = ""
 except Exception as exc:
+    build_source_pdf_object_key = None
+    generate_private_pdf_url = None
     get_r2_storage_usage = None
+    upload_bytes_to_r2 = None
     R2_STORAGE_IMPORT_ERROR = str(exc)
 
 from ui_styles import (
@@ -688,6 +696,34 @@ def save_uploaded_source_pdf(uploaded_file, source_code: str) -> tuple[str, str]
 
     relative_url = f"{SOURCE_PDF_RELATIVE_DIR}/{file_name}"
     return file_name, relative_url
+
+def upload_uploaded_source_pdf_to_r2(uploaded_file, source_code: str) -> tuple[str, str]:
+    if upload_bytes_to_r2 is None or build_source_pdf_object_key is None:
+        raise RuntimeError(
+            "R2 upload is unavailable. "
+            + (R2_STORAGE_IMPORT_ERROR or "Check R2 configuration.")
+        )
+
+    canonical_source_code = normalise_source_code(source_code)
+
+    if not is_canonical_source_code(canonical_source_code):
+        raise ValueError(
+            f"Cannot build private PDF object key for invalid source code: {source_code}"
+        )
+
+    file_name = f"{canonical_source_code}.pdf"
+    object_key = build_source_pdf_object_key(canonical_source_code, file_name)
+
+    uploaded_file.seek(0)
+    file_bytes = uploaded_file.getvalue()
+
+    upload_bytes_to_r2(
+        file_bytes=file_bytes,
+        object_key=object_key,
+        content_type="application/pdf",
+    )
+
+    return file_name, object_key
 
 
 def list_source_pdf_files() -> list[Path]:
@@ -4710,13 +4746,39 @@ if active_page == "Sources":
             selected_source_exposure_periods
         )
 
-        uploaded_pdf = None
-        upload_source_pdf_to_github = False
-
-        st.info(
-            "PDF upload is temporarily disabled until private Cloudflare R2 storage is integrated. "
-            "Please add source metadata and public DOI/URL fields only for now."
+        uploaded_pdf = st.file_uploader(
+            source_optional_label("sources_upload_source_pdf"),
+            type=["pdf"],
+            help=t("sources_upload_source_pdf_help", ui_language),
+            key="add_source_uploaded_pdf",
         )
+
+        if uploaded_pdf is not None:
+            preview_source_code = normalise_source_code(source_code or suggested_source_code)
+
+            if build_source_pdf_object_key is None:
+                st.warning(
+                    t(
+                        "sources_private_pdf_storage_unavailable",
+                        ui_language,
+                        error=R2_STORAGE_IMPORT_ERROR or "R2 helper is unavailable.",
+                    )
+                )
+            elif is_canonical_source_code(preview_source_code):
+                preview_object_key = build_source_pdf_object_key(
+                    preview_source_code,
+                    f"{preview_source_code}.pdf",
+                )
+                st.caption(
+                    t(
+                        "sources_private_pdf_object_key_preview",
+                        ui_language,
+                        object_key=preview_object_key,
+                    )
+                )
+
+        # GitHub PDF upload is intentionally disabled. PDFs now go to private R2 only.
+        upload_source_pdf_to_github = False
 
         external_url = st.text_input(
             source_optional_label("sources_external_url"),
@@ -4787,10 +4849,12 @@ if active_page == "Sources":
                     ) as source_status:
                         local_file_name = ""
                         source_url = external_url.strip()
+                        private_pdf_object_key = ""
 
                         if uploaded_pdf is not None:
-                            st.write(t("sources_status_saving_pdf", ui_language))
-                            local_file_name, source_url = save_uploaded_source_pdf(
+                            st.write(t("sources_status_uploading_pdf_r2", ui_language))
+
+                            local_file_name, private_pdf_object_key = upload_uploaded_source_pdf_to_r2(
                                 uploaded_pdf,
                                 source_code,
                             )
@@ -4824,6 +4888,7 @@ if active_page == "Sources":
                             public_url=public_url_to_save,
                             display_citation=display_citation_to_save,
                             public_notes=public_notes,
+                            private_pdf_object_key=private_pdf_object_key,
                         )
 
                         st.write(t("sources_status_updating_options", ui_language))
@@ -4837,31 +4902,8 @@ if active_page == "Sources":
                             source_code=source_code.strip(),
                         )
 
-                        if uploaded_pdf is not None and upload_source_pdf_to_github:
-                            try:
-                                st.write(t("sources_status_uploading_pdf_github", ui_language))
-                                pdf_local_path = REPO_ROOT / source_url
-
-                                github_pdf_result = publish_file_to_github(
-                                    local_path=pdf_local_path,
-                                    commit_message=f"Upload source PDF {local_file_name}",
-                                )
-
-                                flash_message += t(
-                                    "sources_flash_uploaded_pdf_github",
-                                    ui_language,
-                                )
-                                st.session_state.last_git_publish_output = str(
-                                    github_pdf_result["output"]
-                                )
-
-                            except Exception as github_exc:
-                                flash_level = "warning"
-                                flash_message += t(
-                                    "sources_flash_pdf_not_uploaded",
-                                    ui_language,
-                                    error=str(github_exc),
-                                )
+                        if private_pdf_object_key:
+                            flash_message += t("sources_flash_uploaded_pdf_r2", ui_language)
 
                         source_status.update(
                             label=t("sources_status_processing_completed", ui_language),
@@ -6706,6 +6748,7 @@ if active_page == "Manage Records":
             "metals",
             "exposure_periods",
             "source_url",
+            "private_pdf_object_key",
             "notes",
         ]
 
@@ -6724,6 +6767,7 @@ if active_page == "Manage Records":
             "metals",
             "exposure_periods",
             "source_url",
+            "private_pdf_object_key",
             "notes",
         ]
 
@@ -6810,12 +6854,87 @@ if active_page == "Manage Records":
                 help=t("manage_help_source_url_column", ui_language),
                 width="medium",
             ),
+            "private_pdf_object_key": st.column_config.TextColumn(
+                t("manage_column_private_pdf_object_key", ui_language),
+                help=t("manage_help_private_pdf_object_key_column", ui_language),
+                width="medium",
+            ),
             "delete": st.column_config.CheckboxColumn(
                 t("manage_column_delete", ui_language),
                 help=t("manage_help_delete_column", ui_language),
                 default=False,
             ),
         }
+
+    if manage_table == "sources":
+        private_pdf_rows = [
+            row for row in filtered_rows
+            if str(row.get("private_pdf_object_key", "") or "").strip()
+        ]
+
+        with st.expander(t("manage_private_pdf_access_heading", ui_language), expanded=False):
+            st.caption(t("manage_private_pdf_access_caption", ui_language))
+
+            if not private_pdf_rows:
+                st.info(t("manage_no_private_pdfs", ui_language))
+            elif generate_private_pdf_url is None:
+                st.warning(
+                    t(
+                        "manage_private_pdf_link_error",
+                        ui_language,
+                        error=R2_STORAGE_IMPORT_ERROR or "R2 signed URL helper is unavailable.",
+                    )
+                )
+            else:
+                private_pdf_label_to_row = {
+                    build_row_label(row, "sources"): row
+                    for row in private_pdf_rows
+                }
+
+                selected_private_pdf_label = st.selectbox(
+                    t("manage_choose_private_pdf_source", ui_language),
+                    options=list(private_pdf_label_to_row.keys()),
+                    key="manage_private_pdf_source_select",
+                )
+
+                selected_private_pdf_row = private_pdf_label_to_row[selected_private_pdf_label]
+                selected_private_pdf_row_id = int(selected_private_pdf_row["id"])
+                selected_private_pdf_key = str(
+                    selected_private_pdf_row.get("private_pdf_object_key", "") or ""
+                ).strip()
+
+                st.code(selected_private_pdf_key, language="text")
+
+                signed_url_state_key = f"private_pdf_signed_url_{selected_private_pdf_row_id}"
+
+                if st.button(
+                    t("manage_generate_private_pdf_link", ui_language),
+                    key="generate_private_pdf_link",
+                ):
+                    try:
+                        signed_url = generate_private_pdf_url(
+                            selected_private_pdf_key,
+                            expires_seconds=900,
+                        )
+                        st.session_state[signed_url_state_key] = signed_url
+                        st.success(t("manage_private_pdf_link_ready", ui_language))
+                    except Exception as exc:
+                        st.error(
+                            t(
+                                "manage_private_pdf_link_error",
+                                ui_language,
+                                error=str(exc),
+                            )
+                        )
+
+                signed_url = st.session_state.get(signed_url_state_key, "")
+
+                if signed_url:
+                    st.link_button(
+                        t("manage_open_private_pdf", ui_language),
+                        signed_url,
+                        use_container_width=True,
+                    )
 
     st.caption(t("manage_edit_table_caption", ui_language))
 

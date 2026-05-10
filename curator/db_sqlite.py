@@ -218,6 +218,7 @@ def insert_source(
     public_url: str = "",
     display_citation: str = "",
     public_notes: str = "",
+    private_pdf_object_key: str = "",
 ) -> None:
     with get_connection() as conn:
         conn.execute(
@@ -238,9 +239,10 @@ def insert_source(
                 exposure_periods,
                 local_file_name,
                 source_url,
+                private_pdf_object_key,
                 notes
             )
-            values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 source_code.strip(),
@@ -258,6 +260,7 @@ def insert_source(
                 exposure_periods.strip(),
                 local_file_name.strip(),
                 source_url.strip(),
+                private_pdf_object_key.strip(),
                 notes.strip(),
             ),
         )
