@@ -816,9 +816,32 @@
       maxBoundsViscosity: 1.0
     }).setView(DEFAULT_CENTER, DEFAULT_ZOOM);
 
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '&copy; OpenStreetMap contributors'
-    }).addTo(map);
+    const TIANDITU_TK = "e8bf3cab0c177ffe4ff439b1fc875473";
+
+    function createTiandituTileLayer(layerType, options = {}) {
+      return L.tileLayer(
+        `https://t{s}.tianditu.gov.cn/DataServer?T=${layerType}&x={x}&y={y}&l={z}&tk=${TIANDITU_TK}`,
+        {
+          subdomains: ["0", "1", "2", "3", "4", "5", "6", "7"],
+          minZoom: 1,
+          maxZoom: 18,
+          ...options
+        }
+      );
+    }
+
+    function createTiandituBaseLayer() {
+      const vectorLayer = createTiandituTileLayer("vec_w", {
+        attribution: "© 天地图"
+      });
+
+      const annotationLayer = createTiandituTileLayer("cva_w");
+
+      return L.layerGroup([vectorLayer, annotationLayer]);
+    }
+
+    const tiandituBaseLayer = createTiandituBaseLayer();
+    tiandituBaseLayer.addTo(map);
     map.createPane('corrosionHeatPane');
     map.getPane('corrosionHeatPane').style.zIndex = 450;
     map.getPane('corrosionHeatPane').style.pointerEvents = 'none';
@@ -2440,13 +2463,7 @@
         attributionControl: false
       });
 
-      countryMiniBaseLayer = L.tileLayer(
-        "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
-        {
-          maxZoom: 18
-        }
-      );
-
+      countryMiniBaseLayer = createTiandituBaseLayer();
       countryMiniBaseLayer.addTo(countryMiniMap);
 
       countryMiniMarkerLayer = L.layerGroup().addTo(countryMiniMap);
