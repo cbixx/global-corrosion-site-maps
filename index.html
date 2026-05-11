@@ -20,6 +20,41 @@
   <link rel="stylesheet" href="css/styles.css" />
 </head>
 <body>
+  <div class="team-access-float" id="teamAccessFloat">
+    <button
+      id="teamAccessToggle"
+      class="team-access-toggle"
+      type="button"
+      aria-expanded="false"
+      aria-controls="teamAccessMenu"
+      title="Team access"
+    >
+      <span id="teamAccessCompactIcon" class="team-access-compact-icon" aria-hidden="true">🌐</span>
+      <span id="teamAccessCompactLabel" class="team-access-compact-label">Public</span>
+      <span class="team-access-chevron" aria-hidden="true">⌄</span>
+    </button>
+
+    <div id="teamAccessMenu" class="team-access-menu" hidden>
+      <div class="team-access-menu-status">
+        <span id="teamAccessStatusIcon" class="team-access-status-icon" aria-hidden="true">🌐</span>
+        <div>
+          <div id="teamAccessStatus" class="team-access-status">Public view</div>
+          <div id="teamAccessDescription" class="team-access-description">
+            Public metadata only
+          </div>
+        </div>
+      </div>
+
+      <a
+        id="teamAccessLink"
+        class="team-access-link"
+        href="/api/team/login?next=%2F%3Faudience%3Dteam"
+      >
+        Team login
+      </a>
+    </div>
+  </div>
+
   <div class="app sidebar-open" id="appShell">
     <aside class="sidebar-rail">
       <button
@@ -79,19 +114,6 @@
         <button id="toggleSidebar" class="sidebar-toggle" type="button" aria-expanded="true" title="Hide search panel">
           ✕
         </button>
-      </div>
-
-      <div class="team-access-panel" id="teamAccessPanel">
-        <a
-          id="teamAccessLink"
-          class="team-access-link"
-          href="/api/team/login?next=%2F%3Faudience%3Dteam"
-        >
-          Team login
-        </a>
-        <span id="teamAccessStatus" class="team-access-status">
-          Public view
-        </span>
       </div>
 
       <div class="control-group">
@@ -384,27 +406,95 @@
     const TEAM_MODE = MAP_AUDIENCE === "team";
 
     console.log("Corrosion map audience:", MAP_AUDIENCE, "team mode:", TEAM_MODE, "path:", window.location.pathname);
-    function updateTeamAccessUi() {
-      const teamAccessPanel = document.getElementById("teamAccessPanel");
-      const teamAccessLink = document.getElementById("teamAccessLink");
-      const teamAccessStatus = document.getElementById("teamAccessStatus");
+    function setTeamAccessExpanded(isExpanded) {
+      const floatBox = document.getElementById("teamAccessFloat");
+      const toggle = document.getElementById("teamAccessToggle");
+      const menu = document.getElementById("teamAccessMenu");
 
-      if (!teamAccessPanel || !teamAccessLink || !teamAccessStatus) {
+      if (!floatBox || !toggle || !menu) {
+        return;
+      }
+
+      floatBox.classList.toggle("expanded", isExpanded);
+      toggle.setAttribute("aria-expanded", isExpanded ? "true" : "false");
+      menu.hidden = !isExpanded;
+    }
+
+    function updateTeamAccessUi() {
+      const floatBox = document.getElementById("teamAccessFloat");
+      const compactIcon = document.getElementById("teamAccessCompactIcon");
+      const compactLabel = document.getElementById("teamAccessCompactLabel");
+      const statusIcon = document.getElementById("teamAccessStatusIcon");
+      const status = document.getElementById("teamAccessStatus");
+      const description = document.getElementById("teamAccessDescription");
+      const link = document.getElementById("teamAccessLink");
+
+      if (!floatBox || !compactIcon || !compactLabel || !statusIcon || !status || !description || !link) {
         return;
       }
 
       if (TEAM_MODE) {
-        teamAccessLink.textContent = "Public view";
-        teamAccessLink.href = "/";
-        teamAccessStatus.textContent = "Team view";
-        teamAccessPanel.classList.add("team-mode-active");
+        floatBox.classList.add("team-mode-active");
+
+        compactIcon.textContent = "🔐";
+        compactLabel.textContent = "Team";
+
+        statusIcon.textContent = "🔐";
+        status.textContent = "Team view";
+        description.textContent = "Private PDF access enabled for this session.";
+
+        link.textContent = "Log out";
+        link.href = "/cdn-cgi/access/logout";
+        link.classList.add("logout-link");
       } else {
-        teamAccessLink.textContent = "Team login";
-        teamAccessLink.href = "/api/team/login?next=%2F%3Faudience%3Dteam";
-        teamAccessStatus.textContent = "Public view";
-        teamAccessPanel.classList.remove("team-mode-active");
+        floatBox.classList.remove("team-mode-active");
+
+        compactIcon.textContent = "🌐";
+        compactLabel.textContent = "Public";
+
+        statusIcon.textContent = "🌐";
+        status.textContent = "Public view";
+        description.textContent = "Public metadata only.";
+
+        link.textContent = "Team login";
+        link.href = "/api/team/login?next=%2F%3Faudience%3Dteam";
+        link.classList.remove("logout-link");
       }
     }
+
+    function initialiseTeamAccessWidget() {
+      const floatBox = document.getElementById("teamAccessFloat");
+      const toggle = document.getElementById("teamAccessToggle");
+
+      if (!floatBox || !toggle) {
+        return;
+      }
+
+      updateTeamAccessUi();
+      setTeamAccessExpanded(false);
+
+      toggle.addEventListener("click", function(event) {
+        event.preventDefault();
+        event.stopPropagation();
+
+        const isExpanded = toggle.getAttribute("aria-expanded") === "true";
+        setTeamAccessExpanded(!isExpanded);
+      });
+
+      document.addEventListener("click", function(event) {
+        if (!floatBox.contains(event.target)) {
+          setTeamAccessExpanded(false);
+        }
+      });
+
+      document.addEventListener("keydown", function(event) {
+        if (event.key === "Escape") {
+          setTeamAccessExpanded(false);
+        }
+      });
+    }
+
+    initialiseTeamAccessWidget();
     const CLIMATE_LAYER_PERIOD_LABEL = "Last complete year";
     const DEFAULT_CLIMATE_LOOKUP_YEAR = new Date().getFullYear() - 1;
     const CLIMATE_LOOKUP_CACHE = new Map();

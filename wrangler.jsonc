@@ -17,6 +17,6 @@
   ],
 
   "vars": {
-    "ENABLE_TEAM_PDF_API": "false"
+    "ENABLE_TEAM_PDF_API": "true"
   }
 }
