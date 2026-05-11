@@ -37,8 +37,12 @@ html, body {
 }
 
 .team-access-compact-icon {
-    font-size: 15px;
-    line-height: 1;
+    width: 18px;
+    height: 18px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: currentColor;
 }
 
 .team-access-compact-label {
@@ -80,15 +84,30 @@ html, body {
 }
 
 .team-access-status-icon {
-    width: 30px;
-    height: 30px;
-    min-width: 30px;
+    width: 32px;
+    height: 32px;
+    min-width: 32px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
     border-radius: 999px;
     background: #eef4ff;
-    font-size: 15px;
+    color: #1f2937;
+}
+
+.team-access-svg {
+    width: 18px;
+    height: 18px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.8;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.team-access-status-icon .team-access-svg {
+    width: 17px;
+    height: 17px;
 }
 
 .team-access-status {
@@ -124,13 +143,14 @@ html, body {
 }
 
 .team-access-float.team-mode-active .team-access-toggle {
-    border-color: rgba(31, 111, 235, 0.35);
-    background: rgba(239, 246, 255, 0.98);
-    color: #1d4ed8;
+    border-color: rgba(17, 24, 39, 0.22);
+    background: rgba(17, 24, 39, 0.92);
+    color: #ffffff;
 }
 
 .team-access-float.team-mode-active .team-access-status-icon {
-    background: #dbeafe;
+    background: #111827;
+    color: #ffffff;
 }
 
 .team-access-float.team-mode-active .team-access-link {
