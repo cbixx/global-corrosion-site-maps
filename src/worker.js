@@ -1,3 +1,4 @@
+const WORKER_BUILD_ID = "team-injection-debug-001";
 const SOURCE_CODE_PATTERN = /^s\d{3}$/i;
 
 function normaliseSourceCode(value) {
@@ -42,12 +43,13 @@ async function serveIndex(request, env, audience = "public") {
   let html = await response.text();
 
   const injectedHead = `
-  <!-- corrosion-map-audience-injection -->
-  <base href="/">
-  <script>
-    window.CORROSION_MAP_AUDIENCE = ${JSON.stringify(audience)};
-  </script>
-  `;
+    <!-- corrosion-map-audience-injection:${WORKER_BUILD_ID}:${audience} -->
+    <base href="/">
+    <script>
+      window.CORROSION_MAP_AUDIENCE = ${JSON.stringify(audience)};
+      window.CORROSION_MAP_WORKER_BUILD_ID = ${JSON.stringify(WORKER_BUILD_ID)};
+    </script>
+    `;
 
   if (html.includes("</head>")) {
     html = html.replace("</head>", `${injectedHead}\n</head>`);
@@ -124,6 +126,7 @@ export default {
       return Response.json({
         ok: true,
         message: "Worker route is active.",
+        buildId: WORKER_BUILD_ID,
         path,
         teamPdfApiEnabled: env.ENABLE_TEAM_PDF_API === "true",
         hasR2Binding: Boolean(env.SOURCE_PDF_BUCKET),
