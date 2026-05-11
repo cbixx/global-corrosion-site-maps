@@ -131,6 +131,52 @@ html, body {
     line-height: 1.25;
 }
 
+.team-access-panel {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin: -6px 0 16px;
+    padding: 9px 10px;
+    background: #ffffff;
+    border: 1px solid #d7dee3;
+    border-radius: 10px;
+}
+
+.team-access-link {
+    display: inline-block;
+    padding: 7px 10px;
+    border-radius: 8px;
+    background: #111827;
+    color: #ffffff !important;
+    text-decoration: none;
+    font-size: 12px;
+    font-weight: 800;
+}
+
+.team-access-link:hover {
+    background: #374151;
+}
+
+.team-access-status {
+    color: #607d8b;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.team-access-panel.team-mode-active {
+    border-color: #9ca3af;
+    background: #f8fafc;
+}
+
+.team-access-panel.team-mode-active .team-access-link {
+    background: #1f6feb;
+}
+
+.team-access-panel.team-mode-active .team-access-link:hover {
+    background: #174ea6;
+}
+
 .control-group {
     margin-bottom: 14px;
 }

@@ -81,6 +81,19 @@
         </button>
       </div>
 
+      <div class="team-access-panel" id="teamAccessPanel">
+        <a
+          id="teamAccessLink"
+          class="team-access-link"
+          href="/api/team/login?next=%2F%3Faudience%3Dteam"
+        >
+          Team login
+        </a>
+        <span id="teamAccessStatus" class="team-access-status">
+          Public view
+        </span>
+      </div>
+
       <div class="control-group">
         <label class="control-label" for="searchBox">Search</label>
         <input
@@ -371,6 +384,27 @@
     const TEAM_MODE = MAP_AUDIENCE === "team";
 
     console.log("Corrosion map audience:", MAP_AUDIENCE, "team mode:", TEAM_MODE, "path:", window.location.pathname);
+    function updateTeamAccessUi() {
+      const teamAccessPanel = document.getElementById("teamAccessPanel");
+      const teamAccessLink = document.getElementById("teamAccessLink");
+      const teamAccessStatus = document.getElementById("teamAccessStatus");
+
+      if (!teamAccessPanel || !teamAccessLink || !teamAccessStatus) {
+        return;
+      }
+
+      if (TEAM_MODE) {
+        teamAccessLink.textContent = "Public view";
+        teamAccessLink.href = "/";
+        teamAccessStatus.textContent = "Team view";
+        teamAccessPanel.classList.add("team-mode-active");
+      } else {
+        teamAccessLink.textContent = "Team login";
+        teamAccessLink.href = "/api/team/login?next=%2F%3Faudience%3Dteam";
+        teamAccessStatus.textContent = "Public view";
+        teamAccessPanel.classList.remove("team-mode-active");
+      }
+    }
     const CLIMATE_LAYER_PERIOD_LABEL = "Last complete year";
     const DEFAULT_CLIMATE_LOOKUP_YEAR = new Date().getFullYear() - 1;
     const CLIMATE_LOOKUP_CACHE = new Map();

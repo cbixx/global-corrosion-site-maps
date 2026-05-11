@@ -30,6 +30,31 @@ function textResponse(message, status = 200) {
   });
 }
 
+function safeSameOriginRedirectPath(value) {
+  const fallback = "/?audience=team";
+  const text = String(value || "").trim();
+
+  if (!text) {
+    return fallback;
+  }
+
+  // Only allow same-origin relative paths. Block protocol-relative URLs like //evil.com.
+  if (!text.startsWith("/") || text.startsWith("//")) {
+    return fallback;
+  }
+
+  return text;
+}
+
+function handleTeamLogin(request) {
+  const url = new URL(request.url);
+  const nextPath = safeSameOriginRedirectPath(
+    url.searchParams.get("next") || "/?audience=team"
+  );
+
+  return Response.redirect(new URL(nextPath, url).toString(), 302);
+}
+
 async function serveIndex(request, env, audience = "public") {
   const url = new URL(request.url);
   const indexUrl = new URL("/index.html", url);
@@ -121,6 +146,10 @@ export default {
   async fetch(request, env) {
     const url = new URL(request.url);
     const path = url.pathname.replace(/\/+$/, "") || "/";
+
+    if (path === "/api/team/login") {
+      return handleTeamLogin(request);
+    }
 
     if (path === "/api/team/debug") {
       return Response.json({
