@@ -835,9 +835,7 @@
         attribution: "© 天地图"
       });
 
-      const englishAnnotationLayer = createTiandituDataServerLayer("eva_w");
-
-      return L.layerGroup([vectorLayer, englishAnnotationLayer]);
+      return L.layerGroup([vectorLayer]);
     }
 
     const tiandituBaseLayer = createTiandituBaseLayer();
