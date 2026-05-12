@@ -269,7 +269,17 @@
       <div id="hoverSummaryCard" class="hover-summary-card" hidden></div>
 
       <section id="countryDirectoryPanel" class="country-directory-panel" hidden>
-        <div class="directory-header">
+        <div class="directory-header panel-header-with-close">
+          <button
+            id="closeDirectoryButton"
+            class="panel-close-button"
+            type="button"
+            aria-label="Return to map"
+            title="Return to map"
+          >
+            ×
+          </button>
+
           <div>
             <div class="directory-kicker">Dataset directory</div>
             <h2 class="directory-title">Corrosion test sites A–Z</h2>
@@ -278,10 +288,6 @@
               Countries with no current records are retained as visible coverage gaps.
             </p>
           </div>
-
-          <button id="closeDirectoryButton" class="directory-close-button" type="button">
-            Return to map
-          </button>
         </div>
 
         <div class="directory-toolbar">
@@ -300,7 +306,17 @@
       </section>
 
       <section id="layersPanel" class="map-tool-panel" hidden>
-        <div class="map-tool-header">
+        <div class="map-tool-header panel-header-with-close">
+          <button
+            id="closeLayersButton"
+            class="panel-close-button"
+            type="button"
+            aria-label="Return to map"
+            title="Return to map"
+          >
+            ×
+          </button>
+
           <div>
             <div class="directory-kicker">Data layers</div>
             <h2 class="directory-title">Overlays</h2>
@@ -308,10 +324,6 @@
               Load corrosion-rate and environmental overlays separately from the site search filters.
             </p>
           </div>
-
-          <button id="closeLayersButton" class="directory-close-button" type="button">
-            Return to map
-          </button>
         </div>
 
         <div class="map-tool-grid">
@@ -363,7 +375,17 @@
       </section>
 
       <section id="settingsPanel" class="map-tool-panel" hidden>
-        <div class="map-tool-header">
+        <div class="map-tool-header panel-header-with-close">
+          <button
+            id="closeSettingsButton"
+            class="panel-close-button"
+            type="button"
+            aria-label="Return to map"
+            title="Return to map"
+          >
+            ×
+          </button>
+
           <div>
             <div class="directory-kicker">Map configuration</div>
             <h2 class="directory-title">Settings</h2>
@@ -371,10 +393,6 @@
               Configure map presentation options. More settings can be added here later.
             </p>
           </div>
-
-          <button id="closeSettingsButton" class="directory-close-button" type="button">
-            Return to map
-          </button>
         </div>
 
         <div class="map-tool-grid map-tool-grid-narrow">
