@@ -134,6 +134,15 @@
       </div>
 
       <div class="control-group">
+        <label class="control-label" for="labelModeSelect">Map labels</label>
+        <select id="labelModeSelect" class="control-select">
+          <option value="zh">Chinese labels — Tianditu</option>
+          <option value="en-osm">English labels — OSM/CARTO</option>
+          <option value="none">No labels</option>
+        </select>
+      </div>
+
+      <div class="control-group">
         <label class="control-label" for="regionFilter">Region category</label>
         <select id="regionFilter" class="control-select">
           <option value="">All</option>
@@ -380,7 +389,7 @@
 
   <script>
     const TILE_LAT_LIMIT = 85.0511;
-    const HORIZONTAL_WORLDS = 3;
+    const HORIZONTAL_WORLDS = 1;
     const DEFAULT_CENTER = [20, 20];
     const DEFAULT_ZOOM = 2.5;
 
@@ -825,6 +834,7 @@
           subdomains: ["0", "1", "2", "3", "4", "5", "6", "7"],
           minZoom: 1,
           maxZoom: 18,
+          noWrap: true,
           ...options
         }
       );
@@ -838,8 +848,90 @@
       return L.layerGroup([vectorLayer]);
     }
 
+    function createOsmEnglishLabelLayer() {
+      return L.tileLayer(
+        "https://{s}.basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}{r}.png",
+        {
+          subdomains: "abcd",
+          minZoom: 1,
+          maxZoom: 19,
+          noWrap: true,
+          attribution:
+            '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+        }
+      );
+    }
+
     const tiandituBaseLayer = createTiandituBaseLayer();
     tiandituBaseLayer.addTo(map);
+
+    let currentAnnotationLayer = null;
+
+    function clearAnnotationLayer() {
+      if (currentAnnotationLayer) {
+        map.removeLayer(currentAnnotationLayer);
+        currentAnnotationLayer = null;
+      }
+    }
+
+    function createAnnotationLayer(mode) {
+      if (mode === "zh") {
+        return createTiandituDataServerLayer("cva_w", {
+          attribution: "© 天地图"
+        });
+      }
+
+      if (mode === "en-osm") {
+        return createOsmEnglishLabelLayer();
+      }
+
+      return null;
+    }
+
+    function setAnnotationMode(mode) {
+      clearAnnotationLayer();
+
+      const cleanMode = mode || "zh";
+      const nextLayer = createAnnotationLayer(cleanMode);
+
+      if (nextLayer) {
+        currentAnnotationLayer = nextLayer;
+        currentAnnotationLayer.addTo(map);
+      }
+
+      try {
+        window.localStorage.setItem("corrosionMapLabelMode", cleanMode);
+      } catch {
+        // Ignore localStorage errors.
+      }
+
+      const select = document.getElementById("labelModeSelect");
+      if (select) {
+        select.value = cleanMode;
+      }
+    }
+
+    const initialLabelMode = (() => {
+      const params = new URLSearchParams(window.location.search);
+      const queryMode = params.get("labels");
+
+      if (["zh", "en-osm", "none"].includes(queryMode)) {
+        return queryMode;
+      }
+
+      try {
+        const storedMode = window.localStorage.getItem("corrosionMapLabelMode");
+        if (["zh", "en-osm", "none"].includes(storedMode)) {
+          return storedMode;
+        }
+      } catch {
+        // Ignore localStorage errors.
+      }
+
+      return "zh";
+    })();
+
+    setAnnotationMode(initialLabelMode);
     map.createPane('corrosionHeatPane');
     map.getPane('corrosionHeatPane').style.zIndex = 450;
     map.getPane('corrosionHeatPane').style.pointerEvents = 'none';
@@ -3279,6 +3371,9 @@
         document.getElementById('sourceOnlyFilter').addEventListener('change', () => applyFilters(true));
         document.getElementById('searchBox').addEventListener('input', () => applyFilters(true));
         document.getElementById('countryFilter').addEventListener('change', () => applyFilters(true));
+        document.getElementById('labelModeSelect')?.addEventListener('change', function(event) {
+          setAnnotationMode(event.target.value);
+        });
         document.getElementById('regionFilter').addEventListener('change', () => applyFilters(true));
         document.getElementById('metalFilter').addEventListener('change', () => applyFilters(true));
         document.getElementById('exposureFilter').addEventListener('change', () => applyFilters(true));
