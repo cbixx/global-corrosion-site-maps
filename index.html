@@ -105,6 +105,41 @@
         </svg>
         <span class="rail-label">List</span>
       </button>
+
+      <button
+        id="railLayersButton"
+        class="rail-button"
+        type="button"
+        aria-label="Data overlays"
+        aria-pressed="false"
+        title="Data overlays"
+      >
+        <svg class="rail-icon" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M12 3 3 8l9 5 9-5-9-5z"></path>
+          <path d="M3 12l9 5 9-5"></path>
+          <path d="M3 16l9 5 9-5"></path>
+        </svg>
+        <span class="rail-label">Layers</span>
+      </button>
+
+      <button
+        id="railSettingsButton"
+        class="rail-button"
+        type="button"
+        aria-label="Map settings"
+        aria-pressed="false"
+        title="Map settings"
+      >
+        <svg class="rail-icon" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M4 7h10"></path>
+          <path d="M18 7h2"></path>
+          <path d="M16 5v4"></path>
+          <path d="M4 17h2"></path>
+          <path d="M10 17h10"></path>
+          <path d="M8 15v4"></path>
+        </svg>
+        <span class="rail-label">Settings</span>
+      </button>
     </aside>
 
     <aside class="sidebar" id="sidebar">
@@ -130,15 +165,6 @@
         <label class="control-label" for="countryFilter">Country / location</label>
         <select id="countryFilter" class="control-select">
           <option value="">All</option>
-        </select>
-      </div>
-
-      <div class="control-group">
-        <label class="control-label" for="labelModeSelect">Map labels</label>
-        <select id="labelModeSelect" class="control-select">
-          <option value="zh">Chinese labels — Tianditu</option>
-          <option value="en-osm">English labels — OSM/CARTO</option>
-          <option value="none">No labels</option>
         </select>
       </div>
 
@@ -174,49 +200,6 @@
         <button id="clearFilters" class="panel-button" type="button">Clear filters</button>
         <button id="fitVisible" class="panel-button" type="button">Fit visible sites</button>
         <button id="resetView" class="panel-button" type="button">Reset map</button>
-      </div>
-
-      <div class="control-section corrosion-section">
-        <h3>Corrosion-rate overlay</h3>
-
-        <div id="corrosionImportStatus" class="small-status">
-          Curated corrosion overlay is not loaded.
-        </div>
-
-        <div class="button-row">
-          <button id="loadCorrosionCsvBtn" type="button">
-            Load curated corrosion overlay
-          </button>
-
-          <button id="clearCorrosionCsvBtn" type="button">
-            Clear corrosion overlay
-          </button>
-        </div>
-      </div>
-
-      <div class="control-section environment-section">
-        <h3>Climate/environment overlay</h3>
-
-        <div class="control-group">
-          <label class="control-label" for="climateLayerSelect">Climate/weather layer</label>
-          <select id="climateLayerSelect" class="control-select">
-            <option value="">None</option>
-            <option value="air_temperature">Air temperature — annual mean</option>
-            <option value="relative_humidity">Relative humidity — annual mean</option>
-            <option value="precipitation">Precipitation — annual total</option>
-            <option value="wind_speed">Wind speed — annual mean</option>
-          </select>
-        </div>
-
-        <div id="climateLayerStatus" class="small-status">
-          No climate/weather layer selected.
-        </div>
-
-        <div class="button-row">
-          <button id="clearClimateLayerBtn" type="button">
-            Clear climate overlay
-          </button>
-        </div>
       </div>
 
       <div id="activeFilterChips" class="filter-chips" hidden></div>
@@ -314,6 +297,104 @@
         <nav id="directoryLetterNav" class="directory-letter-nav" aria-label="Country initials"></nav>
 
         <div id="countryDirectoryContent" class="country-directory-content"></div>
+      </section>
+
+      <section id="layersPanel" class="map-tool-panel" hidden>
+        <div class="map-tool-header">
+          <div>
+            <div class="directory-kicker">Data layers</div>
+            <h2 class="directory-title">Overlays</h2>
+            <p class="directory-subtitle">
+              Load corrosion-rate and environmental overlays separately from the site search filters.
+            </p>
+          </div>
+
+          <button id="closeLayersButton" class="directory-close-button" type="button">
+            Return to map
+          </button>
+        </div>
+
+        <div class="map-tool-grid">
+          <section class="map-tool-card">
+            <div class="map-tool-card-kicker">Corrosion layer</div>
+            <h3>Corrosion-rate overlay</h3>
+
+            <div id="corrosionImportStatus" class="small-status">
+              Curated corrosion overlay is not loaded.
+            </div>
+
+            <div class="button-row">
+              <button id="loadCorrosionCsvBtn" type="button">
+                Load curated corrosion overlay
+              </button>
+
+              <button id="clearCorrosionCsvBtn" type="button">
+                Clear corrosion overlay
+              </button>
+            </div>
+          </section>
+
+          <section class="map-tool-card">
+            <div class="map-tool-card-kicker">Environment layer</div>
+            <h3>Climate/environment overlay</h3>
+
+            <div class="control-group">
+              <label class="control-label" for="climateLayerSelect">Climate/weather layer</label>
+              <select id="climateLayerSelect" class="control-select">
+                <option value="">None</option>
+                <option value="air_temperature">Air temperature — annual mean</option>
+                <option value="relative_humidity">Relative humidity — annual mean</option>
+                <option value="precipitation">Precipitation — annual total</option>
+                <option value="wind_speed">Wind speed — annual mean</option>
+              </select>
+            </div>
+
+            <div id="climateLayerStatus" class="small-status">
+              No climate/weather layer selected.
+            </div>
+
+            <div class="button-row">
+              <button id="clearClimateLayerBtn" type="button">
+                Clear climate overlay
+              </button>
+            </div>
+          </section>
+        </div>
+      </section>
+
+      <section id="settingsPanel" class="map-tool-panel" hidden>
+        <div class="map-tool-header">
+          <div>
+            <div class="directory-kicker">Map configuration</div>
+            <h2 class="directory-title">Settings</h2>
+            <p class="directory-subtitle">
+              Configure map presentation options. More settings can be added here later.
+            </p>
+          </div>
+
+          <button id="closeSettingsButton" class="directory-close-button" type="button">
+            Return to map
+          </button>
+        </div>
+
+        <div class="map-tool-grid map-tool-grid-narrow">
+          <section class="map-tool-card">
+            <div class="map-tool-card-kicker">Basemap</div>
+            <h3>Map labels</h3>
+            <p>
+              Choose the annotation layer shown above the Tianditu basemap.
+            </p>
+
+            <div class="control-group">
+              <label class="control-label" for="labelModeSelect">Label mode</label>
+              <select id="labelModeSelect" class="control-select">
+                <option value="zh">Chinese labels — Tianditu</option>
+                <option value="en-osm">English labels — OSM/CARTO</option>
+                <option value="none">No labels</option>
+              </select>
+            </div>
+          </section>
+        </div>
       </section>
 
       <div class="map-status-panel">
@@ -997,8 +1078,17 @@
     const railSearchButton = document.getElementById('railSearchButton');
     const railExpandButton = document.getElementById('railExpandButton');
     const railDirectoryButton = document.getElementById('railDirectoryButton');
+    const railLayersButton = document.getElementById('railLayersButton');
+    const railSettingsButton = document.getElementById('railSettingsButton');
+
     const countryDirectoryPanel = document.getElementById('countryDirectoryPanel');
     const closeDirectoryButton = document.getElementById('closeDirectoryButton');
+
+    const layersPanel = document.getElementById('layersPanel');
+    const closeLayersButton = document.getElementById('closeLayersButton');
+
+    const settingsPanel = document.getElementById('settingsPanel');
+    const closeSettingsButton = document.getElementById('closeSettingsButton');
     const directorySearchInput = document.getElementById('directorySearch');
     const directoryCount = document.getElementById('directoryCount');
     const directoryLetterNav = document.getElementById('directoryLetterNav');
@@ -1041,13 +1131,90 @@
       railDirectoryButton.setAttribute('aria-pressed', isOpen ? 'true' : 'false');
     }
 
+    function setLayersState(isOpen) {
+      railLayersButton.classList.toggle('active', isOpen);
+      railLayersButton.setAttribute('aria-pressed', isOpen ? 'true' : 'false');
+    }
+
+    function setSettingsState(isOpen) {
+      railSettingsButton.classList.toggle('active', isOpen);
+      railSettingsButton.setAttribute('aria-pressed', isOpen ? 'true' : 'false');
+    }
+
+    function closeLayers() {
+      appShell.classList.remove('layers-open');
+
+      if (layersPanel) {
+        layersPanel.hidden = true;
+      }
+
+      setLayersState(false);
+    }
+
+    function closeSettings() {
+      appShell.classList.remove('settings-open');
+
+      if (settingsPanel) {
+        settingsPanel.hidden = true;
+      }
+
+      setSettingsState(false);
+    }
+
+    function closeSecondaryPanels() {
+      if (appShell.classList.contains('directory-open')) {
+        appShell.classList.remove('directory-open');
+        countryDirectoryPanel.hidden = true;
+        setDirectoryState(false);
+      }
+
+      closeLayers();
+      closeSettings();
+    }
+
+    function openLayers() {
+      closeSidebar();
+      closeSecondaryPanels();
+
+      appShell.classList.add('layers-open');
+
+      if (layersPanel) {
+        layersPanel.hidden = false;
+      }
+
+      setRailState(false);
+      setDirectoryState(false);
+      setLayersState(true);
+      setSettingsState(false);
+    }
+
+    function openSettings() {
+      closeSidebar();
+      closeSecondaryPanels();
+
+      appShell.classList.add('settings-open');
+
+      if (settingsPanel) {
+        settingsPanel.hidden = false;
+      }
+
+      setRailState(false);
+      setDirectoryState(false);
+      setLayersState(false);
+      setSettingsState(true);
+    }
+
     function openDirectory() {
       closeSidebar();
+      closeLayers();
+      closeSettings();
 
       setRailState(false);
       appShell.classList.add('directory-open');
       countryDirectoryPanel.hidden = false;
       setDirectoryState(true);
+      setLayersState(false);
+      setSettingsState(false);
       renderCountryDirectory(visibleRows);
     }
 
@@ -1069,6 +1236,38 @@
       }
     });
 
+    railLayersButton.addEventListener('click', function() {
+      if (appShell.classList.contains('layers-open')) {
+        closeLayers();
+        setRailState(true);
+        setTimeout(() => map.invalidateSize(), 120);
+      } else {
+        openLayers();
+      }
+    });
+
+    railSettingsButton.addEventListener('click', function() {
+      if (appShell.classList.contains('settings-open')) {
+        closeSettings();
+        setRailState(true);
+        setTimeout(() => map.invalidateSize(), 120);
+      } else {
+        openSettings();
+      }
+    });
+
+    closeLayersButton?.addEventListener('click', function() {
+      closeLayers();
+      setRailState(true);
+      setTimeout(() => map.invalidateSize(), 120);
+    });
+
+    closeSettingsButton?.addEventListener('click', function() {
+      closeSettings();
+      setRailState(true);
+      setTimeout(() => map.invalidateSize(), 120);
+    });
+
     railExpandButton.addEventListener('click', function() {
       setRailExpanded(!appShell.classList.contains('rail-expanded'));
     });
@@ -1079,8 +1278,12 @@
       renderCountryDirectory(visibleRows);
     });
     railSearchButton.addEventListener('click', function() {
-      if (appShell.classList.contains('directory-open')) {
-        closeDirectory();
+      if (
+        appShell.classList.contains('directory-open') ||
+        appShell.classList.contains('layers-open') ||
+        appShell.classList.contains('settings-open')
+      ) {
+        closeSecondaryPanels();
         openSidebar();
         return;
       }
