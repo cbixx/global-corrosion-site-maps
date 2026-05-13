@@ -400,15 +400,13 @@
             <div class="map-tool-card-kicker">Basemap</div>
             <h3>Map labels</h3>
             <p>
-              Choose the annotation layer shown above the Tianditu basemap.
+              Label switching is temporarily disabled while the public map uses the OSM fallback basemap.
             </p>
 
             <div class="control-group">
               <label class="control-label" for="labelModeSelect">Label mode</label>
-              <select id="labelModeSelect" class="control-select">
-                <option value="zh">Chinese labels — Tianditu</option>
-                <option value="en-osm">English labels — OSM/CARTO</option>
-                <option value="none">No labels</option>
+              <select id="labelModeSelect" class="control-select" disabled>
+                <option value="none">Temporarily disabled — OSM fallback active</option>
               </select>
             </div>
           </section>
@@ -924,111 +922,42 @@
       maxBoundsViscosity: 1.0
     }).setView(DEFAULT_CENTER, DEFAULT_ZOOM);
 
-    const TIANDITU_TK = "e8bf3cab0c177ffe4ff439b1fc875473";
-
-    function createTiandituDataServerLayer(layerType, options = {}) {
+    function createOsmBaseLayer() {
       return L.tileLayer(
-        `https://t{s}.tianditu.gov.cn/DataServer?T=${layerType}&x={x}&y={y}&l={z}&tk=${encodeURIComponent(TIANDITU_TK)}`,
+        "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
         {
-          subdomains: ["0", "1", "2", "3", "4", "5", "6", "7"],
           minZoom: 1,
-          maxZoom: 18,
-          ...options
+          maxZoom: 19,
+          attribution:
+            '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
         }
       );
     }
 
     function createTiandituBaseLayer() {
-      const vectorLayer = createTiandituDataServerLayer("vec_w", {
-        attribution: "© 天地图"
-      });
-
-      return L.layerGroup([vectorLayer]);
+      // Temporary fallback:
+      // Keep this function name because the country mini-map already calls createTiandituBaseLayer().
+      // Internally, it now returns the OSM basemap.
+      return createOsmBaseLayer();
     }
 
-    function createOsmEnglishLabelLayer() {
-      return L.tileLayer(
-        "https://{s}.basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}{r}.png",
-        {
-          subdomains: "abcd",
-          minZoom: 1,
-          maxZoom: 19,
-          attribution:
-            '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
-        }
-      );
-    }
+    const baseLayer = createOsmBaseLayer();
+    baseLayer.addTo(map);
 
-    const tiandituBaseLayer = createTiandituBaseLayer();
-    tiandituBaseLayer.addTo(map);
-
-    let currentAnnotationLayer = null;
-
-    function clearAnnotationLayer() {
-      if (currentAnnotationLayer) {
-        map.removeLayer(currentAnnotationLayer);
-        currentAnnotationLayer = null;
-      }
-    }
-
-    function createAnnotationLayer(mode) {
-      if (mode === "zh") {
-        return createTiandituDataServerLayer("cva_w", {
-          attribution: "© 天地图"
-        });
-      }
-
-      if (mode === "en-osm") {
-        return createOsmEnglishLabelLayer();
-      }
-
-      return null;
-    }
-
+    // Temporary no-op while OSM fallback is active.
+    // OSM labels are built into the raster basemap, so Chinese/English label switching is disabled for now.
     function setAnnotationMode(mode) {
-      clearAnnotationLayer();
-
-      const cleanMode = mode || "zh";
-      const nextLayer = createAnnotationLayer(cleanMode);
-
-      if (nextLayer) {
-        currentAnnotationLayer = nextLayer;
-        currentAnnotationLayer.addTo(map);
-      }
-
       try {
-        window.localStorage.setItem("corrosionMapLabelMode", cleanMode);
+        window.localStorage.setItem("corrosionMapLabelMode", "none");
       } catch {
         // Ignore localStorage errors.
       }
 
       const select = document.getElementById("labelModeSelect");
       if (select) {
-        select.value = cleanMode;
+        select.value = "none";
       }
     }
-
-    const initialLabelMode = (() => {
-      const params = new URLSearchParams(window.location.search);
-      const queryMode = params.get("labels");
-
-      if (["zh", "en-osm", "none"].includes(queryMode)) {
-        return queryMode;
-      }
-
-      try {
-        const storedMode = window.localStorage.getItem("corrosionMapLabelMode");
-        if (["zh", "en-osm", "none"].includes(storedMode)) {
-          return storedMode;
-        }
-      } catch {
-        // Ignore localStorage errors.
-      }
-
-      return "zh";
-    })();
-
-    setAnnotationMode(initialLabelMode);
     map.createPane('corrosionHeatPane');
     map.getPane('corrosionHeatPane').style.zIndex = 450;
     map.getPane('corrosionHeatPane').style.pointerEvents = 'none';
