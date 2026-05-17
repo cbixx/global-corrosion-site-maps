@@ -1,0 +1,9 @@
+User-agent: *
+Allow: /
+
+Disallow: /admin/
+Disallow: /curator/
+Disallow: /api/
+Disallow: /private/
+Disallow: /drafts/
+Disallow: /source_pdfs/
