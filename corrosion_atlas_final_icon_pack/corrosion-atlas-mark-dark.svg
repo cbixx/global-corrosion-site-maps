@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+<title id="title">Corrosion Atlas icon</title>
+<desc id="desc">A circular atlas field with organized site dots and a rust-colored crack boundary.</desc>
+<rect x="0" y="0" width="512" height="512" rx="86" fill="#10293A"/>
+<circle cx="256" cy="256" r="174" fill="none" stroke="#FFFFFF" stroke-width="18"/>
+<circle cx="170" cy="128" r="5.6" fill="#FFFFFF"/>
+<circle cx="205" cy="128" r="5.6" fill="#FFFFFF"/>
+<circle cx="145" cy="164" r="5.6" fill="#FFFFFF"/>
+<circle cx="180" cy="164" r="5.6" fill="#FFFFFF"/>
+<circle cx="215" cy="164" r="5.6" fill="#FFFFFF"/>
+<circle cx="250" cy="164" r="5.6" fill="#FFFFFF"/>
+<circle cx="120" cy="200" r="5.6" fill="#FFFFFF"/>
+<circle cx="155" cy="200" r="5.6" fill="#FFFFFF"/>
+<circle cx="190" cy="200" r="5.6" fill="#FFFFFF"/>
+<circle cx="225" cy="200" r="5.6" fill="#FFFFFF"/>
+<circle cx="260" cy="200" r="5.6" fill="#FFFFFF"/>
+<circle cx="120" cy="236" r="5.6" fill="#FFFFFF"/>
+<circle cx="155" cy="236" r="5.6" fill="#FFFFFF"/>
+<circle cx="190" cy="236" r="5.6" fill="#FFFFFF"/>
+<circle cx="225" cy="236" r="5.6" fill="#FFFFFF"/>
+<circle cx="260" cy="236" r="5.6" fill="#FFFFFF"/>
+<circle cx="120" cy="272" r="5.6" fill="#FFFFFF"/>
+<circle cx="155" cy="272" r="5.6" fill="#FFFFFF"/>
+<circle cx="190" cy="272" r="5.6" fill="#FFFFFF"/>
+<circle cx="225" cy="272" r="5.6" fill="#FFFFFF"/>
+<circle cx="260" cy="272" r="5.6" fill="#FFFFFF"/>
+<circle cx="145" cy="308" r="5.6" fill="#FFFFFF"/>
+<circle cx="180" cy="308" r="5.6" fill="#FFFFFF"/>
+<circle cx="215" cy="308" r="5.6" fill="#FFFFFF"/>
+<circle cx="250" cy="308" r="5.6" fill="#FFFFFF"/>
+<circle cx="170" cy="344" r="5.6" fill="#FFFFFF"/>
+<circle cx="205" cy="344" r="5.6" fill="#FFFFFF"/>
+<circle cx="240" cy="344" r="5.6" fill="#FFFFFF"/>
+<path d="M270 72 L282 105 L280 135 L304 160 L300 190 L322 218 L316 247 L333 273 L317 300 L324 330 L299 356 L289 407 L281 445" fill="none" stroke="#B94D1E" stroke-width="16" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M323 274 L360 282 L378 305 L412 316" fill="none" stroke="#B94D1E" stroke-width="14" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
