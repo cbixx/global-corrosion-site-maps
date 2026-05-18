@@ -1,3 +1,46 @@
+:root {
+  --font-display: "Inter", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --font-body: "Inter", "Roboto", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --font-ui: "Roboto", "Inter", "Helvetica Neue", Helvetica, Arial, sans-serif;
+}
+
+html,
+body {
+  font-family: var(--font-body);
+  font-feature-settings: "kern";
+  text-rendering: optimizeLegibility;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+.site-title,
+.panel-title,
+.page-title {
+  font-family: var(--font-display);
+  font-weight: 650;
+  letter-spacing: -0.02em;
+}
+
+button,
+input,
+select,
+textarea,
+label,
+.sidebar,
+.leaflet-control,
+.popup,
+.map-control,
+.badge,
+.chip,
+.table,
+.site-card,
+.source-button {
+  font-family: var(--font-ui);
+}
 
 html, body {
     margin: 0;
@@ -1872,4 +1915,28 @@ html, body {
         height: 36px;
         font-size: 22px;
     }
+    
+}
+.policy-page {
+  max-width: 900px;
+  margin: 48px auto;
+  padding: 0 24px;
+  line-height: 1.65;
+  color: #10293A;
+}
+
+.policy-page a {
+  color: #B94D1E;
+  text-decoration: none;
+}
+
+.policy-page a:hover {
+  text-decoration: underline;
+}
+
+.policy-page blockquote {
+  margin: 1.25rem 0;
+  padding: 1rem 1.25rem;
+  border-left: 4px solid #B94D1E;
+  background: #F8F8F6;
 }
