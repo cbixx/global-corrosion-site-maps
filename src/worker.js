@@ -31,7 +31,7 @@ function textResponse(message, status = 200) {
 }
 
 function safeSameOriginRedirectPath(value) {
-  const fallback = "/team";
+  const fallback = "/api/team/map";
   const text = String(value || "").trim();
 
   if (!text) {
@@ -49,7 +49,7 @@ function safeSameOriginRedirectPath(value) {
 function handleTeamLogin(request) {
   const url = new URL(request.url);
   const nextPath = safeSameOriginRedirectPath(
-    url.searchParams.get("next") || "/team"
+    url.searchParams.get("next") || "/api/team/map"
   );
 
   return Response.redirect(new URL(nextPath, url).toString(), 302);

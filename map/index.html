@@ -25,7 +25,7 @@
 />
   <link rel="stylesheet" href="/css/styles.css" />
 </head>
-<body>
+<body class="map-page">
   <div class="team-access-float" id="teamAccessFloat">
     <button
       id="teamAccessToggle"
@@ -54,7 +54,7 @@
       <a
         id="teamAccessLink"
         class="team-access-link"
-        href="/api/team/login?next=%2Fteam"
+        href="/api/team/login?next=%2Fapi%2Fteam%2Fmap"
       >
         Team login
       </a>
@@ -586,7 +586,7 @@
         description.textContent = "Public metadata only.";
 
         link.textContent = "Team login";
-        link.href = "/api/team/login?next=%2Fteam";
+        link.href = "/api/team/login?next=%2Fapi%2Fteam%2Fmap";
         link.classList.remove("logout-link");
       }
     }
