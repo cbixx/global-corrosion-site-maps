@@ -7,3 +7,6 @@ Disallow: /api/
 Disallow: /private/
 Disallow: /drafts/
 Disallow: /source_pdfs/
+Disallow: /.streamlit/
+
+Sitemap: https://corrosionatlas.org/sitemap.xml
