@@ -6,9 +6,10 @@
   <link rel="apple-touch-icon" href="/assets/icons/apple-touch-icon.png?v=3">
   <link rel="manifest" href="/assets/icons/site.webmanifest?v=3">
   <meta name="theme-color" content="#10293A">
+
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Team ? Global Corrosion Test Sites Map</title>
+  <title>Global Corrosion Test Sites Map</title>
 
   <link
     rel="stylesheet"
@@ -22,14 +23,44 @@
   rel="stylesheet"
   href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css"
 />
-  <link rel="stylesheet" href="css/styles.css" />
-  <!-- Team map audience flag -->
-  <script>
-    window.CORROSION_MAP_AUDIENCE = "team";
-  </script>
-
+  <link rel="stylesheet" href="/css/styles.css" />
 </head>
 <body>
+  <div class="team-access-float" id="teamAccessFloat">
+    <button
+      id="teamAccessToggle"
+      class="team-access-toggle"
+      type="button"
+      aria-expanded="false"
+      aria-controls="teamAccessMenu"
+      title="Team access"
+    >
+      <span id="teamAccessCompactIcon" class="team-access-compact-icon" aria-hidden="true"></span>
+      <span id="teamAccessCompactLabel" class="team-access-compact-label">Public</span>
+      <span class="team-access-chevron" aria-hidden="true">⌄</span>
+    </button>
+
+    <div id="teamAccessMenu" class="team-access-menu" hidden>
+      <div class="team-access-menu-status">
+        <span id="teamAccessStatusIcon" class="team-access-status-icon" aria-hidden="true"></span>
+        <div>
+          <div id="teamAccessStatus" class="team-access-status">Public view</div>
+          <div id="teamAccessDescription" class="team-access-description">
+            Public metadata only
+          </div>
+        </div>
+      </div>
+
+      <a
+        id="teamAccessLink"
+        class="team-access-link"
+        href="/api/team/login?next=%2Fteam"
+      >
+        Team login
+      </a>
+    </div>
+  </div>
+
   <div class="app sidebar-open" id="appShell">
     <aside class="sidebar-rail">
       <button
@@ -79,6 +110,41 @@
           <path d="M3 18h.01"></path>
         </svg>
         <span class="rail-label">List</span>
+      </button>
+
+      <button
+        id="railLayersButton"
+        class="rail-button"
+        type="button"
+        aria-label="Data overlays"
+        aria-pressed="false"
+        title="Data overlays"
+      >
+        <svg class="rail-icon" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M12 3 3 8l9 5 9-5-9-5z"></path>
+          <path d="M3 12l9 5 9-5"></path>
+          <path d="M3 16l9 5 9-5"></path>
+        </svg>
+        <span class="rail-label">Layers</span>
+      </button>
+
+      <button
+        id="railSettingsButton"
+        class="rail-button"
+        type="button"
+        aria-label="Map settings"
+        aria-pressed="false"
+        title="Map settings"
+      >
+        <svg class="rail-icon" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M4 7h10"></path>
+          <path d="M18 7h2"></path>
+          <path d="M16 5v4"></path>
+          <path d="M4 17h2"></path>
+          <path d="M10 17h10"></path>
+          <path d="M8 15v4"></path>
+        </svg>
+        <span class="rail-label">Settings</span>
       </button>
     </aside>
 
@@ -140,49 +206,6 @@
         <button id="clearFilters" class="panel-button" type="button">Clear filters</button>
         <button id="fitVisible" class="panel-button" type="button">Fit visible sites</button>
         <button id="resetView" class="panel-button" type="button">Reset map</button>
-      </div>
-
-      <div class="control-section corrosion-section">
-        <h3>Corrosion-rate overlay</h3>
-
-        <div id="corrosionImportStatus" class="small-status">
-          Curated corrosion overlay is not loaded.
-        </div>
-
-        <div class="button-row">
-          <button id="loadCorrosionCsvBtn" type="button">
-            Load curated corrosion overlay
-          </button>
-
-          <button id="clearCorrosionCsvBtn" type="button">
-            Clear corrosion overlay
-          </button>
-        </div>
-      </div>
-
-      <div class="control-section environment-section">
-        <h3>Climate/environment overlay</h3>
-
-        <div class="control-group">
-          <label class="control-label" for="climateLayerSelect">Climate/weather layer</label>
-          <select id="climateLayerSelect" class="control-select">
-            <option value="">None</option>
-            <option value="air_temperature">Air temperature — annual mean</option>
-            <option value="relative_humidity">Relative humidity — annual mean</option>
-            <option value="precipitation">Precipitation — annual total</option>
-            <option value="wind_speed">Wind speed — annual mean</option>
-          </select>
-        </div>
-
-        <div id="climateLayerStatus" class="small-status">
-          No climate/weather layer selected.
-        </div>
-
-        <div class="button-row">
-          <button id="clearClimateLayerBtn" type="button">
-            Clear climate overlay
-          </button>
-        </div>
       </div>
 
       <div id="activeFilterChips" class="filter-chips" hidden></div>
@@ -252,7 +275,17 @@
       <div id="hoverSummaryCard" class="hover-summary-card" hidden></div>
 
       <section id="countryDirectoryPanel" class="country-directory-panel" hidden>
-        <div class="directory-header">
+        <div class="directory-header panel-header-with-close">
+          <button
+            id="closeDirectoryButton"
+            class="panel-close-button"
+            type="button"
+            aria-label="Return to map"
+            title="Return to map"
+          >
+            ×
+          </button>
+
           <div>
             <div class="directory-kicker">Dataset directory</div>
             <h2 class="directory-title">Corrosion test sites A–Z</h2>
@@ -261,10 +294,6 @@
               Countries with no current records are retained as visible coverage gaps.
             </p>
           </div>
-
-          <button id="closeDirectoryButton" class="directory-close-button" type="button">
-            Return to map
-          </button>
         </div>
 
         <div class="directory-toolbar">
@@ -280,6 +309,114 @@
         <nav id="directoryLetterNav" class="directory-letter-nav" aria-label="Country initials"></nav>
 
         <div id="countryDirectoryContent" class="country-directory-content"></div>
+      </section>
+
+      <section id="layersPanel" class="map-tool-panel" hidden>
+        <div class="map-tool-header panel-header-with-close">
+          <button
+            id="closeLayersButton"
+            class="panel-close-button"
+            type="button"
+            aria-label="Return to map"
+            title="Return to map"
+          >
+            ×
+          </button>
+
+          <div>
+            <div class="directory-kicker">Data layers</div>
+            <h2 class="directory-title">Overlays</h2>
+            <p class="directory-subtitle">
+              Load corrosion-rate and environmental overlays separately from the site search filters.
+            </p>
+          </div>
+        </div>
+
+        <div class="map-tool-grid">
+          <section class="map-tool-card">
+            <div class="map-tool-card-kicker">Corrosion layer</div>
+            <h3>Corrosion-rate overlay</h3>
+
+            <div id="corrosionImportStatus" class="small-status">
+              Curated corrosion overlay is not loaded.
+            </div>
+
+            <div class="button-row">
+              <button id="loadCorrosionCsvBtn" type="button">
+                Load curated corrosion overlay
+              </button>
+
+              <button id="clearCorrosionCsvBtn" type="button">
+                Clear corrosion overlay
+              </button>
+            </div>
+          </section>
+
+          <section class="map-tool-card">
+            <div class="map-tool-card-kicker">Environment layer</div>
+            <h3>Climate/environment overlay</h3>
+
+            <div class="control-group">
+              <label class="control-label" for="climateLayerSelect">Climate/weather layer</label>
+              <select id="climateLayerSelect" class="control-select">
+                <option value="">None</option>
+                <option value="air_temperature">Air temperature — annual mean</option>
+                <option value="relative_humidity">Relative humidity — annual mean</option>
+                <option value="precipitation">Precipitation — annual total</option>
+                <option value="wind_speed">Wind speed — annual mean</option>
+              </select>
+            </div>
+
+            <div id="climateLayerStatus" class="small-status">
+              No climate/weather layer selected.
+            </div>
+
+            <div class="button-row">
+              <button id="clearClimateLayerBtn" type="button">
+                Clear climate overlay
+              </button>
+            </div>
+          </section>
+        </div>
+      </section>
+
+      <section id="settingsPanel" class="map-tool-panel" hidden>
+        <div class="map-tool-header panel-header-with-close">
+          <button
+            id="closeSettingsButton"
+            class="panel-close-button"
+            type="button"
+            aria-label="Return to map"
+            title="Return to map"
+          >
+            ×
+          </button>
+
+          <div>
+            <div class="directory-kicker">Map configuration</div>
+            <h2 class="directory-title">Settings</h2>
+            <p class="directory-subtitle">
+              Configure map presentation options. More settings can be added here later.
+            </p>
+          </div>
+        </div>
+
+        <div class="map-tool-grid map-tool-grid-narrow">
+          <section class="map-tool-card">
+            <div class="map-tool-card-kicker">Basemap</div>
+            <h3>Map labels</h3>
+            <p>
+              Label switching is temporarily disabled while the public map uses the OSM fallback basemap.
+            </p>
+
+            <div class="control-group">
+              <label class="control-label" for="labelModeSelect">Label mode</label>
+              <select id="labelModeSelect" class="control-select" disabled>
+                <option value="none">Temporarily disabled — OSM fallback active</option>
+              </select>
+            </div>
+          </section>
+        </div>
       </section>
 
       <div class="map-status-panel">
@@ -381,6 +518,112 @@
     const TEAM_MODE = MAP_AUDIENCE === "team";
 
     console.log("Corrosion map audience:", MAP_AUDIENCE, "team mode:", TEAM_MODE, "path:", window.location.pathname);
+    const TEAM_ACCESS_ICONS = {
+      public: `
+        <svg viewBox="0 0 24 24" aria-hidden="true" class="team-access-svg">
+          <circle cx="12" cy="12" r="7.2"></circle>
+          <path d="M4.8 12h14.4"></path>
+          <path d="M12 4.8c2.2 2.1 3.3 4.5 3.3 7.2s-1.1 5.1-3.3 7.2"></path>
+          <path d="M12 4.8c-2.2 2.1-3.3 4.5-3.3 7.2s1.1 5.1 3.3 7.2"></path>
+        </svg>
+      `,
+      team: `
+        <svg viewBox="0 0 24 24" aria-hidden="true" class="team-access-svg">
+          <circle cx="12" cy="12" r="7.2"></circle>
+          <path d="M9.7 10.1a2.3 2.3 0 1 1 4.6 0c0 1-.6 1.8-1.4 2.1v3.7h-1.8v-3.7c-.8-.3-1.4-1.1-1.4-2.1z"></path>
+          <path d="M7.6 18.2c1.2-1 2.7-1.5 4.4-1.5s3.2.5 4.4 1.5"></path>
+        </svg>
+      `
+    };
+    function setTeamAccessExpanded(isExpanded) {
+      const floatBox = document.getElementById("teamAccessFloat");
+      const toggle = document.getElementById("teamAccessToggle");
+      const menu = document.getElementById("teamAccessMenu");
+
+      if (!floatBox || !toggle || !menu) {
+        return;
+      }
+
+      floatBox.classList.toggle("expanded", isExpanded);
+      toggle.setAttribute("aria-expanded", isExpanded ? "true" : "false");
+      menu.hidden = !isExpanded;
+    }
+
+    function updateTeamAccessUi() {
+      const floatBox = document.getElementById("teamAccessFloat");
+      const compactIcon = document.getElementById("teamAccessCompactIcon");
+      const compactLabel = document.getElementById("teamAccessCompactLabel");
+      const statusIcon = document.getElementById("teamAccessStatusIcon");
+      const status = document.getElementById("teamAccessStatus");
+      const description = document.getElementById("teamAccessDescription");
+      const link = document.getElementById("teamAccessLink");
+
+      if (!floatBox || !compactIcon || !compactLabel || !statusIcon || !status || !description || !link) {
+        return;
+      }
+
+      if (TEAM_MODE) {
+        floatBox.classList.add("team-mode-active");
+
+        compactIcon.innerHTML = TEAM_ACCESS_ICONS.team;
+        compactLabel.textContent = "Team";
+
+        statusIcon.innerHTML = TEAM_ACCESS_ICONS.team;
+        status.textContent = "Team view";
+        description.textContent = "Private PDF access enabled for this session.";
+
+        link.textContent = "Log out";
+        link.href = "/logout.html";
+        link.classList.add("logout-link");
+      } else {
+        floatBox.classList.remove("team-mode-active");
+
+        compactIcon.innerHTML = TEAM_ACCESS_ICONS.public;
+        compactLabel.textContent = "Public";
+
+        statusIcon.innerHTML = TEAM_ACCESS_ICONS.public;
+        status.textContent = "Public view";
+        description.textContent = "Public metadata only.";
+
+        link.textContent = "Team login";
+        link.href = "/api/team/login?next=%2Fteam";
+        link.classList.remove("logout-link");
+      }
+    }
+
+    function initialiseTeamAccessWidget() {
+      const floatBox = document.getElementById("teamAccessFloat");
+      const toggle = document.getElementById("teamAccessToggle");
+
+      if (!floatBox || !toggle) {
+        return;
+      }
+
+      updateTeamAccessUi();
+      setTeamAccessExpanded(false);
+
+      toggle.addEventListener("click", function(event) {
+        event.preventDefault();
+        event.stopPropagation();
+
+        const isExpanded = toggle.getAttribute("aria-expanded") === "true";
+        setTeamAccessExpanded(!isExpanded);
+      });
+
+      document.addEventListener("click", function(event) {
+        if (!floatBox.contains(event.target)) {
+          setTeamAccessExpanded(false);
+        }
+      });
+
+      document.addEventListener("keydown", function(event) {
+        if (event.key === "Escape") {
+          setTeamAccessExpanded(false);
+        }
+      });
+    }
+
+    initialiseTeamAccessWidget();
     const CLIMATE_LAYER_PERIOD_LABEL = "Last complete year";
     const DEFAULT_CLIMATE_LOOKUP_YEAR = new Date().getFullYear() - 1;
     const CLIMATE_LOOKUP_CACHE = new Map();
@@ -389,7 +632,7 @@
         label: "Air temperature",
         unit: "°C",
         aggregation: "Annual mean",
-        path: "data/map_layers/2025/air_temperature_annual_mean.json",
+        path: "/data/map_layers/2025/air_temperature_annual_mean.json",
         gradient: {
           0.00: "#2c7bb6",
           0.45: "#ffffbf",
@@ -405,7 +648,7 @@
         label: "Relative humidity",
         unit: "%",
         aggregation: "Annual mean",
-        path: "data/map_layers/2025/relative_humidity_annual_mean.json",
+        path: "/data/map_layers/2025/relative_humidity_annual_mean.json",
         gradient: {
           0.00: "#f7fbff",
           0.45: "#6baed6",
@@ -421,7 +664,7 @@
         label: "Precipitation",
         unit: "mm/year",
         aggregation: "Annual total",
-        path: "data/map_layers/2025/precipitation_annual_sum.json",
+        path: "/data/map_layers/2025/precipitation_annual_sum.json",
         gradient: {
           0.00: "#fff7bc",
           0.45: "#41b6c4",
@@ -437,7 +680,7 @@
         label: "Wind speed",
         unit: "m/s",
         aggregation: "Annual mean",
-        path: "data/map_layers/2025/wind_speed_annual_mean.json",
+        path: "/data/map_layers/2025/wind_speed_annual_mean.json",
         gradient: {
           0.00: "#f7f7f7",
           0.45: "#969696",
@@ -685,9 +928,42 @@
       maxBoundsViscosity: 1.0
     }).setView(DEFAULT_CENTER, DEFAULT_ZOOM);
 
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '&copy; OpenStreetMap contributors'
-    }).addTo(map);
+    function createOsmBaseLayer() {
+      return L.tileLayer(
+        "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+        {
+          minZoom: 1,
+          maxZoom: 19,
+          attribution:
+            '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        }
+      );
+    }
+
+    function createTiandituBaseLayer() {
+      // Temporary fallback:
+      // Keep this function name because the country mini-map already calls createTiandituBaseLayer().
+      // Internally, it now returns the OSM basemap.
+      return createOsmBaseLayer();
+    }
+
+    const baseLayer = createOsmBaseLayer();
+    baseLayer.addTo(map);
+
+    // Temporary no-op while OSM fallback is active.
+    // OSM labels are built into the raster basemap, so Chinese/English label switching is disabled for now.
+    function setAnnotationMode(mode) {
+      try {
+        window.localStorage.setItem("corrosionMapLabelMode", "none");
+      } catch {
+        // Ignore localStorage errors.
+      }
+
+      const select = document.getElementById("labelModeSelect");
+      if (select) {
+        select.value = "none";
+      }
+    }
     map.createPane('corrosionHeatPane');
     map.getPane('corrosionHeatPane').style.zIndex = 450;
     map.getPane('corrosionHeatPane').style.pointerEvents = 'none';
@@ -753,8 +1029,17 @@
     const railSearchButton = document.getElementById('railSearchButton');
     const railExpandButton = document.getElementById('railExpandButton');
     const railDirectoryButton = document.getElementById('railDirectoryButton');
+    const railLayersButton = document.getElementById('railLayersButton');
+    const railSettingsButton = document.getElementById('railSettingsButton');
+
     const countryDirectoryPanel = document.getElementById('countryDirectoryPanel');
     const closeDirectoryButton = document.getElementById('closeDirectoryButton');
+
+    const layersPanel = document.getElementById('layersPanel');
+    const closeLayersButton = document.getElementById('closeLayersButton');
+
+    const settingsPanel = document.getElementById('settingsPanel');
+    const closeSettingsButton = document.getElementById('closeSettingsButton');
     const directorySearchInput = document.getElementById('directorySearch');
     const directoryCount = document.getElementById('directoryCount');
     const directoryLetterNav = document.getElementById('directoryLetterNav');
@@ -797,13 +1082,90 @@
       railDirectoryButton.setAttribute('aria-pressed', isOpen ? 'true' : 'false');
     }
 
+    function setLayersState(isOpen) {
+      railLayersButton.classList.toggle('active', isOpen);
+      railLayersButton.setAttribute('aria-pressed', isOpen ? 'true' : 'false');
+    }
+
+    function setSettingsState(isOpen) {
+      railSettingsButton.classList.toggle('active', isOpen);
+      railSettingsButton.setAttribute('aria-pressed', isOpen ? 'true' : 'false');
+    }
+
+    function closeLayers() {
+      appShell.classList.remove('layers-open');
+
+      if (layersPanel) {
+        layersPanel.hidden = true;
+      }
+
+      setLayersState(false);
+    }
+
+    function closeSettings() {
+      appShell.classList.remove('settings-open');
+
+      if (settingsPanel) {
+        settingsPanel.hidden = true;
+      }
+
+      setSettingsState(false);
+    }
+
+    function closeSecondaryPanels() {
+      if (appShell.classList.contains('directory-open')) {
+        appShell.classList.remove('directory-open');
+        countryDirectoryPanel.hidden = true;
+        setDirectoryState(false);
+      }
+
+      closeLayers();
+      closeSettings();
+    }
+
+    function openLayers() {
+      closeSidebar();
+      closeSecondaryPanels();
+
+      appShell.classList.add('layers-open');
+
+      if (layersPanel) {
+        layersPanel.hidden = false;
+      }
+
+      setRailState(false);
+      setDirectoryState(false);
+      setLayersState(true);
+      setSettingsState(false);
+    }
+
+    function openSettings() {
+      closeSidebar();
+      closeSecondaryPanels();
+
+      appShell.classList.add('settings-open');
+
+      if (settingsPanel) {
+        settingsPanel.hidden = false;
+      }
+
+      setRailState(false);
+      setDirectoryState(false);
+      setLayersState(false);
+      setSettingsState(true);
+    }
+
     function openDirectory() {
       closeSidebar();
+      closeLayers();
+      closeSettings();
 
       setRailState(false);
       appShell.classList.add('directory-open');
       countryDirectoryPanel.hidden = false;
       setDirectoryState(true);
+      setLayersState(false);
+      setSettingsState(false);
       renderCountryDirectory(visibleRows);
     }
 
@@ -825,6 +1187,38 @@
       }
     });
 
+    railLayersButton.addEventListener('click', function() {
+      if (appShell.classList.contains('layers-open')) {
+        closeLayers();
+        setRailState(true);
+        setTimeout(() => map.invalidateSize(), 120);
+      } else {
+        openLayers();
+      }
+    });
+
+    railSettingsButton.addEventListener('click', function() {
+      if (appShell.classList.contains('settings-open')) {
+        closeSettings();
+        setRailState(true);
+        setTimeout(() => map.invalidateSize(), 120);
+      } else {
+        openSettings();
+      }
+    });
+
+    closeLayersButton?.addEventListener('click', function() {
+      closeLayers();
+      setRailState(true);
+      setTimeout(() => map.invalidateSize(), 120);
+    });
+
+    closeSettingsButton?.addEventListener('click', function() {
+      closeSettings();
+      setRailState(true);
+      setTimeout(() => map.invalidateSize(), 120);
+    });
+
     railExpandButton.addEventListener('click', function() {
       setRailExpanded(!appShell.classList.contains('rail-expanded'));
     });
@@ -835,8 +1229,12 @@
       renderCountryDirectory(visibleRows);
     });
     railSearchButton.addEventListener('click', function() {
-      if (appShell.classList.contains('directory-open')) {
-        closeDirectory();
+      if (
+        appShell.classList.contains('directory-open') ||
+        appShell.classList.contains('layers-open') ||
+        appShell.classList.contains('settings-open')
+      ) {
+        closeSecondaryPanels();
         openSidebar();
         return;
       }
@@ -1238,7 +1636,7 @@
 
     function loadPublicSources() {
       return new Promise(resolve => {
-        Papa.parse(`data/sources_public.csv?v=${Date.now()}`, {
+        Papa.parse(`/data/sources_public.csv?v=${Date.now()}`, {
           download: true,
           header: true,
           skipEmptyLines: true,
@@ -2309,13 +2707,7 @@
         attributionControl: false
       });
 
-      countryMiniBaseLayer = L.tileLayer(
-        "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
-        {
-          maxZoom: 18
-        }
-      );
-
+      countryMiniBaseLayer = createTiandituBaseLayer();
       countryMiniBaseLayer.addTo(countryMiniMap);
 
       countryMiniMarkerLayer = L.layerGroup().addTo(countryMiniMap);
@@ -2573,7 +2965,7 @@
         status.textContent = "Loading curated corrosion observations...";
       }
 
-      Papa.parse(`data/corrosion_observations.csv?v=${Date.now()}`, {
+      Papa.parse(`/data/corrosion_observations.csv?v=${Date.now()}`, {
         download: true,
         header: true,
         skipEmptyLines: true,
@@ -3098,7 +3490,7 @@
     }
 
     function loadSiteData() {
-      Papa.parse(`data/sites.csv?v=${Date.now()}`, {
+      Papa.parse(`/data/sites.csv?v=${Date.now()}`, {
       download: true,
       header: true,
       skipEmptyLines: true,
@@ -3133,6 +3525,9 @@
         document.getElementById('sourceOnlyFilter').addEventListener('change', () => applyFilters(true));
         document.getElementById('searchBox').addEventListener('input', () => applyFilters(true));
         document.getElementById('countryFilter').addEventListener('change', () => applyFilters(true));
+        document.getElementById('labelModeSelect')?.addEventListener('change', function(event) {
+          setAnnotationMode(event.target.value);
+        });
         document.getElementById('regionFilter').addEventListener('change', () => applyFilters(true));
         document.getElementById('metalFilter').addEventListener('change', () => applyFilters(true));
         document.getElementById('exposureFilter').addEventListener('change', () => applyFilters(true));

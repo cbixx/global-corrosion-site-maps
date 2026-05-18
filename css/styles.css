@@ -1,7 +1,11 @@
 :root {
-  --font-display: "Inter", "Helvetica Neue", Helvetica, Arial, sans-serif;
-  --font-body: "Inter", "Roboto", "Helvetica Neue", Helvetica, Arial, sans-serif;
-  --font-ui: "Roboto", "Inter", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --font-heading: "Inter", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --font-body: "Roboto", "Inter", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --font-ui: "Inter", "Roboto", "Helvetica Neue", Helvetica, Arial, sans-serif;
+
+  --ca-navy: #10293A;
+  --ca-rust: #B94D1E;
+  --ca-paper: #F8F8F6;
 }
 
 html,
@@ -18,9 +22,9 @@ h4,
 h5,
 h6,
 .site-title,
-.panel-title,
-.page-title {
-  font-family: var(--font-display);
+.page-title,
+.panel-title {
+  font-family: var(--font-heading);
   font-weight: 650;
   letter-spacing: -0.02em;
 }
@@ -30,22 +34,16 @@ input,
 select,
 textarea,
 label,
+.badge,
+.chip,
 .sidebar,
 .leaflet-control,
 .popup,
-.map-control,
-.badge,
-.chip,
-.table,
 .site-card,
-.source-button {
+.source-button,
+.meta-label,
+.nav-link {
   font-family: var(--font-ui);
-}
-
-html, body {
-    margin: 0;
-    height: 100%;
-    font-family: Arial, sans-serif;
 }
 
 .team-access-float {
@@ -1939,4 +1937,85 @@ html, body {
   padding: 1rem 1.25rem;
   border-left: 4px solid #B94D1E;
   background: #F8F8F6;
+}
+
+.landing-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 72px 24px;
+  color: var(--ca-navy);
+  background:
+    radial-gradient(circle at 20% 20%, rgba(185, 77, 30, 0.08), transparent 28%),
+    linear-gradient(135deg, #ffffff 0%, var(--ca-paper) 100%);
+}
+
+.landing-hero {
+  max-width: 920px;
+}
+
+.landing-kicker {
+  margin-bottom: 1rem;
+  color: var(--ca-rust);
+  font-family: var(--font-ui);
+  font-size: 0.86rem;
+  font-weight: 750;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.landing-hero h1 {
+  margin: 0 0 1rem;
+  font-size: clamp(3rem, 9vw, 6.5rem);
+  line-height: 0.95;
+  letter-spacing: -0.07em;
+}
+
+.landing-lead {
+  max-width: 760px;
+  margin: 0;
+  color: rgba(16, 41, 58, 0.76);
+  font-size: clamp(1.08rem, 2vw, 1.35rem);
+  line-height: 1.65;
+}
+
+.landing-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-top: 2rem;
+}
+
+.landing-primary,
+.landing-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 0 18px;
+  border-radius: 999px;
+  font-family: var(--font-ui);
+  font-weight: 750;
+  text-decoration: none;
+}
+
+.landing-primary {
+  color: #ffffff;
+  background: var(--ca-navy);
+}
+
+.landing-primary:hover {
+  background: #17384f;
+}
+
+.landing-secondary {
+  color: var(--ca-navy);
+  border: 1px solid rgba(16, 41, 58, 0.18);
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.landing-secondary:hover {
+  border-color: rgba(185, 77, 30, 0.45);
+  color: var(--ca-rust);
 }

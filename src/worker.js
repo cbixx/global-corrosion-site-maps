@@ -31,7 +31,7 @@ function textResponse(message, status = 200) {
 }
 
 function safeSameOriginRedirectPath(value) {
-  const fallback = "/?audience=team";
+  const fallback = "/team";
   const text = String(value || "").trim();
 
   if (!text) {
@@ -49,7 +49,7 @@ function safeSameOriginRedirectPath(value) {
 function handleTeamLogin(request) {
   const url = new URL(request.url);
   const nextPath = safeSameOriginRedirectPath(
-    url.searchParams.get("next") || "/?audience=team"
+    url.searchParams.get("next") || "/team"
   );
 
   return Response.redirect(new URL(nextPath, url).toString(), 302);
@@ -57,7 +57,7 @@ function handleTeamLogin(request) {
 
 async function serveIndex(request, env, audience = "public") {
   const url = new URL(request.url);
-  const indexUrl = new URL("/index.html", url);
+  const indexUrl = new URL("/map/index.html", url);
 
   const response = await env.ASSETS.fetch(new Request(indexUrl, request));
 
