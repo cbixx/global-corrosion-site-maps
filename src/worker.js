@@ -57,7 +57,7 @@ function handleTeamLogin(request) {
 
 async function serveIndex(request, env, audience = "public") {
   const url = new URL(request.url);
-  const indexUrl = new URL("/map/index.html", url);
+  const indexUrl = new URL("/map/", url);
 
   const response = await env.ASSETS.fetch(new Request(indexUrl, request));
 
