@@ -28,6 +28,21 @@
   <link rel="stylesheet" href="/css/styles.css" />
 </head>
 <body class="map-page">
+  <div class="map-site-nav" id="mapSiteNav">
+    <button class="map-site-nav-toggle" type="button" id="mapSiteNavToggle" aria-expanded="false">
+      <span class="map-site-nav-mark">CA</span>
+      <span class="map-site-nav-label">Menu</span>
+    </button>
+
+    <nav class="map-site-nav-panel" aria-label="Site navigation">
+      <a href="/">Home</a>
+      <a href="/map/">Map</a>
+      <a href="/policy/">Policy</a>
+      <a href="/about/">About</a>
+      <a href="/methodology/">Methodology</a>
+      <a href="/api/team/map">Team</a>
+    </nav>
+  </div>
   <div class="team-access-float" id="teamAccessFloat">
     <button
       id="teamAccessToggle"
@@ -3590,6 +3605,19 @@
     }
 
     loadPublicSources().then(loadSiteData);
+  </script>
+  <script>
+    document.addEventListener("DOMContentLoaded", function () {
+      const nav = document.getElementById("mapSiteNav");
+      const toggle = document.getElementById("mapSiteNavToggle");
+
+      if (!nav || !toggle) return;
+
+      toggle.addEventListener("click", function () {
+        const isOpen = nav.classList.toggle("is-open");
+        toggle.setAttribute("aria-expanded", String(isOpen));
+      });
+    });
   </script>
 </body>
 </html>
