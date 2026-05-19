@@ -56,7 +56,7 @@ label,
     display: flex;
     flex-direction: column;
     align-items: flex-end;
-    font-family: Arial, sans-serif;
+    font-family: var(--font-ui);
 }
 
 .team-access-toggle {
@@ -2179,9 +2179,9 @@ body.map-page {
 
 .map-site-nav {
   position: fixed;
-  top: 14px;
+  top: 72px;
   right: 16px;
-  z-index: 3000;
+  z-index: 5000;
   display: flex;
   align-items: flex-start;
   gap: 8px;
@@ -2196,7 +2196,7 @@ body.map-page {
   padding: 0 12px;
   border: 1px solid rgba(16, 41, 58, 0.16);
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.92);
+  background: rgba(255, 255, 255, 0.94);
   color: var(--ca-navy);
   box-shadow: 0 8px 24px rgba(16, 41, 58, 0.12);
   cursor: pointer;
@@ -2228,7 +2228,7 @@ body.map-page {
   padding: 8px;
   border: 1px solid rgba(16, 41, 58, 0.14);
   border-radius: 18px;
-  background: rgba(255, 255, 255, 0.94);
+  background: rgba(255, 255, 255, 0.96);
   box-shadow: 0 16px 40px rgba(16, 41, 58, 0.16);
   backdrop-filter: blur(14px);
 }
