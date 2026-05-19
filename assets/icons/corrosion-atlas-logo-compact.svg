@@ -1,7 +1,7 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1180 360" role="img" aria-labelledby="title desc">
-  <title id="title">Corrosion Atlas horizontal logo</title>
-  <desc id="desc">Corrosion Atlas logo with circular site-dot and crack mark on the left and wordmark on the right.</desc>
-  <g transform="translate(24,24) scale(0.61)">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 220" role="img" aria-labelledby="title desc">
+  <title id="title">Corrosion Atlas compact logo</title>
+  <desc id="desc">Compact Corrosion Atlas logo with mark and text in one line.</desc>
+  <g transform="translate(16,16) scale(0.37)">
     <circle cx="256" cy="256" r="174" fill="none" stroke="#10293A" stroke-width="18"/>
     <circle cx="170" cy="128" r="5.6" fill="#10293A"/>
     <circle cx="205" cy="128" r="5.6" fill="#10293A"/>
@@ -34,16 +34,10 @@
     <path d="M270 72 L282 105 L280 135 L304 160 L300 190 L322 218 L316 247 L333 273 L317 300 L324 330 L299 356 L289 407 L281 445" fill="none" stroke="#B94D1E" stroke-width="16" stroke-linecap="round" stroke-linejoin="round"/>
     <path d="M323 274 L360 282 L378 305 L412 316" fill="none" stroke="#B94D1E" stroke-width="14" stroke-linecap="round" stroke-linejoin="round"/>
   </g>
-  <text x="370" y="150"
+  <text x="230" y="132"
         font-family="Inter, Roboto, Helvetica Neue, Helvetica, Arial, sans-serif"
-        font-size="86"
-        font-weight="650"
-        letter-spacing="20"
-        fill="#10293A">CORROSION</text>
-  <text x="374" y="246"
-        font-family="Inter, Roboto, Helvetica Neue, Helvetica, Arial, sans-serif"
-        font-size="52"
-        font-weight="560"
-        letter-spacing="33"
-        fill="#B94D1E">ATLAS</text>
+        font-size="64"
+        font-weight="700"
+        letter-spacing="-1"
+        fill="#10293A">Corrosion Atlas</text>
 </svg>

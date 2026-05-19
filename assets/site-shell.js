@@ -22,8 +22,7 @@
 
     header.innerHTML = `
       <a class="site-brand" href="/" aria-label="Corrosion Atlas home">
-        <img class="site-brand-mark" src="/assets/icons/favicon.svg?v=3" alt="" aria-hidden="true">
-        <span class="site-brand-text">Corrosion Atlas</span>
+        <img class="site-brand-logo" src="/assets/icons/corrosion-atlas-logo-compact.svg?v=1" alt="Corrosion Atlas">
       </a>
 
       <nav class="site-nav" aria-label="Main navigation">

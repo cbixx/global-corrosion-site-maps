@@ -2252,3 +2252,9 @@ body.map-page {
   background: rgba(185, 77, 30, 0.10);
   color: var(--ca-rust);
 }
+
+.site-brand-logo {
+  display: block;
+  height: 34px;
+  width: auto;
+}
