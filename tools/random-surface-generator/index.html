@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Random Surface Generator | Corrosion Atlas Research Tools</title>
+  <meta name="description" content="Generate anisotropic random coating thickness fields for corrosion and coating transport simulations.">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="canonical" href="https://corrosionatlas.org/tools/random-surface-generator/">
+
+  <link rel="stylesheet" href="/css/styles.css">
+  <link rel="stylesheet" href="/tools/random-surface-generator/surface-generator.css">
+
+  <link rel="icon" href="/assets/icons/favicon.ico?v=3" sizes="any">
+  <link rel="icon" href="/assets/icons/favicon.svg?v=3" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/assets/icons/apple-touch-icon.png?v=3">
+  <link rel="manifest" href="/assets/icons/site.webmanifest?v=3">
+  <meta name="theme-color" content="#10293A">
+</head>
+
+<body>
+  <main class="content-page surface-tool-page">
+    <a class="back-link" href="/tools/">← Back to research tools</a>
+
+    <div class="landing-kicker">Research tool</div>
+
+    <h1>Random coating surface generator</h1>
+
+    <p>
+      Generate anisotropic random coating thickness fields for transport simulations.
+      The generated field can be previewed in the browser and downloaded as CSV or TXT.
+    </p>
+
+    <section class="surface-tool-layout">
+        <form class="surface-panel" id="surfaceForm">
+            <div class="panel-heading-row panel-heading-with-controls">
+                <div>
+                    <h2>Input parameters</h2>
+                    <p>
+                        Define the statistical and geometric properties of the coating thickness field.
+                        Values should remain physically reasonable for an organic coating surface.
+                    </p>
+                </div>
+
+                <div class="unit-control-card" aria-label="Input unit controls">
+                    <div class="unit-control-title">Input units</div>
+
+                    <label>
+                        <span>Thickness</span>
+                        <select id="thicknessUnit">
+                            <option value="um" selected>µm</option>
+                            <option value="mm">mm</option>
+                        </select>
+                    </label>
+
+                    <label>
+                        <span>Length</span>
+                        <select id="lengthUnit">
+                            <option value="mm" selected>mm</option>
+                            <option value="cm">cm</option>
+                            <option value="m">m</option>
+                        </select>
+                    </label>
+                </div>
+            </div>
+
+            <div class="parameter-note">
+            <strong>General guidance:</strong>
+            Typical protective coating thicknesses are often in the range of tens to several hundred micrometres.
+            Very large roughness relative to mean thickness may create negative or physically unrealistic local thicknesses.
+            </div>
+
+            <figure class="parameter-visual">
+                <img
+                    src="/assets/images/tools/random-surface-generator-parameters.png"
+                    alt="Diagram explaining mean coating thickness, RMS roughness, domain dimensions, correlation lengths, anisotropy ratio, and normalized roughness for a random coating thickness field."
+                    loading="lazy"
+                >
+                <figcaption>
+                    <span>
+                        Schematic summary of the random coating thickness field, including
+                        <span class="math"><var>h</var><sub class="sub-upright">0</sub></span>,
+                        <span class="math"><var>R</var><sub class="sub-upright">q</sub></span>,
+                        <span class="math"><var>L</var><sub><var>x</var></sub></span>,
+                        <span class="math"><var>L</var><sub><var>y</var></sub></span>,
+                        <span class="math"><var>&ell;</var><sub><var>x</var></sub></span>,
+                        and
+                        <span class="math"><var>&ell;</var><sub><var>y</var></sub></span>.
+                    </span>
+
+                    <span class="figure-rights">
+                        © Corrosion Atlas. Original explanatory figure prepared for this tool.
+                        Reproduction or redistribution is not permitted without written permission.
+                    </span>
+                </figcaption>
+            </figure>
+
+            <div class="parameter-section-title">Thickness statistics</div>
+
+            <div class="input-row input-row-two">
+                <label class="input-group">
+                    <span>
+                        Mean coating thickness,
+                        <span class="math"><var>h</var><sub class="sub-upright">0</sub></span>
+                    </span>
+                    <small>
+                        Typical: 100–500 µm. Allowed: 20–2000 µm.
+                    </small>
+                    <input id="h0" type="number" value="300" min="20" max="2000" step="1">
+                </label>
+
+                <label class="input-group">
+                    <span>
+                        RMS roughness,
+                        <span class="math"><var>R</var><sub class="sub-upright">q</sub></span>
+                    </span>
+                    <small>
+                        Recommended:
+                        <span class="math">
+                            <var>R</var><sub class="sub-upright">q</sub>/<var>h</var><sub class="sub-upright">0</sub>
+                        </span>
+                        ≤ 0.20.
+                    </small>
+                    <input id="rq" type="number" value="27" min="0" step="0.1">
+                </label>
+            </div>
+
+            <div class="parameter-section-title">Domain dimensions</div>
+
+            <div class="input-row input-row-two">
+                <label class="input-group">
+                    <span>
+                        Domain length,
+                        <span class="math"><var>L</var><sub><var>x</var></sub></span>
+                    </span>
+                    <small>
+                        Size in the <span class="math"><var>x</var></span>-direction. Typical: 5–100 mm.
+                    </small>
+                    <input id="lxDomain" type="number" value="20" min="1" max="500" step="1">
+                </label>
+
+                <label class="input-group">
+                    <span>
+                        Domain width,
+                        <span class="math"><var>L</var><sub><var>y</var></sub></span>
+                    </span>
+                    <small>
+                        Size in the <span class="math"><var>y</var></span>-direction. Usually similar to
+                        <span class="math"><var>L</var><sub><var>x</var></sub></span>.
+                    </small>
+                    <input id="lyDomain" type="number" value="20" min="1" max="500" step="1">
+                </label>
+            </div>
+
+            <div class="parameter-section-title">Spatial correlation</div>
+
+            <div class="input-row input-row-two">
+                <label class="input-group">
+                    <span>
+                        <span class="math"><var>x</var></span>-direction correlation length,
+                        <span class="math"><var>&ell;</var><sub><var>x</var></sub></span>
+                    </span>
+                    <small>
+                        Larger values create longer surface features along
+                        <span class="math"><var>x</var></span>. Typical: 0.5–50 mm.
+                    </small>
+                    <input id="corrX" type="number" value="14.1" min="0.1" step="0.1">
+                </label>
+
+                <label class="input-group">
+                    <span>
+                        <span class="math"><var>y</var></span>-direction correlation length,
+                        <span class="math"><var>&ell;</var><sub><var>y</var></sub></span>
+                    </span>
+                    <small>
+                        Smaller values create more rapid variation along
+                        <span class="math"><var>y</var></span>. Typical: 0.5–50 mm.
+                    </small>
+                    <input id="corrY" type="number" value="1.8" min="0.1" step="0.1">
+                </label>
+            </div>
+
+            <div class="parameter-section-title">Numerical settings</div>
+
+            <div class="input-row input-row-two">
+                <label class="input-group">
+                    <span>Grid size</span>
+                    <small>
+                        Power-of-two grid sizes are used for FFT-based generation.
+                    </small>
+                    <select id="gridSize">
+                        <option value="64">64 × 64</option>
+                        <option value="128" selected>128 × 128</option>
+                        <option value="256">256 × 256</option>
+                    </select>
+                </label>
+
+                <label class="input-group">
+                    <span>Random seed</span>
+                    <small>
+                        Same input values and seed reproduce the same field.
+                    </small>
+                    <input id="seed" type="number" value="1" step="1">
+                </label>
+            </div>
+
+            <button class="ca-button ca-button-primary" id="generateData" type="button">
+            Generate surface data
+            </button>
+
+            <div class="tool-status" id="dataStatus">
+            Surface data has not been generated yet.
+            </div>
+        </form>
+
+        <section class="surface-panel preview-panel">
+            <div class="preview-header">
+            <div>
+                <h2>3D preview</h2>
+                <p>
+                Render an approximate 3D preview after generating the surface data.
+                The downloadable data file remains the primary output.
+                </p>
+            </div>
+
+            <button class="ca-button ca-button-secondary" id="renderPreview" type="button" disabled>
+                Generate 3D preview
+            </button>
+            </div>
+
+            <canvas id="previewCanvas" width="720" height="460"></canvas>
+
+            <div class="surface-stats" id="surfaceStats">
+            Generate surface data to view summary statistics.
+            </div>
+
+            <div class="download-panel">
+                <div class="unit-control-card export-unit-card" aria-label="Export unit controls">
+                    <div class="unit-control-title">Export units</div>
+
+                    <label>
+                        <span>Coordinates</span>
+                        <select id="exportCoordUnit">
+                            <option value="m" selected>m</option>
+                            <option value="mm">mm</option>
+                            <option value="cm">cm</option>
+                        </select>
+                    </label>
+
+                    <label>
+                        <span>Thickness</span>
+                        <select id="exportThicknessUnit">
+                            <option value="m" selected>m</option>
+                            <option value="um">µm</option>
+                            <option value="mm">mm</option>
+                        </select>
+                    </label>
+                </div>
+
+                <div class="download-row">
+                    <button class="ca-button ca-button-secondary" id="downloadCsv" type="button" disabled>
+                        Download CSV
+                    </button>
+                    <button class="ca-button ca-button-secondary" id="downloadTxt" type="button" disabled>
+                        Download TXT
+                    </button>
+                </div>
+            </div>
+
+            <button class="math-button" id="openMathDialog" type="button">
+            How does this generator work?
+            </button>
+        </section>
+        </section>
+
+    <dialog class="math-dialog" id="mathDialog">
+        <button class="dialog-close" id="closeMathDialog" type="button">×</button>
+
+        <h2>How the generator works</h2>
+
+        <p>
+        The generated coating thickness field is represented as:
+        </p>
+
+        <div class="math-display">
+            <span class="math">
+                <var>h</var>(<var>x</var>,<var>y</var>)
+                =
+                <var>h</var><sub class="sub-upright">0</sub>
+                +
+                Δ<var>h</var>(<var>x</var>,<var>y</var>)
+            </span>
+        </div>
+
+        <p>
+        The tool first creates a seeded random field. The random field is transformed into the frequency domain using a fast Fourier transform.
+        An anisotropic Gaussian spectral filter is then applied using the correlation lengths
+        <span class="math"><var>&ell;</var><sub><var>x</var></sub></span>
+        and
+        <span class="math"><var>&ell;</var><sub><var>y</var></sub></span>. This creates an anisotropic
+        surface pattern.
+        </p>
+
+        <div class="math-display">
+            <span class="math">
+                <var>α</var>
+                =
+                <var>&ell;</var><sub><var>x</var></sub>
+                /
+                <var>&ell;</var><sub><var>y</var></sub>
+            </span>
+        </div>
+
+        <p>
+        After inverse transformation, the fluctuation field is shifted to zero mean and rescaled so that
+        its root-mean-square value approximately matches the target roughness
+        <span class="math"><var>R</var><sub class="sub-upright">q</sub></span>
+        </p>
+
+        <div class="math-display">
+            <span class="math">
+                <var>η</var>
+                =
+                <var>R</var><sub class="sub-upright">q</sub>
+                /
+                <var>h</var><sub class="sub-upright">0</sub>
+            </span>
+        </div>
+
+        <p>
+        Here, α is the anisotropy ratio and η is normalized roughness. Large η values can generate
+        unrealistically thin or negative local coating thicknesses, so the tool checks the generated
+        field before enabling export.
+        </p>
+
+        <p>
+        The exported CSV and TXT files use SI units. Coordinates
+        <span class="math"><var>x</var></span>,
+        <span class="math"><var>y</var></span>,
+        and coating thickness
+        <span class="math"><var>h</var></span>
+        are written in metres.
+        </p>
+    </dialog>
+  </main>
+
+  <script src="/assets/site-shell.js" defer></script>
+  <script src="/tools/random-surface-generator/surface-generator.js" defer></script>
+</body>
+</html>

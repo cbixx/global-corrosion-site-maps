@@ -2258,3 +2258,56 @@ body.map-page {
   height: 34px;
   width: auto;
 }
+
+.tools-page {
+  max-width: 1080px;
+}
+
+.tools-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 18px;
+  margin-top: 2rem;
+}
+
+.tool-card {
+  display: block;
+  padding: 24px;
+  border: 1px solid var(--ca-border);
+  border-radius: 22px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(248, 248, 246, 0.88));
+  color: var(--ca-navy);
+  text-decoration: none;
+  box-shadow: 0 18px 48px rgba(16, 41, 58, 0.08);
+}
+
+.tool-card:hover {
+  border-color: rgba(185, 77, 30, 0.38);
+  transform: translateY(-2px);
+}
+
+.tool-card h2 {
+  margin: 0 0 0.75rem;
+  font-size: 1.28rem;
+}
+
+.tool-card p {
+  margin: 0 0 1.1rem;
+  color: rgba(16, 41, 58, 0.72);
+  line-height: 1.6;
+}
+
+.tool-card span {
+  color: var(--ca-rust);
+  font-family: var(--font-ui);
+  font-weight: 750;
+}
+
+.tool-card-muted {
+  opacity: 0.72;
+}
+
+.tool-card-muted:hover {
+  transform: none;
+}

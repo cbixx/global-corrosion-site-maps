@@ -4,6 +4,7 @@
   const navItems = [
     { href: "/", label: "Home" },
     { href: "/map/", label: "Map" },
+    { href: "/tools/", label: "Tools" },
     { href: "/policy/", label: "Policy" },
     { href: "/about/", label: "About" },
     { href: "/methodology/", label: "Methodology" }
@@ -50,6 +51,8 @@
         </p>
         <p class="site-footer-links">
           <a href="/map/">Map</a>
+          <span aria-hidden="true">·</span>
+          <a href="/tools/">Tools</a>
           <span aria-hidden="true">·</span>
           <a href="/policy/">Citation & Data Use</a>
           <span aria-hidden="true">·</span>
