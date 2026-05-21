@@ -70,7 +70,17 @@
             </div>
 
             <figure class="parameter-visual">
+                <button
+                    class="image-expand-button"
+                    id="openParameterFigure"
+                    type="button"
+                    aria-label="Enlarge parameter figure"
+                >
+                    ⤢
+                </button>
+
                 <img
+                    id="parameterFigure"
                     src="/assets/images/tools/random-surface-generator-parameters.png"
                     alt="Diagram explaining mean coating thickness, RMS roughness, domain dimensions, correlation lengths, anisotropy ratio, and normalized roughness for a random coating thickness field."
                     loading="lazy"
@@ -339,6 +349,20 @@
         and coating thickness
         <span class="math"><var>h</var></span>
         are written in metres.
+        </p>
+    </dialog>
+
+    <dialog class="image-dialog" id="parameterFigureDialog">
+        <button class="dialog-close" id="closeParameterFigure" type="button">×</button>
+
+        <img
+            src="/assets/images/tools/random-surface-generator-parameters.png"
+            alt="Enlarged diagram explaining the random coating thickness field parameters."
+        >
+
+        <p>
+            © Corrosion Atlas. Original explanatory figure prepared for this tool.
+            Reproduction or redistribution is not permitted without written permission.
         </p>
     </dialog>
   </main>

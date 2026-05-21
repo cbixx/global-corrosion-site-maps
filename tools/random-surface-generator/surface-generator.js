@@ -28,6 +28,11 @@ const mathDialog = document.getElementById("mathDialog");
 const openMathDialog = document.getElementById("openMathDialog");
 const closeMathDialog = document.getElementById("closeMathDialog");
 
+const parameterFigure = document.getElementById("parameterFigure");
+const openParameterFigure = document.getElementById("openParameterFigure");
+const parameterFigureDialog = document.getElementById("parameterFigureDialog");
+const closeParameterFigure = document.getElementById("closeParameterFigure");
+
 openMathDialog.addEventListener("click", () => mathDialog.showModal());
 closeMathDialog.addEventListener("click", () => mathDialog.close());
 
@@ -103,6 +108,24 @@ inputs.lengthUnit.addEventListener("change", () => {
   convertInputValue(inputs.corrX, previousLengthUnit, inputs.lengthUnit.value);
   convertInputValue(inputs.corrY, previousLengthUnit, inputs.lengthUnit.value);
   previousLengthUnit = inputs.lengthUnit.value;
+});
+
+openParameterFigure.addEventListener("click", () => {
+  parameterFigureDialog.showModal();
+});
+
+parameterFigure.addEventListener("dblclick", () => {
+  parameterFigureDialog.showModal();
+});
+
+closeParameterFigure.addEventListener("click", () => {
+  parameterFigureDialog.close();
+});
+
+parameterFigureDialog.addEventListener("click", event => {
+  if (event.target === parameterFigureDialog) {
+    parameterFigureDialog.close();
+  }
 });
 
 function convertInputValue(inputElement, fromUnit, toUnit) {
