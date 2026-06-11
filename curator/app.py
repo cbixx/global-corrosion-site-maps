@@ -140,9 +140,16 @@ def search_locations(query: str, limit: int = 5) -> list[dict[str, Any]]:
         else:
             clean_label = result.address
 
+        site_label = (
+            city
+            or str(result.address).split(",", 1)[0].strip()
+            or clean_label
+        )
+
         suggestions.append(
             {
                 "label": clean_label,
+                "site_label": site_label,
                 "full_label": result.address,
                 "latitude": result.latitude,
                 "longitude": result.longitude,
@@ -1311,24 +1318,27 @@ def required_label(label: str) -> str:
 def optional_label(label: str) -> str:
     return f"{label} (optional)"
 
-SITE_FORM_KEYS = [
-    "location_query",
-    "site_label_input",
-    "site_latitude",
-    "site_longitude",
-    "site_modern_country_location",
-    "administering_country_input",
-    "site_id_input",
-    "last_suggested_site_id",
-    "former_entity_select",
-    "custom_former_entity_input",
-    "region_tags_select",
-    "exposure_period_input",
-    "metals_select",
-    "site_notes_input",
-    "site_type_select",
-    "custom_site_type_input",
-]
+SITE_FORM_DEFAULTS: dict[str, Any] = {
+    "location_query": "",
+    "site_label_input": "",
+    "site_latitude": "",
+    "site_longitude": "",
+    "site_modern_country_location": "",
+    "administering_country_input": "",
+    "site_id_input": "",
+    "last_suggested_site_id": "",
+    "former_entity_select": "",
+    "custom_former_entity_input": "",
+    "region_tags_select": [],
+    "exposure_period_input": "",
+    "metals_select": [],
+    "site_notes_input": "",
+    "site_type_select": "",
+    "custom_site_type_input": "",
+    "region_action_message": "",
+    "region_action_level": "",
+    "region_action_note": "",
+}
 
 SOURCE_FORM_KEYS = [
     "add_source_code",
@@ -1376,12 +1386,15 @@ def clear_source_metadata_form_state() -> None:
         st.session_state.pop(key, None)
 
 def clear_site_form_state() -> None:
-    for key in SITE_FORM_KEYS:
-        st.session_state.pop(key, None)
+    for key, default_value in SITE_FORM_DEFAULTS.items():
+        if isinstance(default_value, list):
+            st.session_state[key] = list(default_value)
+        else:
+            st.session_state[key] = default_value
 
-    st.session_state.location_results = []
-    st.session_state.selected_location_label = None
-    st.session_state.location_search_message = ""
+    st.session_state["location_results"] = []
+    st.session_state["selected_location_label"] = None
+    st.session_state["location_search_message"] = ""
 
 def clear_source_form_state() -> None:
     for key in SOURCE_FORM_KEYS:
@@ -3964,17 +3977,37 @@ def apply_selected_location() -> None:
     location_results = st.session_state.get("location_results", [])
 
     selected_location = next(
-        (item for item in location_results if item["label"] == selected_label),
+        (
+            item
+            for item in location_results
+            if item["label"] == selected_label
+        ),
         None,
     )
 
     if not selected_location:
         return
 
-    st.session_state.site_latitude = str(selected_location["latitude"])
-    st.session_state.site_longitude = str(selected_location["longitude"])
+    site_label = str(
+        selected_location.get("site_label")
+        or selected_location.get("label")
+        or ""
+    ).strip()
 
-    country = selected_location.get("country", "") or ""
+    if site_label:
+        st.session_state.site_label_input = site_label
+
+    st.session_state.site_latitude = str(
+        selected_location["latitude"]
+    )
+    st.session_state.site_longitude = str(
+        selected_location["longitude"]
+    )
+
+    country = str(
+        selected_location.get("country", "") or ""
+    ).strip()
+
     if country:
         st.session_state.site_modern_country_location = country
 
@@ -4003,6 +4036,58 @@ def run_location_search() -> None:
         st.session_state.location_results = []
         st.session_state.selected_location_label = None
         st.session_state.location_search_message = f"Location search failed: {exc}"
+
+def suggest_region_for_add_site_callback() -> None:
+    selected_site_type = str(
+        st.session_state.get("site_type_select", "") or ""
+    )
+
+    custom_site_type = str(
+        st.session_state.get("custom_site_type_input", "") or ""
+    )
+
+    resolved_site_type = resolve_option_value(
+        selected_site_type,
+        custom_site_type,
+    )
+
+    suggested_region_tags, region_note = (
+        suggest_region_tags_for_add_site_form(
+            latitude=st.session_state.get("site_latitude", ""),
+            longitude=st.session_state.get("site_longitude", ""),
+            modern_country_location=st.session_state.get(
+                "site_modern_country_location",
+                "",
+            ),
+            site_type=resolved_site_type,
+            current_region_category=normalize_region_category(
+                st.session_state.get("region_tags_select", [])
+            ),
+        )
+    )
+
+    if suggested_region_tags:
+        st.session_state["region_tags_select"] = suggested_region_tags
+        st.session_state["region_action_level"] = "success"
+        st.session_state["region_action_message"] = ui_text(
+            "Region category suggested. Review the tags before adding the site.",
+            "已建议区域类别。添加站点前请检查标签。",
+        )
+        st.session_state["region_action_note"] = region_note
+    else:
+        st.session_state["region_action_level"] = "warning"
+        st.session_state["region_action_message"] = region_note
+        st.session_state["region_action_note"] = ""
+
+
+def clear_region_for_add_site_callback() -> None:
+    st.session_state["region_tags_select"] = []
+    st.session_state["region_action_level"] = "info"
+    st.session_state["region_action_message"] = ui_text(
+        "Region category cleared.",
+        "已清除区域类别。",
+    )
+    st.session_state["region_action_note"] = ""
 
 try:
     ensure_schema_updates()
@@ -5213,6 +5298,7 @@ if active_page == "Sites":
         t("sites_search_place", ui_language),
         placeholder=t("sites_search_place_placeholder", ui_language),
         key="location_query",
+        on_change=run_location_search,
     )
 
     lookup_search_col, lookup_clear_col, lookup_spacer_col = st.columns(
@@ -5312,8 +5398,8 @@ if active_page == "Sites":
                     apply_selected_location()
                     st.success(
                         ui_text(
-                            "Selected location applied to latitude, longitude, and country/location fields.",
-                            "已将选定地点应用到纬度、经度和国家/地区字段。",
+                            "Selected location applied to the site label, latitude, longitude, and country/location fields."
+                            "已将选定地点应用到站点名称、纬度、经度和国家/地区字段。"
                         )
                     )
 
@@ -5426,50 +5512,6 @@ if active_page == "Sites":
 
         former_entity = resolve_option_value(selected_former_entity, custom_former_entity)
 
-        region_suggest_col, region_clear_col, region_spacer_col = st.columns(
-            [0.28, 0.20, 0.52],
-            vertical_alignment="bottom",
-        )
-
-        with region_suggest_col:
-            if st.button(
-                ui_text("Suggest region from coordinates", "根据坐标建议区域类别"),
-                key="suggest_region_for_add_site",
-                use_container_width=True,
-            ):
-                suggested_region_tags, region_note = suggest_region_tags_for_add_site_form(
-                    latitude=latitude,
-                    longitude=longitude,
-                    modern_country_location=modern_country_location,
-                    site_type=site_type,
-                    current_region_category=normalize_region_category(
-                        st.session_state.get("region_tags_select", [])
-                    ),
-                )
-
-                if suggested_region_tags:
-                    st.session_state.region_tags_select = suggested_region_tags
-                    st.success(
-                        ui_text(
-                            "Region category suggested. Review the tags before adding the site.",
-                            "已建议区域类别。添加站点前请检查标签。",
-                        )
-                    )
-
-                    if region_note:
-                        st.caption(region_note)
-                else:
-                    st.warning(region_note)
-
-        with region_clear_col:
-            if st.button(
-                ui_text("Clear region", "清除区域"),
-                key="clear_region_tags_for_add_site",
-                use_container_width=True,
-            ):
-                st.session_state.region_tags_select = []
-                st.rerun()
-
         selected_region_tags = st.multiselect(
             site_optional_label("sites_region_category_tags"),
             options=REGION_TAG_OPTIONS,
@@ -5477,7 +5519,56 @@ if active_page == "Sites":
             key="region_tags_select",
         )
 
-        region_category = normalize_region_category(selected_region_tags)
+        region_category = normalize_region_category(
+            selected_region_tags
+        )
+
+        region_suggest_col, region_clear_col, region_spacer_col = st.columns(
+            [0.28, 0.20, 0.52],
+            vertical_alignment="bottom",
+        )
+
+        with region_suggest_col:
+            st.button(
+                ui_text(
+                    "Suggest region from coordinates",
+                    "根据坐标建议区域类别",
+                ),
+                key="suggest_region_for_add_site",
+                use_container_width=True,
+                on_click=suggest_region_for_add_site_callback,
+            )
+
+        with region_clear_col:
+            st.button(
+                ui_text("Clear region", "清除区域"),
+                key="clear_region_tags_for_add_site",
+                use_container_width=True,
+                on_click=clear_region_for_add_site_callback,
+            )
+
+        region_action_message = str(
+            st.session_state.pop("region_action_message", "") or ""
+        )
+
+        region_action_level = str(
+            st.session_state.pop("region_action_level", "") or ""
+        )
+
+        region_action_note = str(
+            st.session_state.pop("region_action_note", "") or ""
+        )
+
+        if region_action_message:
+            if region_action_level == "success":
+                st.success(region_action_message)
+            elif region_action_level == "warning":
+                st.warning(region_action_message)
+            else:
+                st.info(region_action_message)
+
+        if region_action_note:
+            st.caption(region_action_note)
 
         if region_category:
             st.caption(
