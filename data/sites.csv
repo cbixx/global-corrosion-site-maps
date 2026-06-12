@@ -28,6 +28,14 @@ CA-001,Dorset,Town,45.233,-78.883,Canada,,,"Inland, Urban, Temperate","1 year, 2
 CA-002,Boucherville,"moderate zone, rural",45.6050197,-73.4526144,Canada,,,"Marine, Rural, Temperate","1 year, 2 years, 4 years, 8 years","Carbon steel, Zinc, Copper, Aluminium",s020,,,,,,,,,,
 CA-003,Norman Wells,,65.282401,-126.832725,Canada,,,"Inland, Sub-arctic, Cold","1 year, 2 years, 3 years","Carbon steel, Copper",s021,,,,,,,,,,
 CH-001,Chaumont,Locality,47.031,6.96,Switzerland,,,"Inland, Rural, Temperate","1 year, 2 years, 4 years, 8 years","Carbon steel, Zinc, Copper, Weathering steel, Stainless Steel, Aluminium, Titanium",s013,s017,s018,s014,s015,s016,,,,,test
+CH-002,Dübendorf,,47.3969942,8.6185666,Switzerland,,,"Inland, Temperate",4 years,"Weathering steel, Zinc, Copper",s034,,,,,,,,,,
+CH-003,Otelfingen,,47.4816105,8.3818438,Switzerland,,,"Inland, Temperate",4 years,"Weathering steel, Zinc, Copper",s034,,,,,,,,,,
+CH-004,Härkingen,,47.3069637,7.815973,Switzerland,,,"Inland, Temperate",4 years,"Weathering steel, Zinc, Copper",s034,,,,,,,,,,
+CH-005,Bern,,46.9484742,7.4521749,Switzerland,,,"Inland, Temperate",4 years,"Weathering steel, Zinc, Copper",s034,,,,,,,,,,
+CH-006,Payerne,,46.8208047,6.939126,Switzerland,,,"Inland, Temperate",4 years,"Weathering steel, Zinc, Copper",s034,,,,,,,,,,
+CH-007,Sion,,46.2311749,7.3588795,Switzerland,,,"Inland, Temperate",4 years,"Weathering steel, Zinc, Copper",s034,,,,,,,,,,
+CH-008,Cadenazzo,,46.1509953,8.9458762,Switzerland,,,"Inland, Temperate",4 years,"Weathering steel, Zinc, Copper",s034,,,,,,,,,,
+CH-009,Davos,,46.796198,9.8236892,Switzerland,,,"Inland, Temperate",4 years,"Weathering steel, Zinc, Copper",s034,,,,,,,,,,
 CN-001,Site No. 1,Field site,36.398987,118.5055691,China,,,"Inland, Rural, Temperate, Industrial",1 year,Hot-dip galvanized steel,s022,,,,,,,,,,"Numbered exposure corrosion test site shown in Fig. 1; exact locality and coordinates are not provided in the source.
 Discussed as one of the three C5 sites; source states it is closer to the coastline and has higher atmospheric chloride content. Exact locality and coordinates are not provided.
 Discussed as one of the three C5 sites; source states an oil refinery near the site makes its atmospheric corrosivity higher than surrounding sites. Exact locality and coordinates are not provided.
@@ -136,8 +144,8 @@ IN-037,Lucknow,urban,26.8381,80.9346001,India,,,"Inland, Urban, Temperate",1 yea
 IN-038,New Delhi,urban,28.6138954,77.2090057,India,,,"Inland, Urban, Temperate",1 year,"Mild steel, Zinc, Aluminium, Galvanized steel",s028,,,,,,,,,,
 IN-039,Pune,urban,18.5213738,73.8545071,India,,,"Inland, Urban, Tropical",1 year,"Mild steel, Zinc, Aluminium, Galvanized steel",s028,,,,,,,,,,
 IN-040,Surat,urban,21.2094892,72.8317058,India,,,"Coastal, Urban, Tropical",1 year,"Mild steel, Zinc, Aluminium, Galvanized steel",s028,,,,,,,,,,
-IS-001,Reykjavík,,64.145981,-21.9422367,Iceland,,,"Coastal, Island, Sub-arctic, Cold","1 year, 3 years, 5 years","Mild steel, Zinc, Aluminium, Aluminium alloy, Coated steel",s032,,,,,,,,,,
-IS-002,Ólafsvík,,64.8959304,-23.7084345,Iceland,,,"Marine, Island, Sub-arctic, Cold","1 year, 3 years, 5 years","Mild steel, Zinc, Aluminium, Aluminium alloy, Coated steel",s032,,,,,,,,,,
+IS-001,Reykjavík,,64.145981,-21.9422367,Iceland,,,"Coastal, Island, Sub-arctic, Cold","1 year, 3 years, 5 years, 12 years, 13 years","Mild steel, Zinc, Aluminium, Aluminium alloy, Coated steel, Carbon steel, Galvanized steel, Black steel, Zinc-coated steel",s032,s033,,,,,,,,,
+IS-002,Ólafsvík,,64.8959304,-23.7084345,Iceland,,,"Marine, Island, Sub-arctic, Cold","1 year, 3 years, 5 years, 12 years, 13 years","Mild steel, Zinc, Aluminium, Aluminium alloy, Coated steel, Carbon steel, Galvanized steel, Black steel, Zinc-coated steel",s032,s033,,,,,,,,,
 IS-003,Bolungarvík,,66.1575503,-23.2507273,Iceland,,,"Coastal, Island, Sub-arctic, Cold","1 year, 3 years, 5 years","Mild steel, Zinc, Aluminium, Aluminium alloy, Coated steel",s032,,,,,,,,,,
 IS-004,Siglufjörður,,66.1504928,-18.9096279,Iceland,,,"Marine, Island, Sub-arctic, Cold","1 year, 3 years, 5 years","Mild steel, Zinc, Aluminium, Aluminium alloy, Coated steel",s032,,,,,,,,,,
 IS-005,Akureyri,,65.6839036,-18.1121756,Iceland,,,"Marine, Island, Sub-arctic, Cold","1 year, 3 years, 5 years","Mild steel, Zinc, Aluminium, Aluminium alloy, Coated steel",s032,,,,,,,,,,
@@ -151,6 +159,7 @@ IS-012,Vestmannaeyjar,,63.4266646,-20.2698816,Iceland,,,"Coastal, Island, Sub-ar
 IS-013,Búrfell í Þjórsárdal,,64.07965,-19.81786,Iceland,,,"Inland, Island, Sub-arctic, Cold","1 year, 3 years, 5 years","Mild steel, Zinc, Aluminium, Aluminium alloy, Coated steel",s032,,,,,,,,,,
 IS-014,Hveravellir,,64.8615563,-19.5539515,Iceland,,,"Inland, Island, Sub-arctic, Cold","1 year, 3 years, 5 years","Mild steel, Zinc, Aluminium, Aluminium alloy, Coated steel",s032,,,,,,,,,,
 IS-015,Svartsengi,,63.8789142,-22.4330613,Iceland,,,"Coastal, Island, Sub-arctic, Cold","1 year, 3 years, 5 years","Mild steel, Zinc, Aluminium, Aluminium alloy, Coated steel",s032,,,,,,,,,,
+IS-016,Auðbjargarstaðabrekka,,66.0892645541816,-16.7169332873405,Iceland,,,"Coastal, Island, Sub-arctic, Cold","1 year, 12 years, 13 years","Carbon steel, Galvanized steel, Black steel, Zinc-coated steel",s033,,,,,,,,,,
 IT-001,Rome,City,41.9028,12.4964,Italy,,,"Near-coastal, Urban, Temperate","1 year, 2 years, 4 years, 8 years, Annually","Carbon steel, Weathering steel, Zinc, Aluminium, Copper, Stainless Steel, Titanium",s009,s017,s018,s010,s011,s012,s013,s014,s015,,
 IT-002,Casaccia,Research centre,42.05,12.3,Italy,,,"Near-coastal, Rural, Temperate","1 year, 2 years, 4 years, 8 years, Annually","Carbon steel, Weathering steel, Zinc, Aluminium, Copper, Stainless Steel, Titanium",s009,s017,s018,s010,s011,s012,s013,s014,s015,,
 IT-003,Milan,City,45.4642,9.19,Italy,,,"Inland, Urban, Temperate","1 year, 2 years, 4 years, 8 years, Annually","Carbon steel, Weathering steel, Zinc, Aluminium, Copper, Stainless Steel, Titanium",s009,s017,s018,s010,s011,s012,s013,s014,s015,,
