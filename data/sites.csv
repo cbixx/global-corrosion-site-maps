@@ -169,6 +169,11 @@ JP-002,Tokyo,"moderate zone, urban",35.6768601,139.7638947,Japan,,,"Coastal, Isl
 JP-003,Okinawa,"subtropics, marine",26.5707754,128.0255901,Japan,,,"Coastal, Island, Temperate","1 year, 2 years, 4 years, 8 years","Carbon steel, Zinc, Copper, Aluminium",s020,,,,,,,,,,
 KE-001,Diani,severe marine,-4.3124919,39.5793598,Kenya,,,"Marine, Tropical",,,s027,,,,,,,,,,Severe marine environment; about 100 m from the Indian Ocean.
 KE-002,Mariakani,urban marine / industrial marine,-3.865835,39.47377,Kenya,,,"Near-coastal, Industrial, Urban, Tropical",,,s027,,,,,,,,,,Urban/marine-industrial environment; about 40 km from the Indian Ocean; high SO₂ noted along Nairobi-Mombasa highwa
+LT-001,Kulionys,,55.3155073,25.5578775,Lithuania,,,"Inland, Cold","10 years, 8 years","Mild steel, Zinc, Copper, Zinc alloy",s035,s037,s038,,,,,,,,
+LT-002,Neringa,,55.3709348,21.0625536,Lithuania,,,"Marine, Cold","10 years, 1 month, 6 months, 4 months, 9 months, 1 year, 8 years","Mild steel, Copper, Zinc, Aluminium, Zinc alloy",s035,s036,s037,s038,,,,,,,
+LT-003,Vilnius,,54.7523354,25.2628135,Lithuania,,,"Inland, Cold","10 years, 1 month, 6 months, 4 months, 9 months, 1 year, 8 years","Mild steel, Copper, Zinc, Aluminium, Zinc alloy",s035,s036,s037,s038,,,,,,,
+LT-004,Molėtai,,55.2319273,25.419316,Lithuania,,,"Inland, Cold","1 month, 6 months, 4 months, 9 months, 1 year","Mild steel, Copper, Zinc, Aluminium",s036,,,,,,,,,,
+LT-005,Utena,,55.4984381,25.6025772,Lithuania,,,"Inland, Cold","1 month, 6 months, 4 months, 9 months, 1 year","Mild steel, Copper, Zinc, Aluminium",s036,,,,,,,,,,
 LV-001,Riga,City,56.9496,24.1052,Latvia,,,"Near-coastal, Urban, Cold",1 year,"Carbon steel, Zinc, Copper, Weathering steel",s014,s015,s016,,,,,,,,
 MU-001,Rédui,rural; near industrial zones and towns,15.9884651,-61.6338308,Mauritius,,,"Coastal, Island, Industrial, Rural, Tropical",,,s024,,,,,,,,,,Source site name: Reduit. About 9 km from nearest coast; low carbon steel exposed outdoors.
 MU-002,Belle Mare,marine,-20.1983407,57.774734,Mauritius,,,"Marine, Island, Tropical",,,s024,,,,,,,,,,Purely marine site; about 50 m from shoreline.
