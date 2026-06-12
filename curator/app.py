@@ -5398,8 +5398,8 @@ if active_page == "Sites":
                     apply_selected_location()
                     st.success(
                         ui_text(
-                            "Selected location applied to the site label, latitude, longitude, and country/location fields."
-                            "已将选定地点应用到站点名称、纬度、经度和国家/地区字段。"
+                            "Selected location applied to the site label, latitude, longitude, and country/location fields.",
+                            "已将选定地点应用到站点名称、纬度、经度和国家/地区字段。",
                         )
                     )
 
