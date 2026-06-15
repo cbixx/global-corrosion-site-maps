@@ -765,6 +765,33 @@ and click **Confirm selected import**.
         "language_save_button": "Save on this browser",
         "language_not_now_button": "Not now",
         "language_saved_to_browser": "Language preference saved on this browser.",
+
+        "sites_clear_lookup": "Clear lookup",
+        "sites_location_suggestions_found_apply": "Location suggestions found. Review them and click Apply selected location.",
+        "sites_apply_selected_location_to_form": "Apply selected location to Add Site form",
+        "sites_selected_location_applied_to_site_fields": "Selected location applied to the site label, latitude, longitude, and country/location fields.",
+
+        "sites_region_missing_coordinates": "Latitude and longitude are required before region classification.",
+        "sites_region_invalid_coordinates": "Latitude and longitude must be valid numbers before region classification.",
+        "sites_region_not_inferred": "No region category could be inferred from the current coordinates.",
+        "sites_suggest_region_from_coordinates": "Suggest region from coordinates",
+        "sites_clear_region": "Clear region",
+        "sites_region_suggested_review": "Region category suggested. Review the tags before adding the site.",
+        "sites_region_cleared": "Region category cleared.",
+
+        "sites_recent_sites_found": "{count} newly added site(s) found since the last successful source-evidence link.",
+        "sites_recent_sites_expander": "Show newly added site suggestions",
+        "sites_use_recent_sites_for_linking": "Use newly added sites as selection",
+
+        "sites_annual_mean_temperature": "Annual mean air temperature, °C",
+        "sites_annual_mean_temperature_placeholder": "Optional; used for climate-tag suggestion only",
+
+        "settings_temperature_rules": "Temperature-based climate rules",
+        "settings_use_temperature_when_available": "Use annual mean temperature for Tropical / Temperate / Cold / Extreme cold when available",
+        "settings_tropical_mean_temperature_min": "Tropical if annual mean temperature ≥",
+        "settings_temperate_mean_temperature_min": "Temperate if annual mean temperature ≥",
+        "settings_cold_mean_temperature_max": "Cold if annual mean temperature ≤",
+        "settings_extreme_cold_mean_temperature_max": "Extreme cold if annual mean temperature ≤",
     },
     "zh": {
         "app_title": "腐蚀地图数据管理工具",
@@ -1520,6 +1547,33 @@ and click **Confirm selected import**.
         "language_save_button": "保存在此浏览器",
         "language_not_now_button": "暂不保存",
         "language_saved_to_browser": "语言偏好已保存在此浏览器。",
+
+        "sites_clear_lookup": "清除搜索",
+        "sites_location_suggestions_found_apply": "已找到地点建议。请检查后点击“应用选定地点”。",
+        "sites_apply_selected_location_to_form": "应用选定地点到添加站点表单",
+        "sites_selected_location_applied_to_site_fields": "已将选定地点应用到站点名称、纬度、经度和国家/地区字段。",
+
+        "sites_region_missing_coordinates": "进行区域分类前需要先填写纬度和经度。",
+        "sites_region_invalid_coordinates": "进行区域分类前，纬度和经度必须是有效数字。",
+        "sites_region_not_inferred": "无法根据当前坐标推断区域类别。",
+        "sites_suggest_region_from_coordinates": "根据坐标建议区域类别",
+        "sites_clear_region": "清除区域",
+        "sites_region_suggested_review": "已建议区域类别。添加站点前请检查标签。",
+        "sites_region_cleared": "已清除区域类别。",
+
+        "sites_recent_sites_found": "自上次成功建立资料来源关联以来，发现 {count} 个新添加站点。",
+        "sites_recent_sites_expander": "显示新添加站点建议",
+        "sites_use_recent_sites_for_linking": "使用新添加站点作为选择",
+
+        "sites_annual_mean_temperature": "年平均气温，°C",
+        "sites_annual_mean_temperature_placeholder": "可选；仅用于区域气候标签建议",
+
+        "settings_temperature_rules": "基于温度的气候规则",
+        "settings_use_temperature_when_available": "如有年平均气温，则优先用于判断 Tropical / Temperate / Cold / Extreme cold",
+        "settings_tropical_mean_temperature_min": "Tropical：年平均气温 ≥",
+        "settings_temperate_mean_temperature_min": "Temperate：年平均气温 ≥",
+        "settings_cold_mean_temperature_max": "Cold：年平均气温 ≤",
+        "settings_extreme_cold_mean_temperature_max": "Extreme cold：年平均气温 ≤",
     },
 }
 

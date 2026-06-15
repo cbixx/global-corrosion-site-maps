@@ -144,6 +144,13 @@ DEFAULT_REGION_CLASSIFICATION_SETTINGS = {
         "cold_abs_latitude_min": 50.0,
         "extreme_cold_abs_latitude_min": 66.5,
     },
+    "temperature_rules": {
+        "use_temperature_when_available": True,
+        "tropical_mean_temperature_min": 18.0,
+        "temperate_mean_temperature_min": 5.0,
+        "cold_mean_temperature_max": 5.0,
+        "extreme_cold_mean_temperature_max": 0.0,
+    },
     "semantic_rules": {
         "island_country_hints": sorted(ISLAND_COUNTRY_HINTS),
         "island_text_patterns": ISLAND_TEXT_PATTERNS,
@@ -197,6 +204,16 @@ def _settings_patterns(
 
     return fallback
 
+def _optional_float(value: Any) -> float | None:
+    text = str(value or "").strip()
+
+    if not text:
+        return None
+
+    try:
+        return float(text)
+    except (TypeError, ValueError):
+        return None
 
 @dataclass
 class RegionClassification:
@@ -563,7 +580,8 @@ def _classify_climate_context(
     lat: float,
     text: str,
     settings: dict[str, Any],
-) -> str:
+    annual_mean_temperature: Any | None = None,
+) -> tuple[str, str]:
     abs_lat = abs(lat)
 
     hot_arid_patterns = _settings_patterns(
@@ -572,6 +590,55 @@ def _classify_climate_context(
         "hot_arid_patterns",
         HOT_ARID_PATTERNS,
     )
+
+    if _has_pattern(text, hot_arid_patterns):
+        return "Hot-arid", "text pattern"
+
+    temperature_value = _optional_float(annual_mean_temperature)
+    temperature_rules = settings.get("temperature_rules", {})
+    use_temperature = bool(
+        temperature_rules.get("use_temperature_when_available", True)
+    )
+
+    if use_temperature and temperature_value is not None:
+        tropical_min = _settings_number(
+            settings,
+            "temperature_rules",
+            "tropical_mean_temperature_min",
+            18.0,
+        )
+        temperate_min = _settings_number(
+            settings,
+            "temperature_rules",
+            "temperate_mean_temperature_min",
+            5.0,
+        )
+        cold_max = _settings_number(
+            settings,
+            "temperature_rules",
+            "cold_mean_temperature_max",
+            5.0,
+        )
+        extreme_cold_max = _settings_number(
+            settings,
+            "temperature_rules",
+            "extreme_cold_mean_temperature_max",
+            0.0,
+        )
+
+        if temperature_value <= extreme_cold_max:
+            return "Extreme cold", "annual mean temperature"
+
+        if temperature_value <= cold_max:
+            return "Cold", "annual mean temperature"
+
+        if temperature_value >= tropical_min:
+            return "Tropical", "annual mean temperature"
+
+        if temperature_value >= temperate_min:
+            return "Temperate", "annual mean temperature"
+
+        return "Temperate", "annual mean temperature"
 
     tropical_abs_latitude_max = _settings_number(
         settings,
@@ -601,19 +668,16 @@ def _classify_climate_context(
         -60.0,
     )
 
-    if _has_pattern(text, hot_arid_patterns):
-        return "Hot-arid"
-
     if lat <= antarctic_latitude_max or abs_lat >= extreme_cold_abs_latitude_min:
-        return "Extreme cold"
+        return "Extreme cold", "latitude/text heuristic"
 
     if abs_lat <= tropical_abs_latitude_max:
-        return "Tropical"
+        return "Tropical", "latitude/text heuristic"
 
     if abs_lat >= cold_abs_latitude_min:
-        return "Cold"
+        return "Cold", "latitude/text heuristic"
 
-    return "Temperate"
+    return "Temperate", "latitude/text heuristic"
 
 
 def _merge_existing_and_inferred(
@@ -653,6 +717,7 @@ def classify_region_category(
     current_region_category: str | None = "",
     modern_country_location: str | None = "",
     site_type: str | None = "",
+    annual_mean_temperature: Any | None = None,
     settings: dict[str, Any] | None = None,
 ) -> RegionClassification:
     """
@@ -727,9 +792,16 @@ def classify_region_category(
     if polar_tags:
         notes.append("Polar/subpolar context inferred from latitude and/or explicit text.")
 
-    climate_context = _classify_climate_context(lat, text, settings)
+    climate_context, climate_basis = _classify_climate_context(
+        lat,
+        text,
+        settings,
+        annual_mean_temperature=annual_mean_temperature,
+    )
     inferred_tags.append(climate_context)
-    notes.append(f"Broad climate context suggested as {climate_context} using latitude/text heuristic.")
+    notes.append(
+        f"Broad climate context suggested as {climate_context} using {climate_basis}."
+    )
 
     final_tags = _merge_existing_and_inferred(existing_tags, inferred_tags)
 

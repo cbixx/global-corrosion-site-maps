@@ -531,6 +531,57 @@ DATA_EDITOR_EXTRA_PADDING = 0
 
 REGION_CLASSIFICATION_SETTINGS_KEY = "region_classification_rules"
 
+SITE_SOURCE_LINK_BASELINE_KEY = "site_source_link_last_successful_site_max_id"
+
+
+def get_current_max_site_db_id() -> int:
+    with get_connection() as conn:
+        row = conn.execute(
+            "select coalesce(max(id), 0) as max_id from sites"
+        ).fetchone()
+
+    return int(row["max_id"] or 0)
+
+
+def get_site_source_link_baseline() -> int:
+    saved_value = get_app_setting(
+        SITE_SOURCE_LINK_BASELINE_KEY,
+        default=None,
+    )
+
+    if saved_value in (None, ""):
+        baseline = get_current_max_site_db_id()
+        set_app_setting(SITE_SOURCE_LINK_BASELINE_KEY, str(baseline))
+        return baseline
+
+    try:
+        return int(saved_value)
+    except (TypeError, ValueError):
+        baseline = get_current_max_site_db_id()
+        set_app_setting(SITE_SOURCE_LINK_BASELINE_KEY, str(baseline))
+        return baseline
+
+
+def set_site_source_link_baseline_to_current_max() -> None:
+    set_app_setting(
+        SITE_SOURCE_LINK_BASELINE_KEY,
+        str(get_current_max_site_db_id()),
+    )
+
+
+def get_recent_site_labels_since_last_successful_link(
+    site_options: list[dict],
+) -> list[str]:
+    baseline = get_site_source_link_baseline()
+
+    recent_rows = [
+        row
+        for row in site_options
+        if int(row.get("id", 0) or 0) > baseline
+    ]
+
+    return [build_site_option_label(row) for row in recent_rows]
+
 
 def get_region_classification_settings() -> dict[str, Any]:
     saved_settings = get_app_setting(
@@ -582,6 +633,23 @@ def build_region_settings_from_form(
             "tropical_abs_latitude_max": float(st.session_state[f"{form_prefix}_tropical_abs_latitude_max"]),
             "cold_abs_latitude_min": float(st.session_state[f"{form_prefix}_cold_abs_latitude_min"]),
             "extreme_cold_abs_latitude_min": float(st.session_state[f"{form_prefix}_extreme_cold_abs_latitude_min"]),
+        },
+        "temperature_rules": {
+            "use_temperature_when_available": bool(
+                st.session_state[f"{form_prefix}_use_temperature_when_available"]
+            ),
+            "tropical_mean_temperature_min": float(
+                st.session_state[f"{form_prefix}_tropical_mean_temperature_min"]
+            ),
+            "temperate_mean_temperature_min": float(
+                st.session_state[f"{form_prefix}_temperate_mean_temperature_min"]
+            ),
+            "cold_mean_temperature_max": float(
+                st.session_state[f"{form_prefix}_cold_mean_temperature_max"]
+            ),
+            "extreme_cold_mean_temperature_max": float(
+                st.session_state[f"{form_prefix}_extreme_cold_mean_temperature_max"]
+            ),
         },
         "semantic_rules": {
             "island_country_hints": lines_to_list(st.session_state[f"{form_prefix}_island_country_hints"]),
@@ -1323,6 +1391,7 @@ SITE_FORM_DEFAULTS: dict[str, Any] = {
     "site_label_input": "",
     "site_latitude": "",
     "site_longitude": "",
+    "site_annual_mean_temperature": "",
     "site_modern_country_location": "",
     "administering_country_input": "",
     "site_id_input": "",
@@ -3083,10 +3152,6 @@ def translate_status(value: str, language: str) -> str:
 
     return t(status_key_map.get(str(value), str(value)), language)
 
-
-def ui_text(english: str, chinese: str) -> str:
-    return chinese if ui_language == "zh" else english
-
 R2_FREE_TIER_REFERENCE_GB = 10.0
 R2_STORAGE_WARNING_GB = 8.0
 R2_STORAGE_STRONG_WARNING_GB = 9.0
@@ -3186,24 +3251,19 @@ def suggest_region_tags_for_add_site_form(
     modern_country_location: str,
     site_type: str = "",
     current_region_category: str = "",
+    annual_mean_temperature: str | float | None = None,
 ) -> tuple[list[str], str]:
     latitude_text = str(latitude or "").strip()
     longitude_text = str(longitude or "").strip()
 
     if not latitude_text or not longitude_text:
-        return [], ui_text(
-            "Latitude and longitude are required before region classification.",
-            "进行区域分类前需要先填写纬度和经度。",
-        )
+        return [], t("sites_region_missing_coordinates", ui_language)
 
     try:
         latitude_value = float(latitude_text)
         longitude_value = float(longitude_text)
     except (TypeError, ValueError):
-        return [], ui_text(
-            "Latitude and longitude must be valid numbers before region classification.",
-            "进行区域分类前，纬度和经度必须是有效数字。",
-        )
+        return [], t("sites_region_invalid_coordinates", ui_language)
 
     result = classify_region_category(
         latitude=latitude_value,
@@ -3211,16 +3271,14 @@ def suggest_region_tags_for_add_site_form(
         current_region_category=current_region_category,
         modern_country_location=modern_country_location,
         site_type=site_type,
+        annual_mean_temperature=annual_mean_temperature,
         settings=get_region_classification_settings(),
     )
 
     suggested_region = str(result.region_category or "").strip()
 
     if not suggested_region:
-        return [], ui_text(
-            "No region category could be inferred from the current coordinates.",
-            "无法根据当前坐标推断区域类别。",
-        )
+        return [], t("sites_region_not_inferred", ui_language)
 
     return split_chip_values(suggested_region), str(result.notes or "").strip()
 
@@ -4063,15 +4121,19 @@ def suggest_region_for_add_site_callback() -> None:
             current_region_category=normalize_region_category(
                 st.session_state.get("region_tags_select", [])
             ),
+            annual_mean_temperature=st.session_state.get(
+                "site_annual_mean_temperature",
+                "",
+            ),
         )
     )
 
     if suggested_region_tags:
         st.session_state["region_tags_select"] = suggested_region_tags
         st.session_state["region_action_level"] = "success"
-        st.session_state["region_action_message"] = ui_text(
-            "Region category suggested. Review the tags before adding the site.",
-            "已建议区域类别。添加站点前请检查标签。",
+        st.session_state["region_action_message"] = t(
+            "sites_region_suggested_review",
+            ui_language,
         )
         st.session_state["region_action_note"] = region_note
     else:
@@ -4083,9 +4145,9 @@ def suggest_region_for_add_site_callback() -> None:
 def clear_region_for_add_site_callback() -> None:
     st.session_state["region_tags_select"] = []
     st.session_state["region_action_level"] = "info"
-    st.session_state["region_action_message"] = ui_text(
-        "Region category cleared.",
-        "已清除区域类别。",
+    st.session_state["region_action_message"] = t(
+        "sites_region_cleared",
+        ui_language,
     )
     st.session_state["region_action_note"] = ""
 
@@ -5316,7 +5378,7 @@ if active_page == "Sites":
 
     with lookup_clear_col:
         if st.button(
-            ui_text("Clear lookup", "清除搜索"),
+            t("sites_clear_lookup", ui_language),
             key="clear_location_lookup_button",
             use_container_width=True,
         ):
@@ -5336,12 +5398,7 @@ if active_page == "Sites":
         elif message == "No matching locations found.":
             st.warning(t("sites_no_matching_locations", ui_language))
         elif message.startswith("Location suggestions found"):
-            st.info(
-                ui_text(
-                    "Location suggestions found. Review them and click Apply selected location.",
-                    "已找到地点建议。请检查后点击“应用选定地点”。",
-                )
-            )
+            st.info(t("sites_location_suggestions_found_apply", ui_language))
         else:
             st.warning(message)
 
@@ -5390,18 +5447,13 @@ if active_page == "Sites":
 
             with apply_location_col:
                 if st.button(
-                    ui_text("Apply selected location to Add Site form", "应用选定地点到添加站点表单"),
+                    t("sites_apply_selected_location_to_form", ui_language),
                     key="apply_selected_location_to_site_form",
                     type="primary",
                     use_container_width=True,
                 ):
                     apply_selected_location()
-                    st.success(
-                        ui_text(
-                            "Selected location applied to the site label, latitude, longitude, and country/location fields.",
-                            "已将选定地点应用到站点名称、纬度、经度和国家/地区字段。",
-                        )
-                    )
+                    st.success(t("sites_selected_location_applied_to_site_fields", ui_language))
 
     st.divider()
 
@@ -5448,6 +5500,12 @@ if active_page == "Sites":
                 key="site_longitude",
                 placeholder=t("sites_longitude_placeholder", ui_language),
             )
+
+        annual_mean_temperature = st.text_input(
+            site_optional_label("sites_annual_mean_temperature"),
+            placeholder=t("sites_annual_mean_temperature_placeholder", ui_language),
+            key="site_annual_mean_temperature",
+        )
 
         modern_country_location = st.text_input(
             required_label(t("sites_modern_country_location", ui_language)),
@@ -5530,10 +5588,7 @@ if active_page == "Sites":
 
         with region_suggest_col:
             st.button(
-                ui_text(
-                    "Suggest region from coordinates",
-                    "根据坐标建议区域类别",
-                ),
+                t("sites_suggest_region_from_coordinates", ui_language),
                 key="suggest_region_for_add_site",
                 use_container_width=True,
                 on_click=suggest_region_for_add_site_callback,
@@ -5541,7 +5596,7 @@ if active_page == "Sites":
 
         with region_clear_col:
             st.button(
-                ui_text("Clear region", "清除区域"),
+                t("sites_clear_region", ui_language),
                 key="clear_region_tags_for_add_site",
                 use_container_width=True,
                 on_click=clear_region_for_add_site_callback,
@@ -5664,6 +5719,7 @@ if active_page == "Sites":
                             modern_country_location=modern_country_location,
                             site_type=site_type,
                             current_region_category="",
+                            annual_mean_temperature=annual_mean_temperature,
                         )
                         region_category_to_save = normalize_region_category(auto_region_tags)
 
@@ -5756,6 +5812,8 @@ if active_page == "Sites":
             site_link_labels = list(site_label_to_id.keys())
             source_link_labels = list(source_label_to_id.keys())
 
+            recent_site_labels = get_recent_site_labels_since_last_successful_link(site_options)
+
             if "link_sites_selected" not in st.session_state:
                 st.session_state["link_sites_selected"] = []
 
@@ -5779,6 +5837,32 @@ if active_page == "Sites":
             if deselect_link_sites_clicked:
                 st.session_state["link_sites_selected"] = []
                 st.rerun()
+
+            if recent_site_labels:
+                st.info(
+                    t(
+                        "sites_recent_sites_found",
+                        ui_language,
+                        count=len(recent_site_labels),
+                    )
+                )
+
+                with st.expander(
+                    t("sites_recent_sites_expander", ui_language),
+                    expanded=True,
+                ):
+                    for label in recent_site_labels:
+                        st.write(f"- {label}")
+
+                    if st.button(
+                        t("sites_use_recent_sites_for_linking", ui_language),
+                        key="use_recent_sites_for_source_linking",
+                    ):
+                        st.session_state["link_sites_selected"] = [
+                            label for label in recent_site_labels
+                            if label in site_link_labels
+                        ]
+                        st.rerun()
 
             selected_site_labels = st.multiselect(
                 required_label(t("sites_choose_sites", ui_language)),
@@ -5944,6 +6028,8 @@ if active_page == "Sites":
 
                         if update_site_summary:
                             message += t("sites_flash_site_summary_updated", ui_language)
+
+                        set_site_source_link_baseline_to_current_max()
 
                         set_flash_message(message)
                         st.session_state.clear_site_source_link_after_success = True
@@ -8786,6 +8872,7 @@ if active_page == "Settings":
     distance_settings = current_region_settings["distance_to_coast"]
     latitude_settings = current_region_settings["latitude_rules"]
     semantic_settings = current_region_settings["semantic_rules"]
+    temperature_settings = current_region_settings.get("temperature_rules", {})
 
     form_prefix = "region_rule_settings"
 
@@ -8892,6 +8979,90 @@ if active_page == "Settings":
                 value=float(latitude_settings.get("extreme_cold_abs_latitude_min", 66.5)),
                 step=0.5,
                 key=f"{form_prefix}_extreme_cold_abs_latitude_min",
+            )
+            
+        st.write("##### Temperature-based climate rules")
+
+        st.checkbox(
+            "Use annual mean temperature for Tropical / Temperate / Cold / Extreme cold when available",
+            value=bool(temperature_settings.get("use_temperature_when_available", True)),
+            key=f"{form_prefix}_use_temperature_when_available",
+        )
+
+        temp_col1, temp_col2, temp_col3, temp_col4 = st.columns(4)
+
+        with temp_col1:
+            st.number_input(
+                "Tropical if annual mean temperature ≥",
+                value=float(temperature_settings.get("tropical_mean_temperature_min", 18.0)),
+                step=0.5,
+                key=f"{form_prefix}_tropical_mean_temperature_min",
+            )
+
+        with temp_col2:
+            st.number_input(
+                "Temperate if annual mean temperature ≥",
+                value=float(temperature_settings.get("temperate_mean_temperature_min", 5.0)),
+                step=0.5,
+                key=f"{form_prefix}_temperate_mean_temperature_min",
+            )
+
+        with temp_col3:
+            st.number_input(
+                "Cold if annual mean temperature ≤",
+                value=float(temperature_settings.get("cold_mean_temperature_max", 5.0)),
+                step=0.5,
+                key=f"{form_prefix}_cold_mean_temperature_max",
+            )
+
+        with temp_col4:
+            st.number_input(
+                "Extreme cold if annual mean temperature ≤",
+                value=float(temperature_settings.get("extreme_cold_mean_temperature_max", 0.0)),
+                step=0.5,
+                key=f"{form_prefix}_extreme_cold_mean_temperature_max",
+            )
+
+        st.write(f"##### {t('settings_temperature_rules', ui_language)}")
+
+        st.checkbox(
+            t("settings_use_temperature_when_available", ui_language),
+            value=bool(temperature_settings.get("use_temperature_when_available", True)),
+            key=f"{form_prefix}_use_temperature_when_available",
+        )
+
+        temp_col1, temp_col2, temp_col3, temp_col4 = st.columns(4)
+
+        with temp_col1:
+            st.number_input(
+                t("settings_tropical_mean_temperature_min", ui_language),
+                value=float(temperature_settings.get("tropical_mean_temperature_min", 18.0)),
+                step=0.5,
+                key=f"{form_prefix}_tropical_mean_temperature_min",
+            )
+
+        with temp_col2:
+            st.number_input(
+                t("settings_temperate_mean_temperature_min", ui_language),
+                value=float(temperature_settings.get("temperate_mean_temperature_min", 5.0)),
+                step=0.5,
+                key=f"{form_prefix}_temperate_mean_temperature_min",
+            )
+
+        with temp_col3:
+            st.number_input(
+                t("settings_cold_mean_temperature_max", ui_language),
+                value=float(temperature_settings.get("cold_mean_temperature_max", 5.0)),
+                step=0.5,
+                key=f"{form_prefix}_cold_mean_temperature_max",
+            )
+
+        with temp_col4:
+            st.number_input(
+                t("settings_extreme_cold_mean_temperature_max", ui_language),
+                value=float(temperature_settings.get("extreme_cold_mean_temperature_max", 0.0)),
+                step=0.5,
+                key=f"{form_prefix}_extreme_cold_mean_temperature_max",
             )
 
         st.write(f"##### {t('settings_semantic_rules', ui_language)}")
