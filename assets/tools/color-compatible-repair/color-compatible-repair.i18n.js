@@ -1,4 +1,4 @@
-window.COLOR_REPAIR_I18N = {
+﻿window.COLOR_REPAIR_I18N = {
   en: {
     page: {
       back: "← Back to research tools",
@@ -88,9 +88,9 @@ window.COLOR_REPAIR_I18N = {
     page: {
       back: "← 返回研究工具",
       kicker: "中文研究工具",
-      title: "颜色相容性修补计算器",
+      title: "颜色相容性修复计算器",
       intro:
-        "本工具基于目标混凝土的 L*、a*、b* 颜色值，计算 MPC 修补砂浆的推荐颜料组合与掺量。",
+        "本工具基于目标混凝土的 L*、a*、b* 颜色值，计算 MPC 修复砂浆的推荐颜料组合与掺量。",
       scopeTitle: "模型适用范围：",
       scope:
         "本工具基于固定的 28 d MPC 砂浆基准色及经验线性调色模型。计算结果仅用于初步配方参考，实际工程或试验使用前应进行实验验证。",
@@ -141,7 +141,7 @@ window.COLOR_REPAIR_I18N = {
 
     result: {
       target: "目标混凝土颜色",
-      predicted: "预测修补色",
+      predicted: "预测修复色",
       pigmentCount: "使用颜料种数",
       deltaE: "色差 ΔE*ab(76)",
       dosageTitle: "推荐掺量，仅列出非零项",
@@ -152,7 +152,7 @@ window.COLOR_REPAIR_I18N = {
       baseline: "MPC 基准色",
       targetLine: "目标混凝土",
       recommendation: "推荐方案",
-      predictedLine: "预测修补色",
+      predictedLine: "预测修复色",
       dosageLine: "掺量（%）",
       noneShort: "无",
     },
