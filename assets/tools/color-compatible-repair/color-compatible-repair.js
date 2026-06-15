@@ -1,13 +1,35 @@
+function getToolLanguage() {
+  const htmlLang = document.documentElement.lang.toLowerCase();
+  return htmlLang.startsWith("zh") ? "zh" : "en";
+}
+
+const TOOL_LANG = getToolLanguage();
+const TEXT = window.COLOR_REPAIR_I18N[TOOL_LANG];
+
+function t(path) {
+  return path.split(".").reduce((obj, key) => obj && obj[key], TEXT) || path;
+}
+
+function applyStaticTranslations() {
+  document.querySelectorAll("[data-i18n]").forEach(element => {
+    element.textContent = t(element.dataset.i18n);
+  });
+}
+
 const LAB0 = { L: 43.55, a: 2.23, b: 9.62 };
 
 const pigments = [
-  { key:"white", name:"钛白（Titanium white）" },
-  { key:"black", name:"氧化铁黑（Iron oxide black）" },
-  { key:"yellow", name:"氧化铁黄（Iron oxide yellow）" },
-  { key:"blue", name:"氧化铁蓝（Iron oxide blue）" },
-  { key:"red", name:"氧化铁红（Iron oxide red）" },
-  { key:"green", name:"氧化铁绿（Iron oxide green）" },
+  { key: "white" },
+  { key: "black" },
+  { key: "yellow" },
+  { key: "blue" },
+  { key: "red" },
+  { key: "green" },
 ];
+
+function pigmentName(pigment) {
+  return t(`pigments.${pigment.key}`);
+}
 
 // K: 3x6（行：L,a,b；列按 pigments 顺序）
 // 注意：此处 K 对应“D 为质量分数”的建模情形
@@ -219,6 +241,14 @@ function solveForTarget(Lt, at, bt){
 
 /** UI */
 const $ = (id)=>document.getElementById(id);
+applyStaticTranslations();
+
+$("badgeStatus").textContent = t("status.waiting");
+$("mainContent").innerHTML = `<div class="muted">${t("messages.initial")}</div>`;
+
+$("Lt").placeholder = t("inputs.LPlaceholder");
+$("at").placeholder = t("inputs.aPlaceholder");
+$("bt").placeholder = t("inputs.bPlaceholder");
 const toast = (msg)=>{
   const t = $("toast");
   t.textContent = msg;
@@ -238,18 +268,18 @@ function buildPigmentRows(D){
     .sort((a,b)=>b.v-a.v);
 
   if(rows.length===0){
-    return `<div class="muted">未找到可行解（可能目标颜色超出该系数模型可达范围或需放宽约束）。</div>`;
+    return `<div class="muted">${t("result.none")}</div>`;
   }
 
   let html = `
     <table class="pigment-table">
       <thead>
-        <tr><th>颜料</th><th class="right">掺量（%）</th></tr>
+        <tr><th>${t("result.pigmentHeader")}</th><th class="right">${t("result.dosageHeader")}</th></tr>
       </thead>
       <tbody>
   `;
   for(const r of rows){
-    html += `<tr><td>${r.p.name}</td><td class="right mono">${fmt(r.v * 100, 1)}</td></tr>`;
+    html += `<tr><td>${pigmentName(r.p)}</td><td class="right mono">${fmt(r.v * 100, 1)}</td></tr>`;
   }
   html += `</tbody></table>`;
   return html;
@@ -261,19 +291,19 @@ function renderMain(sol, target){
   const kv = `
     <div class="kvs">
       <div class="kv">
-        <div class="k">目标混凝土（输入）</div>
+        <div class="k">${t("result.target")}</div>
         <div class="v">L* ${fmt(target[0])} / a* ${fmt(target[1])} / b* ${fmt(target[2])}</div>
       </div>
       <div class="kv">
-        <div class="k">预测修补色（输出）</div>
+        <div class="k">${t("result.predicted")}</div>
         <div class="v">L* ${fmt(sol.pred[0])} / a* ${fmt(sol.pred[1])} / b* ${fmt(sol.pred[2])}</div>
       </div>
       <div class="kv">
-        <div class="k">使用颜料种数</div>
-        <div class="v">${used} 种（≤ ${MAX_PIGMENTS}）</div>
+        <div class="k">${t("result.pigmentCount")}</div>
+        <div class="v">${used} ${t("result.species")} (≤ ${MAX_PIGMENTS})</div>
       </div>
       <div class="kv">
-        <div class="k">色差 ΔE*ab(76)</div>
+        <div class="k">${t("result.deltaE")}</div>
         <div class="v">${fmt(sol.dE, 3)}</div>
       </div>
     </div>
@@ -282,7 +312,7 @@ function renderMain(sol, target){
   return `
     ${kv}
     <div style="margin-top:10px;">
-      <div class="small muted">推荐掺量（仅列出非零项）</div>
+      <div class="small muted">${t("result.dosageTitle")}</div>
       ${buildPigmentRows(sol.D)}
     </div>
   `;
@@ -290,14 +320,19 @@ function renderMain(sol, target){
 
 /** 复制：掺量显示为百分比，保留1位小数 */
 function buildCopyText(best, target){
-  const usedRows = pigments.map((p,i)=>({name:p.name, v:best.D[i]})).filter(x=>x.v>1e-8);
+  const usedRows = pigments
+    .map((p,i)=>({name: pigmentName(p), v:best.D[i]}))
+    .filter(x=>x.v>1e-8);
+
   let lines = [];
-  lines.push(`MPC基准色：L* ${LAB0.L} / a* ${LAB0.a} / b* ${LAB0.b}`);
-  lines.push(`目标混凝土：L* ${fmt(target[0])} / a* ${fmt(target[1])} / b* ${fmt(target[2])}`);
-  lines.push(`推荐方案：ΔE*ab(76) = ${fmt(best.dE,3)}`);
-  lines.push(`预测修补色：L* ${fmt(best.pred[0])} / a* ${fmt(best.pred[1])} / b* ${fmt(best.pred[2])}`);
-  lines.push(`掺量（%）：`);
-  if(usedRows.length===0) lines.push(`  （无）`);
+  lines.push(`${t("result.baseline")}: L* ${LAB0.L} / a* ${LAB0.a} / b* ${LAB0.b}`);
+  lines.push(`${t("result.targetLine")}: L* ${fmt(target[0])} / a* ${fmt(target[1])} / b* ${fmt(target[2])}`);
+  lines.push(`${t("result.recommendation")}: ΔE*ab(76) = ${fmt(best.dE,3)}`);
+  lines.push(`${t("result.predictedLine")}: L* ${fmt(best.pred[0])} / a* ${fmt(best.pred[1])} / b* ${fmt(best.pred[2])}`);
+  lines.push(`${t("result.dosageLine")}:`);
+
+  if(usedRows.length===0) lines.push(`  (${t("result.noneShort")})`);
+
   usedRows.forEach(r => lines.push(`  - ${r.name}: ${fmt(r.v * 100, 1)} %`));
   return lines.join("\n");
 }
@@ -308,45 +343,45 @@ $("btnCalc").addEventListener("click", ()=>{
   const bt = parseFloat($("bt").value);
 
   if(!isFinite(Lt) || !isFinite(at) || !isFinite(bt)){
-    toast("请完整输入目标混凝土的 L*、a*、b*（数值）。");
+    toast(t("messages.missingLab"));
     return;
   }
 
-  $("badgeStatus").textContent = "计算中…";
+  $("badgeStatus").textContent = t("status.calculating");
 
   const sols = solveForTarget(Lt, at, bt);
 
   if(sols.length === 0){
-    $("badgeStatus").textContent = "无可行解";
-    $("mainContent").innerHTML = `<div class="muted">未找到满足约束（n≤3、0≤D&lt;12%）的可行解。</div>`;
+    $("badgeStatus").textContent = t("status.noSolution");
+    $("mainContent").innerHTML = `<div class="muted">${t("messages.noSolution")}</div>`;
     window.__last = null;
-    toast("未找到可行解。可尝试调整目标或约束/系数。");
+    toast(t("messages.noSolutionToast"));
     return;
   }
 
   const best = sols[0];
   const target = [Lt, at, bt];
 
-  $("badgeStatus").textContent = `已完成 · ΔE ${fmt(best.dE,3)}`;
+  $("badgeStatus").textContent = `${t("status.completed")} · ΔE ${fmt(best.dE, 3)}`;
   $("mainContent").innerHTML = renderMain(best, target);
 
   window.__last = { best, target };
-  toast("计算完成：已输出推荐掺量。");
+  toast(t("messages.completed"));
 });
 
 $("btnReset").addEventListener("click", ()=>{
   $("Lt").value = "";
   $("at").value = "";
   $("bt").value = "";
-  $("badgeStatus").textContent = "等待输入";
-  $("mainContent").innerHTML = `<div class="muted">请输入目标混凝土 L*、a*、b* 后点击“计算”。</div>`;
+  $("badgeStatus").textContent = t("status.waiting");
+  $("mainContent").innerHTML = `<div class="muted">${t("messages.initial")}</div>`;
   window.__last = null;
-  toast("已清空。");
+  toast(t("messages.cleared"));
 });
 
 $("btnCopy").addEventListener("click", async ()=>{
   if(!window.__last){
-    toast("暂无可复制的结果，请先计算。");
+    toast(t("messages.nothingToCopy"));
     return;
   }
   const { best, target } = window.__last;
@@ -354,7 +389,7 @@ $("btnCopy").addEventListener("click", async ()=>{
 
   try{
     await navigator.clipboard.writeText(text);
-    toast("已复制结果到剪贴板。");
+    toast(t("messages.copied"));
   }catch(e){
     const ta = document.createElement("textarea");
     ta.value = text;
@@ -362,6 +397,6 @@ $("btnCopy").addEventListener("click", async ()=>{
     ta.select();
     document.execCommand("copy");
     document.body.removeChild(ta);
-    toast("已复制结果到剪贴板。");
+    toast(t("messages.copied"));
   }
 });

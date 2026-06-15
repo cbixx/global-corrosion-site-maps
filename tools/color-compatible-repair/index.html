@@ -4,8 +4,8 @@
   <meta charset="utf-8">
   <title>Color-Compatible Repair Calculator | Corrosion Atlas</title>
   <meta name="description" content="Estimate pigment combinations for MPC-based repair mortar using target concrete L*, a*, and b* color values.">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
   <link rel="canonical" href="https://corrosionatlas.org/tools/color-compatible-repair/">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
 
   <link rel="stylesheet" href="/css/styles.css">
   <link rel="stylesheet" href="/assets/tools/color-compatible-repair/color-compatible-repair.css">
@@ -19,50 +19,46 @@
   <main class="content-page color-repair-page">
     <a class="back-link" href="/tools/" data-i18n="page.back">← Back to research tools</a>
 
-    <div class="landing-kicker">中文研究工具</div>
+    <div class="landing-kicker" data-i18n="page.kicker">中文研究工具</div>
 
-    <h1>颜色相容性修补计算器</h1>
+    <h1 data-i18n="page.title">颜色相容性修补计算器</h1>
 
-    <p>
-      本工具基于目标混凝土的
-      <span class="math"><var>L</var><sup>*</sup></span>、
-      <span class="math"><var>a</var><sup>*</sup></span>、
-      <span class="math"><var>b</var><sup>*</sup></span>
-      颜色值，计算 MPC 修补砂浆的推荐颜料组合与掺量。
+    <p data-i18n="page.intro">
+      本工具基于目标混凝土的 L*、a*、b* 颜色值，计算 MPC 修补砂浆的推荐颜料组合与掺量。
     </p>
 
     <div class="tool-scope-note">
-      <strong>模型适用范围：</strong>
-      本工具基于固定的 28 d MPC 砂浆基准色及经验线性调色模型。
-      计算结果仅用于初步配方参考，实际工程或试验使用前应进行实验验证。
+      <strong data-i18n="page.scopeTitle">模型适用范围：</strong>
+      <span data-i18n="page.scope">
+        本工具基于固定的 28 d MPC 砂浆基准色及经验线性调色模型。
+        计算结果仅用于初步配方参考，实际工程或试验使用前应进行实验验证。
+      </span>
     </div>
 
     <section class="color-tool-layout">
       <section class="color-panel">
         <div class="panel-heading-row">
           <div>
-            <h2>输入数据</h2>
-            <p>
-              请输入目标混凝土表面的
-              <span class="math"><var>L</var><sup>*</sup></span>、
-              <span class="math"><var>a</var><sup>*</sup></span>、
-              <span class="math"><var>b</var><sup>*</sup></span>
-              值。
+            <h2 data-i18n="page.inputTitle">输入数据</h2>
+            <p data-i18n="page.inputIntro">
+              请输入目标混凝土表面的 L*、a*、b* 值。
             </p>
           </div>
         </div>
 
         <div class="model-pills">
           <span class="pill">
-            MPC 基准色：
+            <span data-i18n="pills.baseline">MPC 基准色：</span>
             <strong id="baseLab">L* 43.55 / a* 2.23 / b* 9.62</strong>
           </span>
+
           <span class="pill">
-            约束：
-            <strong>0 ≤ D &lt; 12%；n ≤ 3</strong>
+            <span data-i18n="pills.constraint">约束：</span>
+            <strong>0 ≤ D &lt; 12%; n ≤ 3</strong>
           </span>
+
           <span class="pill">
-            色差：
+            <span data-i18n="pills.colorDifference">色差：</span>
             <strong>ΔE*ab(76)</strong>
           </span>
         </div>
@@ -70,27 +66,35 @@
         <div class="lab-input-grid">
           <label class="input-group">
             <span><span class="math"><var>L</var><sup>*</sup></span></span>
-            <small>亮度通道。</small>
+            <small data-i18n="inputs.L">亮度通道。</small>
             <input id="Lt" type="number" step="0.01" placeholder="例如 45.00">
           </label>
 
           <label class="input-group">
             <span><span class="math"><var>a</var><sup>*</sup></span></span>
-            <small>红绿通道。</small>
+            <small data-i18n="inputs.a">红绿通道。</small>
             <input id="at" type="number" step="0.01" placeholder="例如 2.50">
           </label>
 
           <label class="input-group">
             <span><span class="math"><var>b</var><sup>*</sup></span></span>
-            <small>黄蓝通道。</small>
+            <small data-i18n="inputs.b">黄蓝通道。</small>
             <input id="bt" type="number" step="0.01" placeholder="例如 10.00">
           </label>
         </div>
 
         <div class="tool-actions">
-          <button class="ca-button ca-button-primary" id="btnCalc" type="button">计算推荐方案</button>
-          <button class="ca-button ca-button-secondary" id="btnReset" type="button">清空</button>
-          <button class="ca-button ca-button-secondary" id="btnCopy" type="button">复制结果</button>
+          <button class="ca-button ca-button-primary" id="btnCalc" type="button" data-i18n="buttons.calculate">
+            计算推荐方案
+          </button>
+
+          <button class="ca-button ca-button-secondary" id="btnReset" type="button" data-i18n="buttons.reset">
+            清空
+          </button>
+
+          <button class="ca-button ca-button-secondary" id="btnCopy" type="button" data-i18n="buttons.copy">
+            复制结果
+          </button>
         </div>
 
         <div class="tool-status" id="toast"></div>
@@ -99,13 +103,14 @@
       <section class="color-panel">
         <div class="result-title">
           <div>
-            <h2>计算结果</h2>
-            <p>推荐方案按最小色差排序。</p>
+            <h2 data-i18n="page.resultTitle">计算结果</h2>
+            <p data-i18n="page.resultIntro">推荐方案按最小色差排序。</p>
           </div>
-          <span class="badge" id="badgeStatus">等待输入</span>
+
+          <span class="badge" id="badgeStatus" data-i18n="status.waiting">等待输入</span>
         </div>
 
-        <div id="mainContent" class="result-content muted">
+        <div id="mainContent" class="result-content muted" data-i18n="messages.initial">
           请输入目标混凝土 L*、a*、b* 后点击“计算推荐方案”。
         </div>
       </section>
@@ -113,6 +118,7 @@
   </main>
 
   <script src="/assets/site-shell.js" defer></script>
+  <script src="/assets/tools/color-compatible-repair/color-compatible-repair.i18n.js" defer></script>
   <script src="/assets/tools/color-compatible-repair/color-compatible-repair.js" defer></script>
 </body>
 </html>
