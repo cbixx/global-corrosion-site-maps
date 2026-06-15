@@ -10,6 +10,31 @@
     { href: "/methodology/", label: "Methodology" }
   ];
 
+  function isChinesePath(pathname) {
+    return pathname === "/zh/" || pathname.startsWith("/zh/");
+  }
+
+  function englishToChinesePath(pathname) {
+    if (pathname === "/") return "/zh/";
+    return `/zh${pathname}`;
+  }
+
+  function chineseToEnglishPath(pathname) {
+    if (pathname === "/zh/" || pathname === "/zh") return "/";
+    return pathname.replace(/^\/zh/, "") || "/";
+  }
+
+  function getLanguageSwitch() {
+    const pathname = window.location.pathname;
+    const isZh = isChinesePath(pathname);
+
+    return {
+      href: isZh ? chineseToEnglishPath(pathname) : englishToChinesePath(pathname),
+      label: isZh ? "English" : "中文",
+      ariaLabel: isZh ? "Switch to English" : "切换到中文",
+    };
+  }
+
   function isActive(href) {
     if (href === "/") {
       return currentPath === "/" || currentPath === "/index.html";
@@ -32,6 +57,10 @@
             ${item.label}
           </a>
         `).join("")}
+        ${(() => {
+          const lang = getLanguageSwitch();
+          return `<a class="site-lang-switch" href="${lang.href}" aria-label="${lang.ariaLabel}">${lang.label}</a>`;
+        })()}
       </nav>
     `;
 
