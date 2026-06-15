@@ -8980,49 +8980,7 @@ if active_page == "Settings":
                 step=0.5,
                 key=f"{form_prefix}_extreme_cold_abs_latitude_min",
             )
-            
-        st.write("##### Temperature-based climate rules")
-
-        st.checkbox(
-            "Use annual mean temperature for Tropical / Temperate / Cold / Extreme cold when available",
-            value=bool(temperature_settings.get("use_temperature_when_available", True)),
-            key=f"{form_prefix}_use_temperature_when_available",
-        )
-
-        temp_col1, temp_col2, temp_col3, temp_col4 = st.columns(4)
-
-        with temp_col1:
-            st.number_input(
-                "Tropical if annual mean temperature ≥",
-                value=float(temperature_settings.get("tropical_mean_temperature_min", 18.0)),
-                step=0.5,
-                key=f"{form_prefix}_tropical_mean_temperature_min",
-            )
-
-        with temp_col2:
-            st.number_input(
-                "Temperate if annual mean temperature ≥",
-                value=float(temperature_settings.get("temperate_mean_temperature_min", 5.0)),
-                step=0.5,
-                key=f"{form_prefix}_temperate_mean_temperature_min",
-            )
-
-        with temp_col3:
-            st.number_input(
-                "Cold if annual mean temperature ≤",
-                value=float(temperature_settings.get("cold_mean_temperature_max", 5.0)),
-                step=0.5,
-                key=f"{form_prefix}_cold_mean_temperature_max",
-            )
-
-        with temp_col4:
-            st.number_input(
-                "Extreme cold if annual mean temperature ≤",
-                value=float(temperature_settings.get("extreme_cold_mean_temperature_max", 0.0)),
-                step=0.5,
-                key=f"{form_prefix}_extreme_cold_mean_temperature_max",
-            )
-
+        
         st.write(f"##### {t('settings_temperature_rules', ui_language)}")
 
         st.checkbox(
