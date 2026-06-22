@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <title>LS-DYNA 关键字文件浏览与编辑器 | Corrosion Atlas</title>
+  <meta
+    name="description"
+    content="用于在浏览器本地浏览、初步检查和编辑 LS-DYNA 关键字文件的工具。"
+  >
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <link rel="canonical" href="https://corrosionatlas.org/zh/tools/lsdyna-deck/">
+  <link rel="alternate" hreflang="en" href="https://corrosionatlas.org/tools/lsdyna-deck/">
+
+  <link rel="stylesheet" href="/css/styles.css">
+  <link rel="stylesheet" href="/assets/tools/lsdyna-deck/lsdyna-deck.css">
+
+  <link rel="icon" href="/assets/icons/favicon.ico?v=3" sizes="any">
+  <link rel="icon" href="/assets/icons/favicon.svg?v=3" type="image/svg+xml">
+  <meta name="theme-color" content="#10293A">
+</head>
+
+<body>
+  <main class="content-page lsdyna-deck-page">
+    <div class="landing-kicker">工具</div>
+
+    <h1>LS-DYNA 关键字文件浏览与编辑器</h1>
+
+    <p class="lsdyna-deck-intro">
+      在浏览器中读取单个 LS-DYNA 关键字文件，查看已识别的模型输入，
+      对部分常用参数进行编辑，完成基础一致性检查，并导出副本后交由
+      LS-PrePost 与 LS-DYNA 进一步验证。
+    </p>
+
+    <div class="lsdyna-privacy-note" role="note">
+      <strong>本地处理：</strong>
+      文件仅在当前浏览器中读取和处理，不会上传至 Corrosion Atlas
+      或任何外部服务器。
+    </div>
+
+    <section class="lsdyna-scope-grid" aria-label="工具功能范围">
+      <article class="lsdyna-scope-card">
+        <h2>浏览</h2>
+        <p>
+          查看已识别的部件、材料、截面、节点、单元、初始运动、边界条件、
+          接触卡、控制卡及结果输出设置。
+        </p>
+      </article>
+
+      <article class="lsdyna-scope-card">
+        <h2>编辑</h2>
+        <p>
+          通过引导界面调整部分常用参数，或进入原始关键字块编辑器，
+          直接修改指定关键字卡。
+        </p>
+      </article>
+
+      <article class="lsdyna-scope-card">
+        <h2>基础检查</h2>
+        <p>
+          在导出前执行轻量化一致性检查。最终有效性仍须通过
+          LS-DYNA 关键字读取器和求解器确认。
+        </p>
+      </article>
+    </section>
+
+    <section class="lsdyna-tool-shell" id="lsdyna-app" aria-label="LS-DYNA 关键字工具">
+      <div class="lsdyna-tool-header">
+        <div>
+          <p class="lsdyna-tool-kicker">浏览器本地工具</p>
+          <h2>打开 LS-DYNA 关键字文件</h2>
+          <p>
+            请选择一个 <code>.k</code>、<code>.key</code>、<code>.dyn</code>、
+            <code>.inc</code> 或文本格式关键字文件。
+          </p>
+        </div>
+
+        <span class="lsdyna-local-badge">不上传文件</span>
+      </div>
+
+      <section class="lsdyna-upload-panel" id="lsdyna-upload-panel">
+        <label class="lsdyna-dropzone" id="lsdyna-dropzone" for="lsdyna-file-input">
+          <strong>将关键字文件拖放到此处</strong>
+          <span>或从电脑中选择文件</span>
+          <span class="lsdyna-select-button">选择关键字文件</span>
+        </label>
+
+        <input
+          id="lsdyna-file-input"
+          type="file"
+          accept=".k,.key,.dyn,.inc,.txt,text/plain"
+          aria-describedby="lsdyna-file-guidance"
+        >
+
+        <p class="lsdyna-file-guidance" id="lsdyna-file-guidance">
+          原始文件不会被修改。所有编辑仅保存在浏览器内存中，
+          只有在你主动导出新的 <code>_edited.k</code> 文件时才会生成副本。
+        </p>
+
+        <p class="lsdyna-file-status" id="lsdyna-file-status" aria-live="polite"></p>
+      </section>
+
+      <section class="lsdyna-workspace" id="lsdyna-workspace" hidden aria-live="polite"></section>
+
+      <div class="lsdyna-scope-warning" role="note">
+        <strong>重要限制：</strong>
+        本工具不是完整的 LS-DYNA 关键字读取器。对于
+        <code>*INCLUDE</code>、<code>*PARAMETER</code>、曲线、坐标变换、
+        高级接触参数及未支持的卡片格式，工具可能保留其文本，
+        但无法通过引导界面完整解释或验证。
+      </div>
+    </section>
+
+    <noscript>
+      <p class="page-note">
+        本工具需要 JavaScript 才能在浏览器本地读取和编辑 LS-DYNA 关键字文件。
+      </p>
+    </noscript>
+  </main>
+
+  <script src="/assets/site-i18n.js" defer></script>
+  <script src="/assets/site-shell.js" defer></script>
+  <script src="/assets/tools/lsdyna-deck/lsdyna-deck.i18n.js" defer></script>
+  <script src="/assets/tools/lsdyna-deck/lsdyna-deck.js" defer></script>
+</body>
+</html>

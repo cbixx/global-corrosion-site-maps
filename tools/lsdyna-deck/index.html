@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>LS-DYNA Deck Navigator & Editor | Corrosion Atlas</title>
+  <meta
+    name="description"
+    content="A browser-based LS-DYNA keyword deck navigator and basic editor for reviewing recognised model inputs locally."
+  >
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <link rel="canonical" href="https://corrosionatlas.org/tools/lsdyna-deck/">
+  <link rel="alternate" hreflang="zh-CN" href="https://corrosionatlas.org/zh/tools/lsdyna-deck/">
+
+  <link rel="stylesheet" href="/css/styles.css">
+  <link rel="stylesheet" href="/assets/tools/lsdyna-deck/lsdyna-deck.css">
+
+  <link rel="icon" href="/assets/icons/favicon.ico?v=3" sizes="any">
+  <link rel="icon" href="/assets/icons/favicon.svg?v=3" type="image/svg+xml">
+  <meta name="theme-color" content="#10293A">
+</head>
+
+<body>
+  <main class="content-page lsdyna-deck-page">
+    <div class="landing-kicker">Tools</div>
+
+    <h1>LS-DYNA Deck Navigator &amp; Editor</h1>
+
+    <p class="lsdyna-deck-intro">
+      Inspect a single LS-DYNA keyword deck, review recognised model inputs,
+      make limited parameter edits, run basic consistency checks, and export
+      an edited copy for verification in LS-PrePost and LS-DYNA.
+    </p>
+
+    <div class="lsdyna-privacy-note" role="note">
+      <strong>Local processing:</strong>
+      Your keyword deck is read and processed only in this browser. It is not
+      uploaded to Corrosion Atlas or sent to an external server.
+    </div>
+
+    <section class="lsdyna-scope-grid" aria-label="Tool scope">
+      <article class="lsdyna-scope-card">
+        <h2>Inspect</h2>
+        <p>
+          Review recognised parts, materials, sections, nodes, elements,
+          initial motion, boundary conditions, contact cards, controls, and
+          output requests.
+        </p>
+      </article>
+
+      <article class="lsdyna-scope-card">
+        <h2>Edit</h2>
+        <p>
+          Adjust selected common parameters through a guided interface, or edit
+          individual keyword blocks directly through the raw editor.
+        </p>
+      </article>
+
+      <article class="lsdyna-scope-card">
+        <h2>Verify</h2>
+        <p>
+          Run lightweight deck checks before exporting a copy. Final validation
+          must still be carried out with the LS-DYNA keyword reader and solver.
+        </p>
+      </article>
+    </section>
+
+    <section class="lsdyna-tool-shell" id="lsdyna-app" aria-label="LS-DYNA deck tool">
+      <div class="lsdyna-tool-header">
+        <div>
+          <p class="lsdyna-tool-kicker">Local browser tool</p>
+          <h2>Open an LS-DYNA keyword deck</h2>
+          <p>
+            Choose one <code>.k</code>, <code>.key</code>, <code>.dyn</code>,
+            <code>.inc</code>, or text-based keyword file.
+          </p>
+        </div>
+
+        <span class="lsdyna-local-badge">No file upload</span>
+      </div>
+
+      <section class="lsdyna-upload-panel" id="lsdyna-upload-panel">
+        <label class="lsdyna-dropzone" id="lsdyna-dropzone" for="lsdyna-file-input">
+          <strong>Drag a keyword deck here</strong>
+          <span>or select a file from your computer</span>
+          <span class="lsdyna-select-button">Choose keyword file</span>
+        </label>
+
+        <input
+          id="lsdyna-file-input"
+          type="file"
+          accept=".k,.key,.dyn,.inc,.txt,text/plain"
+          aria-describedby="lsdyna-file-guidance"
+        >
+
+        <p class="lsdyna-file-guidance" id="lsdyna-file-guidance">
+          The original file remains unchanged. Any edits are kept in browser
+          memory until you explicitly export a new <code>_edited.k</code> file.
+        </p>
+
+        <p class="lsdyna-file-status" id="lsdyna-file-status" aria-live="polite"></p>
+      </section>
+
+      <section class="lsdyna-workspace" id="lsdyna-workspace" hidden aria-live="polite"></section>
+
+      <div class="lsdyna-scope-warning" role="note">
+        <strong>Important limitation:</strong>
+        This is a browser-side aid, not a full LS-DYNA keyword reader.
+        Constructs such as <code>*INCLUDE</code>, <code>*PARAMETER</code>,
+        curves, transformations, advanced contact options, and unsupported card
+        formats may be retained but not fully interpreted by the guided editor.
+      </div>
+    </section>
+
+    <noscript>
+      <p class="page-note">
+        JavaScript is required to read and edit LS-DYNA keyword decks locally.
+      </p>
+    </noscript>
+  </main>
+
+  <script src="/assets/site-i18n.js" defer></script>
+  <script src="/assets/site-shell.js" defer></script>
+  <script src="/assets/tools/lsdyna-deck/lsdyna-deck.i18n.js" defer></script>
+  <script src="/assets/tools/lsdyna-deck/lsdyna-deck.js" defer></script>
+</body>
+</html>

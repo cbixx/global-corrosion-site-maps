@@ -16,6 +16,7 @@
     "/map/": "/zh/map/",
     "/tools/": "/zh/tools/",
     "/tools/color-compatible-repair/": "/zh/tools/color-compatible-repair/",
+    "/tools/lsdyna-deck/": "/zh/tools/lsdyna-deck/",
     "/reports/": "/zh/reports/",
     "/policy/": "/zh/policy/",
     "/about/": "/zh/about/",
