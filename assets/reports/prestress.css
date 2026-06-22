@@ -819,3 +819,71 @@
   padding-right: 9px;
   padding-left: 9px;
 }
+
+/* GB/T 7714-style bibliography */
+
+.report-sources {
+  margin-top: 3.5rem;
+  padding: clamp(1.35rem, 3vw, 2.1rem);
+  border-top: 3px solid rgba(185, 77, 30, 0.72);
+  border-radius: 0;
+  background: rgba(248, 247, 244, 0.72);
+}
+
+.report-sources h2 {
+  margin-top: 0;
+  margin-bottom: 0.55rem;
+}
+
+.references-note {
+  margin: 0;
+  color: var(--ca-muted);
+  font-size: 0.9rem;
+  line-height: 1.75;
+}
+
+.reference-list {
+  counter-reset: reference;
+  margin: 1.35rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.reference-list li {
+  position: relative;
+  counter-increment: reference;
+  margin: 0 0 0.82rem;
+  padding-left: 2.65rem;
+  color: var(--ca-navy);
+  font-size: 0.93rem;
+  font-weight: 400;
+  line-height: 1.85;
+}
+
+.reference-list li::before {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 2.15rem;
+  color: var(--ca-muted);
+  content: "[" counter(reference) "]";
+  font-family: var(--font-ui);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+@media (max-width: 600px) {
+  .report-sources {
+    padding: 1.15rem;
+  }
+
+  .reference-list li {
+    padding-left: 2.35rem;
+    font-size: 0.88rem;
+    line-height: 1.78;
+  }
+
+  .reference-list li::before {
+    width: 1.9rem;
+  }
+}
