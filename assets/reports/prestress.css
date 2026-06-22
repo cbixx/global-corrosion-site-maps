@@ -887,3 +887,33 @@
     width: 1.9rem;
   }
 }
+
+.report-toc-sources {
+  margin-top: 0.8rem;
+  padding-top: 0.8rem;
+  border-top: 1px solid rgba(16, 41, 58, 0.14);
+}
+
+.reference-link {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 0.35rem;
+  color: var(--ca-rust);
+  font-family: var(--font-ui);
+  font-size: 0.82em;
+  font-weight: 720;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.reference-link::after {
+  margin-left: 0.18em;
+  content: "↗";
+  font-size: 0.88em;
+}
+
+.reference-link:hover,
+.reference-link:focus-visible {
+  color: var(--ca-navy);
+  text-decoration: underline;
+}
