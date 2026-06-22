@@ -2422,3 +2422,11 @@ body.map-page {
   font-family: var(--font-ui);
   font-weight: 750;
 }
+
+@media (max-width: 640px) {
+  .report-card-topline {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 5px;
+  }
+}
