@@ -293,17 +293,17 @@
 .table-wrap {
   max-width: 100%;
   margin: 18px 0 22px;
-  overflow-x: auto;
+  overflow: visible;
   border: 1px solid var(--ca-border);
   border-radius: 13px;
   background: #ffffff;
-  -webkit-overflow-scrolling: touch;
   scroll-margin-top: 92px;
 }
 
 .report-article table {
   width: 100%;
-  min-width: 650px;
+  min-width: 0;
+  table-layout: fixed;
   border-collapse: collapse;
   font-size: 0.84rem;
   line-height: 1.58;
@@ -316,6 +316,8 @@
   border-bottom: 1px solid rgba(16, 41, 58, 0.11);
   vertical-align: top;
   text-align: left;
+  overflow-wrap: break-word;
+  word-break: normal;
 }
 
 .report-article th:last-child,
@@ -714,7 +716,7 @@
   }
 
   .report-article table {
-    min-width: 560px;
+    min-width: 0;
     font-size: 0.77rem;
   }
 
@@ -754,4 +756,66 @@
   .section-anchor {
     opacity: 1;
   }
+}
+
+/* Standards-table alignment and focus treatment */
+
+.report-article .standards-table {
+  table-layout: fixed;
+}
+
+.report-article .standards-table thead tr {
+  background: rgba(16, 41, 58, 0.065);
+}
+
+.report-article .standards-table th {
+  background: transparent;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+
+.report-article .standards-table td:first-child,
+.report-article .standards-table td:nth-child(3),
+.report-article .standards-table td:nth-child(4) {
+  font-variant-numeric: tabular-nums;
+}
+
+.report-article tbody tr.row-focus > td {
+  background:
+    linear-gradient(
+      90deg,
+      rgba(248, 219, 135, 0.58),
+      rgba(255, 249, 230, 0.82)
+    );
+}
+
+.report-article tbody tr.row-focus > td:first-child {
+  box-shadow: inset 3px 0 0 rgba(184, 122, 20, 0.82);
+}
+
+.report-article mark.key {
+  padding: 0 0.16em 0.05em;
+  border-radius: 0.18em;
+  background:
+    linear-gradient(
+      to bottom,
+      transparent 34%,
+      rgba(247, 204, 66, 0.72) 34%,
+      rgba(247, 204, 66, 0.72) 94%,
+      transparent 94%
+    ) !important;
+  color: inherit;
+  font-weight: 760;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+}
+
+.report-article .standard-number {
+  white-space: nowrap;
+}
+
+.report-article .standards-table--eurocode th,
+.report-article .standards-table--eurocode td {
+  padding-right: 9px;
+  padding-left: 9px;
 }

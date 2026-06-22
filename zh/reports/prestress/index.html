@@ -175,7 +175,15 @@
 <h2 class="section-title" id="s4-heading" tabindex="-1">四、中国地方标准与协会标准</h2>
 <h3 id="s4-1" tabindex="-1">4.1 地方标准（DB）</h3>
 <div class="table-wrap" id="tbl-s4-1" tabindex="-1">
-<table>
+<table class="standards-table standards-table--local">
+  <colgroup>
+    <col style="width: 18%">
+    <col style="width: 29%">
+    <col style="width: 12%">
+    <col style="width: 13%">
+    <col style="width: 12%">
+    <col style="width: 16%">
+  </colgroup>
 <thead>
 <tr><th>标准编号</th><th>标准名称</th><th>发布年份</th><th>实施日期</th><th>状态</th><th>备注</th></tr>
 </thead>
@@ -191,7 +199,14 @@
 </div>
 <h3 id="s4-2" tabindex="-1">4.2 协会标准（CECS/T-CECS）</h3>
 <div class="table-wrap" id="tbl-s4-2" tabindex="-1">
-<table>
+<table class="standards-table standards-table--association">
+  <colgroup>
+    <col style="width: 20%">
+    <col style="width: 31%">
+    <col style="width: 13%">
+    <col style="width: 15%">
+    <col style="width: 21%">
+  </colgroup>
 <thead>
 <tr><th>标准编号</th><th>标准名称</th><th>发布年份</th><th>状态</th><th>备注</th></tr>
 </thead>
@@ -230,15 +245,61 @@
 <h2 class="section-title" id="s6-heading" tabindex="-1">六、欧洲标准（EN/Eurocode）</h2>
 <h3 id="s6-1" tabindex="-1">6.1 设计规范</h3>
 <div class="table-wrap" id="tbl-s6-1" tabindex="-1">
-<table>
-<thead>
-<tr><th>标准编号</th><th>标准名称</th><th>最新版本</th><th>状态</th><th>适用范围</th></tr>
-</thead>
-<tbody>
-<tr><td><strong>EN 1992-1-1</strong><br/>(Eurocode 2)</td><td>混凝土结构设计 第1-1部分：一般规定和建筑规则</td><td>EN 1992-1-1:2023</td><td>2023</td><td><span class="badge badge-new">第二代已发布</span></td><td>第二代Eurocode 2已正式发布，含预应力混凝土构件设计</td></tr>
-<tr><td><strong>EN 1992-1-2</strong></td><td>混凝土结构设计 第1-2部分：结构防火设计</td><td>EN 1992-1-2:2004+A1:2019</td><td><span class="badge badge-active">现行</span></td><td>混凝土结构（含预应力）火灾工况设计</td></tr>
-<tr><td><strong>EN 1992-2</strong></td><td>混凝土结构设计 第2部分：混凝土桥梁</td><td>EN 1992-2:2005</td><td><span class="badge badge-active">现行</span></td><td>混凝土桥梁（含预应力）设计</td></tr>
-</tbody>
+<table class="standards-table standards-table--eurocode">
+  <colgroup>
+    <col style="width: 18%">
+    <col style="width: 25%">
+    <col style="width: 17%">
+    <col style="width: 9%">
+    <col style="width: 14%">
+    <col style="width: 17%">
+  </colgroup>
+
+  <thead>
+    <tr>
+      <th scope="col">标准编号</th>
+      <th scope="col">标准名称</th>
+      <th scope="col">最新版本</th>
+      <th scope="col">发布年</th>
+      <th scope="col">状态</th>
+      <th scope="col">适用范围／说明</th>
+    </tr>
+  </thead>
+
+  <tbody>
+    <tr>
+      <td>
+        <strong>EN <span class="standard-number">1992-1-1</span></strong>
+      </td>
+      <td>混凝土结构设计 第1-1部分：通用规则以及建筑、桥梁和土木工程结构规则</td>
+      <td>EN 1992-1-1:2023</td>
+      <td>2023</td>
+      <td><span class="badge badge-new">第二代已发布</span></td>
+      <td>第二代 Eurocode 2 的核心设计规范，涵盖预应力混凝土结构。</td>
+    </tr>
+
+    <tr>
+      <td>
+        <strong>EN <span class="standard-number">1992-1-2</span></strong>
+      </td>
+      <td>混凝土结构设计 第1-2部分：结构防火设计</td>
+      <td>EN 1992-1-2:2023</td>
+      <td>2023</td>
+      <td><span class="badge badge-new">第二代已发布</span></td>
+      <td>适用于混凝土结构（含预应力）的火灾工况设计。</td>
+    </tr>
+
+    <tr>
+      <td>
+        <strong>EN <span class="standard-number">1992-2:2005</span></strong>
+      </td>
+      <td>混凝土结构设计 第2部分：混凝土桥梁——设计与构造规则</td>
+      <td>EN 1992-2:2005</td>
+      <td>2005</td>
+      <td><span class="badge badge-old">第一代桥梁专篇</span></td>
+      <td>第二代 EC2 未单独发布 EN 1992-2:2023；桥梁专项规则已整合至 EN 1992-1-1:2023。</td>
+    </tr>
+  </tbody>
 </table>
 </div>
 <h3 id="s6-2" tabindex="-1">6.2 材料标准</h3>
@@ -252,8 +313,12 @@
 <tr><td><strong>EN 10138-2</strong></td><td>预应力钢材 第2部分：钢丝</td><td>EN 10138-2:2005</td><td><span class="badge badge-active">现行</span></td></tr>
 <tr><td><strong>EN 10138-3</strong></td><td>预应力钢材 第3部分：钢筋</td><td>DIN EN 10138-3:2023</td><td><span class="badge badge-new">新版</span></td></tr>
 <tr><td><strong>EN 10138-4</strong></td><td>预应力钢材 第4部分：钢绞线</td><td>EN 10138-4:2005</td><td><span class="badge badge-active">现行</span></td></tr>
-<tr><td><strong>EN 13391</strong></td><td>预应力体系</td><td>EN 13391</td><td><span class="badge badge-active">现行</span></td></tr>
-</tbody>
+<tr>
+  <td><strong>EN 13391:2004</strong></td>
+  <td>后张预应力体系的机械试验</td>
+  <td>EN 13391:2004</td>
+  <td><span class="badge badge-old">现行（较早）</span></td>
+</tr></tbody>
 </table>
 </div>
 </div>
@@ -368,7 +433,7 @@
 <tr><td>预应力钢丝</td><td>GB/T 5223-2025</td><td>ISO 6934-2:2024</td><td>ASTM A421-20</td><td>EN 10138-2:2005</td></tr>
 <tr><td>预应力钢绞线</td><td>GB/T 5224-2023</td><td>ISO 6934-4:2020</td><td>ASTM A416-24</td><td>EN 10138-4:2005</td></tr>
 <tr><td>预应力钢筋</td><td>GB/T 20065-2025</td><td>ISO 6934-3:1991</td><td>ASTM A722-18</td><td>EN 10138-3:2023</td></tr>
-<tr><td>锚具/夹具</td><td>GB/T 14370-2015</td><td>—</td><td>—</td><td>EN 13391</td></tr>
+<tr><td>锚具/夹具</td><td>GB/T 14370-2015</td><td>—</td><td>—</td><td>EN 13391:2004</td></tr>
 <tr><td>环氧涂层钢绞线</td><td>GB/T 21073-2007</td><td>ISO 14655（修订中）</td><td>ASTM A882-20</td><td>—</td></tr>
 <tr><td>防腐润滑脂</td><td>JG/T 430-2014</td><td>—</td><td>—</td><td>—</td></tr>
 </tbody>
@@ -504,7 +569,11 @@
 <tr><td><span class="badge badge-old">中</span></td><td>T/CECS 10327-2023</td><td>超高强材料，材料发展方向参考</td></tr>
 <tr><td><span class="badge badge-old">中</span></td><td>EN 1992-1-1（Eurocode 2）</td><td>国际先进设计方法参考</td></tr>
 <tr><td><span class="badge badge-old">中</span></td><td>ACI CODE-318-25 / CODE-320-25</td><td>美国最新标准体系参考</td></tr>
-<tr><td><span class="badge badge-old">中</span></td><td>fib Model Code 2010</td><td>国际权威参考规范</td></tr>
+<tr>
+  <td><span class="badge badge-old">中</span></td>
+  <td>fib Model Code (2020)</td>
+  <td>国际权威参考规范；覆盖新建与既有结构，并强调全寿命与可持续性。</td>
+</tr>
 </tbody>
 </table>
 </div>
