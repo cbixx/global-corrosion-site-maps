@@ -1032,3 +1032,131 @@
     border-bottom: 1px solid rgba(16, 41, 58, 0.12);
   }
 }
+
+/* Figure-level export menu */
+
+.chart-figure-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.95rem;
+}
+
+.chart-figure-head figcaption {
+  margin: 0;
+}
+
+.chart-figure-head .chart-context {
+  margin: 0.45rem 0 0;
+}
+
+.chart-export-menu {
+  position: relative;
+  flex: 0 0 auto;
+}
+
+.chart-export-menu > summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-height: 2rem;
+  padding: 0.32rem 0.68rem;
+  border: 1px solid rgba(16, 41, 58, 0.2);
+  border-radius: 7px;
+  background: #ffffff;
+  color: var(--ca-navy);
+  cursor: pointer;
+  font-family: var(--font-ui);
+  font-size: 0.8rem;
+  font-weight: 750;
+  list-style: none;
+  transition: background 0.16s ease, border-color 0.16s ease, color 0.16s ease;
+}
+
+.chart-export-menu > summary::-webkit-details-marker {
+  display: none;
+}
+
+.chart-export-menu > summary:hover,
+.chart-export-menu > summary:focus-visible,
+.chart-export-menu[open] > summary {
+  border-color: var(--ca-rust);
+  background: rgba(255, 248, 239, 0.95);
+  color: var(--ca-rust);
+}
+
+.chart-export-popover {
+  position: absolute;
+  z-index: 5;
+  top: calc(100% + 0.45rem);
+  right: 0;
+  display: grid;
+  width: 168px;
+  padding: 0.42rem;
+  border: 1px solid rgba(16, 41, 58, 0.16);
+  border-radius: 10px;
+  background: #ffffff;
+  box-shadow: 0 12px 26px rgba(16, 41, 58, 0.16);
+}
+
+.chart-export-option {
+  display: grid;
+  gap: 0.1rem;
+  width: 100%;
+  padding: 0.55rem 0.62rem;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--ca-navy);
+  cursor: pointer;
+  text-align: left;
+}
+
+.chart-export-option:hover,
+.chart-export-option:focus-visible {
+  background: rgba(231, 240, 246, 0.82);
+}
+
+.chart-export-option strong {
+  font-family: var(--font-ui);
+  font-size: 0.82rem;
+}
+
+.chart-export-option small {
+  color: var(--ca-muted);
+  font-size: 0.72rem;
+}
+
+.chart-export-option:disabled {
+  cursor: wait;
+  opacity: 0.58;
+}
+
+.chart-export-status {
+  min-height: 1rem;
+  padding: 0.25rem 0.35rem 0.08rem;
+  color: var(--ca-muted);
+  font-family: var(--font-ui);
+  font-size: 0.72rem;
+}
+
+.chart-export-status[data-state="error"] {
+  color: #a64024;
+}
+
+@media (max-width: 560px) {
+  .chart-figure-head {
+    display: block;
+  }
+
+  .chart-export-menu {
+    display: inline-block;
+    margin-top: 0.75rem;
+  }
+
+  .chart-export-popover {
+    right: auto;
+    left: 0;
+  }
+}
