@@ -917,3 +917,118 @@
   color: var(--ca-navy);
   text-decoration: underline;
 }
+
+/* Masthead information rail */
+
+.report-masthead-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(250px, 300px);
+  gap: clamp(2rem, 5vw, 5.5rem);
+  align-items: stretch;
+}
+
+.report-masthead-main {
+  min-width: 0;
+}
+
+.report-masthead-aside {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  min-height: 285px;
+  padding: 0.35rem 0 0.35rem 1.45rem;
+  border-left: 1px solid rgba(16, 41, 58, 0.22);
+}
+
+.report-masthead-aside::before {
+  position: absolute;
+  top: 0;
+  left: -2px;
+  width: 3px;
+  height: 42px;
+  background: var(--ca-rust);
+  content: "";
+}
+
+.report-aside-kicker {
+  margin: 0;
+  color: var(--ca-rust);
+  font-family: var(--font-ui);
+  font-size: 0.76rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.report-aside-meta {
+  margin: 1.15rem 0 auto;
+}
+
+.report-aside-meta > div {
+  padding: 0.78rem 0;
+  border-top: 1px solid rgba(16, 41, 58, 0.12);
+}
+
+.report-aside-meta > div:last-child {
+  border-bottom: 1px solid rgba(16, 41, 58, 0.12);
+}
+
+.report-aside-meta dt {
+  margin-bottom: 0.2rem;
+  color: var(--ca-muted);
+  font-family: var(--font-ui);
+  font-size: 0.74rem;
+  font-weight: 750;
+  letter-spacing: 0.04em;
+}
+
+.report-aside-meta dd {
+  margin: 0;
+  color: var(--ca-navy);
+  font-family: var(--font-ui);
+  font-size: 0.92rem;
+  font-weight: 740;
+  line-height: 1.55;
+}
+
+.report-aside-footer {
+  margin: 1.15rem 0 0;
+  color: rgba(16, 41, 58, 0.48);
+  font-family: var(--font-ui);
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+}
+
+@media (max-width: 880px) {
+  .report-masthead-layout {
+    grid-template-columns: 1fr;
+    gap: 1.65rem;
+  }
+
+  .report-masthead-aside {
+    min-height: 0;
+    padding: 0.2rem 0 0.2rem 1.2rem;
+  }
+
+  .report-aside-meta {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: 1.35rem;
+  }
+
+  .report-aside-meta > div:last-child {
+    border-bottom: 0;
+  }
+}
+
+@media (max-width: 560px) {
+  .report-aside-meta {
+    grid-template-columns: 1fr;
+  }
+
+  .report-aside-meta > div:last-child {
+    border-bottom: 1px solid rgba(16, 41, 58, 0.12);
+  }
+}
