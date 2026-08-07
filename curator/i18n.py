@@ -6,7 +6,6 @@ LANGUAGE_LABEL_TO_CODE = {
     "中文": "zh",
 }
 
-
 TRANSLATIONS = {
     "en": {
         "app_title": "Corrosion Map Curator",
@@ -792,6 +791,10 @@ and click **Confirm selected import**.
         "settings_temperate_mean_temperature_min": "Temperate if annual mean temperature ≥",
         "settings_cold_mean_temperature_max": "Cold if annual mean temperature ≤",
         "settings_extreme_cold_mean_temperature_max": "Extreme cold if annual mean temperature ≤",
+
+        "sites_lookup_existing_site_status": "Existing site: {site_id} — {site_label}",
+        "sites_lookup_new_site_status": "No matching site found in the database.",
+        "sites_lookup_database_check_failed": "Existing-site check unavailable: {error}",
     },
     "zh": {
         "app_title": "腐蚀地图数据管理工具",
@@ -1574,6 +1577,10 @@ and click **Confirm selected import**.
         "settings_temperate_mean_temperature_min": "Temperate：年平均气温 ≥",
         "settings_cold_mean_temperature_max": "Cold：年平均气温 ≤",
         "settings_extreme_cold_mean_temperature_max": "Extreme cold：年平均气温 ≤",
+
+        "sites_lookup_existing_site_status": "已有站点：{site_id} — {site_label}",
+        "sites_lookup_new_site_status": "数据库中未发现匹配站点。",
+        "sites_lookup_database_check_failed": "暂时无法检查已有站点：{error}",
     },
 }
 

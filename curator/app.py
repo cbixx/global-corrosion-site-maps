@@ -1388,6 +1388,7 @@ def optional_label(label: str) -> str:
 
 SITE_FORM_DEFAULTS: dict[str, Any] = {
     "location_query": "",
+    "location_applied_to_site_form": False,
     "site_label_input": "",
     "site_latitude": "",
     "site_longitude": "",
@@ -4058,6 +4059,7 @@ def apply_selected_location() -> None:
     st.session_state.site_latitude = str(
         selected_location["latitude"]
     )
+
     st.session_state.site_longitude = str(
         selected_location["longitude"]
     )
@@ -4069,8 +4071,22 @@ def apply_selected_location() -> None:
     if country:
         st.session_state.site_modern_country_location = country
 
+    # Let the normal site-ID logic generate a fresh ID for this location.
+    st.session_state.site_id_input = ""
+    st.session_state.last_suggested_site_id = ""
+
+    # Mark the lookup result as applied.
+    st.session_state["location_applied_to_site_form"] = True
+
+    # Automatically generate a fresh coordinate-based region suggestion.
+    suggest_region_for_add_site_callback(
+        coordinates_only=True,
+    )
+
 
 def run_location_search() -> None:
+    st.session_state["location_applied_to_site_form"] = False
+
     query = st.session_state.get("location_query", "").strip()
 
     if not query:
@@ -4095,7 +4111,9 @@ def run_location_search() -> None:
         st.session_state.selected_location_label = None
         st.session_state.location_search_message = f"Location search failed: {exc}"
 
-def suggest_region_for_add_site_callback() -> None:
+def suggest_region_for_add_site_callback(
+    coordinates_only: bool = False,
+) -> None:
     selected_site_type = str(
         st.session_state.get("site_type_select", "") or ""
     )
@@ -4118,12 +4136,20 @@ def suggest_region_for_add_site_callback() -> None:
                 "",
             ),
             site_type=resolved_site_type,
-            current_region_category=normalize_region_category(
-                st.session_state.get("region_tags_select", [])
+            current_region_category=(
+                ""
+                if coordinates_only
+                else normalize_region_category(
+                    st.session_state.get("region_tags_select", [])
+                )
             ),
-            annual_mean_temperature=st.session_state.get(
-                "site_annual_mean_temperature",
-                "",
+            annual_mean_temperature=(
+                ""
+                if coordinates_only
+                else st.session_state.get(
+                    "site_annual_mean_temperature",
+                    "",
+                )
             ),
         )
     )
@@ -5363,8 +5389,60 @@ if active_page == "Sites":
         on_change=run_location_search,
     )
 
-    lookup_search_col, lookup_clear_col, lookup_spacer_col = st.columns(
-        [0.20, 0.20, 0.60],
+    location_applied = bool(
+        st.session_state.get(
+            "location_applied_to_site_form",
+            False,
+        )
+    )
+
+    lookup_site_label = str(
+        st.session_state.get("site_label_input", "") or ""
+    ).strip()
+
+    lookup_latitude = str(
+        st.session_state.get("site_latitude", "") or ""
+    ).strip()
+
+    lookup_longitude = str(
+        st.session_state.get("site_longitude", "") or ""
+    ).strip()
+
+    lookup_country = str(
+        st.session_state.get(
+            "site_modern_country_location",
+            "",
+        )
+        or ""
+    ).strip()
+
+    quick_add_ready = bool(
+        location_applied
+        and lookup_site_label
+        and lookup_latitude
+        and lookup_longitude
+        and lookup_country
+    )
+
+    lookup_match_preview: dict[str, Any] = {}
+
+    if quick_add_ready:
+        try:
+            lookup_match_preview = preview_site_upsert_match(
+                site_id="",
+                site_label=lookup_site_label,
+                latitude=lookup_latitude,
+                longitude=lookup_longitude,
+                modern_country_location=lookup_country,
+            )
+        except Exception as exc:
+            lookup_match_preview = {
+                "checked": False,
+                "error": str(exc),
+            }
+
+    lookup_search_col, lookup_clear_col, lookup_add_col, lookup_status_col = st.columns(
+        [0.17, 0.14, 0.17, 0.52],
         vertical_alignment="bottom",
     )
 
@@ -5385,7 +5463,54 @@ if active_page == "Sites":
             st.session_state.location_results = []
             st.session_state.selected_location_label = None
             st.session_state.location_search_message = ""
+            st.session_state["location_applied_to_site_form"] = False
             st.rerun()
+    
+    with lookup_add_col:
+        quick_add_site = st.button(
+            t("sites_add_site_button", ui_language),
+            key="quick_add_site_from_location_lookup",
+            type="primary",
+            disabled=not quick_add_ready,
+            use_container_width=True,
+        )
+
+    with lookup_status_col:
+        if quick_add_ready:
+            if lookup_match_preview.get("will_merge"):
+                st.caption(
+                    "⚠️ "
+                    + t(
+                        "sites_lookup_existing_site_status",
+                        ui_language,
+                        site_id=lookup_match_preview.get(
+                            "existing_site_id",
+                            "",
+                        ),
+                        site_label=lookup_match_preview.get(
+                            "existing_site_label",
+                            "",
+                        ),
+                    )
+                )
+
+            elif lookup_match_preview.get("checked"):
+                st.caption(
+                    "✓ "
+                    + t(
+                        "sites_lookup_new_site_status",
+                        ui_language,
+                    )
+                )
+
+            elif lookup_match_preview.get("error"):
+                st.caption(
+                    t(
+                        "sites_lookup_database_check_failed",
+                        ui_language,
+                        error=lookup_match_preview.get("error", ""),
+                    )
+                )
 
     if st.session_state.location_search_message:
         message = str(st.session_state.location_search_message)
@@ -5446,14 +5571,13 @@ if active_page == "Sites":
             )
 
             with apply_location_col:
-                if st.button(
+                st.button(
                     t("sites_apply_selected_location_to_form", ui_language),
                     key="apply_selected_location_to_site_form",
                     type="primary",
                     use_container_width=True,
-                ):
-                    apply_selected_location()
-                    st.success(t("sites_selected_location_applied_to_site_fields", ui_language))
+                    on_click=apply_selected_location,
+                )
 
     st.divider()
 
@@ -5694,7 +5818,7 @@ if active_page == "Sites":
         elif site_match_preview.get("message"):
             st.info(str(site_match_preview.get("message", "")))
 
-        if submit_site:
+        if submit_site or quick_add_site:
             if not site_id.strip():
                 st.error(t("sites_validation_site_id_required", ui_language))
             elif not site_label.strip():
