@@ -1,6 +1,6 @@
 ﻿site_id,site_label,site_type,latitude,longitude,modern_country_location,administering_country,former_entity,region_category,exposure_period,metal,source_1,source_2,source_3,source_4,source_5,source_6,source_7,source_8,source_9,source_10,source_11,notes
 AQ-AR-001,Carlini Base,antarctic desertic zone,-62.2379343,-58.6670078,Antarctica,Argentina,,"Marine, Antarctic, Extreme cold","1 year, 2 years, 4 years, 8 years","Carbon steel, Zinc, Copper, Aluminium",s020,,,,,,,,,,,Source label: Yubany/Jubany Base; current standard name is Carlini Base.
-AQ-AR-002,La Rioja,,-29.3938154,-66.8289444,Antarctica,Argentina,,"Inland, Antarctic, Temperate",4 years,Coated aluminum,s041,,,,,,,,,,,
+AQ-AR-002,La Rioja,,-29.3938154,-66.8289444,Antarctica,Argentina,,"Inland, Antarctic, Temperate","4 years, 1 year","Coated aluminum, Mild steel",s041,s045,,,,,,,,,,
 AQ-AU-001,Macquarie Island,Sub-Antarctic Islands,-54.49,159.01,Sub-Antarctic Islands,Australia,,"Marine, Island, Rural, Sub-Antarctic, Cold, Island marine, rural","1 month, 1-4 years, varies","Carbon steel, Mild steel, Steel St3, Copper, Aluminum alloys, Cadmium",s001,,,,,,,,,,,Table 3: longitude not given; elevation=7.5 m; distance_from_sea<1 km; corrosion_rate=222 µm/year.
 AQ-AU-002,Hurd Island,Sub-Antarctic Islands,-53.1,73.5,Sub-Antarctic Islands,Australia,,"Coastal, Island, Rural, Sub-Antarctic, Cold, Island marine, rural","1 month, 1-4 years, varies","Carbon steel, Mild steel, Steel St3, Copper, Aluminum alloys, Cadmium",s001,,,,,,,,,,,Table 3: longitude not given; elevation<10 m; distance_from_sea<1 km; corrosion_rate=55.30 µm/year.
 AQ-AU-003,Signy Island,Sub-Antarctic Islands,-60.717,-45.6,Sub-Antarctic Islands,Australia,,"Marine, Island, Rural, Sub-Antarctic, Antarctic, Extreme cold, Island marine, rural","1 month, 1-4 years, varies","Carbon steel, Mild steel, Steel St3, Copper, Aluminum alloys, Cadmium",s001,,,,,,,,,,,Table 3: elevation<10 m; distance_from_sea<1 km; corrosion_rate=36.40 µm/year.
@@ -8,24 +8,38 @@ AQ-AU-004,Mawson station,Research station,-67.6,62.883,Antarctica,Australia,,"Ma
 AQ-AU-005,Site LGB 00,Field site,-68.65,61.0,Antarctica,Australia,,"Inland, Rural, Antarctic, Extreme cold","1 month, 1-4 years, varies","Carbon steel, Mild steel, Steel St3, Copper, Aluminum alloys, Cadmium",s001,,,,,,,,,,,Table 3 gives longitude as approximately ~61; elevation=1830 m; distance_from_sea=186 km; corrosion_rate=0.18 µm/year.
 AQ-AU-006,Site LGB 10,Field site,-71.283,60.0,Antarctica,Australia,,"Inland, Rural, Antarctic, Extreme cold","1 month, 1-4 years, varies","Carbon steel, Mild steel, Steel St3, Copper, Aluminum alloys, Cadmium",s001,,,,,,,,,,,Table 3 gives longitude as approximately ~60; elevation=2616 m; distance_from_sea=390 km; corrosion_rate=0.10 µm/year.
 AQ-AU-007,Site LGB 35,Field site,-76.05,58.0,Antarctica,Australia,,"Inland, Rural, Antarctic, Extreme cold","1 month, 1-4 years, varies","Carbon steel, Mild steel, Steel St3, Copper, Aluminum alloys, Cadmium",s001,,,,,,,,,,,Table 3 gives longitude as approximately ~58; elevation=2340 m; distance_from_sea=780 km; corrosion_rate=0.13 µm/year.
+AQ-CL-001,Teniente Rodolfo Marsh Airport,,-62.1911005,-58.9860045,Chile,Antarctica,,"Marine, Antarctic, Extreme cold","1 year, 4 years",Mild steel,s045,,,,,,,,,,,
 AQ-GB-001,Rothera Point,Point site,-67.567,-70.0,Antarctica,United Kingdom,,"Marine, Antarctic, Extreme cold","1 month, 1-4 years, varies","Carbon steel, Mild steel, Steel St3, Copper, Aluminum alloys, Cadmium",s001,,,,,,,,,,,Table 3 gives longitude as approximately ~−70; elevation<10 m; distance_from_sea<1 km; corrosion_rate=27.10 µm/year.
 AQ-NZ-001,Vanda station,Research station,-77.52,161.57,Antarctica,New Zealand,,"Inland, Antarctic, Extreme cold","1 month, 1-4 years, varies, 1 year, 2 years, 3 years","Carbon steel, Mild steel, Steel St3, Copper, Aluminum alloys, Cadmium",s001,s021,,,,,,,,,,Table 3: elevation=130 m; distance_from_sea=44 km; corrosion_rate=0.87 µm/year.
 AQ-NZ-002,Scott's Hut (cape Evans),Cape site,-77.63,166.4,Antarctica,New Zealand,,"Marine, Antarctic, Extreme cold","1 month, 1-4 years, varies, 1 year, 2 years, 3 years","Carbon steel, Mild steel, Steel St3, Copper, Aluminum alloys, Cadmium",s001,s021,,,,,,,,,,"Table 3 reports three results at the same site: corrosion_rate=10.83, 10.20, and 4.42 µm/year; elevation=5 m; distance_from_sea=0.2 km."
 AQ-RU-001,Mirnyi station,Research station,-66.55,93.02,Antarctica,Russia,USSR,"Marine, Antarctic, Extreme cold","1 month, 1-4 years, varies","Carbon steel, Mild steel, Steel St3, Copper, Aluminum alloys, Cadmium",s001,,,,,,,,,,,"Table 3: elevation=39.9 m; distance_from_sea=0.25 km; steel corrosion_rate=7.7 µm/year. Table 5 adds one-year results: steel 7.8 µm/year, copper 1.1 µm/year, cadmium 0.3 µm/year, D16 alloy 0.8–1.77 µm/year."
 AQ-RU-002,Vostok station,Research station,-78.45,106.85,Antarctica,Russia,USSR,"Inland, Antarctic, Extreme cold","1 month, 1-4 years, varies","Carbon steel, Mild steel, Steel St3, Copper, Aluminum alloys, Cadmium",s001,,,,,,,,,,,Table 3: elevation=3488 m; distance_from_sea=1200 km; corrosion_rate=0.05 µm/year.
 AQ-US-001,South Pole,Research station,-90.0,0.0,Antarctica,United States,,"Marine, Antarctic, Extreme cold","1 month, 1-4 years, varies","Carbon steel, Mild steel, Steel St3, Copper, Aluminum alloys, Cadmium",s001,,,,,,,,,,,Table 3: longitude not given; elevation=2800 m; distance_from_sea=1300 km; corrosion_rate=0.03 µm/year. Text notes this was about 3.7 years of continuous exposure.
+AQ-UY-001,Artigas Base,,-62.1843978,-58.9038541,Uruguay,Antarctica,,"Marine, Antarctic, Extreme cold","1 year, 4 years",Mild steel,s045,,,,,,,,,,,
 AQ-ZA-001,Marion Island,Sub-Antarctic Islands,-46.88,37.86,Sub-Antarctic Islands,South Africa,,"Marine, Island, Rural, Sub-Antarctic, Temperate, Island marine, rural","1 month, 1-4 years, varies","Carbon steel, Mild steel, Steel St3, Copper, Aluminum alloys, Cadmium",s001,,,,,,,,,,,Table 3: longitude not given; elevation<10 m; distance_from_sea<1 km; corrosion_rate=31.90 µm/year.
 AQ-ZA-002,Robertskollen (SANAE),Field site,-68.483,0.0,Antarctica,South Africa,,"Marine, Rural, Antarctic, Extreme cold","1 month, 1-4 years, varies","Carbon steel, Mild steel, Steel St3, Copper, Aluminum alloys, Cadmium",s001,,,,,,,,,,,Table 3 gives longitude as approximately ~0; elevation=400 m; distance_from_sea=120 km; corrosion_rate=0.70 µm/year.
 AR-001,Puerto Iguazu,"semiarid, wet, rural",-25.6107508,-54.5764199,Argentina,,,"Inland, Rural, Temperate","1 year, 2 years, 4 years, 8 years","Carbon steel, Zinc, Copper, Aluminium",s020,,,,,,,,,,,Source label: Iguazu.
-AR-002,Camet,"subtropical zone, marine, wet",-37.889829,-57.6041166,Argentina,,,"Coastal, Temperate","1 year, 2 years, 4 years, 8 years","Carbon steel, Zinc, Copper, Aluminium",s020,,,,,,,,,,,
+AR-002,Camet,"subtropical zone, marine, wet",-37.889829,-57.6041166,Argentina,,,"Coastal, Temperate","1 year, 2 years, 4 years, 8 years","Carbon steel, Zinc, Copper, Aluminium, Mild steel",s020,s045,,,,,,,,,,
 AR-003,Buenos Aires,"subtropical zone, marine, wet",-34.6095579,-58.3887904,Argentina,,,"Coastal, Temperate","1 year, 2 years, 4 years, 8 years","Carbon steel, Zinc, Copper, Aluminium",s020,,,,,,,,,,,
-AR-004,San Juan,"subtropical zone, dry, rural",-30.7054363,-69.1988222,Argentina,,,"Inland, Rural, Temperate","1 year, 2 years, 4 years, 8 years","Carbon steel, Zinc, Copper, Aluminium",s020,,,,,,,,,,,
+AR-004,San Juan,"subtropical zone, dry, rural",-30.7054363,-69.1988222,Argentina,,,"Inland, Rural, Temperate","1 year, 2 years, 4 years, 8 years","Carbon steel, Zinc, Copper, Aluminium, Mild steel",s020,s044,,,,,,,,,,
+AR-005,Iguazu,,-31.5828334,-68.5685272,Argentina,,,"Inland, Temperate","1 year, 4 years",Mild steel,s044,,,,,,,,,,,
+AR-006,Villa Martelli,,-34.5503634,-58.510576,Argentina,,,"Coastal, Temperate","1 year, 4 years",Mild steel,s044,,,,,,,,,,,
+AR-007,La Plata,,-34.9206797,-57.9537638,Argentina,,,"Coastal, Temperate","1 year, 4 years",Mild steel,s044,,,,,,,,,,,
 AT-001,Vienna,City,48.2082,16.3738,Austria,,,"Inland, Urban, Temperate","1 year, 4 years, 8 years","Carbon steel, Zinc, Weathering steel, Copper, Stainless Steel, Aluminium, Titanium",s015,s017,s018,s016,,,,,,,,
 AU-001,Mt Newman,,-23.357394,119.7331631,Australia,,,"Inland, Tropical","1 year, 2 years, 3 years","Carbon steel, Copper",s021,,,,,,,,,,,
 BE-001,Antwerp,City,51.2213,4.4051,Belgium,,,"Coastal, Urban, Cold, marine","1 year, 2 years, 4 years",Carbon steel,s013,,,,,,,,,,,
 BE-002,Ostend,"moderate zone, marine",51.2258565,2.919496,Belgium,,,"Coastal, Cold","1 year, 2 years, 4 years, 8 years","Carbon steel, Zinc, Copper, Aluminium",s020,,,,,,,,,,,"Source table places this under France but labels the site Ostende, Belgium."
 BG-001,Sofia,City,42.6977,23.3219,Bulgaria,,,"Inland, Urban, Temperate",1 year,"Carbon steel, Zinc, Copper",s014,s015,,,,,,,,,,
-BR-001,Cubatão,,-23.8842077,-46.4213061,Brazil,,,"Coastal, Temperate",4 years,Coated aluminum,s041,,,,,,,,,,,
+BR-001,Cubatão,,-23.8842077,-46.4213061,Brazil,,,"Coastal, Temperate","4 years, 1 year","Coated aluminum, Mild steel",s041,s045,,,,,,,,,,
+BR-002,Brasília,,-15.7939869,-47.8828,Brazil,,,"Inland, Tropical","1 year, 4 years",Mild steel,s044,,,,,,,,,,,
+BR-003,Belém,,-1.45056,-48.4682453,Brazil,,,"Coastal, Tropical","1 year, 4 years",Mild steel,s044,,,,,,,,,,,
+BR-004,São Paulo,,-23.5506507,-46.6333824,Brazil,,,"Near-coastal, Temperate","1 year, 4 years",Mild steel,s044,,,,,,,,,,,
+BR-005,Caratinga,,-19.7900887,-42.140533,Brazil,,,"Inland, Tropical","1 year, 4 years",Mild steel,s045,,,,,,,,,,,
+BR-006,Ubatuba,,-23.433162,-45.083415,Brazil,,,"Coastal, Tropical","1 year, 4 years",Mild steel,s045,,,,,,,,,,,
+BR-007,Arraial do Cabo,,-22.930728,-42.1878531,Brazil,,,"Coastal, Tropical","1 year, 4 years",Mild steel,s045,,,,,,,,,,,
+BR-008,Fortaleza,,-3.7932167,-38.5280359,Brazil,,,"Coastal, Tropical","1 year, 4 years",Mild steel,s045,,,,,,,,,,,
+BR-009,Ipatinga,,-19.4777807,-42.5270802,Brazil,,,"Inland, Tropical","1 year, 4 years",Mild steel,s045,,,,,,,,,,,
+BR-010,Rio de Janeiro,,-22.9110137,-43.2093727,Brazil,,,"Coastal, Tropical","1 year, 4 years",Mild steel,s045,,,,,,,,,,,
 CA-001,Dorset,Town,45.233,-78.883,Canada,,,"Inland, Urban, Temperate","1 year, 2 years, 4 years, 8 years, Annually","Carbon steel, Weathering steel, Zinc, Aluminium, Copper",s009,s010,s011,s012,s013,s014,,,,,,
 CA-002,Boucherville,"moderate zone, rural",45.6050197,-73.4526144,Canada,,,"Marine, Rural, Temperate","1 year, 2 years, 4 years, 8 years","Carbon steel, Zinc, Copper, Aluminium",s020,,,,,,,,,,,
 CA-003,Norman Wells,,65.282401,-126.832725,Canada,,,"Inland, Sub-arctic, Cold","1 year, 2 years, 3 years","Carbon steel, Copper",s021,,,,,,,,,,,
@@ -38,12 +52,25 @@ CH-006,Payerne,,46.8208047,6.939126,Switzerland,,,"Inland, Temperate",4 years,"W
 CH-007,Sion,,46.2311749,7.3588795,Switzerland,,,"Inland, Temperate",4 years,"Weathering steel, Zinc, Copper",s034,,,,,,,,,,,
 CH-008,Cadenazzo,,46.1509953,8.9458762,Switzerland,,,"Inland, Temperate",4 years,"Weathering steel, Zinc, Copper",s034,,,,,,,,,,,
 CH-009,Davos,,46.796198,9.8236892,Switzerland,,,"Inland, Temperate",4 years,"Weathering steel, Zinc, Copper",s034,,,,,,,,,,,
+CL-001,Valparaíso,,-33.0458456,-71.6196749,Chile,,,"Coastal, Temperate","1 year, 4 years",Mild steel,s045,,,,,,,,,,,
+CL-002,Cerrillos,,-33.5023396,-70.7158417,Chile,,,"Inland, Temperate","1 year, 4 years",Mild steel,s045,,,,,,,,,,,
+CL-003,Petrox,,-37.0910959,-73.1518992,Chile,,,"Coastal, Temperate","1 year, 4 years",Mild steel,s045,,,,,,,,,,,
 CN-001,Site No. 1,Field site,36.398987,118.5055691,China,,,"Inland, Rural, Temperate, Industrial",1 year,Hot-dip galvanized steel,s022,,,,,,,,,,,"Numbered exposure corrosion test site shown in Fig. 1; exact locality and coordinates are not provided in the source.
 Discussed as one of the three C5 sites; source states it is closer to the coastline and has higher atmospheric chloride content. Exact locality and coordinates are not provided.
 Discussed as one of the three C5 sites; source states an oil refinery near the site makes its atmospheric corrosivity higher than surrounding sites. Exact locality and coordinates are not provided.
 Discussed as a site with very small interpolation error because surrounding sites were also C3 and corrosion rates were close. Exact locality and coordinates are not provided.
 Discussed as one of the three C5 sites; source states it is located near a reservoir with high atmospheric relative humidity. Exact locality and coordinates are not provided."
+CO-001,San Pedro,,3.9955682,-76.2280495,Colombia,,,"Inland, Tropical","1 year, 4 years",Mild steel,s044,,,,,,,,,,,
+CO-002,Santa Fe de Antioquia,,6.5401946,-75.9159851,Colombia,,,"Inland, Tropical","1 year, 4 years",Mild steel,s044,,,,,,,,,,,
+CO-003,Isla Naval,,10.1778575,-75.7500056,Colombia,,,"Marine, Tropical","1 year, 4 years",Mild steel,s045,,,,,,,,,,,
+CR-001,Sabanilla,,10.0741252,-84.2156539,Costa Rica,,,"Inland, Tropical","1 year, 4 years",Mild steel,s045,,,,,,,,,,,
+CR-002,Arenal,,10.5435673,-84.8959874,Costa Rica,,,"Near-coastal, Tropical","1 year, 4 years",Mild steel,s045,,,,,,,,,,,
+CR-003,Puntarenas,,9.9773343,-84.8346402,Costa Rica,,,"Marine, Tropical","1 year, 4 years",Mild steel,s045,,,,,,,,,,,
+CR-004,Limón,,9.7756955,-83.127059,Costa Rica,,,"Near-coastal, Tropical","1 year, 4 years",Mild steel,s045,,,,,,,,,,,
 CU-001,Playa de Viriato,,23.1,-82.46667,Cuba,,,"Marine, Island, Tropical",4 years,Coated aluminum,s041,,,,,,,,,,,
+CU-002,"Centro de Investigaciones Químicas, Havana",,23.135305,-82.3589631,Cuba,,,"Coastal, Island, Tropical","1 year, 4 years",Mild steel,s045,,,,,,,,,,,
+CU-003,Bauta,,22.9802415,-82.549536,Cuba,,,"Coastal, Island, Tropical","1 year, 4 years",Mild steel,s045,,,,,,,,,,,
+CU-004,Guamá,,20.0286342,-76.0838045,Cuba,,,"Coastal, Island, Tropical","1 year, 4 years",Mild steel,s045,,,,,,,,,,,
 CZ-001,Prague,City,50.11,14.45,Czech Republic,,Czechoslovakia,"Inland, Urban, Cold","1980-2026, 1997-2001 (1, 2, 4 years multipollutant), 2005-06 (1-year multipollutant), 2008-09 (1-year trend exposure), 2011-12 (1-year trend exposure), 1 year, 2 years, 4 years, 8 years, Annually","Carbon steel, zinc, copper, aluminium, limestone, modern glass, Weathering steel, Zinc, Aluminium, Copper, Stainless Steel, Titanium",s017,s018,s019,s009,s010,s011,s012,s013,s014,,,
 CZ-002,Kasperske Hory,Town,49.1429,13.5561,Czech Republic,,Czechoslovakia,"Inland, Urban, Temperate, Rural","1 year, 2 years, 4 years, 8 years, Annually","Carbon steel, Weathering steel, Zinc, Aluminium, Copper",s009,s020,s010,s011,s012,,,,,,,Source label: Kaperské Hory.
 CZ-003,Kopisty,Industrial Locality,50.533,13.616,Czech Republic,,Czechoslovakia,"Inland, Industrial, Cold","1 year, 2 years, 4 years, 8 years, Annually","Carbon steel, Weathering steel, Zinc, Aluminium, Copper, Stainless Steel, Titanium",s009,s017,s018,s020,s010,s011,s012,s013,s014,s015,,
@@ -63,20 +90,30 @@ DK-004,Østerport,Weathering steel railway test mast,55.692,12.587,Denmark,,,"Ma
 DK-005,Copenhagen H,Weathering steel railway test mast,55.673,12.565,Denmark,,,"Marine, Cold","1-7 years, Extended up to 28 years","Weathering steel, Stainless Steel",s031,,,,,,,,,,,
 DK-006,Ringsted,Weathering steel railway test mast,55.438,11.79,Denmark,,,"Near-coastal, Cold","1-7 years, Extended up to 28 years","Weathering steel, Stainless Steel",s031,,,,,,,,,,,
 EC-001,Esmeraldas,,0.9668153,-79.6523847,Ecuador,,,"Marine, Tropical",4 years,Coated aluminum,s041,,,,,,,,,,,
+EC-002,Riobamba,,-1.6716698,-78.6607421,Ecuador,,,"Inland, Tropical","1 year, 4 years",Mild steel,s044,,,,,,,,,,,
+EC-003,Guayaquil,,-2.1900572,-79.8868669,Ecuador,,,"Marine, Tropical","1 year, 4 years",Mild steel,s044,,,,,,,,,,,
+EC-004,San Cristobal,,-0.9151226,-89.5662955,Ecuador,,,"Coastal, Tropical","1 year, 4 years",Mild steel,s045,,,,,,,,,,,
+EC-005,Salinas,,-2.2612497,-80.9237973,Ecuador,,,"Coastal, Tropical","1 year, 4 years",Mild steel,s045,,,,,,,,,,,
 EE-001,Lahemaa,National Park,59.576,25.8,Estonia,,USSR,"Marine, Rural, Cold","1 year, 2 years, 4 years, 8 years, Annually","Carbon steel, Weathering steel, Zinc, Aluminium, Copper, Stainless Steel, Titanium",s009,s017,s018,s010,s011,s012,s013,s014,s015,,,
 ES-001,Madrid,City,40.4168,-3.7038,Spain,,,"Inland, Urban, Temperate","1 year, 2 years, 4 years, 8 years, Annually, 3 years, 5 years, 10 years, 6 years, 16 years","Carbon steel, Weathering steel, Zinc, Aluminium, Copper, Stainless Steel, Titanium, Mild steel",s009,s017,s018,s020,s039,s010,s011,s012,s013,s014,s015,
 ES-002,Bilbao,City,43.263,-2.935,Spain,,,"Coastal, Urban, Temperate","1 year, 2 years, 4 years, 8 years, Annually, 3 years, 5 years, 10 years, 6 years, 16 years","Carbon steel, Weathering steel, Zinc, Aluminium, Mild steel, Copper",s009,s039,s010,s011,s012,,,,,,,
 ES-003,Toledo,City,39.8628,-4.0273,Spain,,,"Inland, Urban, Temperate","1 year, 2 years, 4 years, 8 years, Annually","Carbon steel, Weathering steel, Zinc, Aluminium, Copper, Stainless Steel, Titanium",s009,s017,s018,s010,s011,s012,s013,s014,s015,,,
-ES-005,El Pardo,"moderate zone, urban",40.5205538,-3.7780738,Spain,,,"Inland, Urban, Temperate","1 year, 2 years, 4 years, 8 years","Carbon steel, Zinc, Copper, Aluminium",s020,,,,,,,,,,,
+ES-005,El Pardo,"moderate zone, urban",40.5205538,-3.7780738,Spain,,,"Inland, Urban, Temperate","1 year, 2 years, 4 years, 8 years","Carbon steel, Zinc, Copper, Aluminium, Mild steel",s020,s045,,,,,,,,,,
 ES-006,Vigo,"moderate zone, industrial",42.1986396,-8.727956,Spain,,,"Coastal, Industrial, Temperate","1 year, 2 years, 4 years, 8 years","Carbon steel, Zinc, Copper, Aluminium",s020,,,,,,,,,,,Source label: Lagoas - Vigo.
 ES-007,Barakaldo,"moderate zone, urban",43.2949177,-2.9887476,Spain,,,"Coastal, Urban, Temperate","1 year, 2 years, 4 years, 8 years","Carbon steel, Zinc, Copper, Aluminium",s020,,,,,,,,,,,"Source label: Baracaldo, Vizcaya."
 ES-008,El Escorial,,40.5836411,-4.1281427,Spain,,,"Inland, Temperate","1 year, 2 years, 3 years, 4 years, 5 years, 8 years, 10 years, 6 years, 16 years","Mild steel, Zinc, Copper, Aluminium",s039,,,,,,,,,,,
-ES-009,Barcelona,,41.3825802,2.177073,Spain,,,"Coastal, Temperate","1 year, 2 years, 3 years, 4 years, 5 years, 8 years, 10 years, 6 years, 16 years","Mild steel, Zinc, Copper, Aluminium",s039,,,,,,,,,,,
+ES-009,Barcelona,,41.3825802,2.177073,Spain,,,"Coastal, Temperate","1 year, 2 years, 3 years, 4 years, 5 years, 8 years, 10 years, 6 years, 16 years","Mild steel, Zinc, Copper, Aluminium",s039,s045,,,,,,,,,,
 ES-010,Zaragoza,,41.6915847,-0.9101268,Spain,,,"Inland, Temperate","1 year, 2 years, 3 years, 4 years, 5 years, 8 years, 10 years, 6 years, 16 years","Mild steel, Zinc, Copper, Aluminium",s039,,,,,,,,,,,
 ES-011,Cádiz,,36.5297438,-6.2928976,Spain,,,"Marine, Temperate","1 year, 2 years, 3 years, 4 years, 5 years, 8 years, 10 years, 6 years, 16 years","Mild steel, Zinc, Copper, Aluminium",s039,,,,,,,,,,,
 ES-012,Velilla del Río Carrión,,42.9328979,-4.8024457,Spain,,,"Inland, Temperate","1 year, 2 years, 3 years, 4 years, 5 years, 8 years, 10 years, 6 years, 16 years","Mild steel, Zinc, Copper, Aluminium",s039,,,,,,,,,,,
 ES-013,Alicante,,38.3436365,-0.4881708,Spain,,,"Marine, Temperate","1 year, 2 years, 3 years, 4 years, 5 years, 8 years, 10 years, 6 years, 16 years","Mild steel, Zinc, Copper, Aluminium",s039,,,,,,,,,,,
 ES-014,"Pardo, Espinosa de los Monteros",,43.1072776,-3.7006109,Spain,,,"Near-coastal, Temperate",,,,,,,,,,,,,,
+ES-015,Naut Aran,,42.7000512,0.8720695,Spain,,,"Inland, Temperate","1 year, 4 years",Mild steel,s044,,,,,,,,,,,
+ES-016,Granada,,37.1734995,-3.5995337,Spain,,,"Near-coastal, Temperate","1 year, 4 years",Mild steel,s044,,,,,,,,,,,
+ES-017,Tortosa,,40.8110158,0.5209333,Spain,,,"Near-coastal, Temperate","1 year, 4 years",Mild steel,s044,,,,,,,,,,,
+ES-018,León,,42.5934528,-5.5616416,Spain,,,"Inland, Temperate","1 year, 4 years",Mild steel,s044,,,,,,,,,,,
+ES-019,Labastida / Bastida,,42.5903817,-2.7928698,Spain,,,"Inland, Temperate","1 year, 4 years",Mild steel,s045,,,,,,,,,,,
+ES-020,Pontevedra,,42.4858449,-8.5840232,Spain,,,"Coastal, Temperate","1 year, 4 years",Mild steel,s045,,,,,,,,,,,
 FI-001,Espoo,City,60.2055,24.6559,Finland,,,"Coastal, Urban, Sub-arctic, Cold","1 year, 2 years, 4 years, 8 years, Annually","Carbon steel, Weathering steel, Zinc, Aluminium",s009,s010,s011,s012,,,,,,,,
 FI-002,Ahtari,Town,62.554,24.0619,Finland,,,"Inland, Urban, Sub-arctic, Cold, Rural","1 year, 2 years, 4 years, 8 years, Annually","Carbon steel, Weathering steel, Zinc, Aluminium, Copper",s009,s020,s010,s011,s012,s013,,,,,,Standard Finnish spelling is Ähtäri; ASCII label used for geocoding compatibility.
 FI-003,Helsinki,City,60.1935,24.955,Finland,,,"Coastal, Industrial, Urban, Sub-arctic, Cold, industrial","1 year, 2 years, 4 years, 8 years, Annually","Carbon steel, Weathering steel, Zinc, Aluminium, Copper",s009,s020,s010,s011,s012,,,,,,,
@@ -194,6 +231,10 @@ MU-005,"Fort George, Port Louis",marine-heavy industrial,-20.1454408,57.4931181,
 MU-006,"Rajiv Gandhi Science Centre, Port Louis",marine / industrial outskirts,-20.1733798,57.4844505,Mauritius,,,"Coastal, Island, Industrial, Tropical",,,s025,,,,,,,,,,,Site code RG; about 896 m from coast; close to an industrial zone.
 MU-007,"Mauritius Civil Service Mutual Aid Association, Port Louis",marine-urban,-20.163267,57.49860434,Mauritius,,,"Coastal, Island, Tropical",,,s025,,,,,,,,,,,Site code MA; city-centre location about 203 m from coastline.
 MU-008,Medine Camp de Masque,rural inland control,-20.2446961,57.6485127,Mauritius,,,"Near-coastal, Island, Rural, Tropical",,,s025,,,,,,,,,,,Site code MC; control atmosphere; about 17 km from east coast and about 283 m elevation.
+MX-001,Cuernavaca,,18.9331321,-99.2599579,Mexico,,,"Inland, Tropical","1 year, 4 years",Mild steel,s044,,,,,,,,,,,
+MX-002,Mexico City,,19.4326296,-99.1331785,Mexico,,,"Inland, Tropical","1 year, 4 years",Mild steel,s044,,,,,,,,,,,
+MX-003,San Luis Potosí City,,22.1516472,-100.9763993,Mexico,,,"Inland, Tropical","1 year, 4 years",Mild steel,s044,,,,,,,,,,,
+MX-004,Acapulco,,16.8680495,-99.8940182,Mexico,,,"Coastal, Tropical","1 year, 4 years",Mild steel,s045,,,,,,,,,,,
 NG-001,"Abalamabie Road, Bonny Island",coastal town / industrial-influenced,4.4303132,7.2007614,Nigeria,,,"Coastal, Tropical",,,s026,,,,,,,,,,,"Source table site: Ablamabie, Bonny Island; approx. 5900 m from industrial area and 4900 m from shoreline."
 NG-002,"Finima, Bonny Island",coastal industrial,4.39685462,7.15982126,Nigeria,,,"Coastal, Tropical",,,s026,,,,,,,,,,,Approx. 3500 m from industrial area and 1700 m from shoreline.
 NG-003,"Mission Road, Bonny Island",coastal urban,4.4459694,7.1684538,Nigeria,,,"Marine, Tropical",,,s026,,,,,,,,,,,Approx. 4800 m from industrial area and 500 m from shoreline.
@@ -218,12 +259,22 @@ NO-015,Tananger,"moderate zone, marine splash",58.9359135,5.5864225,Norway,,,"Ma
 NO-016,Bergen,"moderate zone, marine - urban",60.3943055,5.3259192,Norway,,,"Coastal, Urban, Sub-arctic, Cold","1 year, 2 years, 4 years, 8 years","Carbon steel, Zinc, Copper, Aluminium",s020,,,,,,,,,,,
 NZ-001,Judgeford,"moderate zone, marine - rural",-41.1166793,174.9513694,New Zealand,,,"Coastal, Island, Rural, Temperate","1 year, 2 years, 4 years, 8 years","Carbon steel, Zinc, Copper, Aluminium",s020,,,,,,,,,,,"Source label: Judgeford, Wellington."
 PA-001,Fort Sherman,"tropical zone, marine - splash",9.3649243,-79.9524657,Panama,,USA,"Marine, Tropical","1 year, 2 years, 4 years, 8 years, 21 years","Carbon steel, Zinc, Copper, Aluminium, Galvanized steel, Coated aluminum, Coated zinc, Aluminium alloy",s020,s040,,,,,,,,,,Source label: Panama Fort Sherman Costal Site; historically associated with the U.S.-administered Panama Canal Zone.
-PA-002,Panama City,,8.9714493,-79.5341802,Panama,,,"Coastal, Tropical",4 years,Coated aluminum,s041,,,,,,,,,,,
+PA-002,Panama City,,8.9714493,-79.5341802,Panama,,,"Coastal, Tropical","4 years, 1 year","Coated aluminum, Mild steel",s041,s045,,,,,,,,,,
+PA-003,Chiriquí,,8.3971129,-82.3223443,Panama,,,"Coastal, Tropical","1 year, 4 years",Mild steel,s045,,,,,,,,,,,
+PA-004,Veraguas,,8.2414131,-81.0903464,Panama,,,"Near-coastal, Tropical","1 year, 4 years",Mild steel,s045,,,,,,,,,,,
+PA-005,Colón,,9.3553005,-79.8974085,Panama,,,"Marine, Tropical","1 year, 4 years",Mild steel,s045,,,,,,,,,,,
 PE-001,Lima,,-12.0459808,-77.0305912,Peru,,,"Coastal, Tropical",4 years,Coated aluminum,s041,,,,,,,,,,,
-PE-002,Cuzco,,-13.5169541,-71.9792712,Peru,,,"Inland, Tropical","1 year, 2 years",Mild steel,s042,,,,,,,,,,,
+PE-002,Cuzco,,-13.5169541,-71.9792712,Peru,,,"Inland, Tropical","1 year, 2 years, 4 years",Mild steel,s042,s044,,,,,,,,,,
+PE-003,Pucallpa,,-8.3820737,-74.5387507,Peru,,,"Inland, Tropical","1 year, 4 years",Mild steel,s044,,,,,,,,,,,
+PE-004,Arequipa,,-16.3988667,-71.5369607,Peru,,,"Inland, Tropical","1 year, 4 years",Mild steel,s044,,,,,,,,,,,
+PE-005,San Borja,,-12.0964515,-76.9956899,Peru,,,"Coastal, Tropical","1 year, 4 years",Mild steel,s045,,,,,,,,,,,
+PE-006,Villa Salvador,,-14.0792792,-74.9182257,Peru,,,"Inland, Tropical","1 year, 4 years",Mild steel,s045,,,,,,,,,,,
 PL-001,Katowice,City,50.2649,19.0238,Poland,,,"Inland, Industrial, Urban, Cold","1 year, 4 years, 8 years","Carbon steel, Zinc, Copper, Weathering steel, Stainless Steel, Aluminium, Titanium",s014,s017,s018,s015,s016,,,,,,,
 PT-001,Lisbon,City,38.6979,-9.2063,Portugal,,,"Marine, Urban, Temperate","1 year, 2 years, 4 years, 8 years, Annually","Carbon steel, Weathering steel, Zinc, Aluminium",s009,s010,s011,s012,s013,,,,,,,
 PT-002,"Lumiar, Lisbon",,38.7685509,-9.1624841,Portugal,,,"Coastal, Temperate",4 years,Coated aluminum,s041,,,,,,,,,,,
+PT-003,"Pego, Abrantes",,39.4625876,-8.1493983,Portugal,,,"Inland, Temperate","1 year, 4 years",Mild steel,s045,,,,,,,,,,,
+PT-004,Sines,,37.956549,-8.8689639,Portugal,,,"Coastal, Temperate","1 year, 4 years",Mild steel,s045,,,,,,,,,,,
+PT-005,"Leixões, Matosinhos",,41.1864507,-8.6961588,Portugal,,,"Marine, Temperate","1 year, 4 years",Mild steel,s045,,,,,,,,,,,
 RU-001,"C1 (Nikel SW, 25 km)",Test site,69.3,29.697,Russia,,USSR,"Near-coastal, Industrial, Extreme cold, industrial","1-2 years, 1 month, 3 months, 1 year","Carbon steel, Zinc, Copper, Galvanized steel, Aluminium, Coated steel",s003,s005,s006,,,,,,,,,"Table 9 note defines C1 as Nikel (SW, 25 km). 1990–1991 steel=93 g/m²/year, zinc=6.4. Table 10: July 1992–July 1993 steel=163, zinc=8.3; July 1992–July 1994 steel=220, zinc=11.2."
 RU-002,"C2 (Nikel NE, 15 km)",Test site,69.51,30.56,Russia,,USSR,"Near-coastal, Industrial, Extreme cold, industrial","1-2 years, 1 month, 3 months, 1 year","Carbon steel, Zinc, Copper, Galvanized steel, Aluminium, Coated steel",s003,s005,s006,,,,,,,,,"Table 9 note defines C2 as Nikel (NE, 15 km). 1990–1991 steel=261 g/m²/year, zinc=19. Table 10: July 1992–July 1993 steel=306, zinc=21.3; July 1992–July 1994 steel=466, zinc=33.4."
 RU-003,C3 (Pechenga),Town,69.56,31.16,Russia,,USSR,"Coastal, Industrial, Urban, Extreme cold, industrial","1-2 years, 1 month, 3 months, 1 year","Carbon steel, Zinc, Copper, Galvanized steel, Aluminium, Coated steel",s003,s005,s006,,,,,,,,,"Table 9 note defines C3 as Pechenga. 1990–1991 steel=214 g/m²/year, zinc=15. Table 10: July 1992–July 1993 steel=264, zinc=15.1; July 1992–July 1994 steel=392, zinc=27.1."
@@ -297,9 +348,18 @@ US-021,Detroit,,42.3315509,-83.0466403,United States,,,"Inland, Temperate","10 y
 US-022,"Saylorsburg, Hamilton Township",,40.8996609,-75.3174423,United States,,,"Inland, Temperate","10 years, 17 years, 16 years, 8 years, 23 years, 20 years, 18 years, 13 years, 15 years","Carbon steel, Copper, Mild steel, Weathering steel, Steel alloys, Copper steel",s043,,,,,,,,,,,
 US-023,Sacramento,,38.5810606,-121.493895,United States,,,"Inland, Temperate","10 years, 17 years, 16 years, 8 years, 23 years, 20 years, 18 years, 13 years, 15 years","Carbon steel, Copper, Mild steel, Weathering steel, Steel alloys, Copper steel",s043,,,,,,,,,,,
 US-024,Potter County,,41.7302743,-77.9022292,United States,,,"Near-coastal, Temperate","10 years, 17 years, 16 years, 8 years, 23 years, 20 years, 18 years, 13 years, 15 years","Carbon steel, Copper, Mild steel, Weathering steel, Steel alloys, Copper steel",s043,,,,,,,,,,,
-UY-001,Punta Del Este,,-34.9632342,-54.9439981,Uruguay,,,"Marine, Temperate",4 years,Coated aluminum,s041,,,,,,,,,,,
+UY-001,Punta Del Este,,-34.9632342,-54.9439981,Uruguay,,,"Marine, Temperate","4 years, 1 year","Coated aluminum, Mild steel",s041,s045,,,,,,,,,,
+UY-002,Trinidad,,-33.5173479,-56.8979718,Uruguay,,,"Inland, Temperate","1 year, 4 years",Mild steel,s044,,,,,,,,,,,
+UY-003,Melo,,-32.3680849,-54.1697146,Uruguay,,,"Inland, Temperate","1 year, 4 years",Mild steel,s045,,,,,,,,,,,
+UY-004,"Prado, Montevideo",,-34.8632863,-56.2027959,Uruguay,,,"Coastal, Temperate","1 year, 4 years",Mild steel,s045,,,,,,,,,,,
 VE-001,Parroquia José Antonio Cháves,,10.655945,-71.5611983,Venezuela,,,"Marine, Tropical",4 years,Coated aluminum,s041,,,,,,,,,,,
 VE-002,"La Voz, El Tigre",,8.8914969,-64.2457079,Venezuela,,,"Inland, Tropical",4 years,Coated aluminum,s041,,,,,,,,,,,
+VE-003,"Mantanzas, Parroquia Unare",,8.2636765,-62.8095553,Venezuela,,,"Inland, Tropical","1 year, 4 years",Mild steel,s045,,,,,,,,,,,
+VE-004,Barcelona-V,,10.1325951,-64.6819583,Venezuela,,,"Coastal, Tropical","1 year, 4 years",Mild steel,s045,,,,,,,,,,,
+VE-005,Coro,,11.4055796,-69.6679115,Venezuela,,,"Coastal, Tropical","1 year, 4 years",Mild steel,s045,,,,,,,,,,,
+VE-006,Punto Fijo,,11.6931716,-70.1917178,Venezuela,,,"Coastal, Tropical","1 year, 4 years",Mild steel,s045,,,,,,,,,,,
+VE-007,El Tablazo,,8.3541875,-62.6367575,Venezuela,,,"Inland, Tropical","1 year, 4 years",Mild steel,s045,,,,,,,,,,,
+VE-008,Puerto Cabello,,10.4677932,-68.0436682,Venezuela,,,"Coastal, Tropical","1 year, 4 years",Mild steel,s045,,,,,,,,,,,
 ZA-001,Bedford,inland rural / semi-arid,-32.6783333,26.0883333,South Africa,,,"Inland, Rural, Hot-arid",,,s023,,,,,,,,,,,Approx. first-year mild steel corrosion rate reported: 12 µm/a
 ZA-002,Belfast,inland Highveld,-25.686667,30.033611,South Africa,,,"Inland, Temperate",,,s023,,,,,,,,,,,Approx. first-year mild steel corrosion rate reported: 18 µm/a
 ZA-003,"Ysterplaat, Cape Town",coastal urban / marine-influenced,-33.9201062,18.4767109,South Africa,,,"Coastal, Urban, Temperate",,,s023,,,,,,,,,,,Source site name: Cape Town - Ysterplaat. Approx. first-year mild steel corrosion rate reported: 28 µm/a
