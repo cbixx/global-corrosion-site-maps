@@ -308,8 +308,9 @@
             <div class="directory-kicker">Dataset directory</div>
             <h2 class="directory-title">Corrosion test sites A–Z</h2>
             <p class="directory-subtitle">
-              Countries/locations are listed alphabetically. Sites are sorted alphabetically within each country.
-              Countries with no current records are retained as visible coverage gaps.
+              Countries and areas are listed alphabetically.
+              Sites are sorted alphabetically within each entry.
+              Entries without published records are retained as visible coverage gaps.
             </p>
           </div>
         </div>
@@ -321,6 +322,17 @@
             type="text"
             placeholder="Search country, site, source, region, metal, exposure period..."
           />
+
+          <select
+            id="directoryCoverageFilter"
+            class="control-select"
+            aria-label="Filter directory by data coverage"
+          >
+            <option value="all">All countries / areas</option>
+            <option value="with-data">With published data</option>
+            <option value="without-data">Without published data</option>
+          </select>
+
           <div id="directoryCount" class="directory-count">Loading directory...</div>
         </div>
 
@@ -711,7 +723,7 @@
         ]
       }
     };
-    const DIRECTORY_COUNTRY_LIST = [
+    const DIRECTORY_COUNTRY_AREA_LIST = [
       "Afghanistan",
       "Albania",
       "Algeria",
@@ -876,23 +888,23 @@
       "台湾地区": "China",
       "臺灣地區": "China",
 
-      "Hong Kong": "China",
-      "Hong Kong SAR": "China",
-      "Hong Kong, China": "China",
-      "香港": "China",
-      "香港特别行政区": "China",
-      "香港特別行政區": "China",
+      "Hong Kong": "China, Hong Kong Special Administrative Region",
+      "Hong Kong SAR": "China, Hong Kong Special Administrative Region",
+      "Hong Kong, China": "China, Hong Kong Special Administrative Region",
+      "香港": "China, Hong Kong Special Administrative Region",
+      "香港特别行政区": "China, Hong Kong Special Administrative Region",
+      "香港特別行政區": "China, Hong Kong Special Administrative Region",
 
-      "Macao": "China",
-      "Macau": "China",
-      "Macao SAR": "China",
-      "Macau SAR": "China",
-      "Macao, China": "China",
-      "Macau, China": "China",
-      "澳门": "China",
-      "澳門": "China",
-      "澳门特别行政区": "China",
-      "澳門特別行政區": "China"
+      "Macao": "China, Macao Special Administrative Region",
+      "Macau": "China, Macao Special Administrative Region",
+      "Macao SAR": "China, Macao Special Administrative Region",
+      "Macau SAR": "China, Macao Special Administrative Region",
+      "Macao, China": "China, Macao Special Administrative Region",
+      "Macau, China": "China, Macao Special Administrative Region",
+      "澳门": "China, Macao Special Administrative Region",
+      "澳門": "China, Macao Special Administrative Region",
+      "澳门特别行政区": "China, Macao Special Administrative Region",
+      "澳門特別行政區": "China, Macao Special Administrative Region"
     };
 
     function normaliseDirectoryCountry(value) {
@@ -1246,6 +1258,11 @@
     directorySearchInput.addEventListener('input', function() {
       renderCountryDirectory(visibleRows);
     });
+    document
+      .getElementById("directoryCoverageFilter")
+      ?.addEventListener("change", function() {
+        renderCountryDirectory(visibleRows);
+      });
     railSearchButton.addEventListener('click', function() {
       if (
         appShell.classList.contains('directory-open') ||
@@ -2282,8 +2299,15 @@
 
     function updateDropdowns(rows) {
       const uniqueCountries = [...new Set(
-        rows.map(r => (r.modern_country_location || '').trim()).filter(Boolean)
-      )].sort();
+        rows
+          .map(row =>
+            normaliseDirectoryCountry(row.modern_country_location)
+          )
+          .filter(country =>
+            country &&
+            country !== "Unknown location"
+          )
+      )].sort((a, b) => a.localeCompare(b));
 
       const uniqueRegions = [...new Set(
         rows.flatMap(r => splitListValue(r.region_category))
@@ -2362,7 +2386,14 @@
     function updateStats(rows) {
       const visibleCount = rows.length;
       const countryCount = new Set(
-        rows.map(row => (row.modern_country_location || '').trim()).filter(Boolean)
+        rows
+          .map(row =>
+            normaliseDirectoryCountry(row.modern_country_location)
+          )
+          .filter(country =>
+            country &&
+            country !== "Unknown location"
+          )
       ).size;
 
       const sourceCount = new Set(
@@ -2528,111 +2559,205 @@
     function renderCountryDirectory(rows) {
       if (!countryDirectoryContent) return;
 
-      const directoryQuery = directorySearchInput.value.trim().toLowerCase();
+      const directoryQuery =
+        directorySearchInput.value.trim().toLowerCase();
+
+      const coverageMode =
+        document.getElementById("directoryCoverageFilter")?.value || "all";
+
       const sourceRows = Array.isArray(rows) ? rows : [];
 
-      const countryGroups = new Map();
+      // Sites surviving the current map filters.
+      const visibleCountryGroups = buildCountryGroups(sourceRows);
 
-      sourceRows.forEach(row => {
-        const country = normaliseDirectoryCountry(row.modern_country_location);
+      // All published sites, regardless of the current map filters.
+      const datasetCountryGroups = buildCountryGroups(allRows);
 
-        if (!rowMatchesDirectorySearch(row, directoryQuery, country)) {
-          return;
-        }
-
-        if (!countryGroups.has(country)) {
-          countryGroups.set(country, []);
-        }
-
-        countryGroups.get(country).push(row);
+      visibleCountryGroups.forEach(sites => {
+        sites.sort((a, b) =>
+          (a.site_label || "").localeCompare(b.site_label || "")
+        );
       });
 
-      countryGroups.forEach((sites, country) => {
-        sites.sort((a, b) => (a.site_label || '').localeCompare(b.site_label || ''));
+      datasetCountryGroups.forEach(sites => {
+        sites.sort((a, b) =>
+          (a.site_label || "").localeCompare(b.site_label || "")
+        );
       });
 
+      // Apply the directory's own text search to the currently visible sites.
+      const searchedVisibleCountryGroups = new Map();
+
+      visibleCountryGroups.forEach((sites, country) => {
+        const matchingSites = sites.filter(row =>
+          rowMatchesDirectorySearch(row, directoryQuery, country)
+        );
+
+        if (matchingSites.length > 0) {
+          searchedVisibleCountryGroups.set(country, matchingSites);
+        }
+      });
+
+      // Complete reference list + any country/area that actually occurs in the data.
       let countries = [...new Set([
-        ...DIRECTORY_COUNTRY_LIST,
-        ...countryGroups.keys()
+        ...DIRECTORY_COUNTRY_AREA_LIST,
+        ...datasetCountryGroups.keys()
       ])].sort((a, b) => a.localeCompare(b));
 
+      // Coverage filtering must use ALL published data, not visibleRows.
+      if (coverageMode === "with-data") {
+        countries = countries.filter(country => {
+          const totalSites = datasetCountryGroups.get(country) || [];
+          return totalSites.length > 0;
+        });
+      }
+
+      if (coverageMode === "without-data") {
+        countries = countries.filter(country => {
+          const totalSites = datasetCountryGroups.get(country) || [];
+          return totalSites.length === 0;
+        });
+      }
+
+      // Directory search can match either the country/area name
+      // or one of the currently visible site records.
       if (directoryQuery) {
         countries = countries.filter(country => {
-          const countryMatches = country.toLowerCase().includes(directoryQuery);
-          const hasMatchingSites = countryGroups.has(country);
+          const countryMatches =
+            country.toLowerCase().includes(directoryQuery);
 
-          return countryMatches || hasMatchingSites;
+          const siteMatches =
+            searchedVisibleCountryGroups.has(country);
+
+          return countryMatches || siteMatches;
         });
       }
 
       const letters = [...new Set(
-        countries.map(country => country.charAt(0).toUpperCase())
-      )].filter(Boolean);
+        countries
+          .map(country => country.charAt(0).toUpperCase())
+          .filter(Boolean)
+      )];
 
       directoryLetterNav.innerHTML = letters.map(letter => `
-        <a class="directory-letter-link" href="#directory-letter-${escapeHtml(letter)}">
+        <a
+          class="directory-letter-link"
+          href="#directory-letter-${escapeHtml(letter)}"
+        >
           ${escapeHtml(letter)}
         </a>
-      `).join('');
+      `).join("");
 
-      const siteCount = [...countryGroups.values()].reduce(
-        (total, sites) => total + sites.length,
-        0
-      );
+      const shownSiteCount = countries.reduce((total, country) => {
+        const sites = searchedVisibleCountryGroups.get(country) || [];
+        return total + sites.length;
+      }, 0);
 
-      const countriesWithSites = [...countryGroups.keys()].length;
+      const populatedCountryCount = countries.filter(country => {
+        const totalSites = datasetCountryGroups.get(country) || [];
+        return totalSites.length > 0;
+      }).length;
 
       directoryCount.textContent =
-        `${siteCount.toLocaleString()} matched site${siteCount === 1 ? '' : 's'} · ` +
-        `${countriesWithSites.toLocaleString()} populated · ` +
-        `${countries.length.toLocaleString()} shown`;
+        `${shownSiteCount.toLocaleString()} site${shownSiteCount === 1 ? "" : "s"} shown · ` +
+        `${populatedCountryCount.toLocaleString()} with data · ` +
+        `${countries.length.toLocaleString()} countries / areas listed`;
 
-      let previousLetter = '';
+      let previousLetter = "";
 
       countryDirectoryContent.innerHTML = countries.map(country => {
-        const sites = countryGroups.get(country) || [];
-        const firstLetter = country.charAt(0).toUpperCase();
-        const letterAnchor = firstLetter !== previousLetter
-          ? `<div id="directory-letter-${escapeHtml(firstLetter)}"></div>`
-          : '';
+        const visibleSites =
+          searchedVisibleCountryGroups.get(country) || [];
+
+        const datasetSites =
+          datasetCountryGroups.get(country) || [];
+
+        const visibleCount = visibleSites.length;
+        const totalCount = datasetSites.length;
+
+        const firstLetter =
+          country.charAt(0).toUpperCase();
+
+        const letterAnchor =
+          firstLetter !== previousLetter
+            ? `<div id="directory-letter-${escapeHtml(firstLetter)}"></div>`
+            : "";
 
         previousLetter = firstLetter;
 
-        const siteRowsHtml = sites.length
-          ? sites.map(row => {
-              const regionText = normalizeText(row.region_category) || 'Unclassified region';
+        let countryMetaText = "";
 
-              return `
-                <div class="directory-site-row">
-                  <button
-                    class="directory-site-main"
-                    type="button"
-                    data-row-index="${row._rowIndex}"
-                    title="Open this site on the map"
-                  >
-                    <span class="directory-site-name">${escapeHtml(row.site_label || 'Unnamed site')}</span>
-                    <span class="directory-site-id">${escapeHtml(row.site_id || '')}</span>
-                  </button>
+        if (totalCount === 0) {
+          countryMetaText = "No published data";
+        } else if (visibleCount === totalCount) {
+          countryMetaText =
+            `${totalCount.toLocaleString()} site${totalCount === 1 ? "" : "s"}`;
+        } else {
+          countryMetaText =
+            `${visibleCount.toLocaleString()} shown · ` +
+            `${totalCount.toLocaleString()} total`;
+        }
 
-                  <div>
-                    <span class="directory-region-pill">${escapeHtml(regionText)}</span>
-                  </div>
+        let siteRowsHtml = "";
 
-                  <div class="directory-source-links">
-                    ${buildDirectorySourceLinks(row)}
-                  </div>
+        if (visibleSites.length > 0) {
+          siteRowsHtml = visibleSites.map(row => {
+            const regionText =
+              normalizeText(row.region_category) ||
+              "Unclassified region";
+
+            return `
+              <div class="directory-site-row">
+                <button
+                  class="directory-site-main"
+                  type="button"
+                  data-row-index="${row._rowIndex}"
+                  title="Open this site on the map"
+                >
+                  <span class="directory-site-name">
+                    ${escapeHtml(row.site_label || "Unnamed site")}
+                  </span>
+
+                  <span class="directory-site-id">
+                    ${escapeHtml(row.site_id || "")}
+                  </span>
+                </button>
+
+                <div>
+                  <span class="directory-region-pill">
+                    ${escapeHtml(regionText)}
+                  </span>
                 </div>
-              `;
-            }).join('')
-          : `
-              <div class="directory-empty-country">
-                No corrosion test site has been added for this country/location yet.
+
+                <div class="directory-source-links">
+                  ${buildDirectorySourceLinks(row)}
+                </div>
               </div>
             `;
+          }).join("");
+        } else if (totalCount > 0) {
+          siteRowsHtml = `
+            <div class="directory-empty-country">
+              Published sites exist for this country/location,
+              but none match the current filters.
+            </div>
+          `;
+        } else {
+          siteRowsHtml = `
+            <div class="directory-empty-country">
+              No published corrosion test site has been added
+              for this country/location yet.
+            </div>
+          `;
+        }
 
         return `
           ${letterAnchor}
-          <section id="${escapeHtml(countryAnchorId(country))}" class="country-section">
+
+          <section
+            id="${escapeHtml(countryAnchorId(country))}"
+            class="country-section"
+          >
             <div>
               <button
                 class="directory-country-button"
@@ -2642,8 +2767,9 @@
               >
                 ${escapeHtml(country)}
               </button>
+
               <div class="country-meta">
-                ${sites.length.toLocaleString()} site${sites.length === 1 ? '' : 's'}
+                ${escapeHtml(countryMetaText)}
               </div>
             </div>
 
@@ -2652,13 +2778,33 @@
             </div>
           </section>
         `;
-      }).join('');
+      }).join("");
 
       if (!countries.length) {
         countryDirectoryContent.innerHTML = `
-          <div class="directory-muted">No countries or sites match the current directory search.</div>
+          <div class="directory-muted">
+            No countries or sites match the current directory search.
+          </div>
         `;
       }
+    }
+
+    function buildCountryGroups(rows) {
+      const groups = new Map();
+
+      (rows || []).forEach(row => {
+        const country = normaliseDirectoryCountry(
+          row.modern_country_location
+        );
+
+        if (!groups.has(country)) {
+          groups.set(country, []);
+        }
+
+        groups.get(country).push(row);
+      });
+
+      return groups;
     }
 
     function getRowsForDirectoryCountry(countryName) {
@@ -3445,7 +3591,9 @@
         const matchesSearch = !query || row._searchText.includes(query);
         const matchesCountry =
           !countryValue ||
-          row.modern_country_location.toLowerCase() === countryValue;
+          normaliseDirectoryCountry(
+            row.modern_country_location
+          ).toLowerCase() === countryValue;
 
         const matchesRegion =
           !regionValue ||
