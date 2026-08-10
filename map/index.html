@@ -725,55 +725,110 @@
     };
     const DIRECTORY_COUNTRY_AREA_LIST = [
       "Afghanistan",
+      "Åland Islands",
       "Albania",
       "Algeria",
+      "American Samoa",
       "Andorra",
       "Angola",
+      "Anguilla",
+      "Antarctica",
+      "Antigua and Barbuda",
       "Argentina",
       "Armenia",
+      "Aruba",
       "Australia",
       "Austria",
       "Azerbaijan",
       "Bahamas",
       "Bahrain",
       "Bangladesh",
+      "Barbados",
       "Belarus",
       "Belgium",
       "Belize",
       "Benin",
+      "Bermuda",
+      "Bhutan",
       "Bolivia",
+      "Bonaire, Sint Eustatius and Saba",
       "Bosnia and Herzegovina",
       "Botswana",
+      "Bouvet Island",
       "Brazil",
+      "British Indian Ocean Territory",
+      "British Virgin Islands",
       "Brunei Darussalam",
       "Bulgaria",
       "Burkina Faso",
+      "Burundi",
+      "Cabo Verde",
       "Cambodia",
       "Cameroon",
       "Canada",
+      "Cayman Islands",
+      "Central African Republic",
+      "Chad",
       "Chile",
       "China",
+      "China, Hong Kong Special Administrative Region",
+      "China, Macao Special Administrative Region",
+      "Taiwan Province of China",
+      "Christmas Island",
+      "Cocos (Keeling) Islands",
       "Colombia",
+      "Comoros",
       "Congo",
+      "Cook Islands",
       "Costa Rica",
+      "Côte d’Ivoire",
       "Croatia",
       "Cuba",
+      "Curaçao",
       "Cyprus",
       "Czechia",
+      "Korea, Democratic People's Republic of",
+      "Democratic Republic of the Congo",
       "Denmark",
+      "Djibouti",
+      "Dominica",
       "Dominican Republic",
       "Ecuador",
       "Egypt",
       "El Salvador",
+      "Equatorial Guinea",
+      "Eritrea",
       "Estonia",
+      "Eswatini",
       "Ethiopia",
+      "Falkland Islands (Malvinas)",
+      "Faroe Islands",
+      "Fiji",
       "Finland",
       "France",
+      "French Guiana",
+      "French Polynesia",
+      "French Southern Territories",
+      "Gabon",
+      "Gambia",
       "Georgia",
       "Germany",
       "Ghana",
+      "Gibraltar",
       "Greece",
+      "Greenland",
+      "Grenada",
+      "Guadeloupe",
+      "Guam",
       "Guatemala",
+      "Guernsey",
+      "Guinea",
+      "Guinea-Bissau",
+      "Guyana",
+      "Haiti",
+      "Heard Island and McDonald Islands",
+      "Holy See",
+      "Honduras",
       "Hungary",
       "Iceland",
       "India",
@@ -781,131 +836,427 @@
       "Iran",
       "Iraq",
       "Ireland",
+      "Isle of Man",
       "Israel",
       "Italy",
+      "Jamaica",
       "Japan",
+      "Jersey",
       "Jordan",
       "Kazakhstan",
       "Kenya",
-      "Korea, Republic of",
+      "Kiribati",
       "Kuwait",
+      "Kyrgyzstan",
       "Lao People's Democratic Republic",
       "Latvia",
       "Lebanon",
+      "Lesotho",
+      "Liberia",
       "Libya",
+      "Liechtenstein",
       "Lithuania",
       "Luxembourg",
+      "Madagascar",
+      "Malawi",
       "Malaysia",
+      "Maldives",
+      "Mali",
+      "Malta",
+      "Marshall Islands",
+      "Martinique",
+      "Mauritania",
+      "Mauritius",
+      "Mayotte",
       "Mexico",
-      "Moldova",
+      "Micronesia (Federated States of)",
+      "Monaco",
       "Mongolia",
       "Montenegro",
+      "Montserrat",
       "Morocco",
       "Mozambique",
       "Myanmar",
+      "Namibia",
+      "Nauru",
       "Nepal",
       "Netherlands",
+      "New Caledonia",
       "New Zealand",
+      "Nicaragua",
+      "Niger",
       "Nigeria",
+      "Niue",
+      "Norfolk Island",
       "North Macedonia",
+      "Northern Mariana Islands",
       "Norway",
+      "Oman",
       "Pakistan",
+      "Palau",
       "Panama",
+      "Papua New Guinea",
       "Paraguay",
       "Peru",
       "Philippines",
+      "Pitcairn",
       "Poland",
       "Portugal",
+      "Puerto Rico",
       "Qatar",
+      "Korea, Republic of",
+      "Moldova",
+      "Réunion",
       "Romania",
       "Russian Federation",
+      "Rwanda",
+      "Saint Barthélemy",
+      "Saint Helena",
+      "Saint Kitts and Nevis",
+      "Saint Lucia",
+      "Saint Martin (French Part)",
+      "Saint Pierre and Miquelon",
+      "Saint Vincent and the Grenadines",
+      "Samoa",
+      "San Marino",
+      "Sao Tome and Principe",
       "Saudi Arabia",
+      "Senegal",
       "Serbia",
+      "Seychelles",
+      "Sierra Leone",
       "Singapore",
+      "Sint Maarten (Dutch part)",
       "Slovakia",
       "Slovenia",
+      "Solomon Islands",
+      "Somalia",
       "South Africa",
+      "South Georgia and the South Sandwich Islands",
+      "South Sudan",
       "Spain",
       "Sri Lanka",
+      "State of Palestine",
+      "Sudan",
+      "Suriname",
+      "Svalbard and Jan Mayen Islands",
       "Sweden",
       "Switzerland",
+      "Syria",
+      "Tajikistan",
       "Thailand",
+      "Timor-Leste",
+      "Togo",
+      "Tokelau",
+      "Tonga",
+      "Trinidad and Tobago",
       "Tunisia",
       "Türkiye",
+      "Turkmenistan",
+      "Turks and Caicos Islands",
+      "Tuvalu",
+      "Uganda",
       "Ukraine",
       "United Arab Emirates",
       "United Kingdom",
+      "Tanzania",
+      "United States Minor Outlying Islands",
       "United States",
+      "United States Virgin Islands",
       "Uruguay",
+      "Uzbekistan",
+      "Vanuatu",
+      "Venezuela",
       "Viet Nam",
+      "Wallis and Futuna Islands",
+      "Western Sahara",
+      "Yemen",
+      "Zambia",
       "Zimbabwe"
     ];
 
     const COUNTRY_NAME_ALIASES = {
+      // Afghanistan
+      "Afghanistan": "Afghanistan",
+
+      // Bahamas
+      "Bahamas": "Bahamas",
+      "The Bahamas": "Bahamas",
+      "Bahamas, The": "Bahamas",
+
+      // Bolivia
       "Bolivia": "Bolivia",
       "Bolivia, Plurinational State of": "Bolivia",
-      "Venezuela": "Venezuela",
-      "Venezuela, Bolivarian Republic of": "Venezuela",
-      "Vietnam": "Viet Nam",
-      "Viet Nam": "Viet Nam",
-      "Russia": "Russian Federation",
-      "Russian Federation": "Russian Federation",
-      "Iran": "Iran",
-      "Iran, Islamic Republic of": "Iran",
-      "Syria": "Syria",
-      "Syrian Arab Republic": "Syria",
-      "Tanzania": "Tanzania",
-      "Tanzania, United Republic of": "Tanzania",
-      "Moldova": "Moldova",
-      "Moldova, Republic of": "Moldova",
-      "Laos": "Lao People's Democratic Republic",
-      "Lao People's Democratic Republic": "Lao People's Democratic Republic",
-      "South Korea": "Korea, Republic of",
-      "Korea, Republic of": "Korea, Republic of",
-      "North Korea": "Korea, Democratic People's Republic of",
-      "Korea, Democratic People's Republic of": "Korea, Democratic People's Republic of",
-      "Czech Republic": "Czechia",
-      "Czechia": "Czechia",
-      "Turkey": "Türkiye",
-      "Türkiye": "Türkiye",
-      "United States of America": "United States",
-      "USA": "United States",
-      "U.S.A.": "United States",
-      "United Kingdom": "United Kingdom",
-      "UK": "United Kingdom",
+      "Bolivia (Plurinational State of)": "Bolivia",
+      "Plurinational State of Bolivia": "Bolivia",
 
-      "Taiwan": "China",
-      "Taiwan, China": "China",
-      "Taiwan Province": "China",
-      "Taiwan Province, China": "China",
-      "Taiwan, Province of China": "China",
-      "Chinese Taipei": "China",
-      "中国台湾": "China",
-      "台湾": "China",
-      "臺灣": "China",
-      "台湾省": "China",
-      "臺灣省": "China",
-      "台湾地区": "China",
-      "臺灣地區": "China",
+      // Bosnia and Herzegovina
+      "Bosnia and Herzegovina": "Bosnia and Herzegovina",
+      "Bosnia & Herzegovina": "Bosnia and Herzegovina",
 
+      // Brunei
+      "Brunei": "Brunei Darussalam",
+      "Brunei Darussalam": "Brunei Darussalam",
+
+      // Cabo Verde
+      "Cabo Verde": "Cabo Verde",
+      "Cape Verde": "Cabo Verde",
+
+      // China
+      "China": "China",
+      "People's Republic of China": "China",
+      "PR China": "China",
+      "P.R. China": "China",
+      "PRC": "China",
+
+      // Taiwan — retained separately for statistical/geographic coverage
+      "Taiwan": "Taiwan Province of China",
+      "Taiwan Province": "Taiwan Province of China",
+      "Taiwan Province of China": "Taiwan Province of China",
+      "Taiwan, Province of China": "Taiwan Province of China",
+      "Taiwan, China": "Taiwan Province of China",
+      "Chinese Taipei": "Taiwan Province of China",
+      "中国台湾": "Taiwan Province of China",
+      "台湾": "Taiwan Province of China",
+      "臺灣": "Taiwan Province of China",
+      "台湾省": "Taiwan Province of China",
+      "臺灣省": "Taiwan Province of China",
+      "台湾地区": "Taiwan Province of China",
+      "臺灣地區": "Taiwan Province of China",
+
+      // Hong Kong SAR
       "Hong Kong": "China, Hong Kong Special Administrative Region",
       "Hong Kong SAR": "China, Hong Kong Special Administrative Region",
+      "Hong Kong SAR, China": "China, Hong Kong Special Administrative Region",
       "Hong Kong, China": "China, Hong Kong Special Administrative Region",
+      "Hong Kong Special Administrative Region": "China, Hong Kong Special Administrative Region",
+      "China, Hong Kong SAR": "China, Hong Kong Special Administrative Region",
+      "China, Hong Kong Special Administrative Region": "China, Hong Kong Special Administrative Region",
       "香港": "China, Hong Kong Special Administrative Region",
       "香港特别行政区": "China, Hong Kong Special Administrative Region",
       "香港特別行政區": "China, Hong Kong Special Administrative Region",
 
+      // Macao SAR
       "Macao": "China, Macao Special Administrative Region",
       "Macau": "China, Macao Special Administrative Region",
       "Macao SAR": "China, Macao Special Administrative Region",
       "Macau SAR": "China, Macao Special Administrative Region",
+      "Macao SAR, China": "China, Macao Special Administrative Region",
+      "Macau SAR, China": "China, Macao Special Administrative Region",
       "Macao, China": "China, Macao Special Administrative Region",
       "Macau, China": "China, Macao Special Administrative Region",
+      "Macao Special Administrative Region": "China, Macao Special Administrative Region",
+      "China, Macao SAR": "China, Macao Special Administrative Region",
+      "China, Macao Special Administrative Region": "China, Macao Special Administrative Region",
       "澳门": "China, Macao Special Administrative Region",
       "澳門": "China, Macao Special Administrative Region",
       "澳门特别行政区": "China, Macao Special Administrative Region",
-      "澳門特別行政區": "China, Macao Special Administrative Region"
+      "澳門特別行政區": "China, Macao Special Administrative Region",
+
+      // Congo
+      "Congo": "Congo",
+      "Republic of the Congo": "Congo",
+      "Congo, Republic of the": "Congo",
+      "Congo (Brazzaville)": "Congo",
+
+      // Democratic Republic of the Congo
+      "Democratic Republic of the Congo": "Democratic Republic of the Congo",
+      "Congo, Democratic Republic of the": "Democratic Republic of the Congo",
+      "Congo, The Democratic Republic of the": "Democratic Republic of the Congo",
+      "Congo (Kinshasa)": "Democratic Republic of the Congo",
+      "DR Congo": "Democratic Republic of the Congo",
+      "D.R. Congo": "Democratic Republic of the Congo",
+      "DRC": "Democratic Republic of the Congo",
+
+      // Côte d'Ivoire
+      "Côte d’Ivoire": "Côte d’Ivoire",
+      "Côte d'Ivoire": "Côte d’Ivoire",
+      "Cote d'Ivoire": "Côte d’Ivoire",
+      "Cote dIvoire": "Côte d’Ivoire",
+      "Ivory Coast": "Côte d’Ivoire",
+
+      // Curaçao
+      "Curaçao": "Curaçao",
+      "Curacao": "Curaçao",
+
+      // Czechia
+      "Czechia": "Czechia",
+      "Czech Republic": "Czechia",
+
+      // Eswatini
+      "Eswatini": "Eswatini",
+      "Swaziland": "Eswatini",
+
+      // Gambia
+      "Gambia": "Gambia",
+      "The Gambia": "Gambia",
+      "Gambia, The": "Gambia",
+
+      // Holy See
+      "Holy See": "Holy See",
+      "Vatican City": "Holy See",
+      "Vatican City State": "Holy See",
+      "Holy See (Vatican City State)": "Holy See",
+
+      // Iran
+      "Iran": "Iran",
+      "Iran, Islamic Republic of": "Iran",
+      "Iran (Islamic Republic of)": "Iran",
+      "Islamic Republic of Iran": "Iran",
+
+      // Korea — DPRK
+      "North Korea": "Korea, Democratic People's Republic of",
+      "Korea, North": "Korea, Democratic People's Republic of",
+      "DPR Korea": "Korea, Democratic People's Republic of",
+      "DPRK": "Korea, Democratic People's Republic of",
+      "Democratic People's Republic of Korea": "Korea, Democratic People's Republic of",
+      "Korea, Democratic People's Republic of": "Korea, Democratic People's Republic of",
+
+      // Korea — Republic of Korea
+      "South Korea": "Korea, Republic of",
+      "Korea, South": "Korea, Republic of",
+      "Republic of Korea": "Korea, Republic of",
+      "Korea, Republic of": "Korea, Republic of",
+
+      // Laos
+      "Laos": "Lao People's Democratic Republic",
+      "Lao PDR": "Lao People's Democratic Republic",
+      "Lao People's Democratic Republic": "Lao People's Democratic Republic",
+
+      // Micronesia
+      "Micronesia": "Micronesia (Federated States of)",
+      "Federated States of Micronesia": "Micronesia (Federated States of)",
+      "Micronesia, Federated States of": "Micronesia (Federated States of)",
+      "Micronesia (Federated States of)": "Micronesia (Federated States of)",
+
+      // Moldova
+      "Moldova": "Moldova",
+      "Republic of Moldova": "Moldova",
+      "Moldova, Republic of": "Moldova",
+      "Moldova (Republic of)": "Moldova",
+
+      // Myanmar
+      "Myanmar": "Myanmar",
+      "Burma": "Myanmar",
+
+      // North Macedonia
+      "North Macedonia": "North Macedonia",
+      "Macedonia": "North Macedonia",
+      "Macedonia, the former Yugoslav Republic of": "North Macedonia",
+      "The former Yugoslav Republic of Macedonia": "North Macedonia",
+      "FYR Macedonia": "North Macedonia",
+      "FYROM": "North Macedonia",
+
+      // Palestine
+      "State of Palestine": "State of Palestine",
+      "Palestine": "State of Palestine",
+      "Palestine, State of": "State of Palestine",
+      "Palestinian Territory": "State of Palestine",
+      "Palestinian Territory, Occupied": "State of Palestine",
+      "Occupied Palestinian Territory": "State of Palestine",
+
+      // Réunion
+      "Réunion": "Réunion",
+      "Reunion": "Réunion",
+
+      // Russia
+      "Russia": "Russian Federation",
+      "Russian Federation": "Russian Federation",
+
+      // Saint Helena
+      "Saint Helena": "Saint Helena",
+      "St Helena": "Saint Helena",
+      "Saint Helena, Ascension and Tristan da Cunha": "Saint Helena",
+
+      // Saint Kitts and Nevis
+      "Saint Kitts and Nevis": "Saint Kitts and Nevis",
+      "St Kitts and Nevis": "Saint Kitts and Nevis",
+
+      // Saint Lucia
+      "Saint Lucia": "Saint Lucia",
+      "St Lucia": "Saint Lucia",
+
+      // Saint Vincent and the Grenadines
+      "Saint Vincent and the Grenadines": "Saint Vincent and the Grenadines",
+      "St Vincent and the Grenadines": "Saint Vincent and the Grenadines",
+
+      // Sao Tome and Principe
+      "Sao Tome and Principe": "Sao Tome and Principe",
+      "São Tomé and Príncipe": "Sao Tome and Principe",
+      "São Tomé and Principe": "Sao Tome and Principe",
+
+      // Sint Maarten
+      "Sint Maarten": "Sint Maarten (Dutch part)",
+      "Sint Maarten (Dutch part)": "Sint Maarten (Dutch part)",
+      "Sint Maarten (Dutch Part)": "Sint Maarten (Dutch part)",
+
+      // Svalbard and Jan Mayen
+      "Svalbard and Jan Mayen": "Svalbard and Jan Mayen Islands",
+      "Svalbard and Jan Mayen Islands": "Svalbard and Jan Mayen Islands",
+
+      // Syria
+      "Syria": "Syria",
+      "Syrian Arab Republic": "Syria",
+
+      // Tanzania
+      "Tanzania": "Tanzania",
+      "United Republic of Tanzania": "Tanzania",
+      "Tanzania, United Republic of": "Tanzania",
+
+      // Timor-Leste
+      "Timor-Leste": "Timor-Leste",
+      "East Timor": "Timor-Leste",
+
+      // Türkiye
+      "Türkiye": "Türkiye",
+      "Turkey": "Türkiye",
+      "Turkiye": "Türkiye",
+
+      // United Kingdom
+      "United Kingdom": "United Kingdom",
+      "United Kingdom of Great Britain and Northern Ireland": "United Kingdom",
+      "Great Britain": "United Kingdom",
+      "Britain": "United Kingdom",
+      "UK": "United Kingdom",
+      "U.K.": "United Kingdom",
+
+      // United States
+      "United States": "United States",
+      "United States of America": "United States",
+      "USA": "United States",
+      "U.S.A.": "United States",
+      "US": "United States",
+      "U.S.": "United States",
+
+      // United States Virgin Islands
+      "United States Virgin Islands": "United States Virgin Islands",
+      "U.S. Virgin Islands": "United States Virgin Islands",
+      "US Virgin Islands": "United States Virgin Islands",
+      "Virgin Islands, U.S.": "United States Virgin Islands",
+
+      // British Virgin Islands
+      "British Virgin Islands": "British Virgin Islands",
+      "Virgin Islands, British": "British Virgin Islands",
+
+      // Venezuela
+      "Venezuela": "Venezuela",
+      "Venezuela, Bolivarian Republic of": "Venezuela",
+      "Venezuela (Bolivarian Republic of)": "Venezuela",
+      "Bolivarian Republic of Venezuela": "Venezuela",
+
+      // Viet Nam
+      "Viet Nam": "Viet Nam",
+      "Vietnam": "Viet Nam"
     };
+
+    const COUNTRY_NAME_ALIASES_LOWER = new Map(
+      Object.entries(COUNTRY_NAME_ALIASES).map(
+        ([alias, canonical]) => [
+          alias.toLowerCase(),
+          canonical
+        ]
+      )
+    );
 
     function normaliseDirectoryCountry(value) {
       const raw = normalizeText(value);
@@ -916,7 +1267,11 @@
 
       if (!country) return "Unknown location";
 
-      return COUNTRY_NAME_ALIASES[country] || country;
+      return (
+        COUNTRY_NAME_ALIASES[country] ||
+        COUNTRY_NAME_ALIASES_LOWER.get(country.toLowerCase()) ||
+        country
+      );
     }
 
     const STANDARD_METALS = [
