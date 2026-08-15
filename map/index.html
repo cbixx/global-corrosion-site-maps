@@ -175,15 +175,54 @@
         </button>
       </div>
 
-      <div class="control-group">
-        <label class="control-label" for="searchBox">Search</label>
-        <input
-          id="searchBox"
-          class="control-input"
-          type="text"
-          placeholder="Site label, site ID, country, region, metal, exposure period..."
-        />
-      </div>
+            <div class="control-group place-search-group">
+              <label class="control-label" for="placeSearchBox">Find a place on map</label>
+
+              <form id="placeSearchForm" class="place-search-form" role="search">
+                <input
+                  id="placeSearchBox"
+                  class="control-input"
+                  type="search"
+                  placeholder="City, region, country..."
+                  autocomplete="off"
+                  spellcheck="false"
+                />
+
+                <button id="placeSearchButton" class="panel-button" type="submit">
+                  Find
+                </button>
+
+                <button id="clearPlaceSearchBtn" class="panel-button" type="button">
+                  Clear
+                </button>
+              </form>
+
+              <div id="placeSearchStatus" class="place-search-status" aria-live="polite">
+                Search any geographic location. This does not add a corrosion site to the database.
+              </div>
+
+              <div
+                id="placeSearchResults"
+                class="place-search-results"
+                role="listbox"
+                aria-label="Place search results"
+                hidden
+              ></div>
+
+              <div class="place-search-attribution">
+                Place search © OpenStreetMap contributors via Nominatim.
+              </div>
+            </div>
+
+            <div class="control-group">
+              <label class="control-label" for="searchBox">Search dataset</label>
+              <input
+                id="searchBox"
+                class="control-input"
+                type="text"
+                placeholder="Site label, site ID, country, region, metal, exposure period..."
+              />
+            </div>
 
       <div class="control-group">
         <label class="control-label" for="countryFilter">Country / location</label>
@@ -262,6 +301,11 @@
         </div>
 
         <div class="legend-row">
+          <span class="legend-search-target" aria-hidden="true"></span>
+          <span>Purple target = searched place, not a corrosion site</span>
+        </div>
+
+        <div class="legend-row">
           <span class="legend-cluster legend-cluster-green">3</span>
           <span>Green cluster = smaller cluster</span>
         </div>
@@ -283,8 +327,14 @@
       </div>
 
       <div class="sidebar-note">
-        Search works across site label, site ID, site type, country/location, administering country,
-        former entity, region category, exposure period, metal, and notes. Site type remains searchable but is not shown as a separate filter.
+        <strong>Find a place on map</strong> searches geographic locations independently
+        of the corrosion database. It can locate cities, regions, countries, and other mapped
+        places even when no corrosion site is recorded there.
+
+        <strong>Search dataset</strong> filters only corrosion records already contained in
+        this database, including site label, site ID, site type, country/location,
+        administering country, former entity, region category, exposure period,
+        metal, and notes.
       </div>
     </aside>
 
@@ -1355,6 +1405,9 @@
     map.createPane('climateHeatPane');
     map.getPane('climateHeatPane').style.zIndex = 430;
     map.getPane('climateHeatPane').style.pointerEvents = 'none';
+    map.createPane('placeSearchPane');
+    map.getPane('placeSearchPane').style.zIndex = 590;
+    map.getPane('placeSearchPane').style.pointerEvents = 'none';
 
     function updatePanFeel() {
       const z = map.getZoom();
@@ -1403,6 +1456,19 @@
     let countryMiniMap = null;
     let countryMiniMarkerLayer = null;
     let countryMiniBaseLayer = null;
+
+    const PLACE_SEARCH_ENDPOINT =
+      "https://nominatim.openstreetmap.org/search";
+
+    const PLACE_SEARCH_CACHE = new Map();
+
+    const PLACE_SEARCH_MIN_INTERVAL_MS = 1100;
+
+    let lastPlaceSearchRequestAt = 0;
+    let placeSearchInFlight = false;
+    let activePlaceSearchResult = null;
+
+    const placeSearchLayer = L.layerGroup().addTo(map);
 
     const activeFilterChipsContainer = document.getElementById('activeFilterChips');
     const hoverSummaryCard = document.getElementById('hoverSummaryCard');
@@ -3878,6 +3944,8 @@
           ? Number(layerData.max)
           : Math.max(...values);
 
+        const metadata = layerData.metadata || {};
+
         const gridStep = Number(
           metadata.grid_step_degrees ||
           layerData.grid_step_degrees ||
@@ -3894,9 +3962,14 @@
 
         climateGridLayer.addTo(map);
 
-        const metadata = layerData.metadata || {};
-        const period = metadata.period || metadata.period_label || CLIMATE_LAYER_PERIOD_LABEL;
-        const source = metadata.source || "Open-Meteo generated layer";
+        const period =
+          metadata.period ||
+          metadata.period_label ||
+          CLIMATE_LAYER_PERIOD_LABEL;
+
+        const source =
+          metadata.source ||
+          "Open-Meteo generated layer";
 
         renderOverlayLegend(
           config.label,
@@ -3915,6 +3988,496 @@
         );
         console.error(error);
       }
+    }
+
+    function placeSearchSleep(milliseconds) {
+      return new Promise(resolve =>
+        window.setTimeout(resolve, milliseconds)
+      );
+    }
+
+    function normalisePlaceSearchQuery(value) {
+      return normalizeText(value).replace(/\s+/g, " ");
+    }
+
+    function buildPlaceSearchUrl(query) {
+      const params = new URLSearchParams({
+        q: query,
+        format: "jsonv2",
+        addressdetails: "1",
+        dedupe: "1",
+        limit: "5"
+      });
+
+      const languages = Array.isArray(navigator.languages)
+        ? navigator.languages.filter(Boolean).join(",")
+        : navigator.language || "";
+
+      if (languages) {
+        params.set("accept-language", languages);
+      }
+
+      return `${PLACE_SEARCH_ENDPOINT}?${params.toString()}`;
+    }
+
+    function setPlaceSearchStatus(message, state = "") {
+      const status =
+        document.getElementById("placeSearchStatus");
+
+      if (!status) return;
+
+      status.textContent = message;
+
+      status.classList.toggle(
+        "is-error",
+        state === "error"
+      );
+
+      status.classList.toggle(
+        "is-success",
+        state === "success"
+      );
+    }
+
+    function clearPlaceSearchMarker() {
+      placeSearchLayer.clearLayers();
+      activePlaceSearchResult = null;
+
+      document
+        .querySelectorAll(".place-search-result.is-active")
+        .forEach(element =>
+          element.classList.remove("is-active")
+        );
+    }
+
+    function clearPlaceSearch(options = {}) {
+      const clearInput =
+        options.clearInput !== false;
+
+      const clearResults =
+        options.clearResults !== false;
+
+      clearPlaceSearchMarker();
+
+      const input =
+        document.getElementById("placeSearchBox");
+
+      const results =
+        document.getElementById("placeSearchResults");
+
+      if (input && clearInput) {
+        input.value = "";
+      }
+
+      if (results && clearResults) {
+        results.innerHTML = "";
+        results.hidden = true;
+      }
+
+      setPlaceSearchStatus(
+        "Search any geographic location. This does not add a corrosion site to the database."
+      );
+    }
+
+    function parsePlaceSearchBounds(result) {
+      if (!Array.isArray(result.boundingbox)) {
+        return null;
+      }
+
+      const box =
+        result.boundingbox.map(Number);
+
+      if (
+        box.length !== 4 ||
+        box.some(value => !Number.isFinite(value))
+      ) {
+        return null;
+      }
+
+      const [
+        south,
+        north,
+        west,
+        east
+      ] = box;
+
+      return L.latLngBounds(
+        [south, west],
+        [north, east]
+      );
+    }
+
+    function createPlaceSearchTarget(lat, lon) {
+      const icon = L.divIcon({
+        className: "",
+        html: `
+          <div class="place-search-target-icon">
+            <span class="place-search-target-ring"></span>
+            <span class="place-search-target-crossbar"></span>
+          </div>
+        `,
+        iconSize: [30, 30],
+        iconAnchor: [15, 15]
+      });
+
+      return L.marker(
+        [lat, lon],
+        {
+          icon,
+          pane: "placeSearchPane",
+          interactive: false,
+          keyboard: false
+        }
+      );
+    }
+
+    function markActivePlaceSearchResult(index) {
+      document
+        .querySelectorAll(".place-search-result")
+        .forEach(element => {
+          const active =
+            Number(
+              element.getAttribute(
+                "data-place-result-index"
+              )
+            ) === index;
+
+          element.classList.toggle(
+            "is-active",
+            active
+          );
+        });
+    }
+
+    function focusPlaceSearchResult(
+      result,
+      resultIndex = -1
+    ) {
+      const lat = Number(result.lat);
+      const lon = Number(result.lon);
+
+      if (
+        !Number.isFinite(lat) ||
+        !Number.isFinite(lon)
+      ) {
+        setPlaceSearchStatus(
+          "This result does not contain usable coordinates.",
+          "error"
+        );
+
+        return;
+      }
+
+      clearPlaceSearchMarker();
+
+      activePlaceSearchResult = result;
+
+      createPlaceSearchTarget(
+        lat,
+        lon
+      ).addTo(placeSearchLayer);
+
+      const bounds =
+        parsePlaceSearchBounds(result);
+
+      if (
+        bounds &&
+        bounds.isValid()
+      ) {
+        map.flyToBounds(
+          bounds,
+          {
+            padding: [55, 55],
+            maxZoom: 12,
+            duration: 0.8
+          }
+        );
+      } else {
+        map.flyTo(
+          [lat, lon],
+          10,
+          {
+            animate: true,
+            duration: 0.8
+          }
+        );
+      }
+
+      if (resultIndex >= 0) {
+        markActivePlaceSearchResult(
+          resultIndex
+        );
+      }
+
+      const placeName =
+        normalizeText(result.display_name) ||
+        "searched place";
+
+      setPlaceSearchStatus(
+        `Focused on ${placeName}. The purple target is temporary and is not a corrosion-site record.`,
+        "success"
+      );
+    }
+
+    function renderPlaceSearchResults(results) {
+      const container =
+        document.getElementById(
+          "placeSearchResults"
+        );
+
+      if (!container) return;
+
+      container.innerHTML = "";
+
+      if (!results.length) {
+        container.hidden = true;
+        return;
+      }
+
+      results.forEach(
+        (result, index) => {
+          const button =
+            document.createElement("button");
+
+          button.type = "button";
+
+          button.className =
+            "place-search-result";
+
+          button.setAttribute(
+            "data-place-result-index",
+            String(index)
+          );
+
+          const name =
+            document.createElement("span");
+
+          name.className =
+            "place-search-result-name";
+
+          name.textContent =
+            normalizeText(result.display_name) ||
+            "Unnamed place";
+
+          const meta =
+            document.createElement("span");
+
+          meta.className =
+            "place-search-result-meta";
+
+          meta.textContent =
+            normalizeText(
+              result.addresstype ||
+              result.type ||
+              result.category
+            )
+              .replace(/_/g, " ") ||
+            "mapped place";
+
+          button.appendChild(name);
+          button.appendChild(meta);
+
+          button.addEventListener(
+            "click",
+            function() {
+              focusPlaceSearchResult(
+                result,
+                index
+              );
+            }
+          );
+
+          container.appendChild(
+            button
+          );
+        }
+      );
+
+      container.hidden = false;
+    }
+
+    async function requestPlaceSearch(query) {
+      const cacheKey =
+        query.toLowerCase();
+
+      if (
+        PLACE_SEARCH_CACHE.has(
+          cacheKey
+        )
+      ) {
+        return PLACE_SEARCH_CACHE.get(
+          cacheKey
+        );
+      }
+
+      const elapsed =
+        Date.now() -
+        lastPlaceSearchRequestAt;
+
+      if (
+        elapsed <
+        PLACE_SEARCH_MIN_INTERVAL_MS
+      ) {
+        await placeSearchSleep(
+          PLACE_SEARCH_MIN_INTERVAL_MS -
+          elapsed
+        );
+      }
+
+      lastPlaceSearchRequestAt =
+        Date.now();
+
+      const response =
+        await fetch(
+          buildPlaceSearchUrl(query),
+          {
+            headers: {
+              Accept: "application/json"
+            }
+          }
+        );
+
+      if (!response.ok) {
+        throw new Error(
+          `Nominatim request failed: HTTP ${response.status}`
+        );
+      }
+
+      const data =
+        await response.json();
+
+      const results =
+        Array.isArray(data)
+          ? data
+          : [];
+
+      PLACE_SEARCH_CACHE.set(
+        cacheKey,
+        results
+      );
+
+      return results;
+    }
+
+    async function performPlaceSearch() {
+      if (placeSearchInFlight) {
+        return;
+      }
+
+      const input =
+        document.getElementById(
+          "placeSearchBox"
+        );
+
+      const button =
+        document.getElementById(
+          "placeSearchButton"
+        );
+
+      const query =
+        normalisePlaceSearchQuery(
+          input?.value
+        );
+
+      if (!query) {
+        setPlaceSearchStatus(
+          "Enter a city, region, country, landmark, or other place name first.",
+          "error"
+        );
+
+        input?.focus();
+        return;
+      }
+
+      placeSearchInFlight = true;
+
+      if (button) {
+        button.disabled = true;
+        button.textContent = "Finding…";
+      }
+
+      setPlaceSearchStatus(
+        `Searching for “${query}”…`
+      );
+
+      try {
+        const results =
+          await requestPlaceSearch(
+            query
+          );
+
+        renderPlaceSearchResults(
+          results
+        );
+
+        if (!results.length) {
+          clearPlaceSearchMarker();
+
+          setPlaceSearchStatus(
+            `No mapped place was found for “${query}”. Try a more specific name.`,
+            "error"
+          );
+
+          return;
+        }
+
+        /*
+         * Automatically select Nominatim's
+         * highest-ranked result.
+         */
+        focusPlaceSearchResult(
+          results[0],
+          0
+        );
+
+        if (results.length > 1) {
+          setPlaceSearchStatus(
+            `Showing the best match for “${query}”. Alternative matches are listed below. The purple target is temporary and is not a corrosion-site record.`,
+            "success"
+          );
+        }
+      } catch (error) {
+        console.error(error);
+
+        setPlaceSearchStatus(
+          "Place search could not reach the geographic search service. Your corrosion dataset is unaffected.",
+          "error"
+        );
+      } finally {
+        placeSearchInFlight = false;
+
+        if (button) {
+          button.disabled = false;
+          button.textContent = "Find";
+        }
+      }
+    }
+
+    function initialisePlaceSearch() {
+      const form =
+        document.getElementById(
+          "placeSearchForm"
+        );
+
+      const clearButton =
+        document.getElementById(
+          "clearPlaceSearchBtn"
+        );
+
+      form?.addEventListener(
+        "submit",
+        function(event) {
+          event.preventDefault();
+          performPlaceSearch();
+        }
+      );
+
+      clearButton?.addEventListener(
+        "click",
+        function() {
+          clearPlaceSearch();
+        }
+      );
     }
 
     function fitRows(rows) {
@@ -4067,7 +4630,15 @@
           fitRows(visibleRows);
         });
         document.getElementById('resetView').addEventListener('click', function() {
-          map.setView(DEFAULT_CENTER, DEFAULT_ZOOM);
+          clearPlaceSearch({
+            clearInput: false,
+            clearResults: true
+          });
+
+          map.setView(
+            DEFAULT_CENTER,
+            DEFAULT_ZOOM
+          );
         });
 
         document.getElementById('downloadVisibleCsv').addEventListener('click', function() {
@@ -4107,6 +4678,8 @@
       }
       });
     }
+
+    initialisePlaceSearch();
 
     loadPublicSources().then(loadSiteData);
   </script>
