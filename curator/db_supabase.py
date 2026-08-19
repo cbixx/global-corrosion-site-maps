@@ -1073,6 +1073,18 @@ def get_corrosion_observations() -> list[dict]:
                 corrosion_observations.corrosion_metric,
                 corrosion_observations.value,
                 corrosion_observations.unit,
+
+                corrosion_observations.normalized_value,
+                corrosion_observations.normalized_unit,
+
+                corrosion_observations.density_g_cm3,
+                corrosion_observations.density_basis,
+
+                corrosion_observations.derived_penetration_value,
+                corrosion_observations.derived_penetration_unit,
+
+                corrosion_observations.normalization_note,
+
                 corrosion_observations.measurement_method,
                 corrosion_observations.specimen_condition,
                 corrosion_observations.exposure_condition,
@@ -1110,6 +1122,18 @@ def get_public_corrosion_observations() -> list[dict]:
                 corrosion_observations.corrosion_metric,
                 corrosion_observations.value,
                 corrosion_observations.unit,
+
+                corrosion_observations.normalized_value,
+                corrosion_observations.normalized_unit,
+
+                corrosion_observations.density_g_cm3,
+                corrosion_observations.density_basis,
+
+                corrosion_observations.derived_penetration_value,
+                corrosion_observations.derived_penetration_unit,
+
+                corrosion_observations.normalization_note,
+
                 corrosion_observations.measurement_method,
                 corrosion_observations.specimen_condition,
                 corrosion_observations.exposure_condition,
@@ -1147,38 +1171,142 @@ def delete_corrosion_observations(observation_ids: list[int]) -> int:
 
 
 def import_corrosion_observations(records: list[dict]) -> dict:
+    """
+    Import validated corrosion observations.
+
+    Supports both:
+    - the legacy CSV structure using value/unit;
+    - the source-first Excel structure using
+      reported_value/reported_unit.
+
+    Existing Excel observations are updated by observation_id.
+    New observations are matched by:
+        site + source + material + exposure + metric
+    with blank measurement/specimen fields.
+    """
+
     result = {
         "inserted_or_updated": 0,
+        "created": 0,
+        "updated": 0,
         "skipped": 0,
         "messages": [],
     }
 
+    changed_site_ids: set[int] = set()
+
     with get_connection() as conn:
-        for row_number, record in enumerate(records, start=2):
-            site_id = str(record.get("site_id", "") or "").strip()
-            source_code = _normalise_source_code_for_corrosion(
-                str(record.get("source_code", "") or "").strip()
+        for row_number, record in enumerate(
+            records,
+            start=2,
+        ):
+            site_id = str(
+                record.get(
+                    "site_id",
+                    "",
+                ) or ""
+            ).strip()
+
+            source_code = (
+                _normalise_source_code_for_corrosion(
+                    str(
+                        record.get(
+                            "source_code",
+                            "",
+                        ) or ""
+                    ).strip()
+                )
             )
-            material = str(record.get("material", "") or "").strip()
-            exposure_period = str(record.get("exposure_period", "") or "").strip()
-            corrosion_metric = str(record.get("corrosion_metric", "") or "corrosion_rate").strip()
-            unit = str(record.get("unit", "") or "").strip()
-            measurement_method = str(record.get("measurement_method", "") or "").strip()
-            specimen_condition = str(record.get("specimen_condition", "") or "").strip()
-            exposure_condition = str(record.get("exposure_condition", "") or "").strip()
-            notes = str(record.get("notes", "") or "").strip()
+
+            material = str(
+                record.get(
+                    "material",
+                    "",
+                ) or ""
+            ).strip()
+
+            exposure_period = str(
+                record.get(
+                    "exposure_period",
+                    "",
+                ) or ""
+            ).strip()
+
+            corrosion_metric = str(
+                record.get(
+                    "corrosion_metric",
+                    "",
+                )
+                or "penetration_rate"
+            ).strip()
+
+            unit = str(
+                record.get(
+                    "reported_unit",
+                    record.get(
+                        "unit",
+                        "",
+                    ),
+                ) or ""
+            ).strip()
+
+            measurement_method = str(
+                record.get(
+                    "measurement_method",
+                    "",
+                ) or ""
+            ).strip()
+
+            specimen_condition = str(
+                record.get(
+                    "specimen_condition",
+                    "",
+                ) or ""
+            ).strip()
+
+            exposure_condition = str(
+                record.get(
+                    "exposure_condition",
+                    "",
+                ) or ""
+            ).strip()
+
+            notes = str(
+                record.get(
+                    "notes",
+                    "",
+                ) or ""
+            ).strip()
 
             try:
-                value = float(str(record.get("value", "")).strip())
+                value = float(
+                    record.get(
+                        "reported_value",
+                        record.get(
+                            "value",
+                            "",
+                        ),
+                    )
+                )
             except Exception:
                 result["skipped"] += 1
-                result["messages"].append(f"Row {row_number}: invalid value.")
+                result["messages"].append(
+                    f"Row {row_number}: invalid reported value."
+                )
                 continue
 
-            if not site_id or not source_code or not material or not exposure_period or not unit:
+            if (
+                not site_id
+                or not source_code
+                or not material
+                or not exposure_period
+                or not corrosion_metric
+                or not unit
+            ):
                 result["skipped"] += 1
                 result["messages"].append(
-                    f"Row {row_number}: missing site_id, source_code, material, exposure_period, or unit."
+                    f"Row {row_number}: missing required "
+                    "corrosion observation field."
                 )
                 continue
 
@@ -1186,7 +1314,8 @@ def import_corrosion_observations(records: list[dict]) -> dict:
                 """
                 select id
                 from sites
-                where lower(trim(site_id)) = lower(trim(?))
+                where lower(trim(site_id)) =
+                      lower(trim(?))
                 limit 1
                 """,
                 (site_id,),
@@ -1194,14 +1323,18 @@ def import_corrosion_observations(records: list[dict]) -> dict:
 
             if site_row is None:
                 result["skipped"] += 1
-                result["messages"].append(f"Row {row_number}: site_id `{site_id}` not found.")
+                result["messages"].append(
+                    f"Row {row_number}: site_id "
+                    f"`{site_id}` not found."
+                )
                 continue
 
             source_row = conn.execute(
                 """
                 select id
                 from sources
-                where lower(trim(source_code)) = lower(trim(?))
+                where lower(trim(source_code)) =
+                      lower(trim(?))
                 limit 1
                 """,
                 (source_code,),
@@ -1209,79 +1342,459 @@ def import_corrosion_observations(records: list[dict]) -> dict:
 
             if source_row is None:
                 result["skipped"] += 1
-                result["messages"].append(f"Row {row_number}: source_code `{source_code}` not found.")
+                result["messages"].append(
+                    f"Row {row_number}: source_code "
+                    f"`{source_code}` not found."
+                )
                 continue
 
-            site_fk = int(site_row["id"])
-            source_fk = int(source_row["id"])
+            site_fk = int(
+                site_row["id"]
+            )
+
+            source_fk = int(
+                source_row["id"]
+            )
 
             link_row = conn.execute(
                 """
-                select id
+                select
+                    id,
+                    metals,
+                    exposure_periods
                 from site_sources
                 where site_fk = ?
                   and source_fk = ?
                 limit 1
                 """,
-                (site_fk, source_fk),
-            ).fetchone()
-
-            site_source_fk = int(link_row["id"]) if link_row else None
-
-            conn.execute(
-                """
-                insert into corrosion_observations (
-                    site_fk,
-                    source_fk,
-                    site_source_fk,
-                    material,
-                    exposure_period,
-                    corrosion_metric,
-                    value,
-                    unit,
-                    measurement_method,
-                    specimen_condition,
-                    exposure_condition,
-                    notes,
-                    updated_at
-                )
-                values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, now())
-                on conflict(
-                    site_fk,
-                    source_fk,
-                    material,
-                    exposure_period,
-                    corrosion_metric,
-                    measurement_method,
-                    specimen_condition
-                )
-                do update set
-                    site_source_fk = excluded.site_source_fk,
-                    value = excluded.value,
-                    unit = excluded.unit,
-                    exposure_condition = excluded.exposure_condition,
-                    notes = excluded.notes,
-                    updated_at = now()
-                """,
                 (
                     site_fk,
                     source_fk,
-                    site_source_fk,
-                    material,
+                ),
+            ).fetchone()
+
+            # Corrosion observations require an already
+            # curated site-source relationship.
+
+            if link_row is None:
+                result["skipped"] += 1
+                result["messages"].append(
+                    f"Row {row_number}: source "
+                    f"`{source_code}` is not linked to "
+                    f"site `{site_id}`."
+                )
+                continue
+
+            site_source_fk = int(
+                link_row["id"]
+            )
+
+            def optional_float(
+                key: str,
+            ):
+                raw_value = record.get(
+                    key,
+                    "",
+                )
+
+                if raw_value in (
+                    None,
+                    "",
+                ):
+                    return None
+
+                try:
+                    return float(
+                        raw_value
+                    )
+                except Exception:
+                    return None
+
+            normalized_value = optional_float(
+                "normalized_value"
+            )
+
+            normalized_unit = str(
+                record.get(
+                    "normalized_unit",
+                    "",
+                ) or ""
+            ).strip()
+
+            density_g_cm3 = optional_float(
+                "density_used_g_cm3"
+            )
+
+            if density_g_cm3 is None:
+                density_g_cm3 = optional_float(
+                    "density_g_cm3"
+                )
+
+            density_basis = str(
+                record.get(
+                    "density_basis",
+                    "",
+                ) or ""
+            ).strip()
+
+            derived_penetration_value = (
+                optional_float(
+                    "derived_penetration_value"
+                )
+            )
+
+            derived_penetration_unit = str(
+                record.get(
+                    "derived_penetration_unit",
+                    "",
+                ) or ""
+            ).strip()
+
+            normalization_note = str(
+                record.get(
+                    "normalization_note",
+                    "",
+                ) or ""
+            ).strip()
+
+            observation_id = None
+
+            raw_observation_id = record.get(
+                "observation_id",
+                "",
+            )
+
+            if str(
+                raw_observation_id or ""
+            ).strip():
+                try:
+                    observation_id = int(
+                        float(
+                            raw_observation_id
+                        )
+                    )
+                except Exception:
+                    result["skipped"] += 1
+                    result["messages"].append(
+                        f"Row {row_number}: invalid "
+                        "observation_id."
+                    )
+                    continue
+
+            if observation_id is not None:
+                existing_observation = conn.execute(
+                    """
+                    select
+                        id,
+                        site_fk,
+                        source_fk
+                    from corrosion_observations
+                    where id = ?
+                    limit 1
+                    """,
+                    (observation_id,),
+                ).fetchone()
+
+                if existing_observation is None:
+                    result["skipped"] += 1
+                    result["messages"].append(
+                        f"Row {row_number}: observation_id "
+                        f"`{observation_id}` not found."
+                    )
+                    continue
+
+                if (
+                    int(
+                        existing_observation[
+                            "site_fk"
+                        ]
+                    ) != site_fk
+                    or
+                    int(
+                        existing_observation[
+                            "source_fk"
+                        ]
+                    ) != source_fk
+                ):
+                    result["skipped"] += 1
+                    result["messages"].append(
+                        f"Row {row_number}: observation_id "
+                        "does not belong to the submitted "
+                        "site/source pair."
+                    )
+                    continue
+
+                conn.execute(
+                    """
+                    update corrosion_observations
+                    set
+                        site_source_fk = ?,
+                        material = ?,
+                        exposure_period = ?,
+                        corrosion_metric = ?,
+
+                        value = ?,
+                        unit = ?,
+
+                        normalized_value = ?,
+                        normalized_unit = ?,
+
+                        density_g_cm3 = ?,
+                        density_basis = ?,
+
+                        derived_penetration_value = ?,
+                        derived_penetration_unit = ?,
+
+                        normalization_note = ?,
+
+                        notes = ?,
+                        updated_at = now()
+
+                    where id = ?
+                    """,
+                    (
+                        site_source_fk,
+                        material,
+                        exposure_period,
+                        corrosion_metric,
+
+                        value,
+                        unit,
+
+                        normalized_value,
+                        normalized_unit,
+
+                        density_g_cm3,
+                        density_basis,
+
+                        derived_penetration_value,
+                        derived_penetration_unit,
+
+                        normalization_note,
+
+                        notes,
+                        observation_id,
+                    ),
+                )
+
+                result["updated"] += 1
+
+            else:
+                existing_observation = conn.execute(
+                    """
+                    select id
+                    from corrosion_observations
+                    where site_fk = ?
+                      and source_fk = ?
+                      and lower(trim(material)) =
+                          lower(trim(?))
+                      and lower(trim(exposure_period)) =
+                          lower(trim(?))
+                      and lower(trim(corrosion_metric)) =
+                          lower(trim(?))
+                      and trim(measurement_method) = ''
+                      and trim(specimen_condition) = ''
+                    limit 1
+                    """,
+                    (
+                        site_fk,
+                        source_fk,
+                        material,
+                        exposure_period,
+                        corrosion_metric,
+                    ),
+                ).fetchone()
+
+                if existing_observation is not None:
+                    existing_id = int(
+                        existing_observation[
+                            "id"
+                        ]
+                    )
+
+                    conn.execute(
+                        """
+                        update corrosion_observations
+                        set
+                            site_source_fk = ?,
+
+                            value = ?,
+                            unit = ?,
+
+                            normalized_value = ?,
+                            normalized_unit = ?,
+
+                            density_g_cm3 = ?,
+                            density_basis = ?,
+
+                            derived_penetration_value = ?,
+                            derived_penetration_unit = ?,
+
+                            normalization_note = ?,
+
+                            exposure_condition = ?,
+                            notes = ?,
+                            updated_at = now()
+
+                        where id = ?
+                        """,
+                        (
+                            site_source_fk,
+
+                            value,
+                            unit,
+
+                            normalized_value,
+                            normalized_unit,
+
+                            density_g_cm3,
+                            density_basis,
+
+                            derived_penetration_value,
+                            derived_penetration_unit,
+
+                            normalization_note,
+
+                            exposure_condition,
+                            notes,
+                            existing_id,
+                        ),
+                    )
+
+                    result["updated"] += 1
+
+                else:
+                    conn.execute(
+                        """
+                        insert into corrosion_observations (
+                            site_fk,
+                            source_fk,
+                            site_source_fk,
+
+                            material,
+                            exposure_period,
+                            corrosion_metric,
+
+                            value,
+                            unit,
+
+                            normalized_value,
+                            normalized_unit,
+
+                            density_g_cm3,
+                            density_basis,
+
+                            derived_penetration_value,
+                            derived_penetration_unit,
+
+                            normalization_note,
+
+                            measurement_method,
+                            specimen_condition,
+                            exposure_condition,
+                            notes,
+
+                            updated_at
+                        )
+                        values (
+                            ?, ?, ?,
+                            ?, ?, ?,
+                            ?, ?,
+                            ?, ?,
+                            ?, ?,
+                            ?, ?,
+                            ?,
+                            ?, ?, ?, ?,
+                            now()
+                        )
+                        """,
+                        (
+                            site_fk,
+                            source_fk,
+                            site_source_fk,
+
+                            material,
+                            exposure_period,
+                            corrosion_metric,
+
+                            value,
+                            unit,
+
+                            normalized_value,
+                            normalized_unit,
+
+                            density_g_cm3,
+                            density_basis,
+
+                            derived_penetration_value,
+                            derived_penetration_unit,
+
+                            normalization_note,
+
+                            measurement_method,
+                            specimen_condition,
+                            exposure_condition,
+                            notes,
+                        ),
+                    )
+
+                    result["created"] += 1
+
+            # Keep existing link summary metadata compatible
+            # without deleting broader metadata that may already
+            # have been entered manually.
+
+            merged_link_metals = merge_metadata_values(
+                str(
+                    link_row[
+                        "metals"
+                    ] or ""
+                ),
+                material,
+            )
+
+            merged_link_exposure_periods = (
+                merge_metadata_values(
+                    str(
+                        link_row[
+                            "exposure_periods"
+                        ] or ""
+                    ),
                     exposure_period,
-                    corrosion_metric,
-                    value,
-                    unit,
-                    measurement_method,
-                    specimen_condition,
-                    exposure_condition,
-                    notes,
+                )
+            )
+
+            conn.execute(
+                """
+                update site_sources
+                set metals = ?,
+                    exposure_periods = ?
+                where id = ?
+                """,
+                (
+                    merged_link_metals,
+                    merged_link_exposure_periods,
+                    site_source_fk,
                 ),
             )
 
-            result["inserted_or_updated"] += 1
+            changed_site_ids.add(
+                site_fk
+            )
+
+            result[
+                "inserted_or_updated"
+            ] += 1
 
         conn.commit()
+
+    # Update site-level summary fields from all site-source
+    # metadata after the transaction is complete.
+
+    for site_fk in changed_site_ids:
+        merge_site_metadata_from_links(
+            site_fk
+        )
 
     return result
 

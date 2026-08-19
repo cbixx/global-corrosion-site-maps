@@ -3,6 +3,9 @@ from __future__ import annotations
 from io import BytesIO
 from typing import Any
 
+import pandas as pd
+from openpyxl import load_workbook
+
 from openpyxl import Workbook
 from openpyxl.comments import Comment
 from openpyxl.formatting.rule import FormulaRule
@@ -154,6 +157,51 @@ WORKBOOK_COLUMNS = [
     "notes",
 ]
 
+WORKBOOK_INPUT_COLUMNS = [
+    "source_code",
+    "source_title",
+    "site_id",
+    "site_label",
+    "country",
+    "observation_id",
+    "material",
+    "exposure_period",
+    "corrosion_metric",
+    "reported_value",
+    "reported_unit",
+    "default_density_g_cm3",
+    "density_override_g_cm3",
+    "density_used_g_cm3",
+    "normalized_value",
+    "normalized_unit",
+    "derived_penetration_value",
+    "derived_penetration_unit",
+    "normalization_note",
+    "notes",
+]
+
+
+CORROSION_ENTRY_REQUIRED_FIELDS = [
+    "source_code",
+    "site_id",
+    "material",
+    "exposure_period",
+    "corrosion_metric",
+    "reported_value",
+    "reported_unit",
+]
+
+
+CORROSION_ENTRY_FIELDS = {
+    "material",
+    "exposure_period",
+    "corrosion_metric",
+    "reported_value",
+    "reported_unit",
+    "density_override_g_cm3",
+    "notes",
+}
+
 
 def _clean_unique(values: list[str]) -> list[str]:
     cleaned: list[str] = []
@@ -185,6 +233,256 @@ def _safe_float(value: Any) -> float | None:
     except (TypeError, ValueError):
         return None
 
+def _normalize_unit_text(value: Any) -> str:
+    text = str(value or "").strip()
+
+    replacements = {
+        "μ": "µ",
+        "²": "²",
+    }
+
+    for old, new in replacements.items():
+        text = text.replace(old, new)
+
+    return text
+
+
+def _get_unit_rule(
+    metric: str,
+    reported_unit: str,
+) -> tuple[str, float] | None:
+
+    clean_metric = str(metric or "").strip()
+    clean_unit = _normalize_unit_text(
+        reported_unit
+    )
+
+    for (
+        rule_metric,
+        rule_unit,
+        canonical_unit,
+        multiplier,
+    ) in CORROSION_UNIT_RULES:
+
+        if (
+            rule_metric == clean_metric
+            and _normalize_unit_text(
+                rule_unit
+            ) == clean_unit
+        ):
+            return (
+                canonical_unit,
+                float(multiplier),
+            )
+
+    return None
+
+
+def get_default_density_g_cm3(
+    material: str,
+) -> float | None:
+
+    clean_material = str(
+        material or ""
+    ).strip()
+
+    if not clean_material:
+        return None
+
+    # Exact match first.
+    if clean_material in DEFAULT_DENSITY_G_CM3:
+        return float(
+            DEFAULT_DENSITY_G_CM3[
+                clean_material
+            ]
+        )
+
+    # Case-insensitive fallback.
+    material_key = clean_material.casefold()
+
+    for (
+        known_material,
+        density,
+    ) in DEFAULT_DENSITY_G_CM3.items():
+
+        if (
+            known_material.casefold()
+            == material_key
+        ):
+            return float(density)
+
+    return None
+
+
+def normalize_corrosion_observation(
+    *,
+    material: str,
+    corrosion_metric: str,
+    reported_value: float,
+    reported_unit: str,
+    density_override_g_cm3: float | None = None,
+) -> dict[str, Any]:
+    """
+    Normalize one source-reported corrosion observation.
+
+    The reported value/unit remain authoritative.
+    Normalized and derived fields are generated separately.
+
+    Mass-loss -> penetration conversion is performed only for
+    mass_loss_rate and cumulative_mass_loss, never for
+    net_mass_change.
+    """
+
+    material = str(
+        material or ""
+    ).strip()
+
+    corrosion_metric = str(
+        corrosion_metric or ""
+    ).strip()
+
+    reported_unit = _normalize_unit_text(
+        reported_unit
+    )
+
+    reported_value = float(
+        reported_value
+    )
+
+    unit_rule = _get_unit_rule(
+        corrosion_metric,
+        reported_unit,
+    )
+
+    if unit_rule is None:
+        raise ValueError(
+            "Unsupported metric/unit combination: "
+            f"{corrosion_metric} + {reported_unit}"
+        )
+
+    (
+        normalized_unit,
+        multiplier,
+    ) = unit_rule
+
+    normalized_value = (
+        reported_value
+        * multiplier
+    )
+
+    default_density = (
+        get_default_density_g_cm3(
+            material
+        )
+    )
+
+    density_override = (
+        _safe_float(
+            density_override_g_cm3
+        )
+    )
+
+    if (
+        density_override is not None
+        and density_override <= 0
+    ):
+        raise ValueError(
+            "density_override_g_cm3 must be greater than zero."
+        )
+
+    if density_override is not None:
+        density_used = density_override
+        density_basis = "curator_override"
+
+    elif default_density is not None:
+        density_used = default_density
+        density_basis = "default_material_density"
+
+    else:
+        density_used = None
+        density_basis = ""
+
+    derived_penetration_value = None
+    derived_penetration_unit = ""
+
+    if corrosion_metric in {
+        "mass_loss_rate",
+        "cumulative_mass_loss",
+    }:
+        if density_used is not None:
+            derived_penetration_value = (
+                normalized_value
+                / density_used
+            )
+
+            if corrosion_metric == "mass_loss_rate":
+                derived_penetration_unit = "µm/year"
+            else:
+                derived_penetration_unit = "µm"
+
+    if (
+        corrosion_metric != "net_mass_change"
+        and reported_value < 0
+    ):
+        raise ValueError(
+            "Negative reported values are only accepted "
+            "for net_mass_change."
+        )
+
+    if derived_penetration_value is not None:
+        normalization_note = (
+            "Normalized from reported unit; "
+            f"penetration derived using density "
+            f"{density_used:g} g/cm³."
+        )
+
+    elif (
+        corrosion_metric
+        in {
+            "mass_loss_rate",
+            "cumulative_mass_loss",
+        }
+        and density_used is None
+    ):
+        normalization_note = (
+            "Mass loss normalized; penetration not "
+            "derived because density is unavailable."
+        )
+
+    elif (
+        normalized_unit != reported_unit
+        or multiplier != 1.0
+    ):
+        normalization_note = (
+            "Normalized from reported unit."
+        )
+
+    else:
+        normalization_note = (
+            "Reported value already uses the canonical unit."
+        )
+
+    return {
+        "normalized_value": normalized_value,
+        "normalized_unit": normalized_unit,
+
+        "default_density_g_cm3": default_density,
+        "density_override_g_cm3": density_override,
+        "density_g_cm3": density_used,
+        "density_basis": density_basis,
+
+        "derived_penetration_value": (
+            derived_penetration_value
+        ),
+
+        "derived_penetration_unit": (
+            derived_penetration_unit
+        ),
+
+        "normalization_note": (
+            normalization_note
+        ),
+    }
 
 def build_corrosion_entry_workbook(
     *,
@@ -1555,12 +1853,745 @@ def build_corrosion_entry_workbook(
         "Corrosion Observations"
     )
 
-    # ---------------------------------------------------------
-    # Return workbook directly to Streamlit as bytes
-    # ---------------------------------------------------------
-
     output = BytesIO()
 
     workbook.save(output)
 
     return output.getvalue()
+
+def read_corrosion_entry_workbook(
+    uploaded_file,
+) -> pd.DataFrame:
+    """
+    Read a curator-generated corrosion workbook.
+
+    Calculated Excel columns are intentionally ignored.
+    The app recalculates normalization itself.
+
+    Completely blank observation rows are ignored.
+    """
+
+    uploaded_file.seek(0)
+
+    workbook = load_workbook(
+        uploaded_file,
+        read_only=True,
+        data_only=False,
+    )
+
+    if "Corrosion Observations" not in workbook.sheetnames:
+        raise ValueError(
+            "Workbook does not contain the required "
+            "`Corrosion Observations` sheet."
+        )
+
+    sheet = workbook[
+        "Corrosion Observations"
+    ]
+
+    raw_rows = list(
+        sheet.iter_rows(
+            values_only=True
+        )
+    )
+
+    if not raw_rows:
+        raise ValueError(
+            "The corrosion workbook is empty."
+        )
+
+    headers = [
+        str(value or "").strip()
+        for value in raw_rows[0]
+    ]
+
+    missing_columns = [
+        column
+        for column in WORKBOOK_INPUT_COLUMNS
+        if column not in headers
+    ]
+
+    if missing_columns:
+        raise ValueError(
+            "The workbook is missing required column(s): "
+            + ", ".join(missing_columns)
+        )
+
+    row_records: list[
+        dict[str, Any]
+    ] = []
+
+    for excel_row_number, values in enumerate(
+        raw_rows[1:],
+        start=2,
+    ):
+        raw_record = {
+            headers[index]: (
+                values[index]
+                if index < len(values)
+                else ""
+            )
+            for index in range(
+                len(headers)
+            )
+        }
+
+        # Ignore the workbook formula/calculation outputs.
+        # Python will regenerate all of them.
+
+        record = {
+            "excel_row": excel_row_number,
+
+            "source_code": str(
+                raw_record.get(
+                    "source_code",
+                    "",
+                ) or ""
+            ).strip(),
+
+            "source_title": str(
+                raw_record.get(
+                    "source_title",
+                    "",
+                ) or ""
+            ).strip(),
+
+            "site_id": str(
+                raw_record.get(
+                    "site_id",
+                    "",
+                ) or ""
+            ).strip(),
+
+            "site_label": str(
+                raw_record.get(
+                    "site_label",
+                    "",
+                ) or ""
+            ).strip(),
+
+            "country": str(
+                raw_record.get(
+                    "country",
+                    "",
+                ) or ""
+            ).strip(),
+
+            "observation_id": (
+                raw_record.get(
+                    "observation_id",
+                    "",
+                )
+            ),
+
+            "material": str(
+                raw_record.get(
+                    "material",
+                    "",
+                ) or ""
+            ).strip(),
+
+            "exposure_period": str(
+                raw_record.get(
+                    "exposure_period",
+                    "",
+                ) or ""
+            ).strip(),
+
+            "corrosion_metric": str(
+                raw_record.get(
+                    "corrosion_metric",
+                    "",
+                ) or ""
+            ).strip(),
+
+            "reported_value": (
+                raw_record.get(
+                    "reported_value",
+                    "",
+                )
+            ),
+
+            "reported_unit": (
+                _normalize_unit_text(
+                    raw_record.get(
+                        "reported_unit",
+                        "",
+                    )
+                )
+            ),
+
+            "density_override_g_cm3": (
+                raw_record.get(
+                    "density_override_g_cm3",
+                    "",
+                )
+            ),
+
+            "notes": str(
+                raw_record.get(
+                    "notes",
+                    "",
+                ) or ""
+            ).strip(),
+        }
+
+        # A generated source/site row contains context even when
+        # no observation has been entered. Determine whether any
+        # observation-entry field is actually populated.
+
+        observation_entry_values = [
+            record.get(
+                "observation_id",
+                ""
+            ),
+            record.get(
+                "material",
+                ""
+            ),
+            record.get(
+                "exposure_period",
+                ""
+            ),
+            record.get(
+                "corrosion_metric",
+                ""
+            ),
+            record.get(
+                "reported_value",
+                ""
+            ),
+            record.get(
+                "reported_unit",
+                ""
+            ),
+            record.get(
+                "density_override_g_cm3",
+                ""
+            ),
+            record.get(
+                "notes",
+                ""
+            ),
+        ]
+
+        has_observation_content = any(
+            str(value or "").strip()
+            for value
+            in observation_entry_values
+        )
+
+        if not has_observation_content:
+            continue
+
+        row_records.append(
+            record
+        )
+
+    return pd.DataFrame(
+        row_records
+    )
+
+def validate_corrosion_workbook_rows(
+    dataframe: pd.DataFrame,
+    *,
+    existing_site_ids: set[str],
+    existing_source_codes: set[str],
+    existing_site_source_pairs: set[
+        tuple[str, str]
+    ],
+    existing_observations: list[
+        dict[str, Any]
+    ],
+) -> pd.DataFrame:
+    """
+    Validate workbook rows before database import.
+
+    This function does not write anything to the database.
+    """
+
+    if dataframe.empty:
+        return dataframe.copy()
+
+    preview_df = dataframe.copy()
+
+    preview_columns = [
+        "record_action",
+        "validation_status",
+        "validation_message",
+
+        "normalized_value",
+        "normalized_unit",
+
+        "default_density_g_cm3",
+        "density_used_g_cm3",
+        "density_basis",
+
+        "derived_penetration_value",
+        "derived_penetration_unit",
+
+        "normalization_note",
+    ]
+
+    for column in preview_columns:
+        if column not in preview_df.columns:
+            preview_df[column] = ""
+
+    normalized_existing_sites = {
+        str(value).strip().casefold()
+        for value
+        in existing_site_ids
+        if str(value).strip()
+    }
+
+    normalized_existing_sources = {
+        str(value).strip().casefold()
+        for value
+        in existing_source_codes
+        if str(value).strip()
+    }
+
+    normalized_site_source_pairs = {
+        (
+            str(site_id).strip().casefold(),
+            str(source_code).strip().casefold(),
+        )
+        for (
+            site_id,
+            source_code,
+        )
+        in existing_site_source_pairs
+    }
+
+    observations_by_id: dict[
+        int,
+        dict[str, Any]
+    ] = {}
+
+    for observation in existing_observations:
+        try:
+            observation_id = int(
+                observation.get(
+                    "id"
+                )
+            )
+        except (
+            TypeError,
+            ValueError,
+        ):
+            continue
+
+        observations_by_id[
+            observation_id
+        ] = observation
+
+    for row_index, row in preview_df.iterrows():
+        errors: list[str] = []
+
+        site_id = str(
+            row.get(
+                "site_id",
+                "",
+            ) or ""
+        ).strip()
+
+        source_code = str(
+            row.get(
+                "source_code",
+                "",
+            ) or ""
+        ).strip()
+
+        material = str(
+            row.get(
+                "material",
+                "",
+            ) or ""
+        ).strip()
+
+        exposure_period = str(
+            row.get(
+                "exposure_period",
+                "",
+            ) or ""
+        ).strip()
+
+        corrosion_metric = str(
+            row.get(
+                "corrosion_metric",
+                "",
+            ) or ""
+        ).strip()
+
+        reported_unit = (
+            _normalize_unit_text(
+                row.get(
+                    "reported_unit",
+                    "",
+                )
+            )
+        )
+
+        observation_id_raw = (
+            row.get(
+                "observation_id",
+                ""
+            )
+        )
+
+        observation_id: int | None = None
+
+        if str(
+            observation_id_raw or ""
+        ).strip():
+            try:
+                observation_id = int(
+                    float(
+                        observation_id_raw
+                    )
+                )
+            except (
+                TypeError,
+                ValueError,
+            ):
+                errors.append(
+                    "observation_id is not a valid integer."
+                )
+
+        # ---------------------------------------------
+        # Required fields
+        # ---------------------------------------------
+
+        required_values = {
+            "source_code": source_code,
+            "site_id": site_id,
+            "material": material,
+            "exposure_period": exposure_period,
+            "corrosion_metric": corrosion_metric,
+            "reported_value": row.get(
+                "reported_value",
+                "",
+            ),
+            "reported_unit": reported_unit,
+        }
+
+        for (
+            field_name,
+            field_value,
+        ) in required_values.items():
+
+            if str(
+                field_value
+                if field_value is not None
+                else ""
+            ).strip() == "":
+                errors.append(
+                    f"{field_name} is required."
+                )
+
+        # ---------------------------------------------
+        # Site / source / site-source provenance
+        # ---------------------------------------------
+
+        site_key = site_id.casefold()
+        source_key = source_code.casefold()
+
+        if (
+            site_id
+            and site_key
+            not in normalized_existing_sites
+        ):
+            errors.append(
+                f"site_id `{site_id}` does not exist."
+            )
+
+        if (
+            source_code
+            and source_key
+            not in normalized_existing_sources
+        ):
+            errors.append(
+                f"source_code `{source_code}` does not exist."
+            )
+
+        if (
+            site_id
+            and source_code
+            and (
+                site_key,
+                source_key,
+            )
+            not in normalized_site_source_pairs
+        ):
+            errors.append(
+                "The selected source is not linked to "
+                f"site `{site_id}`."
+            )
+
+        # ---------------------------------------------
+        # Existing observation ID protection
+        # ---------------------------------------------
+
+        if observation_id is not None:
+            existing_observation = (
+                observations_by_id.get(
+                    observation_id
+                )
+            )
+
+            if existing_observation is None:
+                errors.append(
+                    f"observation_id `{observation_id}` "
+                    "does not exist."
+                )
+
+            else:
+                existing_site = str(
+                    existing_observation.get(
+                        "site_id",
+                        "",
+                    ) or ""
+                ).strip()
+
+                existing_source = str(
+                    existing_observation.get(
+                        "source_code",
+                        "",
+                    ) or ""
+                ).strip()
+
+                if (
+                    existing_site.casefold()
+                    != site_key
+                    or
+                    existing_source.casefold()
+                    != source_key
+                ):
+                    errors.append(
+                        "observation_id does not belong "
+                        "to this source/site pair."
+                    )
+
+            preview_df.at[
+                row_index,
+                "record_action",
+            ] = "UPDATE"
+
+        else:
+            preview_df.at[
+                row_index,
+                "record_action",
+            ] = "CREATE"
+
+        # ---------------------------------------------
+        # Metric
+        # ---------------------------------------------
+
+        if (
+            corrosion_metric
+            and corrosion_metric
+            not in CORROSION_METRIC_OPTIONS
+        ):
+            errors.append(
+                "Unsupported corrosion_metric: "
+                f"`{corrosion_metric}`."
+            )
+
+        # ---------------------------------------------
+        # Numerical value
+        # ---------------------------------------------
+
+        try:
+            reported_value = float(
+                row.get(
+                    "reported_value"
+                )
+            )
+
+        except (
+            TypeError,
+            ValueError,
+        ):
+            reported_value = None
+
+            if str(
+                row.get(
+                    "reported_value",
+                    "",
+                ) or ""
+            ).strip():
+                errors.append(
+                    "reported_value is not numeric."
+                )
+
+        # ---------------------------------------------
+        # Density override
+        # ---------------------------------------------
+
+        density_override_raw = (
+            row.get(
+                "density_override_g_cm3",
+                "",
+            )
+        )
+
+        density_override = None
+
+        if str(
+            density_override_raw or ""
+        ).strip():
+            try:
+                density_override = float(
+                    density_override_raw
+                )
+
+                if density_override <= 0:
+                    errors.append(
+                        "density_override_g_cm3 must "
+                        "be greater than zero."
+                    )
+
+            except (
+                TypeError,
+                ValueError,
+            ):
+                errors.append(
+                    "density_override_g_cm3 is not numeric."
+                )
+
+        # ---------------------------------------------
+        # Recalculate normalized values
+        # ---------------------------------------------
+
+        if (
+            reported_value is not None
+            and corrosion_metric
+            and reported_unit
+        ):
+            try:
+                normalized = (
+                    normalize_corrosion_observation(
+                        material=material,
+                        corrosion_metric=(
+                            corrosion_metric
+                        ),
+                        reported_value=(
+                            reported_value
+                        ),
+                        reported_unit=(
+                            reported_unit
+                        ),
+                        density_override_g_cm3=(
+                            density_override
+                        ),
+                    )
+                )
+
+                preview_df.at[
+                    row_index,
+                    "normalized_value",
+                ] = normalized[
+                    "normalized_value"
+                ]
+
+                preview_df.at[
+                    row_index,
+                    "normalized_unit",
+                ] = normalized[
+                    "normalized_unit"
+                ]
+
+                preview_df.at[
+                    row_index,
+                    "default_density_g_cm3",
+                ] = (
+                    normalized[
+                        "default_density_g_cm3"
+                    ]
+                    if normalized[
+                        "default_density_g_cm3"
+                    ] is not None
+                    else ""
+                )
+
+                preview_df.at[
+                    row_index,
+                    "density_used_g_cm3",
+                ] = (
+                    normalized[
+                        "density_g_cm3"
+                    ]
+                    if normalized[
+                        "density_g_cm3"
+                    ] is not None
+                    else ""
+                )
+
+                preview_df.at[
+                    row_index,
+                    "density_basis",
+                ] = normalized[
+                    "density_basis"
+                ]
+
+                preview_df.at[
+                    row_index,
+                    "derived_penetration_value",
+                ] = (
+                    normalized[
+                        "derived_penetration_value"
+                    ]
+                    if normalized[
+                        "derived_penetration_value"
+                    ] is not None
+                    else ""
+                )
+
+                preview_df.at[
+                    row_index,
+                    "derived_penetration_unit",
+                ] = normalized[
+                    "derived_penetration_unit"
+                ]
+
+                preview_df.at[
+                    row_index,
+                    "normalization_note",
+                ] = normalized[
+                    "normalization_note"
+                ]
+
+            except ValueError as exc:
+                errors.append(
+                    str(exc)
+                )
+
+        if errors:
+            preview_df.at[
+                row_index,
+                "validation_status",
+            ] = "ERROR"
+
+            preview_df.at[
+                row_index,
+                "validation_message",
+            ] = "; ".join(
+                list(
+                    dict.fromkeys(
+                        errors
+                    )
+                )
+            )
+
+        else:
+            preview_df.at[
+                row_index,
+                "validation_status",
+            ] = "READY"
+
+            preview_df.at[
+                row_index,
+                "validation_message",
+            ] = ""
+
+    return preview_df
