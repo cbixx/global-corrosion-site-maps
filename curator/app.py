@@ -6261,6 +6261,337 @@ if active_page == "Corrosion Data":
 
     st.info(t("corrosion_structure_info", ui_language))
 
+    st.write("### Excel corrosion observation workbook")
+
+    st.caption(
+        "Generate one source-first workbook containing every site "
+        "linked to the selected source. Existing corrosion observations "
+        "are included first under each site, followed by blank rows for "
+        "new observations."
+    )
+
+    try:
+        corrosion_workbook_source_rows = get_source_options()
+        corrosion_workbook_link_rows = get_site_source_links()
+
+        corrosion_workbook_site_rows = get_table_rows(
+            "sites"
+        )
+
+        corrosion_workbook_all_source_rows = get_table_rows(
+            "sources"
+        )
+
+        corrosion_workbook_existing_rows = (
+            get_corrosion_observations()
+        )
+
+    except Exception as exc:
+        corrosion_workbook_source_rows = []
+        corrosion_workbook_link_rows = []
+        corrosion_workbook_site_rows = []
+        corrosion_workbook_all_source_rows = []
+        corrosion_workbook_existing_rows = []
+
+        st.error(
+            "Could not load data required for the corrosion "
+            f"workbook: {exc}"
+        )
+
+    # Only offer sources which actually have at least one
+    # site-source relationship.
+
+    corrosion_workbook_linked_source_ids = {
+        int(row["source_fk"])
+        for row in corrosion_workbook_link_rows
+        if row.get("source_fk") not in (
+            None,
+            "",
+        )
+    }
+
+    corrosion_workbook_available_sources = [
+        row
+        for row in corrosion_workbook_source_rows
+        if int(row["id"])
+        in corrosion_workbook_linked_source_ids
+    ]
+
+    if not corrosion_workbook_available_sources:
+        st.info(
+            "No source with linked sites is available yet. "
+            "Create site-source links before generating "
+            "a corrosion observation workbook."
+        )
+
+    else:
+        corrosion_workbook_source_label_map = {
+            build_source_option_label(row): row
+            for row in corrosion_workbook_available_sources
+        }
+
+        selected_corrosion_workbook_source_label = st.selectbox(
+            "Source",
+            options=list(
+                corrosion_workbook_source_label_map.keys()
+            ),
+            key="corrosion_workbook_source_select",
+            help=(
+                "The workbook will contain only sites linked "
+                "to this source."
+            ),
+        )
+
+        selected_corrosion_workbook_source = (
+            corrosion_workbook_source_label_map[
+                selected_corrosion_workbook_source_label
+            ]
+        )
+
+        selected_corrosion_workbook_source_id = int(
+            selected_corrosion_workbook_source["id"]
+        )
+
+        selected_corrosion_workbook_source_code = (
+            normalise_source_code(
+                selected_corrosion_workbook_source.get(
+                    "source_code",
+                    "",
+                )
+            )
+        )
+
+        selected_corrosion_workbook_links = [
+            row
+            for row in corrosion_workbook_link_rows
+            if int(row["source_fk"])
+            == selected_corrosion_workbook_source_id
+        ]
+
+        selected_corrosion_workbook_observations = [
+            row
+            for row in corrosion_workbook_existing_rows
+            if normalise_source_code(
+                row.get(
+                    "source_code",
+                    "",
+                )
+            )
+            == selected_corrosion_workbook_source_code
+        ]
+
+        corrosion_workbook_site_lookup = {
+            str(
+                row.get(
+                    "site_id",
+                    "",
+                )
+            ).strip(): row
+            for row in corrosion_workbook_site_rows
+            if str(
+                row.get(
+                    "site_id",
+                    "",
+                )
+            ).strip()
+        }
+
+        corrosion_workbook_metal_values = list(
+            get_metal_options()
+        )
+
+        for row in corrosion_workbook_site_rows:
+            corrosion_workbook_metal_values.extend(
+                split_chip_values(
+                    row.get(
+                        "metal",
+                        "",
+                    )
+                )
+            )
+
+        for row in corrosion_workbook_all_source_rows:
+            corrosion_workbook_metal_values.extend(
+                split_chip_values(
+                    row.get(
+                        "metals",
+                        "",
+                    )
+                )
+            )
+
+        for row in corrosion_workbook_link_rows:
+            corrosion_workbook_metal_values.extend(
+                split_chip_values(
+                    row.get(
+                        "metals",
+                        "",
+                    )
+                )
+            )
+
+        for row in corrosion_workbook_existing_rows:
+            corrosion_material = str(
+                row.get(
+                    "material",
+                    "",
+                ) or ""
+            ).strip()
+
+            if corrosion_material:
+                corrosion_workbook_metal_values.append(
+                    corrosion_material
+                )
+
+        corrosion_workbook_metal_options = (
+            merge_option_values(
+                corrosion_workbook_metal_values
+            )
+        )
+
+        corrosion_workbook_exposure_values = list(
+            EXPOSURE_PERIOD_OPTIONS
+        )
+
+        for row in corrosion_workbook_site_rows:
+            corrosion_workbook_exposure_values.extend(
+                split_chip_values(
+                    row.get(
+                        "exposure_period",
+                        "",
+                    )
+                )
+            )
+
+        for row in corrosion_workbook_all_source_rows:
+            corrosion_workbook_exposure_values.extend(
+                split_chip_values(
+                    row.get(
+                        "exposure_periods",
+                        "",
+                    )
+                )
+            )
+
+        for row in corrosion_workbook_link_rows:
+            corrosion_workbook_exposure_values.extend(
+                split_chip_values(
+                    row.get(
+                        "exposure_periods",
+                        "",
+                    )
+                )
+            )
+
+        for row in corrosion_workbook_existing_rows:
+            corrosion_exposure = str(
+                row.get(
+                    "exposure_period",
+                    "",
+                ) or ""
+            ).strip()
+
+            if corrosion_exposure:
+                corrosion_workbook_exposure_values.append(
+                    corrosion_exposure
+                )
+
+        corrosion_workbook_exposure_options = (
+            merge_option_values(
+                corrosion_workbook_exposure_values
+            )
+        )
+
+        blank_rows_per_site = st.number_input(
+            "Blank observation rows per linked site",
+            min_value=1,
+            max_value=50,
+            value=8,
+            step=1,
+            key="corrosion_workbook_blank_rows_per_site",
+            help=(
+                "Existing observations are included automatically. "
+                "This controls how many additional blank rows are "
+                "provided for each linked site."
+            ),
+        )
+
+        linked_site_count = len(
+            {
+                str(
+                    row.get(
+                        "site_id",
+                        "",
+                    )
+                ).strip()
+                for row in selected_corrosion_workbook_links
+                if str(
+                    row.get(
+                        "site_id",
+                        "",
+                    )
+                ).strip()
+            }
+        )
+
+        st.caption(
+            f"{linked_site_count} linked site"
+            f"{'' if linked_site_count == 1 else 's'} · "
+            f"{len(selected_corrosion_workbook_observations)} "
+            "existing corrosion observation"
+            f"{'' if len(selected_corrosion_workbook_observations) == 1 else 's'} "
+            "will be included."
+        )
+
+        try:
+            corrosion_workbook_bytes = (
+                build_corrosion_entry_workbook(
+                    source_row=(
+                        selected_corrosion_workbook_source
+                    ),
+                    site_links=(
+                        selected_corrosion_workbook_links
+                    ),
+                    site_lookup=(
+                        corrosion_workbook_site_lookup
+                    ),
+                    existing_observations=(
+                        selected_corrosion_workbook_observations
+                    ),
+                    metal_options=(
+                        corrosion_workbook_metal_options
+                    ),
+                    exposure_options=(
+                        corrosion_workbook_exposure_options
+                    ),
+                    blank_rows_per_site=int(
+                        blank_rows_per_site
+                    ),
+                )
+            )
+
+            st.download_button(
+                "Download Excel corrosion workbook",
+                data=corrosion_workbook_bytes,
+                file_name=(
+                    f"{selected_corrosion_workbook_source_code}"
+                    "_corrosion_observations.xlsx"
+                ),
+                mime=(
+                    "application/vnd.openxmlformats-officedocument."
+                    "spreadsheetml.sheet"
+                ),
+                key="download_corrosion_observation_workbook",
+            )
+
+        except Exception as exc:
+            st.error(
+                "Could not generate the corrosion observation "
+                f"workbook: {exc}"
+            )
+
+    st.divider()
+
     st.write(f"### {t('corrosion_csv_import', ui_language)}")
 
     st.download_button(
