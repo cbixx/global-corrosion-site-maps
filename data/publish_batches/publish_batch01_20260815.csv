@@ -27,29 +27,19 @@ AR-006,Villa Martelli,,-34.5503634,-58.510576,Argentina,,,"Coastal, Temperate","
 AR-007,La Plata,,-34.9206797,-57.9537638,Argentina,,,"Coastal, Temperate","1 year, 4 years, 2 years, 3 years","Mild steel, Carbon steel",s044,s049,,,,,,,,,,
 AT-001,Vienna,City,48.2082,16.3738,Austria,,,"Inland, Urban, Temperate","1 year, 4 years, 8 years","Carbon steel, Zinc, Weathering steel, Copper, Stainless Steel, Aluminium, Titanium",s015,s017,s018,s016,,,,,,,,
 AU-001,Mt Newman,,-23.357394,119.7331631,Australia,,,"Inland, Tropical","1 year, 2 years, 3 years","Carbon steel, Copper",s021,,,,,,,,,,,
-AU-002,Cloncurry,,-20.7051873,140.5058305,Australia,,,"Inland, Tropical",1 year,"Copper steel, Zinc",s059,,,,,,,,,,,
-AU-003,Innisfail,,-17.5241605,146.0311385,Australia,,,"Coastal, Tropical",1 year,"Copper steel, Zinc",s059,,,,,,,,,,,
-AU-004,Cowley,,-17.681713,146.0570316,Australia,,,"Coastal, Tropical",1 year,"Copper steel, Zinc",s059,,,,,,,,,,,
-AW-001,Aruba East Coast,,12.480826,-69.9855112,Aruba,,,"Marine, Tropical","1 year, 2 years, 7 years","Copper steel, Low-alloy steel, Zinc, Copper, Stainless Steel, Aluminium",s058,,,,,,,,,,,
 BE-001,Antwerp,City,51.2213,4.4051,Belgium,,,"Coastal, Urban, Cold, marine","1 year, 2 years, 4 years",Carbon steel,s013,,,,,,,,,,,
 BE-002,Ostend,"moderate zone, marine",51.2258565,2.919496,Belgium,,,"Coastal, Cold","1 year, 2 years, 4 years, 8 years","Carbon steel, Zinc, Copper, Aluminium",s020,,,,,,,,,,,"Source table places this under France but labels the site Ostende, Belgium."
 BG-001,Sofia,City,42.6977,23.3219,Bulgaria,,,"Inland, Urban, Temperate",1 year,"Carbon steel, Zinc, Copper",s014,s015,,,,,,,,,,
-BJ-001,Cotonou,,6.3676953,2.4252507,Benin,,,"Coastal, Tropical","3 months, 4 months",Aluminium,s060,,,,,,,,,,,
-BR-001,Cubatão,,-23.8842077,-46.4213061,Brazil,,,"Coastal, Temperate","4 years, 1 year, 6 months, 18 months, 2 years","Coated aluminum, Mild steel, Carbon steel, Weathering steel",s041,s045,s053,,,,,,,,,
-BR-002,Brasília,,-15.7939869,-47.8828,Brazil,,,"Inland, Tropical","1 year, 4 years, 6 months, 18 months, 2 years","Mild steel, Carbon steel, Weathering steel",s044,s053,,,,,,,,,,
-BR-003,Belém,,-1.45056,-48.4682453,Brazil,,,"Coastal, Tropical","1 year, 4 years, 6 months, 18 months, 2 years","Mild steel, Carbon steel, Weathering steel",s044,s053,,,,,,,,,,
+BR-001,Cubatão,,-23.8842077,-46.4213061,Brazil,,,"Coastal, Temperate","4 years, 1 year","Coated aluminum, Mild steel",s041,s045,,,,,,,,,,
+BR-002,Brasília,,-15.7939869,-47.8828,Brazil,,,"Inland, Tropical","1 year, 4 years",Mild steel,s044,,,,,,,,,,,
+BR-003,Belém,,-1.45056,-48.4682453,Brazil,,,"Coastal, Tropical","1 year, 4 years",Mild steel,s044,,,,,,,,,,,
 BR-004,São Paulo,,-23.5506507,-46.6333824,Brazil,,,"Near-coastal, Temperate","1 year, 4 years",Mild steel,s044,,,,,,,,,,,
 BR-005,Caratinga,,-19.7900887,-42.140533,Brazil,,,"Inland, Tropical","1 year, 4 years",Mild steel,s045,,,,,,,,,,,
 BR-006,Ubatuba,,-23.433162,-45.083415,Brazil,,,"Coastal, Tropical","1 year, 4 years",Mild steel,s045,,,,,,,,,,,
 BR-007,Arraial do Cabo,,-22.930728,-42.1878531,Brazil,,,"Coastal, Tropical","1 year, 4 years",Mild steel,s045,,,,,,,,,,,
-BR-008,Fortaleza,,-3.7932167,-38.5280359,Brazil,,,"Coastal, Tropical","1 year, 4 years, 6 months, 18 months, 2 years","Mild steel, Carbon steel, Weathering steel",s045,s053,,,,,,,,,,
+BR-008,Fortaleza,,-3.7932167,-38.5280359,Brazil,,,"Coastal, Tropical","1 year, 4 years",Mild steel,s045,,,,,,,,,,,
 BR-009,Ipatinga,,-19.4777807,-42.5270802,Brazil,,,"Inland, Tropical","1 year, 4 years",Mild steel,s045,,,,,,,,,,,
-BR-010,Rio de Janeiro,,-22.9110137,-43.2093727,Brazil,,,"Coastal, Tropical","1 year, 4 years, 6 months, 18 months, 2 years","Mild steel, Carbon steel, Weathering steel",s045,s053,,,,,,,,,,
-BR-011,Manaus,,-3.1316333,-59.9825041,Brazil,,,"Inland, Tropical","6 months, 1 year, 18 months, 2 years","Carbon steel, Weathering steel",s053,,,,,,,,,,,
-BR-012,Aracaju,,-10.9162061,-37.0774655,Brazil,,,"Coastal, Tropical","6 months, 1 year, 18 months, 2 years","Carbon steel, Weathering steel",s053,,,,,,,,,,,
-BR-013,Madre de Deus,,-12.7424741,-38.6152913,Brazil,,,"Marine, Tropical","6 months, 1 year, 18 months, 2 years","Carbon steel, Weathering steel",s053,,,,,,,,,,,
-BR-014,Betim,,-19.9703184,-44.206495,Brazil,,,"Inland, Tropical","6 months, 1 year, 18 months, 2 years","Carbon steel, Weathering steel",s053,,,,,,,,,,,
-BR-015,Canoas,,-29.9216045,-51.1799525,Brazil,,,"Near-coastal, Temperate","6 months, 1 year, 18 months, 2 years","Carbon steel, Weathering steel",s053,,,,,,,,,,,
+BR-010,Rio de Janeiro,,-22.9110137,-43.2093727,Brazil,,,"Coastal, Tropical","1 year, 4 years",Mild steel,s045,,,,,,,,,,,
 CA-001,Dorset,Town,45.233,-78.883,Canada,,,"Inland, Urban, Temperate","1 year, 2 years, 4 years, 8 years, Annually","Carbon steel, Weathering steel, Zinc, Aluminium, Copper",s009,s010,s011,s012,s013,s014,,,,,,
 CA-002,Boucherville,"moderate zone, rural",45.6050197,-73.4526144,Canada,,,"Marine, Rural, Temperate","1 year, 2 years, 4 years, 8 years","Carbon steel, Zinc, Copper, Aluminium",s020,,,,,,,,,,,
 CA-003,Norman Wells,,65.282401,-126.832725,Canada,,,"Inland, Sub-arctic, Cold","1 year, 2 years, 3 years, 4 years, 8 years","Carbon steel, Copper",s021,s049,,,,,,,,,,
@@ -70,9 +60,6 @@ CH-009,Davos,,46.796198,9.8236892,Switzerland,,,"Inland, Temperate",4 years,"Wea
 CL-001,Valparaíso,,-33.0458456,-71.6196749,Chile,,,"Coastal, Temperate","1 year, 4 years",Mild steel,s045,,,,,,,,,,,
 CL-002,Cerrillos,,-33.5023396,-70.7158417,Chile,,,"Inland, Temperate","1 year, 4 years",Mild steel,s045,,,,,,,,,,,
 CL-003,Petrox,,-37.0910959,-73.1518992,Chile,,,"Coastal, Temperate","1 year, 4 years",Mild steel,s045,,,,,,,,,,,
-CM-001,Limbe,,4.010289,9.207058,Cameroon,,,"Marine, Tropical","1 month, 3 months, 6 months, 10 months, 4 months","Copper steel, Brass, Ingot iron, Zinc, Aluminium",s057,,,,,,,,,,,
-CM-002,Tiko,,4.075571,9.3650187,Cameroon,,,"Coastal, Tropical","1 month, 3 months, 6 months, 10 months, 4 months","Copper steel, Brass, Ingot iron, Zinc, Aluminium",s057,,,,,,,,,,,
-CM-003,Jakiri,,6.0845587,10.6382708,Cameroon,,,"Inland, Tropical","1 month, 3 months, 6 months, 10 months, 4 months","Copper steel, Brass, Ingot iron, Zinc, Aluminium",s057,,,,,,,,,,,
 CN-001,Site No. 1,Field site,36.398987,118.5055691,China,,,"Inland, Rural, Temperate, Industrial",1 year,Hot-dip galvanized steel,s022,,,,,,,,,,,"Numbered exposure corrosion test site shown in Fig. 1; exact locality and coordinates are not provided in the source.
 Discussed as one of the three C5 sites; source states it is closer to the coastline and has higher atmospheric chloride content. Exact locality and coordinates are not provided.
 Discussed as one of the three C5 sites; source states an oil refinery near the site makes its atmospheric corrosivity higher than surrounding sites. Exact locality and coordinates are not provided.
@@ -199,7 +186,7 @@ GB-017,Sheffield,Atmospheric exposure site,53.3811,-1.4701,United Kingdom,,,"Inl
 GB-018,Frodingham,Atmospheric exposure site,53.59,-0.65,United Kingdom,,,"Near-coastal, Island, Cold","1 year, 8 years, 10 years","Carbon steel, Mild steel, Cast Iron, Open-hearth Iron",s029,s030,,,,,,,,,,s027 Appendix A reports Frodingham with 1-year corrosion rate 0.160 mm/yr (6.299 mils/yr). s028 Table 4-1 reports open-hearth iron annual weight loss 14.81 g and relative corrosivity 100; this is the maximum relative corrosivity in Table 4-1.
 GB-019,Derby,Atmospheric exposure site,52.9225,-1.4746,United Kingdom,,,"Inland, Island, Cold","1 year, 8 years, 10 years","Carbon steel, Mild steel, Cast Iron, Open-hearth Iron",s029,s030,,,,,,,,,,"s027 Appendix A reports Derby with 1-year corrosion rate 0.170 mm/yr (6.693 mils/yr). s028 Table 4-1 separates Derby South End and Derby North End: annual open-hearth iron weight losses 12.06 g and 12.52 g, with relative corrosivities 81 and 84, respectively. Coordinates are approximate city-centre coordinates; subsite coordinates were not provided in the source pages."
 GB-020,Rotherham,Atmospheric exposure site,53.4326,-1.3635,United Kingdom,,,"Inland, Island, Cold","1 year, 8 years","Carbon steel, Mild steel, Cast Iron",s029,,,,,,,,,,,"s027 Appendix A low-alloy-steel section reports Rotherham, 8 years, corrosion loss 0.210 mm (8.268 mils); no corrosion-rate field is reported in that row. Coordinates are approximate town-centre coordinates for mapping."
-GE-001,Batumi,City,41.6635,41.7977,Georgia,,USSR,"Coastal, Urban, Temperate, urban, Marine","6 months, 1 year, 2 years, 3 years, 4 years, 8 years, 5 years","Aluminium, Electrical steel, Carbon steel, Iron, Zinc, Copper",s007,s020,s054,,,,,,,,,Strekalov et al. (1990) primary field-test source for electric-motor constructional materials; row is distinct from other papers even where the station/city repeats. Black Sea station; open atmosphere.
+GE-001,Batumi,City,41.6635,41.7977,Georgia,,USSR,"Coastal, Urban, Temperate, urban, Marine","6 months, 1 year, 2 years, 3 years, 4 years, 8 years","Aluminium, Electrical steel, Carbon steel, Iron, Zinc, Copper",s007,s020,,,,,,,,,,Strekalov et al. (1990) primary field-test source for electric-motor constructional materials; row is distinct from other papers even where the station/city repeats. Black Sea station; open atmosphere.
 GR-001,Athens,City,37.9838,23.7275,Greece,,,"Coastal, Urban, Temperate","1 year, 4 years, 8 years","Carbon steel, Zinc, Copper, Weathering steel, Stainless Steel, Aluminium, Titanium",s014,s017,s018,s015,s016,,,,,,,
 HR-001,Split,,43.5116383,16.4399659,Croatia,,,"Marine, Temperate","1 year, 4 years, 8 years","Carbon steel, Stainless Steel, Weathering steel, Zinc, Aluminium, Titanium",s017,s018,,,,,,,,,,
 HR-002,Zagreb,,45.8130967,15.9772795,Croatia,,,"Inland, Temperate","1 year, 4 years, 8 years","Carbon steel, Stainless Steel, Weathering steel, Zinc, Aluminium, Titanium",s017,s018,,,,,,,,,,
@@ -290,27 +277,9 @@ MX-001,Cuernavaca,,18.9331321,-99.2599579,Mexico,,,"Inland, Tropical","1 year, 4
 MX-002,Mexico City,,19.4326296,-99.1331785,Mexico,,,"Inland, Tropical","1 year, 4 years",Mild steel,s044,,,,,,,,,,,
 MX-003,San Luis Potosí City,,22.1516472,-100.9763993,Mexico,,,"Inland, Tropical","1 year, 4 years",Mild steel,s044,,,,,,,,,,,
 MX-004,Acapulco,,16.8680495,-99.8940182,Mexico,,,"Coastal, Tropical","1 year, 4 years",Mild steel,s045,,,,,,,,,,,
-NA-001,Walvis Bay,,-22.9557607,14.5071125,Namibia,,,"Coastal, Tropical","2 years, 3 months, 4 years, 5 years, 20 years","Zinc, Copper, Mild steel",s055,,,,,,,,,,,
 NG-001,"Abalamabie Road, Bonny Island",coastal town / industrial-influenced,4.4303132,7.2007614,Nigeria,,,"Coastal, Tropical",,,s026,,,,,,,,,,,"Source table site: Ablamabie, Bonny Island; approx. 5900 m from industrial area and 4900 m from shoreline."
 NG-002,"Finima, Bonny Island",coastal industrial,4.39685462,7.15982126,Nigeria,,,"Coastal, Tropical",,,s026,,,,,,,,,,,Approx. 3500 m from industrial area and 1700 m from shoreline.
 NG-003,"Mission Road, Bonny Island",coastal urban,4.4459694,7.1684538,Nigeria,,,"Marine, Tropical",,,s026,,,,,,,,,,,Approx. 4800 m from industrial area and 500 m from shoreline.
-NG-004,"Lighthouse Beach, Lagos",,6.3942453,3.3918804,Nigeria,,,"Marine, Tropical","1 month, 3 months, 6 months, 10 months, 4 months","Copper steel, Brass, Ingot iron, Zinc, Aluminium",s057,,,,,,,,,,,
-NG-005,"Federal College of Fisheries and Marine Technology, Lagos",,6.4214014,3.4112949,Nigeria,,,"Marine, Tropical","1 month, 3 months, 6 months, 10 months, 4 months","Copper steel, Brass, Ingot iron, Zinc, Aluminium",s057,,,,,,,,,,,
-NG-006,"Onikan, Lagos",,6.4425421,3.4030956,Nigeria,,,"Marine, Tropical","1 month, 3 months, 6 months, 10 months, 4 months","Copper steel, Brass, Ingot iron, Zinc, Aluminium",s057,,,,,,,,,,,
-NG-007,Ikoyi,,6.4523431,3.4280523,Nigeria,,,"Marine, Tropical","1 month, 3 months, 6 months, 10 months, 4 months","Copper steel, Brass, Ingot iron, Zinc, Aluminium",s057,,,,,,,,,,,
-NG-008,Oshodi,,6.5565591,3.3512795,Nigeria,,,"Coastal, Tropical","1 month, 3 months, 6 months, 10 months, 4 months","Copper steel, Brass, Ingot iron, Zinc, Aluminium",s057,,,,,,,,,,,
-NG-009,Opobo,,4.564844,7.547802,Nigeria,,,"Marine, Tropical","1 month, 3 months, 6 months, 10 months, 4 months","Copper steel, Brass, Ingot iron, Zinc, Aluminium",s057,,,,,,,,,,,
-NG-010,Bori,,4.6748179,7.3656129,Nigeria,,,"Coastal, Tropical","1 month, 3 months, 6 months, 10 months, 4 months","Copper steel, Brass, Ingot iron, Zinc, Aluminium",s057,,,,,,,,,,,
-NG-011,Calabar,,4.9795999,8.3373597,Nigeria,,,"Near-coastal, Tropical","1 month, 3 months, 6 months, 10 months, 4 months","Copper steel, Brass, Ingot iron, Zinc, Aluminium",s057,,,,,,,,,,,
-NG-012,Port-Harcourt,,4.7676576,7.0188527,Nigeria,,,"Coastal, Tropical","1 month, 3 months, 6 months, 10 months, 4 months","Copper steel, Brass, Ingot iron, Zinc, Aluminium",s057,,,,,,,,,,,
-NG-013,"Nkpogu Cresent, Port-Harcourt",,4.7998775,7.0200383,Nigeria,,,"Coastal, Tropical","1 month, 3 months, 6 months, 10 months, 4 months","Copper steel, Brass, Ingot iron, Zinc, Aluminium",s057,,,,,,,,,,,
-NG-014,Benin City,,6.3330586,5.6221058,Nigeria,,,"Inland, Tropical","1 month, 3 months, 6 months, 10 months, 4 months","Copper steel, Brass, Ingot iron, Zinc, Aluminium",s057,,,,,,,,,,,
-NG-015,Obanikoro,,6.5465534,3.367578,Nigeria,,,"Coastal, Tropical","1 month, 3 months, 6 months, 10 months, 4 months","Copper steel, Brass, Ingot iron, Zinc, Aluminium",s057,,,,,,,,,,,
-NG-016,Owerri,,5.489736,7.0341973,Nigeria,,,"Inland, Tropical","1 month, 3 months, 6 months, 10 months, 4 months","Copper steel, Brass, Ingot iron, Zinc, Aluminium",s057,,,,,,,,,,,
-NG-017,Onitsha,,6.1461619,6.8019088,Nigeria,,,"Inland, Tropical","1 month, 3 months, 6 months, 10 months, 4 months","Copper steel, Brass, Ingot iron, Zinc, Aluminium",s057,,,,,,,,,,,
-NG-018,Makurdi,,12.1917,8.49938,Nigeria,,,"Inland, Tropical","1 month, 3 months, 6 months, 10 months, 4 months","Copper steel, Brass, Ingot iron, Zinc, Aluminium",s057,,,,,,,,,,,
-NG-019,Kaduna,,10.5182899,7.4359863,Nigeria,,,"Inland, Tropical","1 month, 3 months, 6 months, 10 months, 4 months","Copper steel, Brass, Ingot iron, Zinc, Aluminium",s057,,,,,,,,,,,
-NG-020,Kano,,11.9939978,8.5219738,Nigeria,,,"Inland, Tropical","1 month, 3 months, 6 months, 10 months, 4 months","Copper steel, Brass, Ingot iron, Zinc, Aluminium",s057,,,,,,,,,,,
 NL-001,Vlaardingen,Port city,51.9125,4.3417,Netherlands,,,"Near-coastal, Industrial, Urban, Cold, industrial","1 year, 2 years, 4 years, 8 years, Annually","Carbon steel, Weathering steel, Zinc, Aluminium",s009,s010,s011,s012,,,,,,,,
 NL-002,Eibergen,Town,52.1,6.6612,Netherlands,,,"Inland, Urban, Cold","1 year, 2 years, 4 years, 8 years, Annually","Carbon steel, Weathering steel, Zinc, Aluminium",s009,s010,s011,s012,,,,,,,,
 NL-003,Vredepeel,Village,51.5383,5.8679,Netherlands,,,"Inland, Rural, Cold","1 year, 2 years, 4 years, 8 years, Annually","Carbon steel, Weathering steel, Zinc, Aluminium",s009,s010,s011,s012,,,,,,,,
@@ -342,17 +311,13 @@ PA-003,Chiriquí,,8.3971129,-82.3223443,Panama,,,"Coastal, Tropical","1 year, 4 
 PA-004,Veraguas,,8.2414131,-81.0903464,Panama,,,"Near-coastal, Tropical","1 year, 4 years",Mild steel,s045,,,,,,,,,,,
 PA-005,Colón,,9.3553005,-79.8974085,Panama,,,"Marine, Tropical","1 year, 4 years",Mild steel,s045,,,,,,,,,,,
 PA-006,"Washington Hotel, Limon Bay",,9.3336001,-79.9303777,Panama,United States,Panama Canal Zone,"Marine, Tropical","1 year, 2 years, 4 years, 8 years, 16 years","Carbon steel, Weathering steel, Copper steel, Nickel steel, Chromium steel, Wrought iron, Cast steel, Gray cast iron, Austenitic cast iron, Stainless Steel, Zinc, Galvanized steel, Zinc-sprayed steel, Lead, Lead-coated steel, Aluminium, Aluminium alloy, Aluminum-sprayed steel, Copper, Nickel, Brass, Bronze, Magnesium alloy",s047,,,,,,,,,,,
-PA-007,"Miraflores Locks, Arraiján",,8.9953388,-79.5907037,Panama,United States,Panama Canal Zone,"Coastal, Tropical","1 year, 2 years, 4 years, 8 years, 16 years","Carbon steel, Weathering steel, Copper steel, Nickel steel, Chromium steel, Wrought iron, Cast steel, Gray cast iron, Austenitic cast iron, Stainless Steel, Zinc, Galvanized steel, Zinc-sprayed steel, Lead, Lead-coated steel, Aluminium, Aluminium alloy, Aluminum-sprayed steel, Copper, Nickel, Brass, Bronze, Magnesium alloy",s047,s056,,,,,,,,,,
-PA-008,Cristóbal,,9.2578758,-79.9071872,Panama,,,"Coastal, Tropical","1 year, 2 years, 4 years, 8 years, 16 years","Carbon steel, Zinc, Copper, Aluminium, Wrought iron, Cast steel, Copper steel, Weathering steel, Stainless Steel, Nickel, Lead, Galvanized steel, Aluminum-sprayed steel, Aluminium alloy",s056,,,,,,,,,,,
-PA-009,Naos Island,,8.914588,-79.5330599,Panama,,,"Marine, Tropical","1 year, 2 years, 4 years, 8 years, 16 years","Carbon steel, Zinc, Copper, Aluminium, Wrought iron, Cast steel, Copper steel, Weathering steel, Stainless Steel, Nickel, Lead, Galvanized steel, Aluminum-sprayed steel, Aluminium alloy",s056,,,,,,,,,,,
-PA-010,Gatun Lake,,9.1657587,-79.9436744,Panama,,,"Near-coastal, Tropical","1 year, 2 years, 4 years, 8 years, 16 years","Carbon steel, Zinc, Copper, Aluminium, Wrought iron, Cast steel, Copper steel, Weathering steel, Stainless Steel, Nickel, Lead, Galvanized steel, Aluminum-sprayed steel, Aluminium alloy",s056,,,,,,,,,,,
+PA-007,"Miraflores Locks, Arraiján",,8.9953388,-79.5907037,Panama,United States,Panama Canal Zone,"Coastal, Tropical","1 year, 2 years, 4 years, 8 years, 16 years","Carbon steel, Weathering steel, Copper steel, Nickel steel, Chromium steel, Wrought iron, Cast steel, Gray cast iron, Austenitic cast iron, Stainless Steel, Zinc, Galvanized steel, Zinc-sprayed steel, Lead, Lead-coated steel, Aluminium, Aluminium alloy, Aluminum-sprayed steel, Copper, Nickel, Brass, Bronze, Magnesium alloy",s047,,,,,,,,,,,
 PE-001,Lima,,-12.0459808,-77.0305912,Peru,,,"Coastal, Tropical",4 years,Coated aluminum,s041,,,,,,,,,,,
 PE-002,Cuzco,,-13.5169541,-71.9792712,Peru,,,"Inland, Tropical","1 year, 2 years, 4 years",Mild steel,s042,s044,,,,,,,,,,
 PE-003,Pucallpa,,-8.3820737,-74.5387507,Peru,,,"Inland, Tropical","1 year, 4 years",Mild steel,s044,,,,,,,,,,,
 PE-004,Arequipa,,-16.3988667,-71.5369607,Peru,,,"Inland, Tropical","1 year, 4 years",Mild steel,s044,,,,,,,,,,,
 PE-005,San Borja,,-12.0964515,-76.9956899,Peru,,,"Coastal, Tropical","1 year, 4 years",Mild steel,s045,,,,,,,,,,,
 PE-006,Villa Salvador,,-14.0792792,-74.9182257,Peru,,,"Inland, Tropical","1 year, 4 years",Mild steel,s045,,,,,,,,,,,
-PH-001,Manila,,14.5904492,120.9803621,Philippines,,,"Coastal, Island, Tropical","1 year, 2 years, 7 years","Copper steel, Low-alloy steel, Zinc, Copper, Stainless Steel, Aluminium",s058,,,,,,,,,,,
 PL-001,Katowice,City,50.2649,19.0238,Poland,,,"Inland, Industrial, Urban, Cold","1 year, 4 years, 8 years","Carbon steel, Zinc, Copper, Weathering steel, Stainless Steel, Aluminium, Titanium",s014,s017,s018,s015,s016,,,,,,,
 PL-002,Bydgoszcz,,53.1219648,18.0002529,Poland,,,"Inland, Cold","1 year, 2 years",Carbon steel,s049,,,,,,,,,,,
 PL-003,Elbląg,,54.1558708,19.4044583,Poland,,,"Near-coastal, Cold","1 year, 2 years",Carbon steel,s049,,,,,,,,,,,
@@ -406,8 +371,8 @@ RU-031,Cape Gamov,Cape site,43.0081,133.8013,Russia,,USSR,"Near-coastal, Tempera
 RU-032,Gelendzhik,City,45.67,38.5506,Russia,,USSR,"Near-coastal, Urban, Temperate","1-year periods, varies","Carbon steel, Steel St3, Zinc, Copper, Aluminium",s002,,,,,,,,,,,
 RU-033,Sochi (CSNBR high-altitude station),Research station,43.5853,39.7233,Russia,,USSR,"Coastal, Temperate","1-year periods, varies","Carbon steel, Steel St3, Zinc, Copper, Aluminium",s002,,,,,,,,,,,
 RU-034,Dalniye Zelentsy,Village,69.22245,36.2976,Russia,,USSR,"Marine, Rural, Extreme cold","1-year periods, varies","Carbon steel, Steel St3, Zinc, Copper, Aluminium",s002,,,,,,,,,,,
-RU-035,Moscow,City,55.698322,37.57402,Russia,,USSR,"Inland, Urban, Cold, urban","1-year periods, varies, 1 year, 2 years, 4 years, 8 years, Annually, 6 months, 5 years","Carbon steel, Steel St3, Zinc, Copper, Aluminium, Weathering steel",s002,s054,s009,s010,s011,s012,s013,,,,,
-RU-036,Zvenigorod,City,55.7299,36.8553,Russia,,USSR,"Inland, Urban, Cold, rural","1-year periods, varies, 6 months, 1 year, 2 years, 3 years, 5 years","Carbon steel, Steel St3, Zinc, Copper, Aluminium, Electrical steel, Iron",s002,s054,s007,,,,,,,,,
+RU-035,Moscow,City,55.698322,37.57402,Russia,,USSR,"Inland, Urban, Cold, urban","1-year periods, varies, 1 year, 2 years, 4 years, 8 years, Annually","Carbon steel, Steel St3, Zinc, Copper, Aluminium, Weathering steel",s002,s009,s010,s011,s012,s013,,,,,,
+RU-036,Zvenigorod,City,55.7299,36.8553,Russia,,USSR,"Inland, Urban, Cold, rural","1-year periods, varies, 6 months, 1 year, 2 years, 3 years","Carbon steel, Steel St3, Zinc, Copper, Aluminium, Electrical steel, Iron",s002,s007,,,,,,,,,,
 RU-037,Yakutsk,City,62.0355,129.6755,Russia,,USSR,"Inland, Urban, Sub-arctic, Cold","1-year periods, varies","Carbon steel, Steel St3, Zinc, Copper, Aluminium",s002,,,,,,,,,,,
 RU-038,Cape Schmidt,Cape site,69.9978,-172.03854,Russia,,USSR,"Marine, Extreme cold",Annually,"Carbon steel, Copper, Zinc, Cadmium, Aluminium",s008,,,,,,,,,,,
 RU-039,Cape Chaplin,Cape site,65.08673,-167.62527,Russia,,USSR,"Marine, Sub-arctic, Cold",Annually,"Carbon steel, Copper, Zinc, Cadmium, Aluminium",s008,,,,,,,,,,,
@@ -433,7 +398,6 @@ SE-014,"Kattesand, Sotenäs kommun",,58.3376755,11.3407874,Sweden,,,"Marine, Col
 SE-015,Ryda kungsgard,,59.7542549,17.1317485,Sweden,,,"Inland, Cold","1 year, 2 years, 4 years, 8 years","Carbon steel, Weathering steel",s049,,,,,,,,,,,
 SK-001,Zilina,,49.2234674,18.7393139,Slovakia,,,"Inland, Temperate","1 year, 4 years, 8 years","Carbon steel, Stainless Steel, Weathering steel, Zinc, Aluminium, Titanium",s017,s018,,,,,,,,,,
 SK-002,Hurbanovo,,47.8761227,18.198313,Slovakia,,Czechoslovakia,"Inland, Temperate","1 year, 2 years, 4 years, 8 years",Carbon steel,s049,,,,,,,,,,,
-TG-001,Lomé,,6.130419,1.215829,Togo,,,"Coastal, Tropical","3 months, 4 months",Aluminium,s060,,,,,,,,,,,
 US-001,"Research Triangle Park, North Carolina",Research Park,35.9079,-78.875,United States,,,"Inland, Rural, Temperate, Urban","1 year, 2 years, 4 years, 8 years, Annually","Carbon steel, Weathering steel, Zinc, Aluminium, Copper",s009,s020,s010,s011,s012,,,,,,,
 US-002,Steubenville,City,40.3698,-80.6339,United States,,,"Inland, Industrial, Urban, Temperate","1 year, 2 years, 4 years, 8 years, Annually","Carbon steel, Weathering steel, Zinc, Aluminium",s009,s010,s011,s012,,,,,,,,
 US-003,Los Angeles,City,34.0522,-118.2437,United States,,,"Near-coastal, Urban, Temperate, marine","1 year, 2 years, 4 years, 10 years, 17 years, 16 years, 8 years, 23 years, 20 years, 18 years, 13 years, 15 years","Carbon steel, Copper, Mild steel, Weathering steel, Steel alloys, Copper steel, Zinc, Aluminium",s013,s020,s043,,,,,,,,,
@@ -483,13 +447,13 @@ VE-007,El Tablazo,,8.3541875,-62.6367575,Venezuela,,,"Inland, Tropical","1 year,
 VE-008,Puerto Cabello,,10.4677932,-68.0436682,Venezuela,,,"Coastal, Tropical","1 year, 4 years",Mild steel,s045,,,,,,,,,,,
 ZA-001,Bedford,inland rural / semi-arid,-32.6783333,26.0883333,South Africa,,,"Inland, Rural, Hot-arid",,,s023,,,,,,,,,,,Approx. first-year mild steel corrosion rate reported: 12 µm/a
 ZA-002,Belfast,inland Highveld,-25.686667,30.033611,South Africa,,,"Inland, Temperate",,,s023,,,,,,,,,,,Approx. first-year mild steel corrosion rate reported: 18 µm/a
-ZA-003,"Ysterplaat, Cape Town",coastal urban / marine-influenced,-33.9201062,18.4767109,South Africa,,,"Coastal, Urban, Temperate","2 years, 3 months, 4 years, 5 years, 20 years","Zinc, Copper, Mild steel",s023,s055,,,,,,,,,,Source site name: Cape Town - Ysterplaat. Approx. first-year mild steel corrosion rate reported: 28 µm/a
+ZA-003,"Ysterplaat, Cape Town",coastal urban / marine-influenced,-33.9201062,18.4767109,South Africa,,,"Coastal, Urban, Temperate",,,s023,,,,,,,,,,,Source site name: Cape Town - Ysterplaat. Approx. first-year mild steel corrosion rate reported: 28 µm/a
 ZA-004,De Aar,inland arid / semi-desert,-30.6505556,24.0075,South Africa,,,"Inland, Hot-arid",,,s023,,,,,,,,,,,Approx. first-year mild steel corrosion rate reported: 2 µm/a
 ZA-005,Dealesville,inland rural,-28.675458,25.765095,South Africa,,,"Inland, Rural, Temperate",,,s023,,,,,,,,,,,Approx. first-year mild steel corrosion rate reported: 7 µm/a
 ZA-006,Droërivie,inland semi-arid,-33.827938,20.216455,South Africa,,,"Inland, Temperate",,,s023,,,,,,,,,,,Approx. first-year mild steel corrosion rate reported: 1.3 µm/a
 ZA-007,"Bayhead, Durban",coastal harbour / marine-industrial,-29.8913889,30.9913889,South Africa,,,"Coastal, Industrial, Temperate",,,s023,,,,,,,,,,,Source site name: Durban - Bayhead. Approx. first-year mild steel corrosion rate reported: 66 µm/a
-ZA-008,"Congella, Durban",coastal urban-industrial / marine,-29.8713889,30.9975,South Africa,,,"Marine, Industrial, Urban, Temperate","2 years, 3 months, 4 years, 5 years, 20 years","Zinc, Copper, Mild steel",s023,s055,,,,,,,,,,Source site name: Durban - Congella. Approx. first-year mild steel corrosion rate reported: 122 µm/a
-ZA-009,"Salisbury Island, Durban",coastal harbour / marine,-29.8830566,31.0371286,South Africa,,,"Marine, Temperate","2 years, 3 months, 4 years, 5 years, 20 years","Zinc, Copper, Mild steel",s023,s055,,,,,,,,,,Source site name: Durban - Salisbury Island. Approx. first-year mild steel corrosion rate reported: 134 µm/a
+ZA-008,"Congella, Durban",coastal urban-industrial / marine,-29.8713889,30.9975,South Africa,,,"Marine, Industrial, Urban, Temperate",,,s023,,,,,,,,,,,Source site name: Durban - Congella. Approx. first-year mild steel corrosion rate reported: 122 µm/a
+ZA-009,"Salisbury Island, Durban",coastal harbour / marine,-29.8830566,31.0371286,South Africa,,,"Marine, Temperate",,,s023,,,,,,,,,,,Source site name: Durban - Salisbury Island. Approx. first-year mild steel corrosion rate reported: 134 µm/a
 ZA-010,Empangeni,coastal-influenced subtropical,-28.746111,31.897222,South Africa,,,"Near-coastal, Temperate",,,s023,,,,,,,,,,,Approx. first-year mild steel corrosion rate reported: 58 µm/a
 ZA-011,Gariep Dam,inland arid / Central Plateau,-30.6329406,25.8194167,South Africa,,,"Inland, Hot-arid",,,s023,,,,,,,,,,,Source site name: Gariep. Approx. first-year mild steel corrosion rate reported: 4 µm/a
 ZA-012,Germiston,inland industrial,-26.229444,28.180556,South Africa,,,"Inland, Industrial, Temperate",,,s023,,,,,,,,,,,Approx. first-year mild steel corrosion rate reported: 51 µm/a
@@ -497,63 +461,6 @@ ZA-013,Grabouw,elevated coastal-influenced inland,-34.153056,19.013889,South Afr
 ZA-014,Melkbosstrand,coastal marine,-33.722222,18.445833,South Africa,,,"Marine, Temperate",,,s023,,,,,,,,,,,Approx. first-year mild steel corrosion rate reported: 460 µm/a
 ZA-015,Mossel Bay,coastal marine / industrial,-34.1832022,22.1536248,South Africa,,,"Marine, Industrial, Temperate",,,s023,,,,,,,,,,,Approx. first-year mild steel corrosion rate reported: 57 µm/a
 ZA-016,Oyster Bay,coastal marine,-34.1697222,24.6525,South Africa,,,"Marine, Temperate",,,s023,,,,,,,,,,,Approx. first-year mild steel corrosion rate reported: 40 µm/a
-ZA-017,Sasolburg,inland industrial,-26.810278,27.821389,South Africa,,,"Inland, Industrial, Temperate","2 years, 3 months, 4 years, 5 years, 20 years","Zinc, Copper, Mild steel",s023,s055,,,,,,,,,,Approx. first-year mild steel corrosion rate reported: 50 µm/a
+ZA-017,Sasolburg,inland industrial,-26.810278,27.821389,South Africa,,,"Inland, Industrial, Temperate",,,s023,,,,,,,,,,,Approx. first-year mild steel corrosion rate reported: 50 µm/a
 ZA-018,Secunda,inland industrial / Highveld,-26.516111,29.202778,South Africa,,,"Inland, Industrial, Temperate",,,s023,,,,,,,,,,,Approx. first-year mild steel corrosion rate reported: 38 µm/a
 ZA-019,Vredendal,semi-arid coastal-influenced inland,-31.679444,18.492222,South Africa,,,"Near-coastal, Hot-arid",,,s023,,,,,,,,,,,Approx. first-year mild steel corrosion rate reported: 16 µm/a
-ZA-020,Cape Town Aeroport,,-33.9718458,18.6021125,South Africa,,,"Near-coastal, Temperate","1 year, 6 months, 18 months, 2 years","Carbon steel, Mild steel, Hot-dip galvanized steel, Aluminium, Zinc, Copper",s023,s052,,,,,,,,,,
-ZA-021,"Alexandra, Sandton",,-26.104444,28.098889,South Africa,,,"Inland, Temperate","1 year, 6 months, 18 months, 2 years","Carbon steel, Mild steel, Hot-dip galvanized steel, Aluminium, Zinc, Copper",s023,s052,,,,,,,,,,
-ZA-022,"Alrode, Alberton",,-26.2982628,28.1202109,South Africa,,,"Inland, Temperate","1 year, 6 months, 18 months, 2 years","Carbon steel, Mild steel, Hot-dip galvanized steel, Aluminium, Zinc, Copper",s023,s052,,,,,,,,,,
-ZA-023,Bonaero Park,,-26.1222222,28.2580556,South Africa,,,"Inland, Temperate","1 year, 6 months, 18 months, 2 years","Carbon steel, Mild steel, Hot-dip galvanized steel, Aluminium, Zinc, Copper",s023,s052,,,,,,,,,,
-ZA-024,Braamfontein,,-26.1923008,28.0361353,South Africa,,,"Inland, Temperate","1 year, 6 months, 18 months, 2 years","Carbon steel, Mild steel, Hot-dip galvanized steel, Aluminium, Zinc, Copper",s023,s052,,,,,,,,,,
-ZA-025,Brakpan,,-26.235278,28.37,South Africa,,,"Inland, Temperate","1 year, 6 months, 18 months, 2 years","Carbon steel, Mild steel, Hot-dip galvanized steel, Aluminium, Zinc, Copper",s023,s052,,,,,,,,,,
-ZA-026,"Buccleuch, Sandton",,-26.0552778,28.1108333,South Africa,,,"Inland, Temperate","1 year, 6 months, 18 months, 2 years","Carbon steel, Mild steel, Hot-dip galvanized steel, Aluminium, Zinc, Copper",s023,s052,,,,,,,,,,
-ZA-027,"Chamdor, Krugersdorp",,-26.1529302,27.8002271,South Africa,,,"Inland, Temperate","1 year, 6 months, 18 months, 2 years","Carbon steel, Mild steel, Hot-dip galvanized steel, Aluminium, Zinc, Copper",s023,s052,,,,,,,,,,
-ZA-028,"Chloorkop, City of Ekurhuleni Metropolitan Municipality",,-26.0583333,28.1761111,South Africa,,,"Inland, Temperate","1 year, 6 months, 18 months, 2 years","Carbon steel, Mild steel, Hot-dip galvanized steel, Aluminium, Zinc, Copper",s023,s052,,,,,,,,,,
-ZA-029,"Delta Park, Randburg",,-26.1280476,28.0135205,South Africa,,,"Inland, Temperate","1 year, 6 months, 18 months, 2 years","Carbon steel, Mild steel, Hot-dip galvanized steel, Aluminium, Zinc, Copper",s023,s052,,,,,,,,,,
-ZA-030,Diepsloot,,-25.9309502,28.0105905,South Africa,,,"Inland, Temperate","1 year, 6 months, 18 months, 2 years","Carbon steel, Mild steel, Hot-dip galvanized steel, Aluminium, Zinc, Copper",s023,s052,,,,,,,,,,
-ZA-031,"Florida Hills, Roodepoort",,-26.1605556,27.9275,South Africa,,,"Inland, Temperate","1 year, 6 months, 18 months, 2 years","Carbon steel, Mild steel, Hot-dip galvanized steel, Aluminium, Zinc, Copper",s023,s052,,,,,,,,,,
-ZA-032,"Ivory Park, Sandton",,-25.9875,28.2038889,South Africa,,,"Inland, Temperate","1 year, 6 months, 18 months, 2 years","Carbon steel, Mild steel, Hot-dip galvanized steel, Aluminium, Zinc, Copper",s023,s052,,,,,,,,,,
-ZA-033,"Jabavu, Soweto",,-26.2466667,27.8736111,South Africa,,,"Inland, Temperate","1 year, 6 months, 18 months, 2 years","Carbon steel, Mild steel, Hot-dip galvanized steel, Aluminium, Zinc, Copper",s023,s052,,,,,,,,,,
-ZA-034,Kagiso,,-26.1577778,27.7813889,South Africa,,,"Inland, Temperate","1 year, 6 months, 18 months, 2 years","Carbon steel, Mild steel, Hot-dip galvanized steel, Aluminium, Zinc, Copper",s023,s052,,,,,,,,,,
-ZA-035,Kya Sand,,-26.0267016,27.9488987,South Africa,,,"Inland, Temperate","1 year, 6 months, 18 months, 2 years","Carbon steel, Mild steel, Hot-dip galvanized steel, Aluminium, Zinc, Copper",s023,s052,,,,,,,,,,
-ZA-036,Midrand,,-25.999262,28.125912,South Africa,,,"Inland, Temperate","1 year, 6 months, 18 months, 2 years","Carbon steel, Mild steel, Hot-dip galvanized steel, Aluminium, Zinc, Copper",s023,s052,,,,,,,,,,
-ZA-037,Nasrec,,-26.2428482,27.9803213,South Africa,,,"Inland, Temperate","1 year, 6 months, 18 months, 2 years","Carbon steel, Mild steel, Hot-dip galvanized steel, Aluminium, Zinc, Copper",s023,s052,,,,,,,,,,
-ZA-038,Newtown,,-26.2038975,28.0342814,South Africa,,,"Inland, Temperate","1 year, 6 months, 18 months, 2 years","Carbon steel, Mild steel, Hot-dip galvanized steel, Aluminium, Zinc, Copper",s023,s052,,,,,,,,,,
-ZA-039,Orange Farm,,-26.4661111,27.8652778,South Africa,,,"Inland, Temperate","1 year, 6 months, 18 months, 2 years","Carbon steel, Mild steel, Hot-dip galvanized steel, Aluminium, Zinc, Copper",s023,s052,,,,,,,,,,
-ZA-040,Rosherville,,-26.2247222,28.1172222,South Africa,,,"Inland, Temperate","1 year, 6 months, 18 months, 2 years","Carbon steel, Mild steel, Hot-dip galvanized steel, Aluminium, Zinc, Copper",s023,s052,,,,,,,,,,
-ZA-041,"Ruimsig, Roodepoort",,-26.0909169,27.8719328,South Africa,,,"Inland, Temperate","1 year, 6 months, 18 months, 2 years","Carbon steel, Mild steel, Hot-dip galvanized steel, Aluminium, Zinc, Copper",s023,s052,,,,,,,,,,
-ZA-042,"Balmoral, Lukhanji Local Municipality",,-31.8860539,26.8846296,South Africa,,,"Inland, Temperate","1 year, 6 months, 18 months, 2 years","Carbon steel, Mild steel, Hot-dip galvanized steel, Aluminium, Zinc, Copper",s023,s052,,,,,,,,,,
-ZA-043,"Bryanston, Randburg",,-26.0513889,28.0280556,South Africa,,,"Inland, Temperate","1 year, 6 months, 18 months, 2 years","Carbon steel, Mild steel, Hot-dip galvanized steel, Aluminium, Zinc, Copper",s023,s052,,,,,,,,,,
-ZA-044,"Dainfern Ridge, Randburg",,-25.9931492,28.0040472,South Africa,,,"Inland, Temperate","1 year, 6 months, 18 months, 2 years","Carbon steel, Mild steel, Hot-dip galvanized steel, Aluminium, Zinc, Copper",s023,s052,,,,,,,,,,
-ZA-045,Dalpark,,-26.2524298,28.3339664,South Africa,,,"Inland, Temperate","1 year, 6 months, 18 months, 2 years","Carbon steel, Mild steel, Hot-dip galvanized steel, Aluminium, Zinc, Copper",s023,s052,,,,,,,,,,
-ZA-046,Doornkop,,-26.2436111,27.8069444,South Africa,,,"Inland, Temperate","1 year, 6 months, 18 months, 2 years","Carbon steel, Mild steel, Hot-dip galvanized steel, Aluminium, Zinc, Copper",s023,s052,,,,,,,,,,
-ZA-047,Dunnottar,,-26.3464379,28.4314505,South Africa,,,"Inland, Temperate","1 year, 6 months, 18 months, 2 years","Carbon steel, Mild steel, Hot-dip galvanized steel, Aluminium, Zinc, Copper",s023,s052,,,,,,,,,,
-ZA-048,Durban,,-29.844626,31.0343789,South Africa,,,"Coastal, Temperate","1 year, 6 months, 18 months, 2 years","Carbon steel, Mild steel, Hot-dip galvanized steel, Aluminium, Zinc, Copper",s023,s052,,,,,,,,,,
-ZA-049,Eastleigh,,-26.1327235,28.1401302,South Africa,,,"Inland, Temperate","1 year, 6 months, 18 months, 2 years","Carbon steel, Mild steel, Hot-dip galvanized steel, Aluminium, Zinc, Copper",s023,s052,,,,,,,,,,
-ZA-050,"Eastrand Mall, Boksburg",,-26.18569,28.237106,South Africa,,,"Inland, Temperate","1 year, 6 months, 18 months, 2 years","Carbon steel, Mild steel, Hot-dip galvanized steel, Aluminium, Zinc, Copper",s023,s052,,,,,,,,,,
-ZA-051,Eikenhof,,-26.3468204,28.04178,South Africa,,,"Inland, Temperate","1 year, 6 months, 18 months, 2 years","Carbon steel, Mild steel, Hot-dip galvanized steel, Aluminium, Zinc, Copper",s023,s052,,,,,,,,,,
-ZA-052,Elspark,,-26.2680556,28.2316667,South Africa,,,"Inland, Temperate","1 year, 6 months, 18 months, 2 years","Carbon steel, Mild steel, Hot-dip galvanized steel, Aluminium, Zinc, Copper",s023,s052,,,,,,,,,,
-ZA-053,Ennerdale,,-26.4149377,27.8463264,South Africa,,,"Inland, Temperate","1 year, 6 months, 18 months, 2 years","Carbon steel, Mild steel, Hot-dip galvanized steel, Aluminium, Zinc, Copper",s023,s052,,,,,,,,,,
-ZA-054,Esselen Park,,-33.6519344,19.4557177,South Africa,,,"Inland, Temperate","1 year, 6 months, 18 months, 2 years","Carbon steel, Mild steel, Hot-dip galvanized steel, Aluminium, Zinc, Copper",s023,s052,,,,,,,,,,
-ZA-055,Geluksdal,,-26.3405556,28.3616667,South Africa,,,"Inland, Temperate","1 year, 6 months, 18 months, 2 years","Carbon steel, Mild steel, Hot-dip galvanized steel, Aluminium, Zinc, Copper",s023,s052,,,,,,,,,,
-ZA-056,Gillooly's Farm,,-26.1667274,28.130314,South Africa,,,"Inland, Temperate","1 year, 6 months, 18 months, 2 years","Carbon steel, Mild steel, Hot-dip galvanized steel, Aluminium, Zinc, Copper",s023,s052,,,,,,,,,,
-ZA-057,Houghton,,-26.1581938,28.0589807,South Africa,,,"Inland, Temperate","1 year, 6 months, 18 months, 2 years","Carbon steel, Mild steel, Hot-dip galvanized steel, Aluminium, Zinc, Copper",s023,s052,,,,,,,,,,
-ZA-058,Kempton Park,,-26.0964372,28.2336325,South Africa,,,"Inland, Temperate","1 year, 6 months, 18 months, 2 years","Carbon steel, Mild steel, Hot-dip galvanized steel, Aluminium, Zinc, Copper",s023,s052,,,,,,,,,,
-ZA-059,Kliprivier,,-26.3331285,28.0110615,South Africa,,,"Inland, Temperate","1 year, 6 months, 18 months, 2 years","Carbon steel, Mild steel, Hot-dip galvanized steel, Aluminium, Zinc, Copper",s023,s052,,,,,,,,,,
-ZA-060,Klipriviersberg,,-26.2798594,28.0448796,South Africa,,,"Inland, Temperate","1 year, 6 months, 18 months, 2 years","Carbon steel, Mild steel, Hot-dip galvanized steel, Aluminium, Zinc, Copper",s023,s052,,,,,,,,,,
-ZA-061,Krugersdorp,,-26.095556,27.775556,South Africa,,,"Inland, Temperate","1 year, 6 months, 18 months, 2 years","Carbon steel, Mild steel, Hot-dip galvanized steel, Aluminium, Zinc, Copper",s023,s052,,,,,,,,,,
-ZA-062,Kyalami,,-25.9970236,28.0678273,South Africa,,,"Inland, Temperate","1 year, 6 months, 18 months, 2 years","Carbon steel, Mild steel, Hot-dip galvanized steel, Aluminium, Zinc, Copper",s023,s052,,,,,,,,,,
-ZA-063,Lanseria,,-25.9396667,27.9261711,South Africa,,,"Inland, Temperate","1 year, 6 months, 18 months, 2 years","Carbon steel, Mild steel, Hot-dip galvanized steel, Aluminium, Zinc, Copper",s023,s052,,,,,,,,,,
-ZA-064,Morningside,,-26.0780556,28.0644444,South Africa,,,"Inland, Temperate","1 year, 6 months, 18 months, 2 years","Carbon steel, Mild steel, Hot-dip galvanized steel, Aluminium, Zinc, Copper",s023,s052,,,,,,,,,,
-ZA-065,Newclare,,-26.1863531,27.9630546,South Africa,,,"Inland, Temperate","1 year, 6 months, 18 months, 2 years","Carbon steel, Mild steel, Hot-dip galvanized steel, Aluminium, Zinc, Copper",s023,s052,,,,,,,,,,
-ZA-066,Nigel,,-26.425961,28.470431,South Africa,,,"Inland, Temperate","1 year, 6 months, 18 months, 2 years","Carbon steel, Mild steel, Hot-dip galvanized steel, Aluminium, Zinc, Copper",s023,s052,,,,,,,,,,
-ZA-067,Palmridge,,-26.39029,28.157861,South Africa,,,"Inland, Temperate","1 year, 6 months, 18 months, 2 years","Carbon steel, Mild steel, Hot-dip galvanized steel, Aluminium, Zinc, Copper",s023,s052,,,,,,,,,,
-ZA-068,"Princess, Roodepoort",,-26.1297241,27.851114,South Africa,,,"Inland, Temperate","1 year, 6 months, 18 months, 2 years","Carbon steel, Mild steel, Hot-dip galvanized steel, Aluminium, Zinc, Copper",s023,s052,,,,,,,,,,
-ZA-069,Randfontein,,-26.173611,27.694167,South Africa,,,"Inland, Temperate","1 year, 6 months, 18 months, 2 years","Carbon steel, Mild steel, Hot-dip galvanized steel, Aluminium, Zinc, Copper",s023,s052,,,,,,,,,,
-ZA-070,Springs,,-26.2550033,28.4373147,South Africa,,,"Inland, Temperate","1 year, 6 months, 18 months, 2 years","Carbon steel, Mild steel, Hot-dip galvanized steel, Aluminium, Zinc, Copper",s023,s052,,,,,,,,,,
-ZA-071,Wadeville,,-26.2604713,28.1816838,South Africa,,,"Inland, Temperate","1 year, 6 months, 18 months, 2 years","Carbon steel, Mild steel, Hot-dip galvanized steel, Aluminium, Zinc, Copper",s023,s052,,,,,,,,,,
-ZA-072,Walkerville,,-26.4416667,27.9616667,South Africa,,,"Inland, Temperate","1 year, 6 months, 18 months, 2 years","Carbon steel, Mild steel, Hot-dip galvanized steel, Aluminium, Zinc, Copper",s023,s052,,,,,,,,,,
-ZA-073,"Addington Hospital, Durban",,-29.862115,31.0412459,South Africa,,,"Marine, Temperate","2 years, 3 months, 4 years, 5 years, 20 years","Zinc, Copper, Mild steel",s055,,,,,,,,,,,
-ZA-074,Pretoria,,-25.7459277,28.1879101,South Africa,,,"Inland, Temperate","2 years, 3 months, 4 years, 5 years, 20 years","Zinc, Copper, Mild steel",s055,,,,,,,,,,,
-ZA-075,Simon's Town,,-34.1913606,18.4275705,South Africa,,,"Coastal, Temperate","2 years, 3 months, 4 years, 5 years, 20 years","Zinc, Copper, Mild steel",s055,,,,,,,,,,,
-ZA-076,"Bluff, Nama Khoi Local Municipality",,-28.9292,17.4575,South Africa,,,"Inland, Temperate","2 years, 3 months, 4 years, 5 years, 20 years","Zinc, Copper, Mild steel",s055,,,,,,,,,,,
