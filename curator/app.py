@@ -6438,7 +6438,7 @@ if active_page == "Corrosion Data":
 
             else:
                 if st.button(
-                    "Preview source PDF",
+                    "Prepare source PDF",
                     key=(
                         "corrosion_preview_source_pdf_"
                         f"{selected_corrosion_workbook_source_id}"
@@ -6460,7 +6460,7 @@ if active_page == "Corrosion Data":
                     except Exception as exc:
                         st.error(
                             "Could not generate the private PDF "
-                            f"preview link: {exc}"
+                            f"link: {exc}"
                         )
 
         with public_source_col:
@@ -6477,26 +6477,16 @@ if active_page == "Corrosion Data":
         )
 
         if corrosion_pdf_signed_url:
-            with st.expander(
-                "Source PDF preview",
-                expanded=True,
-            ):
-                st.caption(
-                    "The private preview link is temporary. "
-                    "If it expires, click `Preview source PDF` again."
-                )
+            st.success(
+                "Private PDF link generated. "
+                "The link is valid for 1 hour."
+            )
 
-                components.iframe(
-                    corrosion_pdf_signed_url,
-                    height=850,
-                    scrolling=True,
-                )
-
-                st.link_button(
-                    "Open PDF in new tab",
-                    corrosion_pdf_signed_url,
-                    use_container_width=True,
-                )
+            st.link_button(
+                "Open source PDF in new tab",
+                corrosion_pdf_signed_url,
+                use_container_width=True,
+            )
 
         selected_corrosion_workbook_links = [
             row
