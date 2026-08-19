@@ -6367,6 +6367,137 @@ if active_page == "Corrosion Data":
             )
         )
 
+        corrosion_workbook_full_source_by_id = {
+            int(row["id"]): row
+            for row in corrosion_workbook_all_source_rows
+            if row.get("id") not in (None, "")
+        }
+
+        selected_corrosion_workbook_full_source = (
+            corrosion_workbook_full_source_by_id.get(
+                selected_corrosion_workbook_source_id,
+                selected_corrosion_workbook_source,
+            )
+        )
+
+        selected_corrosion_pdf_object_key = str(
+            selected_corrosion_workbook_full_source.get(
+                "private_pdf_object_key",
+                "",
+            ) or ""
+        ).strip()
+
+        selected_corrosion_public_url = str(
+            selected_corrosion_workbook_full_source.get(
+                "public_url",
+                "",
+            )
+            or selected_corrosion_workbook_full_source.get(
+                "source_url",
+                "",
+            )
+            or ""
+        ).strip()
+
+        selected_corrosion_display_citation = str(
+            selected_corrosion_workbook_full_source.get(
+                "display_citation",
+                "",
+            ) or ""
+        ).strip()
+
+        if selected_corrosion_display_citation:
+            st.caption(
+                selected_corrosion_display_citation
+            )
+
+        pdf_action_col, public_source_col = st.columns(
+            [0.55, 0.45],
+            vertical_alignment="bottom",
+        )
+
+        corrosion_pdf_state_key = (
+            "corrosion_pdf_signed_url_"
+            f"{selected_corrosion_workbook_source_id}"
+        )
+
+        with pdf_action_col:
+            if not selected_corrosion_pdf_object_key:
+                st.info(
+                    "No private PDF is stored for this source."
+                )
+
+            elif generate_private_pdf_url is None:
+                st.warning(
+                    "Private PDF access is unavailable: "
+                    + (
+                        R2_STORAGE_IMPORT_ERROR
+                        or "R2 signed URL helper is unavailable."
+                    )
+                )
+
+            else:
+                if st.button(
+                    "Preview source PDF",
+                    key=(
+                        "corrosion_preview_source_pdf_"
+                        f"{selected_corrosion_workbook_source_id}"
+                    ),
+                    use_container_width=True,
+                ):
+                    try:
+                        corrosion_pdf_signed_url = (
+                            generate_private_pdf_url(
+                                selected_corrosion_pdf_object_key,
+                                expires_seconds=3600,
+                            )
+                        )
+
+                        st.session_state[
+                            corrosion_pdf_state_key
+                        ] = corrosion_pdf_signed_url
+
+                    except Exception as exc:
+                        st.error(
+                            "Could not generate the private PDF "
+                            f"preview link: {exc}"
+                        )
+
+        with public_source_col:
+            if selected_corrosion_public_url:
+                st.link_button(
+                    "Open public source page",
+                    selected_corrosion_public_url,
+                    use_container_width=True,
+                )
+
+        corrosion_pdf_signed_url = st.session_state.get(
+            corrosion_pdf_state_key,
+            "",
+        )
+
+        if corrosion_pdf_signed_url:
+            with st.expander(
+                "Source PDF preview",
+                expanded=True,
+            ):
+                st.caption(
+                    "The private preview link is temporary. "
+                    "If it expires, click `Preview source PDF` again."
+                )
+
+                components.iframe(
+                    corrosion_pdf_signed_url,
+                    height=850,
+                    scrolling=True,
+                )
+
+                st.link_button(
+                    "Open PDF in new tab",
+                    corrosion_pdf_signed_url,
+                    use_container_width=True,
+                )
+
         selected_corrosion_workbook_links = [
             row
             for row in corrosion_workbook_link_rows
