@@ -249,9 +249,22 @@ def ensure_schema_updates() -> None:
                 site_source_fk bigint references site_sources(id) on delete set null,
                 material text not null,
                 exposure_period text not null,
-                corrosion_metric text not null default 'corrosion_rate',
+                corrosion_metric text not null default 'penetration_rate',
+
                 value double precision not null,
                 unit text not null,
+
+                normalized_value double precision,
+                normalized_unit text not null default '',
+
+                density_g_cm3 double precision,
+                density_basis text not null default '',
+
+                derived_penetration_value double precision,
+                derived_penetration_unit text not null default '',
+
+                normalization_note text not null default '',
+
                 measurement_method text not null default '',
                 specimen_condition text not null default '',
                 exposure_condition text not null default '',
@@ -270,6 +283,25 @@ def ensure_schema_updates() -> None:
             )
             """
         )
+
+        corrosion_schema_columns = {
+            "normalized_value": "double precision",
+            "normalized_unit": "text not null default ''",
+            "density_g_cm3": "double precision",
+            "density_basis": "text not null default ''",
+            "derived_penetration_value": "double precision",
+            "derived_penetration_unit": "text not null default ''",
+            "normalization_note": "text not null default ''",
+        }
+
+        for column_name, column_definition in corrosion_schema_columns.items():
+            conn.execute(
+                f"""
+                ALTER TABLE corrosion_observations
+                ADD COLUMN IF NOT EXISTS
+                {column_name} {column_definition}
+                """
+            )
 
         conn.execute(
             """

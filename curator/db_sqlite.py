@@ -132,9 +132,22 @@ def ensure_schema_updates() -> None:
                 site_source_fk integer,
                 material text not null,
                 exposure_period text not null,
-                corrosion_metric text not null default 'corrosion_rate',
+                corrosion_metric text not null default 'penetration_rate',
+
                 value real not null,
                 unit text not null,
+
+                normalized_value real,
+                normalized_unit text not null default '',
+
+                density_g_cm3 real,
+                density_basis text not null default '',
+
+                derived_penetration_value real,
+                derived_penetration_unit text not null default '',
+
+                normalization_note text not null default '',
+
                 measurement_method text not null default '',
                 specimen_condition text not null default '',
                 exposure_condition text not null default '',
@@ -156,6 +169,34 @@ def ensure_schema_updates() -> None:
             )
             """
         )
+
+        corrosion_columns = conn.execute(
+            "PRAGMA table_info(corrosion_observations)"
+        ).fetchall()
+
+        corrosion_column_names = {
+            row["name"]
+            for row in corrosion_columns
+        }
+
+        corrosion_schema_columns = {
+            "normalized_value": "real",
+            "normalized_unit": "text not null default ''",
+            "density_g_cm3": "real",
+            "density_basis": "text not null default ''",
+            "derived_penetration_value": "real",
+            "derived_penetration_unit": "text not null default ''",
+            "normalization_note": "text not null default ''",
+        }
+
+        for column_name, column_definition in corrosion_schema_columns.items():
+            if column_name not in corrosion_column_names:
+                conn.execute(
+                    f"""
+                    ALTER TABLE corrosion_observations
+                    ADD COLUMN {column_name} {column_definition}
+                    """
+                )
 
         conn.execute(
             """

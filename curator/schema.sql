@@ -1,3 +1,5 @@
+drop table if exists environmental_observations;
+drop table if exists corrosion_observations;
 drop table if exists site_sources;
 drop table if exists sources;
 drop table if exists sites;
@@ -63,8 +65,72 @@ create table if not exists metadata_options (
     unique(category, value)
 );
 
+create table if not exists corrosion_observations (
+    id integer primary key autoincrement,
+
+    site_fk integer not null,
+    source_fk integer not null,
+    site_source_fk integer,
+
+    material text not null,
+    exposure_period text not null,
+    corrosion_metric text not null default 'penetration_rate',
+
+    value real not null,
+    unit text not null,
+
+    normalized_value real,
+    normalized_unit text not null default '',
+
+    density_g_cm3 real,
+    density_basis text not null default '',
+
+    derived_penetration_value real,
+    derived_penetration_unit text not null default '',
+
+    normalization_note text not null default '',
+
+    measurement_method text not null default '',
+    specimen_condition text not null default '',
+    exposure_condition text not null default '',
+    notes text not null default '',
+
+    created_at text default current_timestamp,
+    updated_at text default current_timestamp,
+
+    foreign key(site_fk)
+        references sites(id)
+        on delete cascade,
+
+    foreign key(source_fk)
+        references sources(id)
+        on delete cascade,
+
+    foreign key(site_source_fk)
+        references site_sources(id)
+        on delete set null,
+
+    unique(
+        site_fk,
+        source_fk,
+        material,
+        exposure_period,
+        corrosion_metric,
+        measurement_method,
+        specimen_condition
+    )
+);
+
 create index idx_sites_site_id on sites(site_id);
 create index idx_sites_label on sites(site_label);
 create index idx_sources_code on sources(source_code);
 create index idx_site_sources_site on site_sources(site_fk);
 create index idx_site_sources_source on site_sources(source_fk);
+create index if not exists idx_corrosion_site
+on corrosion_observations(site_fk);
+
+create index if not exists idx_corrosion_source
+on corrosion_observations(source_fk);
+
+create index if not exists idx_corrosion_site_source
+on corrosion_observations(site_source_fk);

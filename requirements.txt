@@ -7,4 +7,5 @@ pyshp
 requests
 psycopg[binary,pool]
 boto3
+openpyxl
 
