@@ -1277,20 +1277,21 @@ def build_corrosion_entry_workbook(
         ),
 
         "normalized_value": (
-            "Calculated workbook preview. The curator "
-            "app will recalculate this during import."
+            "Final comparable corrosion penetration rate "
+            "in µm/year whenever scientifically convertible. "
+            "The curator app recalculates this independently "
+            "during import."
         ),
 
-        "derived_penetration_value": (
-            "For mass-loss quantities only, calculated "
-            "from normalized mass loss and density when "
-            "density is available."
+        "normalized_unit": (
+            "Canonical unit. This is µm/year whenever a "
+            "general corrosion rate can be derived."
         ),
 
         "normalization_note": (
-            "Workbook QA note. The curator app will "
-            "independently validate and recalculate "
-            "on upload."
+            "Explains how the reported observation was "
+            "converted to the canonical corrosion rate, "
+            "or why conversion is not valid."
         ),
     }
 
@@ -1467,80 +1468,94 @@ def build_corrosion_entry_workbook(
         for record in rows_for_site:
 
             output_row = [
+                # A — source_code
                 record.get(
                     "source_code",
                     "",
                 ),
 
+                # B — source_title
                 record.get(
                     "source_title",
                     "",
                 ),
 
+                # C — site_id
                 record.get(
                     "site_id",
                     "",
                 ),
 
+                # D — site_label
                 record.get(
                     "site_label",
                     "",
                 ),
 
+                # E — country
                 record.get(
                     "country",
                     "",
                 ),
 
+                # F — observation_id
                 record.get(
                     "observation_id",
                     "",
                 ),
 
+                # G — material
                 record.get(
                     "material",
                     "",
                 ),
 
+                # H — exposure_period
                 record.get(
                     "exposure_period",
                     "",
                 ),
 
+                # I — corrosion_metric
                 record.get(
                     "corrosion_metric",
                     "",
                 ),
 
+                # J — reported_value
                 record.get(
                     "reported_value",
                     "",
                 ),
 
+                # K — reported_unit
                 record.get(
                     "reported_unit",
                     "",
                 ),
 
+                # L — default_density_g_cm3
                 "",
 
+                # M — density_override_g_cm3
                 record.get(
                     "density_override_g_cm3",
                     "",
                 ),
 
+                # N — density_used_g_cm3
                 "",
 
+                # O — normalized_value
                 "",
 
+                # P — normalized_unit
                 "",
 
+                # Q — normalization_note
                 "",
 
-                "",
-
-                "",
-
+                # R — notes
                 record.get(
                     "notes",
                     "",
@@ -1563,6 +1578,37 @@ def build_corrosion_entry_workbook(
 
     # =========================================================
     # Calculated columns
+    #
+    # normalized_value is the FINAL comparable general
+    # corrosion penetration rate in µm/year whenever a
+    # scientifically valid conversion is possible.
+    #
+    # Conversion paths:
+    #
+    # penetration_rate
+    #     -> unit conversion
+    #     -> µm/year
+    #
+    # mass_loss_rate
+    #     -> g/m²/year
+    #     -> divide by density
+    #     -> µm/year
+    #
+    # cumulative_penetration
+    #     -> µm
+    #     -> divide by exposure duration
+    #     -> µm/year
+    #
+    # cumulative_mass_loss
+    #     -> g/m²
+    #     -> divide by density
+    #     -> µm
+    #     -> divide by exposure duration
+    #     -> µm/year
+    #
+    # MCI / Al-ACI / ICI / maximum pit depth /
+    # net mass change are intentionally NOT converted
+    # to general corrosion rate.
     # =========================================================
 
     for row_number in range(
@@ -1572,6 +1618,10 @@ def build_corrosion_entry_workbook(
 
         material_cell = (
             f"G{row_number}"
+        )
+
+        exposure_cell = (
+            f"H{row_number}"
         )
 
         metric_cell = (
@@ -1606,19 +1656,13 @@ def build_corrosion_entry_workbook(
             f"P{row_number}"
         )
 
-        derived_value_cell = (
+        note_cell = (
             f"Q{row_number}"
         )
 
-        derived_unit_cell = (
-            f"R{row_number}"
-        )
-
-        note_cell = (
-            f"S{row_number}"
-        )
-
-        # Default density
+        # -----------------------------------------------------
+        # Default material density
+        # -----------------------------------------------------
 
         sheet[
             default_density_cell
@@ -1640,7 +1684,9 @@ def build_corrosion_entry_workbook(
             f')'
         )
 
+        # -----------------------------------------------------
         # Density actually used
+        # -----------------------------------------------------
 
         sheet[
             density_used_cell
@@ -1652,7 +1698,22 @@ def build_corrosion_entry_workbook(
             f')'
         )
 
-        # Normalized value
+        # -----------------------------------------------------
+        # FINAL canonical corrosion rate
+        #
+        # Exposure duration parser accepts entries such as:
+        #
+        # 1 year
+        # 2 years
+        # 0.5 year
+        # 6 months
+        # 18 months
+        # 90 days
+        # 3 weeks
+        #
+        # The Python importer still performs the authoritative
+        # calculation independently.
+        # -----------------------------------------------------
 
         sheet[
             normalized_value_cell
@@ -1664,138 +1725,338 @@ def build_corrosion_entry_workbook(
             f'{unit_cell}=""'
             f'),'
             f'"",'
+
+            f'LET('
+
+            f'metric,{metric_cell},'
+            f'v,{value_cell},'
+            f'u,{unit_cell},'
+            f'density,{density_used_cell},'
+
+            f'durationText,LOWER(TRIM({exposure_cell})),'
+            f'durationValue,'
             f'IFERROR('
-            f'{value_cell}*'
+            f'VALUE('
+            f'LEFT('
+            f'durationText,'
+            f'FIND(" ",durationText&" ")-1'
+            f')'
+            f'),'
+            f'""'
+            f'),'
+
+            f'durationUnit,'
+            f'TRIM('
+            f'MID('
+            f'durationText,'
+            f'FIND(" ",durationText&" ")+1,'
+            f'99'
+            f')'
+            f'),'
+
+            f'years,'
+            f'IF('
+            f'durationValue="",'
+            f'"",'
+            f'durationValue*'
+            f'IF('
+            f'OR('
+            f'durationUnit="year",'
+            f'durationUnit="years",'
+            f'durationUnit="yr",'
+            f'durationUnit="yrs",'
+            f'durationUnit="y"'
+            f'),'
+            f'1,'
+            f'IF('
+            f'OR('
+            f'durationUnit="month",'
+            f'durationUnit="months",'
+            f'durationUnit="mo",'
+            f'durationUnit="mos"'
+            f'),'
+            f'1/12,'
+            f'IF('
+            f'OR('
+            f'durationUnit="week",'
+            f'durationUnit="weeks",'
+            f'durationUnit="wk",'
+            f'durationUnit="wks"'
+            f'),'
+            f'7/365.25,'
+            f'IF('
+            f'OR('
+            f'durationUnit="day",'
+            f'durationUnit="days",'
+            f'durationUnit="d"'
+            f'),'
+            f'1/365.25,'
+            f'""'
+            f')'
+            f')'
+            f')'
+            f')'
+            f'),'
+
+            f'factor,'
+            f'IFERROR('
             f'VLOOKUP('
-            f'{metric_cell}&"|"&{unit_cell},'
+            f'metric&"|"&u,'
             f'{lists_name}!'
             f'$A$2:$C${unit_rule_end_row},'
             f'3,'
             f'FALSE'
             f'),'
             f'""'
+            f'),'
+
+            # Penetration-rate input
+            f'IF('
+            f'OR('
+            f'metric="penetration_rate",'
+            f'metric="corrosion_rate"'
+            f'),'
+            f'IF('
+            f'factor="",'
+            f'"",'
+            f'v*factor'
+            f'),'
+
+            # Mass-loss-rate input
+            f'IF('
+            f'metric="mass_loss_rate",'
+            f'IF('
+            f'OR('
+            f'factor="",'
+            f'density=""'
+            f'),'
+            f'"",'
+            f'v*factor/density'
+            f'),'
+
+            # Cumulative penetration input
+            f'IF('
+            f'metric="cumulative_penetration",'
+            f'IF('
+            f'OR('
+            f'factor="",'
+            f'years=""'
+            f'),'
+            f'"",'
+            f'v*factor/years'
+            f'),'
+
+            # Cumulative mass-loss input
+            f'IF('
+            f'metric="cumulative_mass_loss",'
+            f'IF('
+            f'OR('
+            f'factor="",'
+            f'density="",'
+            f'years=""'
+            f'),'
+            f'"",'
+            f'v*factor/density/years'
+            f'),'
+
+            # Non-comparable metrics remain blank.
+            f'""'
+
+            f')'
+            f')'
+            f')'
+            f')'
+
             f')'
             f')'
         )
 
-        # Normalized unit
+        # -----------------------------------------------------
+        # Canonical unit
+        # -----------------------------------------------------
 
         sheet[
             normalized_unit_cell
         ] = (
             f'=IF('
-            f'OR('
-            f'{metric_cell}="",'
-            f'{unit_cell}=""'
-            f'),'
+            f'{normalized_value_cell}="",'
             f'"",'
-            f'IFERROR('
-            f'VLOOKUP('
-            f'{metric_cell}&"|"&{unit_cell},'
-            f'{lists_name}!'
-            f'$A$2:$C${unit_rule_end_row},'
-            f'2,'
-            f'FALSE'
-            f'),'
-            f'""'
-            f')'
+            f'"µm/year"'
             f')'
         )
 
-        # Derived penetration.
-        #
-        # Conveniently:
-        #
-        #     g/m² ÷ g/cm³ = µm
-        #
-        # after the area/length unit conversion,
-        # so normalized mass loss divided by density
-        # directly gives penetration in µm.
-
-        sheet[
-            derived_value_cell
-        ] = (
-            f'=IF('
-            f'AND('
-            f'{metric_cell}="mass_loss_rate",'
-            f'{normalized_value_cell}<>"",'
-            f'{density_used_cell}<>""'
-            f'),'
-            f'{normalized_value_cell}/'
-            f'{density_used_cell},'
-            f'IF('
-            f'AND('
-            f'{metric_cell}="cumulative_mass_loss",'
-            f'{normalized_value_cell}<>"",'
-            f'{density_used_cell}<>""'
-            f'),'
-            f'{normalized_value_cell}/'
-            f'{density_used_cell},'
-            f'""'
-            f')'
-            f')'
-        )
-
-        sheet[
-            derived_unit_cell
-        ] = (
-            f'=IF('
-            f'{derived_value_cell}="",'
-            f'"",'
-            f'IF('
-            f'{metric_cell}="mass_loss_rate",'
-            f'"µm/year",'
-            f'IF('
-            f'{metric_cell}="cumulative_mass_loss",'
-            f'"µm",'
-            f'""'
-            f')'
-            f')'
-            f')'
-        )
-
-        # Human-readable QA note
+        # -----------------------------------------------------
+        # Human-readable conversion note
+        # -----------------------------------------------------
 
         sheet[
             note_cell
         ] = (
             f'=IF('
-            f'AND('
-            f'{metric_cell}<>"",'
-            f'{value_cell}<>"",'
-            f'{unit_cell}<>"",'
-            f'{normalized_value_cell}=""'
-            f'),'
-            f'"Unsupported metric/unit combination",'
-
-            f'IF('
-            f'AND('
             f'OR('
-            f'{metric_cell}="mass_loss_rate",'
-            f'{metric_cell}="cumulative_mass_loss"'
+            f'{metric_cell}="",'
+            f'{value_cell}="",'
+            f'{unit_cell}=""'
             f'),'
-            f'{normalized_value_cell}<>"",'
-            f'{density_used_cell}=""'
-            f'),'
-            f'"Mass loss normalized; penetration not '
-            f'derived because density is unavailable",'
+            f'"",'
 
-            f'IF('
-            f'{derived_value_cell}<>"",'
-            f'"Normalized from reported unit; '
-            f'penetration derived using density "'
-            f'&TEXT('
-            f'{density_used_cell},'
-            f'"0.###"'
+            f'LET('
+
+            f'metric,{metric_cell},'
+            f'u,{unit_cell},'
+            f'density,{density_used_cell},'
+
+            f'durationText,LOWER(TRIM({exposure_cell})),'
+            f'durationValue,'
+            f'IFERROR('
+            f'VALUE('
+            f'LEFT('
+            f'durationText,'
+            f'FIND(" ",durationText&" ")-1'
             f')'
-            f'&" g/cm³",'
+            f'),'
+            f'""'
+            f'),'
 
+            f'durationUnit,'
+            f'TRIM('
+            f'MID('
+            f'durationText,'
+            f'FIND(" ",durationText&" ")+1,'
+            f'99'
+            f')'
+            f'),'
+
+            f'years,'
             f'IF('
-            f'{normalized_value_cell}<>"",'
-            f'"Normalized from reported unit",'
+            f'durationValue="",'
+            f'"",'
+            f'durationValue*'
+            f'IF('
+            f'OR('
+            f'durationUnit="year",'
+            f'durationUnit="years",'
+            f'durationUnit="yr",'
+            f'durationUnit="yrs",'
+            f'durationUnit="y"'
+            f'),'
+            f'1,'
+            f'IF('
+            f'OR('
+            f'durationUnit="month",'
+            f'durationUnit="months",'
+            f'durationUnit="mo",'
+            f'durationUnit="mos"'
+            f'),'
+            f'1/12,'
+            f'IF('
+            f'OR('
+            f'durationUnit="week",'
+            f'durationUnit="weeks",'
+            f'durationUnit="wk",'
+            f'durationUnit="wks"'
+            f'),'
+            f'7/365.25,'
+            f'IF('
+            f'OR('
+            f'durationUnit="day",'
+            f'durationUnit="days",'
+            f'durationUnit="d"'
+            f'),'
+            f'1/365.25,'
             f'""'
             f')'
             f')'
+            f')'
+            f')'
+            f'),'
+
+            f'factor,'
+            f'IFERROR('
+            f'VLOOKUP('
+            f'metric&"|"&u,'
+            f'{lists_name}!'
+            f'$A$2:$C${unit_rule_end_row},'
+            f'3,'
+            f'FALSE'
+            f'),'
+            f'""'
+            f'),'
+
+            f'IF('
+            f'OR('
+            f'metric="maximum_pit_depth",'
+            f'metric="net_mass_change",'
+            f'metric="MCI",'
+            f'metric="Al-ACI",'
+            f'metric="ICI"'
+            f'),'
+            f'"Not converted to general corrosion rate",'
+
+            f'IF('
+            f'AND('
+            f'metric="mass_loss_rate",'
+            f'density=""'
+            f'),'
+            f'"Cannot convert: density unavailable",'
+
+            f'IF('
+            f'AND('
+            f'metric="cumulative_penetration",'
+            f'years=""'
+            f'),'
+            f'"Cannot convert: exposure duration not recognized",'
+
+            f'IF('
+            f'AND('
+            f'metric="cumulative_mass_loss",'
+            f'density=""'
+            f'),'
+            f'"Cannot convert: density unavailable",'
+
+            f'IF('
+            f'AND('
+            f'metric="cumulative_mass_loss",'
+            f'years=""'
+            f'),'
+            f'"Cannot convert: exposure duration not recognized",'
+
+            f'IF('
+            f'factor="",'
+            f'"Unsupported metric/unit combination",'
+
+            f'IF('
+            f'OR('
+            f'metric="penetration_rate",'
+            f'metric="corrosion_rate"'
+            f'),'
+            f'"Converted penetration rate to µm/year",'
+
+            f'IF('
+            f'metric="mass_loss_rate",'
+            f'"Converted mass-loss rate to penetration rate using density",'
+
+            f'IF('
+            f'metric="cumulative_penetration",'
+            f'"Converted cumulative penetration to average rate using exposure duration",'
+
+            f'IF('
+            f'metric="cumulative_mass_loss",'
+            f'"Converted cumulative mass loss to average penetration rate using density and exposure duration",'
+
+            f'""'
+
+            f')'
+            f')'
+            f')'
+            f')'
+            f')'
+            f')'
+            f')'
+            f')'
+            f')'
+            f')'
+
             f')'
             f')'
         )
@@ -2015,7 +2276,7 @@ def build_corrosion_entry_workbook(
             10,  # reported value
             11,  # reported unit
             13,  # density override
-            20,  # notes
+            18,  # notes
         ]:
             sheet.cell(
                 row=row_number,
@@ -2025,13 +2286,11 @@ def build_corrosion_entry_workbook(
         # Calculated columns
 
         for column_index in [
-            12,
-            14,
-            15,
-            16,
-            17,
-            18,
-            19,
+            12,  # default density
+            14,  # density used
+            15,  # canonical corrosion rate
+            16,  # canonical unit
+            17,  # conversion note
         ]:
             cell = sheet.cell(
                 row=row_number,
@@ -2066,8 +2325,6 @@ def build_corrosion_entry_workbook(
                     15,
                     16,
                     17,
-                    18,
-                    19,
                 ]:
                     sheet.cell(
                         row=row_number,
@@ -2090,12 +2347,12 @@ def build_corrosion_entry_workbook(
             cell.alignment = Alignment(
                 vertical="top",
                 wrap_text=(
-                    column_index
+                column_index
                     in [
                         2,
                         4,
-                        19,
-                        20,
+                        17,
+                        18,
                     ]
                 ),
             )
@@ -2103,15 +2360,15 @@ def build_corrosion_entry_workbook(
     # Unsupported metric/unit combinations become orange.
 
     sheet.conditional_formatting.add(
-        f"S{first_data_row}:"
-        f"S{last_data_row}",
+        f"Q{first_data_row}:"
+        f"Q{last_data_row}",
 
         FormulaRule(
             formula=[
                 f'ISNUMBER('
                 f'SEARCH('
                 f'"Unsupported",'
-                f'S{first_data_row}'
+                f'Q{first_data_row}'
                 f')'
                 f')'
             ],
@@ -2128,12 +2385,11 @@ def build_corrosion_entry_workbook(
     ):
 
         for column_index in [
-            10,
-            12,
-            13,
-            14,
-            15,
-            17,
+            10,  # reported value
+            12,  # default density
+            13,  # density override
+            14,  # density used
+            15,  # canonical corrosion rate
         ]:
             sheet.cell(
                 row=row_number,
@@ -2163,14 +2419,11 @@ def build_corrosion_entry_workbook(
         "M": 21,
         "N": 19,
 
-        "O": 18,
+        "O": 22,
         "P": 18,
 
-        "Q": 25,
-        "R": 23,
-
-        "S": 52,
-        "T": 42,
+        "Q": 58,
+        "R": 42,
     }
 
     for (
