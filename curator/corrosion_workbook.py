@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from io import BytesIO
+from pathlib import Path
 from typing import Any
 
 import pandas as pd
@@ -14,6 +15,13 @@ from openpyxl.utils import get_column_letter, quote_sheetname
 from openpyxl.workbook.defined_name import DefinedName
 from openpyxl.worksheet.datavalidation import DataValidation
 
+CORROSION_XLSM_TEMPLATE_PATH = (
+    Path(__file__)
+    .resolve()
+    .with_name(
+        "corrosion_entry_template.xlsm"
+    )
+)
 
 CORROSION_METRIC_OPTIONS = [
     "penetration_rate",
@@ -863,6 +871,9 @@ def build_corrosion_entry_workbook(
     metal_options: list[str],
     exposure_options: list[str],
     blank_rows_per_site: int = 8,
+    macro_template_path: (
+        str | Path | None
+    ) = None,
 ) -> bytes:
     """
     Build a source-first Excel workbook for corrosion observation entry.
@@ -885,15 +896,32 @@ def build_corrosion_entry_workbook(
         source_row.get("source_title", "") or ""
     ).strip()
 
+    macro_enabled = (
+        macro_template_path
+        is not None
+    )    
+
     if not source_code:
         raise ValueError(
             "A source_code is required to generate a corrosion workbook."
         )
 
-    blank_rows_per_site = max(
-        1,
-        min(int(blank_rows_per_site), 50),
-    )
+    if macro_enabled:
+        # The macro-enabled workbook only needs one starter
+        # row per linked site. Additional observations are
+        # created directly inside Excel using the + control.
+        blank_rows_per_site = 1
+
+    else:
+        blank_rows_per_site = max(
+            1,
+            min(
+                int(
+                    blank_rows_per_site
+                ),
+                50,
+            ),
+        )
 
     # ---------------------------------------------------------
     # Identify unique sites linked to this source
@@ -1021,18 +1049,95 @@ def build_corrosion_entry_workbook(
     # Workbook
     # ---------------------------------------------------------
 
-    workbook = Workbook()
+    if macro_enabled:
 
-    sheet = workbook.active
-    sheet.title = "Corrosion Observations"
+        template_path = Path(
+            macro_template_path
+        )
 
-    guide_sheet = workbook.create_sheet(
-        "Guide"
-    )
+        if not template_path.exists():
+            raise FileNotFoundError(
+                "Macro-enabled corrosion workbook "
+                f"template not found: {template_path}"
+            )
 
-    lists_sheet = workbook.create_sheet(
-        "Lists"
-    )
+        workbook = load_workbook(
+            template_path,
+            keep_vba=True,
+        )
+
+        if (
+            "Corrosion Observations"
+            not in workbook.sheetnames
+        ):
+            raise ValueError(
+                "The XLSM template must contain a "
+                "`Corrosion Observations` worksheet."
+            )
+
+        sheet = workbook[
+            "Corrosion Observations"
+        ]
+
+        # Keep the worksheet object itself because the
+        # VBA Worksheet_SelectionChange event belongs to it.
+        # Only clear its spreadsheet contents.
+
+        if sheet.max_row > 0:
+            sheet.delete_rows(
+                1,
+                sheet.max_row,
+            )
+
+        # Guide and Lists contain no VBA event code,
+        # so they can safely be regenerated.
+
+        for disposable_sheet_name in [
+            "Guide",
+            "Lists",
+        ]:
+            if (
+                disposable_sheet_name
+                in workbook.sheetnames
+            ):
+                workbook.remove(
+                    workbook[
+                        disposable_sheet_name
+                    ]
+                )
+
+        guide_sheet = (
+            workbook.create_sheet(
+                "Guide"
+            )
+        )
+
+        lists_sheet = (
+            workbook.create_sheet(
+                "Lists"
+            )
+        )
+
+    else:
+
+        workbook = Workbook()
+
+        sheet = workbook.active
+        sheet.title = (
+            "Corrosion Observations"
+        )
+
+        guide_sheet = (
+            workbook.create_sheet(
+                "Guide"
+            )
+        )
+
+        lists_sheet = (
+            workbook.create_sheet(
+                "Lists"
+            )
+        )
 
     # =========================================================
     # User guide sheet
@@ -1269,6 +1374,38 @@ def build_corrosion_entry_workbook(
         "same reported observation."
     )
 
+    if macro_enabled:
+
+        guide_sheet["A45"] = (
+            "Adding another observation"
+        )
+
+        guide_sheet["A45"].font = Font(
+            bold=True,
+            size=12,
+            color="17365D",
+        )
+
+        guide_sheet["A47"] = "＋"
+
+        guide_sheet["A47"].fill = PatternFill(
+            "solid",
+            fgColor="E2F0D9",
+        )
+
+        guide_sheet["A47"].font = Font(
+            bold=True,
+            size=14,
+            color="548235",
+        )
+
+        guide_sheet["B47"] = (
+            "Click the + cell beside any observation "
+            "row to duplicate it immediately underneath. "
+            "The new row has no observation_id and its "
+            "reported_value is cleared automatically."
+        )
+
     guide_sheet.merge_cells(
         "A41:F42"
     )
@@ -1427,6 +1564,92 @@ def build_corrosion_entry_workbook(
         len(unit_options) + 1,
     )
 
+    # ---------------------------------------------------------
+    # Metric-specific unit dropdown lists
+    # ---------------------------------------------------------
+
+    lists_sheet["L1"] = "blank_unit_option"
+    lists_sheet["L2"] = ""
+
+    metric_unit_ranges: dict[
+        str,
+        tuple[str, int, int]
+    ] = {}
+
+    next_unit_column = 13  # Column M
+
+    for metric_name in (
+        CORROSION_METRIC_OPTIONS
+    ):
+        valid_units = _clean_unique(
+            [
+                unit
+                for (
+                    rule_metric,
+                    unit,
+                    _,
+                    _,
+                )
+                in CORROSION_UNIT_RULES
+                if rule_metric == metric_name
+            ]
+        )
+
+        if not valid_units:
+            continue
+
+        column_index = (
+            next_unit_column
+        )
+
+        column_letter = (
+            get_column_letter(
+                column_index
+            )
+        )
+
+        safe_metric_name = (
+            metric_name
+            .replace("-", "_")
+        )
+
+        range_name = (
+            "CorrosionUnits_"
+            f"{safe_metric_name}"
+        )
+
+        lists_sheet.cell(
+            row=1,
+            column=column_index,
+            value=(
+                f"{metric_name}_units"
+            ),
+        )
+
+        for row_offset, unit_value in enumerate(
+            valid_units,
+            start=2,
+        ):
+            lists_sheet.cell(
+                row=row_offset,
+                column=column_index,
+                value=unit_value,
+            )
+
+        end_row = (
+            len(valid_units) + 1
+        )
+
+        metric_unit_ranges[
+            metric_name
+        ] = (
+            range_name,
+            column_index,
+            end_row,
+        )
+
+        next_unit_column += 1
+
     # Excel data validation does not reliably accept
     # direct references to a different worksheet.
     # Named ranges are therefore used.
@@ -1471,6 +1694,41 @@ def build_corrosion_entry_workbook(
         )
     )
 
+    workbook.defined_names.add(
+        DefinedName(
+            "CorrosionUnits_blank",
+            attr_text=(
+                f"{lists_ref}!$L$2:$L$2"
+            ),
+        )
+    )
+
+    for (
+        metric_name,
+        (
+            range_name,
+            column_index,
+            end_row,
+        ),
+    ) in metric_unit_ranges.items():
+
+        column_letter = (
+            get_column_letter(
+                column_index
+            )
+        )
+
+        workbook.defined_names.add(
+            DefinedName(
+                range_name,
+                attr_text=(
+                    f"{lists_ref}!"
+                    f"${column_letter}$2:"
+                    f"${column_letter}${end_row}"
+                ),
+            )
+        )
+
     lists_sheet.sheet_state = "hidden"
 
     # =========================================================
@@ -1479,10 +1737,8 @@ def build_corrosion_entry_workbook(
 
     sheet.append(WORKBOOK_COLUMNS)
 
-    header_fill = PatternFill(
-        "solid",
-        fgColor="17365D",
-    )
+    if macro_enabled:
+        sheet["S1"] = "＋"
 
     header_font = Font(
         color="FFFFFF",
@@ -1557,6 +1813,34 @@ def build_corrosion_entry_workbook(
         cell.border = header_border
 
     sheet.row_dimensions[1].height = 46
+
+    if macro_enabled:
+
+        action_header = sheet[
+            "S1"
+        ]
+
+        action_header.fill = PatternFill(
+            "solid",
+            fgColor="548235",
+        )
+
+        action_header.font = Font(
+            color="FFFFFF",
+            bold=True,
+            size=14,
+        )
+
+        action_header.alignment = Alignment(
+            horizontal="center",
+            vertical="center",
+        )
+
+        action_header.comment = Comment(
+            "Click the + cell beside an observation "
+            "to insert a new observation row underneath it.",
+            "Corrosion Atlas",
+        )
 
     # Freeze source/site identity columns as well as header.
     sheet.freeze_panes = "G2"
@@ -1674,6 +1958,10 @@ def build_corrosion_entry_workbook(
     )
 
     first_data_row = 2
+
+    expandable_blank_row_ranges: list[
+        tuple[int, int]
+    ] = []
 
     first_row_by_site: dict[
         str,
@@ -1813,6 +2101,46 @@ def build_corrosion_entry_workbook(
             site_id
         ] = sheet.max_row + 1
 
+        site_first_row = (
+            sheet.max_row + 1
+        )
+
+        existing_count = len(
+            site_existing
+        )
+
+        blank_start_row = (
+            site_first_row
+            + existing_count
+        )
+
+        blank_end_row = (
+            site_first_row
+            + len(rows_for_site)
+            - 1
+        )
+
+        visible_blank_rows = min(
+            3,
+            blank_rows_per_site,
+        )
+
+        hidden_blank_start = (
+            blank_start_row
+            + visible_blank_rows
+        )
+
+        if (
+            hidden_blank_start
+            <= blank_end_row
+        ):
+            expandable_blank_row_ranges.append(
+                (
+                    hidden_blank_start,
+                    blank_end_row,
+                )
+            )
+
         for record in rows_for_site:
 
             output_row = [
@@ -1894,10 +2222,10 @@ def build_corrosion_entry_workbook(
                 # N — density_used_g_cm3
                 "",
 
-                # O — normalized_value
+                # O — canonical_thickness_loss_rate_um_year
                 "",
 
-                # P — normalized_unit
+                # P — canonical_mass_loss_rate_g_m2_year
                 "",
 
                 # Q — normalization_note
@@ -1914,41 +2242,46 @@ def build_corrosion_entry_workbook(
 
     last_data_row = sheet.max_row
 
+    # ---------------------------------------------------------
+    # Collapse surplus blank entry rows.
+    #
+    # Excel displays a native +/- outline control beside
+    # the rows, allowing additional entry slots to be
+    # revealed only when required.
+    # ---------------------------------------------------------
+
+    sheet.sheet_properties.outlinePr.summaryBelow = False
+
+    for (
+        group_start,
+        group_end,
+    ) in expandable_blank_row_ranges:
+
+        for grouped_row in range(
+            group_start,
+            group_end + 1,
+        ):
+            sheet.row_dimensions[
+                grouped_row
+            ].outlineLevel = 1
+
+            sheet.row_dimensions[
+                grouped_row
+            ].hidden = True
+
+        summary_row = (
+            group_start - 1
+        )
+
+        if summary_row >= first_data_row:
+            sheet.row_dimensions[
+                summary_row
+            ].collapsed = True
+
     site_separator = Side(
         style="medium",
         color="4472C4",
     )
-
-    for site_first_row in (
-        first_row_by_site.values()
-    ):
-        for column_index in range(
-            1,
-            len(WORKBOOK_COLUMNS) + 1,
-        ):
-            cell = sheet.cell(
-                row=site_first_row,
-                column=column_index,
-            )
-
-            cell.border = Border(
-                top=site_separator,
-                bottom=thin_gray,
-            )
-
-        # Make the site context stand out at the beginning
-        # of each new block.
-        for column_index in range(
-            1,
-            7,
-        ):
-            sheet.cell(
-                row=site_first_row,
-                column=column_index,
-            ).font = Font(
-                bold=True,
-                color="17365D",
-            )
 
     sheet.auto_filter.ref = (
         f"A1:"
@@ -2053,6 +2386,35 @@ def build_corrosion_entry_workbook(
         note_cell = (
             f"Q{row_number}"
         )
+
+        if macro_enabled:
+
+            action_cell = sheet.cell(
+                row=row_number,
+                column=19,
+            )
+
+            action_cell.value = "＋"
+
+            action_cell.fill = PatternFill(
+                "solid",
+                fgColor="E2F0D9",
+            )
+
+            action_cell.font = Font(
+                bold=True,
+                size=14,
+                color="548235",
+            )
+
+            action_cell.alignment = Alignment(
+                horizontal="center",
+                vertical="center",
+            )
+
+            action_cell.border = Border(
+                bottom=thin_gray
+            )
 
         # -----------------------------------------------------
         # Default material density
@@ -2522,7 +2884,16 @@ def build_corrosion_entry_workbook(
 
     unit_validation = DataValidation(
         type="list",
-        formula1="=CorrosionUnitOptions",
+        formula1=(
+            '=INDIRECT('
+            'IF('
+            '$I2="",'
+            '"CorrosionUnits_blank",'
+            '"CorrosionUnits_"&'
+            'SUBSTITUTE($I2,"-","_")'
+            ')'
+            ')'
+        ),
         allow_blank=True,
     )
 
@@ -2695,43 +3066,34 @@ def build_corrosion_entry_workbook(
         for column_index in [
             12,  # default density
             14,  # density used
-            15,  # canonical corrosion rate
-            16,  # canonical unit
+            15,  # canonical thickness-loss rate
+            16,  # canonical mass-loss rate
             17,  # conversion note
         ]:
+            cell = sheet.cell(
+                row=row_number,
+                column=column_index,
+            )
+
+            cell.fill = calculated_fill
+
+            cell.protection = Protection(
+                locked=True
+            )
 
         # Canonical outputs are the primary derived quantities.
 
-            for column_index in [
-                15,
-                16,
-            ]:
-                sheet.cell(
-                    row=row_number,
-                    column=column_index,
-                ).font = Font(
-                    bold=True,
-                    color="375623",
-                )
-
-                sheet.cell(
-                    row=row_number,
-                    column=column_index,
-                ).alignment = Alignment(
-                    horizontal="right",
-                    vertical="center",
-                )
-                            
-                cell = sheet.cell(
-                    row=row_number,
-                    column=column_index,
-                )
-
-                cell.fill = calculated_fill
-
-                cell.protection = Protection(
-                    locked=True
-                )
+        for column_index in [
+            15,
+            16,
+        ]:
+            sheet.cell(
+                row=row_number,
+                column=column_index,
+            ).font = Font(
+                bold=True,
+                color="375623",
+            )
 
         # Existing database rows are subtly green.
 
@@ -2783,9 +3145,21 @@ def build_corrosion_entry_workbook(
             )
 
             cell.alignment = Alignment(
+                horizontal=(
+                    "right"
+                    if column_index in [
+                        10,  # reported value
+                        12,  # default density
+                        13,  # density override
+                        14,  # density used
+                        15,  # canonical thickness loss
+                        16,  # canonical mass loss
+                    ]
+                    else None
+                ),
                 vertical="top",
                 wrap_text=(
-                column_index
+                    column_index
                     in [
                         2,
                         4,
@@ -2793,6 +3167,39 @@ def build_corrosion_entry_workbook(
                         18,
                     ]
                 ),
+            )
+
+    # ---------------------------------------------------------
+    # Site block separators
+    # ---------------------------------------------------------
+
+    for site_first_row in (
+        first_row_by_site.values()
+    ):
+        for column_index in range(
+            1,
+            len(WORKBOOK_COLUMNS) + 1,
+        ):
+            cell = sheet.cell(
+                row=site_first_row,
+                column=column_index,
+            )
+
+            cell.border = Border(
+                top=site_separator,
+                bottom=thin_gray,
+            )
+
+        for column_index in range(
+            1,
+            7,
+        ):
+            sheet.cell(
+                row=site_first_row,
+                column=column_index,
+            ).font = Font(
+                bold=True,
+                color="17365D",
             )
 
     # ---------------------------------------------------------
@@ -2916,6 +3323,16 @@ def build_corrosion_entry_workbook(
         "R": 36,
     }
 
+    if macro_enabled:
+        sheet.column_dimensions[
+            "S"
+        ].width = 5
+
+    # Density columns are advanced conversion details.
+    # Collapse them by default to keep the primary entry
+    # workflow compact. They remain available through the
+    # Excel outline + control.
+
     for (
         column_letter,
         width,
@@ -2924,6 +3341,16 @@ def build_corrosion_entry_workbook(
         sheet.column_dimensions[
             column_letter
         ].width = width
+
+    # Density columns are advanced conversion details.
+    # Collapse them by default to keep the primary entry
+    # workflow compact.
+
+    sheet.column_dimensions.group(
+        "L",
+        "N",
+        hidden=True,
+    )
 
     sheet.sheet_view.showGridLines = False
 
@@ -2941,6 +3368,47 @@ def build_corrosion_entry_workbook(
     workbook.save(output)
 
     return output.getvalue()
+
+def build_corrosion_entry_workbook_xlsm(
+    *,
+    source_row: dict[str, Any],
+    site_links: list[dict[str, Any]],
+    site_lookup: dict[str, dict[str, Any]],
+    existing_observations: list[dict[str, Any]],
+    metal_options: list[str],
+    exposure_options: list[str],
+) -> bytes:
+    """
+    Build the macro-enabled corrosion entry workbook.
+
+    The XLSM version contains one starter row per linked
+    site. Additional rows are created directly in Excel
+    using the + action column.
+    """
+
+    if not CORROSION_XLSM_TEMPLATE_PATH.exists():
+        raise FileNotFoundError(
+            "The macro-enabled workbook template is missing. "
+            "Expected file: "
+            f"{CORROSION_XLSM_TEMPLATE_PATH.name}"
+        )
+
+    return build_corrosion_entry_workbook(
+        source_row=source_row,
+        site_links=site_links,
+        site_lookup=site_lookup,
+        existing_observations=(
+            existing_observations
+        ),
+        metal_options=metal_options,
+        exposure_options=(
+            exposure_options
+        ),
+        blank_rows_per_site=1,
+        macro_template_path=(
+            CORROSION_XLSM_TEMPLATE_PATH
+        ),
+    )
 
 def read_corrosion_entry_workbook(
     uploaded_file,
@@ -3325,10 +3793,17 @@ def validate_corrosion_workbook_rows(
             observation_id_raw or ""
         ).strip():
             try:
+                observation_id_number = float(
+                    observation_id_raw
+                )
+
+                if not (
+                    observation_id_number.is_integer()
+                ):
+                    raise ValueError
+
                 observation_id = int(
-                    float(
-                        observation_id_raw
-                    )
+                    observation_id_number
                 )
             except (
                 TypeError,
