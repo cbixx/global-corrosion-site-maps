@@ -149,9 +149,6 @@ WORKBOOK_COLUMNS = [
     "normalized_value",
     "normalized_unit",
 
-    "derived_penetration_value",
-    "derived_penetration_unit",
-
     "normalization_note",
 
     "notes",
@@ -174,8 +171,6 @@ WORKBOOK_INPUT_COLUMNS = [
     "density_used_g_cm3",
     "normalized_value",
     "normalized_unit",
-    "derived_penetration_value",
-    "derived_penetration_unit",
     "normalization_note",
     "notes",
 ]
@@ -246,6 +241,107 @@ def _normalize_unit_text(value: Any) -> str:
 
     return text
 
+def parse_exposure_years(
+    exposure_period: str,
+) -> float | None:
+    """
+    Convert a simple exposure-duration string to years.
+
+    Examples:
+        1 year      -> 1.0
+        2 years     -> 2.0
+        6 months    -> 0.5
+        90 days     -> 90 / 365.25
+        18 months   -> 1.5
+        0.5 year    -> 0.5
+        3 weeks     -> 21 / 365.25
+
+    Ambiguous ranges or unrecognised text return None.
+    """
+
+    import re
+
+    text = str(
+        exposure_period or ""
+    ).strip().lower()
+
+    if not text:
+        return None
+
+    text = (
+        text
+        .replace("–", "-")
+        .replace("—", "-")
+    )
+
+    # Do not guess ranges such as 1-2 years.
+    if re.search(
+        r"\d\s*-\s*\d",
+        text,
+    ):
+        return None
+
+    match = re.fullmatch(
+        r"\s*"
+        r"(\d+(?:\.\d+)?)"
+        r"\s*"
+        r"(years?|yrs?|yr|y|"
+        r"months?|mos?|mo|"
+        r"weeks?|wks?|wk|"
+        r"days?|d)"
+        r"\s*",
+        text,
+    )
+
+    if match is None:
+        return None
+
+    value = float(
+        match.group(1)
+    )
+
+    unit = match.group(2)
+
+    if value <= 0:
+        return None
+
+    if unit in {
+        "year",
+        "years",
+        "yr",
+        "yrs",
+        "y",
+    }:
+        return value
+
+    if unit in {
+        "month",
+        "months",
+        "mo",
+        "mos",
+    }:
+        return value / 12.0
+
+    if unit in {
+        "week",
+        "weeks",
+        "wk",
+        "wks",
+    }:
+        return (
+            value * 7.0 / 365.25
+        )
+
+    if unit in {
+        "day",
+        "days",
+        "d",
+    }:
+        return (
+            value / 365.25
+        )
+
+    return None
 
 def _get_unit_rule(
     metric: str,
@@ -317,58 +413,58 @@ def get_default_density_g_cm3(
 def normalize_corrosion_observation(
     *,
     material: str,
+    exposure_period: str,
     corrosion_metric: str,
     reported_value: float,
     reported_unit: str,
     density_override_g_cm3: float | None = None,
 ) -> dict[str, Any]:
     """
-    Normalize one source-reported corrosion observation.
+    Convert a source-reported observation to the Atlas'
+    comparable corrosion-rate quantity:
 
-    The reported value/unit remain authoritative.
-    Normalized and derived fields are generated separately.
+        normalized_value = corrosion penetration rate
+        normalized_unit  = µm/year
 
-    Mass-loss -> penetration conversion is performed only for
-    mass_loss_rate and cumulative_mass_loss, never for
-    net_mass_change.
+    whenever that conversion is scientifically valid.
+
+    The source-reported metric/value/unit remain unchanged.
+
+    Non-comparable metrics such as MCI, Al-ACI, ICI,
+    maximum pit depth and net mass change deliberately
+    receive no normalized corrosion rate.
     """
 
     material = str(
         material or ""
     ).strip()
 
+    exposure_period = str(
+        exposure_period or ""
+    ).strip()
+
     corrosion_metric = str(
         corrosion_metric or ""
     ).strip()
 
-    reported_unit = _normalize_unit_text(
-        reported_unit
+    reported_unit = (
+        _normalize_unit_text(
+            reported_unit
+        )
     )
 
     reported_value = float(
         reported_value
     )
 
-    unit_rule = _get_unit_rule(
-        corrosion_metric,
-        reported_unit,
-    )
-
-    if unit_rule is None:
+    if (
+        corrosion_metric != "net_mass_change"
+        and reported_value < 0
+    ):
         raise ValueError(
-            "Unsupported metric/unit combination: "
-            f"{corrosion_metric} + {reported_unit}"
+            "Negative reported values are only accepted "
+            "for net_mass_change."
         )
-
-    (
-        normalized_unit,
-        multiplier,
-    ) = unit_rule
-
-    normalized_value = (
-        reported_value
-        * multiplier
-    )
 
     default_density = (
         get_default_density_g_cm3(
@@ -391,96 +487,335 @@ def normalize_corrosion_observation(
         )
 
     if density_override is not None:
-        density_used = density_override
-        density_basis = "curator_override"
+        density_used = (
+            density_override
+        )
+        density_basis = (
+            "curator_override"
+        )
 
     elif default_density is not None:
-        density_used = default_density
-        density_basis = "default_material_density"
+        density_used = (
+            default_density
+        )
+        density_basis = (
+            "default_material_density"
+        )
 
     else:
         density_used = None
         density_basis = ""
 
-    derived_penetration_value = None
-    derived_penetration_unit = ""
+    exposure_years = (
+        parse_exposure_years(
+            exposure_period
+        )
+    )
+
+    normalized_value = None
+    normalized_unit = ""
+
+    normalization_note = ""
+
+    # -----------------------------------------------------
+    # 1. Penetration rate -> µm/year
+    # -----------------------------------------------------
 
     if corrosion_metric in {
-        "mass_loss_rate",
-        "cumulative_mass_loss",
+        "penetration_rate",
+        "corrosion_rate",
     }:
-        if density_used is not None:
-            derived_penetration_value = (
-                normalized_value
+        unit_rule = _get_unit_rule(
+            corrosion_metric,
+            reported_unit,
+        )
+
+        if unit_rule is None:
+            raise ValueError(
+                "Unsupported metric/unit combination: "
+                f"{corrosion_metric} + {reported_unit}"
+            )
+
+        (
+            canonical_unit,
+            multiplier,
+        ) = unit_rule
+
+        if canonical_unit != "µm/year":
+            raise ValueError(
+                "Penetration-rate normalization must "
+                "produce µm/year."
+            )
+
+        normalized_value = (
+            reported_value
+            * multiplier
+        )
+
+        normalized_unit = "µm/year"
+
+        normalization_note = (
+            "Converted reported penetration rate "
+            "to µm/year."
+        )
+
+    # -----------------------------------------------------
+    # 2. Mass-loss rate -> penetration rate
+    # -----------------------------------------------------
+
+    elif corrosion_metric == "mass_loss_rate":
+        unit_rule = _get_unit_rule(
+            corrosion_metric,
+            reported_unit,
+        )
+
+        if unit_rule is None:
+            raise ValueError(
+                "Unsupported metric/unit combination: "
+                f"{corrosion_metric} + {reported_unit}"
+            )
+
+        (
+            canonical_unit,
+            multiplier,
+        ) = unit_rule
+
+        mass_loss_g_m2_year = (
+            reported_value
+            * multiplier
+        )
+
+        if canonical_unit != "g/m²/year":
+            raise ValueError(
+                "Mass-loss-rate normalization must "
+                "first produce g/m²/year."
+            )
+
+        if density_used is None:
+            normalization_note = (
+                "Mass-loss rate is convertible, but "
+                "no valid material density is available."
+            )
+
+        else:
+            # g/m²/year divided by g/cm³
+            # numerically gives µm/year.
+            normalized_value = (
+                mass_loss_g_m2_year
                 / density_used
             )
 
-            if corrosion_metric == "mass_loss_rate":
-                derived_penetration_unit = "µm/year"
-            else:
-                derived_penetration_unit = "µm"
+            normalized_unit = (
+                "µm/year"
+            )
 
-    if (
-        corrosion_metric != "net_mass_change"
-        and reported_value < 0
-    ):
-        raise ValueError(
-            "Negative reported values are only accepted "
-            "for net_mass_change."
-        )
+            normalization_note = (
+                "Converted mass-loss rate to "
+                "penetration rate using density "
+                f"{density_used:g} g/cm³."
+            )
 
-    if derived_penetration_value is not None:
-        normalization_note = (
-            "Normalized from reported unit; "
-            f"penetration derived using density "
-            f"{density_used:g} g/cm³."
-        )
+    # -----------------------------------------------------
+    # 3. Cumulative penetration -> average µm/year
+    # -----------------------------------------------------
 
     elif (
         corrosion_metric
-        in {
-            "mass_loss_rate",
-            "cumulative_mass_loss",
-        }
-        and density_used is None
+        == "cumulative_penetration"
     ):
-        normalization_note = (
-            "Mass loss normalized; penetration not "
-            "derived because density is unavailable."
+        unit_rule = _get_unit_rule(
+            corrosion_metric,
+            reported_unit,
         )
 
+        if unit_rule is None:
+            raise ValueError(
+                "Unsupported metric/unit combination: "
+                f"{corrosion_metric} + {reported_unit}"
+            )
+
+        (
+            canonical_unit,
+            multiplier,
+        ) = unit_rule
+
+        cumulative_um = (
+            reported_value
+            * multiplier
+        )
+
+        if canonical_unit != "µm":
+            raise ValueError(
+                "Cumulative penetration must first "
+                "normalize to µm."
+            )
+
+        if exposure_years is None:
+            normalization_note = (
+                "Cumulative penetration cannot be "
+                "converted to an average corrosion rate "
+                "because the exposure duration could not "
+                "be interpreted."
+            )
+
+        else:
+            normalized_value = (
+                cumulative_um
+                / exposure_years
+            )
+
+            normalized_unit = (
+                "µm/year"
+            )
+
+            normalization_note = (
+                "Converted cumulative penetration to "
+                "average corrosion penetration rate over "
+                f"{exposure_years:g} year(s)."
+            )
+
+    # -----------------------------------------------------
+    # 4. Cumulative mass loss -> average penetration rate
+    # -----------------------------------------------------
+
     elif (
-        normalized_unit != reported_unit
-        or multiplier != 1.0
+        corrosion_metric
+        == "cumulative_mass_loss"
     ):
+        unit_rule = _get_unit_rule(
+            corrosion_metric,
+            reported_unit,
+        )
+
+        if unit_rule is None:
+            raise ValueError(
+                "Unsupported metric/unit combination: "
+                f"{corrosion_metric} + {reported_unit}"
+            )
+
+        (
+            canonical_unit,
+            multiplier,
+        ) = unit_rule
+
+        cumulative_mass_loss_g_m2 = (
+            reported_value
+            * multiplier
+        )
+
+        if canonical_unit != "g/m²":
+            raise ValueError(
+                "Cumulative mass loss must first "
+                "normalize to g/m²."
+            )
+
+        if density_used is None:
+            normalization_note = (
+                "Cumulative mass loss cannot be converted "
+                "to penetration rate because no valid "
+                "material density is available."
+            )
+
+        elif exposure_years is None:
+            normalization_note = (
+                "Cumulative mass loss cannot be converted "
+                "to penetration rate because the exposure "
+                "duration could not be interpreted."
+            )
+
+        else:
+            cumulative_penetration_um = (
+                cumulative_mass_loss_g_m2
+                / density_used
+            )
+
+            normalized_value = (
+                cumulative_penetration_um
+                / exposure_years
+            )
+
+            normalized_unit = (
+                "µm/year"
+            )
+
+            normalization_note = (
+                "Converted cumulative mass loss to "
+                "average penetration rate using density "
+                f"{density_used:g} g/cm³ over "
+                f"{exposure_years:g} year(s)."
+            )
+
+    # -----------------------------------------------------
+    # 5. Metrics intentionally NOT converted
+    # -----------------------------------------------------
+
+    elif corrosion_metric == "maximum_pit_depth":
         normalization_note = (
-            "Normalized from reported unit."
+            "Maximum pit depth is preserved as a separate "
+            "localized-corrosion metric and is not converted "
+            "to general corrosion rate."
+        )
+
+    elif corrosion_metric == "net_mass_change":
+        normalization_note = (
+            "Net mass change is not treated as cleaned metal "
+            "loss and cannot be converted to corrosion "
+            "penetration rate."
+        )
+
+    elif corrosion_metric in {
+        "MCI",
+        "Al-ACI",
+        "ICI",
+    }:
+        normalization_note = (
+            f"{corrosion_metric} is a corrosivity index and "
+            "cannot be converted to µm/year."
         )
 
     else:
-        normalization_note = (
-            "Reported value already uses the canonical unit."
+        raise ValueError(
+            "Unsupported corrosion metric: "
+            f"{corrosion_metric}"
         )
 
     return {
-        "normalized_value": normalized_value,
-        "normalized_unit": normalized_unit,
-
-        "default_density_g_cm3": default_density,
-        "density_override_g_cm3": density_override,
-        "density_g_cm3": density_used,
-        "density_basis": density_basis,
-
-        "derived_penetration_value": (
-            derived_penetration_value
+        "normalized_value": (
+            normalized_value
         ),
 
-        "derived_penetration_unit": (
-            derived_penetration_unit
+        "normalized_unit": (
+            normalized_unit
         ),
+
+        "default_density_g_cm3": (
+            default_density
+        ),
+
+        "density_override_g_cm3": (
+            density_override
+        ),
+
+        "density_g_cm3": (
+            density_used
+        ),
+
+        "density_basis": (
+            density_basis
+        ),
+
+        # These older fields are retained for database
+        # compatibility, but the useful comparable quantity
+        # is now normalized_value / normalized_unit.
+        "derived_penetration_value": None,
+        "derived_penetration_unit": "",
 
         "normalization_note": (
             normalization_note
+        ),
+
+        "exposure_years": (
+            exposure_years
         ),
     }
 
@@ -2472,6 +2807,9 @@ def validate_corrosion_workbook_rows(
                 normalized = (
                     normalize_corrosion_observation(
                         material=material,
+                        exposure_period=(
+                            exposure_period
+                        ),
                         corrosion_metric=(
                             corrosion_metric
                         ),
