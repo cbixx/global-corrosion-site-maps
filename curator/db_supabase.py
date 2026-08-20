@@ -254,6 +254,9 @@ def ensure_schema_updates() -> None:
                 value double precision not null,
                 unit text not null,
 
+                canonical_thickness_loss_rate_um_year double precision,
+                canonical_mass_loss_rate_g_m2_year double precision,
+
                 normalized_value double precision,
                 normalized_unit text not null default '',
 
@@ -285,6 +288,9 @@ def ensure_schema_updates() -> None:
         )
 
         corrosion_schema_columns = {
+            "canonical_thickness_loss_rate_um_year": "double precision",
+            "canonical_mass_loss_rate_g_m2_year": "double precision",
+
             "normalized_value": "double precision",
             "normalized_unit": "text not null default ''",
             "density_g_cm3": "double precision",
@@ -1073,6 +1079,9 @@ def get_corrosion_observations() -> list[dict]:
                 corrosion_observations.corrosion_metric,
                 corrosion_observations.value,
                 corrosion_observations.unit,
+
+                corrosion_observations.canonical_thickness_loss_rate_um_year,
+                corrosion_observations.canonical_mass_loss_rate_g_m2_year,
 
                 corrosion_observations.normalized_value,
                 corrosion_observations.normalized_unit,

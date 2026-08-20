@@ -6736,13 +6736,10 @@ if active_page == "Corrosion Data":
                     "reported_value",
                     "reported_unit",
 
-                    "normalized_value",
-                    "normalized_unit",
+                    "canonical_thickness_loss_rate_um_year",
+                    "canonical_mass_loss_rate_g_m2_year",
 
                     "density_used_g_cm3",
-
-                    "derived_penetration_value",
-                    "derived_penetration_unit",
 
                     "normalization_note",
                     "notes",
@@ -6867,19 +6864,40 @@ if active_page == "Corrosion Data":
                                             ) or ""
                                         ).strip(),
 
-                                        "normalized_value": (
+                                        "canonical_thickness_loss_rate_um_year": (
                                             preview_row.get(
-                                                "normalized_value",
+                                                "canonical_thickness_loss_rate_um_year",
                                                 "",
                                             )
                                         ),
 
-                                        "normalized_unit": str(
+                                        "canonical_mass_loss_rate_g_m2_year": (
                                             preview_row.get(
-                                                "normalized_unit",
+                                                "canonical_mass_loss_rate_g_m2_year",
                                                 "",
-                                            ) or ""
-                                        ).strip(),
+                                            )
+                                        ),
+
+                                        # Temporary compatibility with the
+                                        # current database schema until the
+                                        # backend migration is applied.
+                                        "normalized_value": (
+                                            preview_row.get(
+                                                "canonical_thickness_loss_rate_um_year",
+                                                "",
+                                            )
+                                        ),
+
+                                        "normalized_unit": (
+                                            "µm/year"
+                                            if str(
+                                                preview_row.get(
+                                                    "canonical_thickness_loss_rate_um_year",
+                                                    "",
+                                                ) or ""
+                                            ).strip()
+                                            else ""
+                                        ),
 
                                         "density_used_g_cm3": (
                                             preview_row.get(
@@ -6891,20 +6909,6 @@ if active_page == "Corrosion Data":
                                         "density_basis": str(
                                             preview_row.get(
                                                 "density_basis",
-                                                "",
-                                            ) or ""
-                                        ).strip(),
-
-                                        "derived_penetration_value": (
-                                            preview_row.get(
-                                                "derived_penetration_value",
-                                                "",
-                                            )
-                                        ),
-
-                                        "derived_penetration_unit": str(
-                                            preview_row.get(
-                                                "derived_penetration_unit",
                                                 "",
                                             ) or ""
                                         ).strip(),

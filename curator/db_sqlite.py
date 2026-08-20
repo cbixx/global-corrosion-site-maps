@@ -137,6 +137,9 @@ def ensure_schema_updates() -> None:
                 value real not null,
                 unit text not null,
 
+                canonical_thickness_loss_rate_um_year real,
+                canonical_mass_loss_rate_g_m2_year real,
+
                 normalized_value real,
                 normalized_unit text not null default '',
 
@@ -180,6 +183,8 @@ def ensure_schema_updates() -> None:
         }
 
         corrosion_schema_columns = {
+            "canonical_thickness_loss_rate_um_year": "real",
+            "canonical_mass_loss_rate_g_m2_year": "real",
             "normalized_value": "real",
             "normalized_unit": "text not null default ''",
             "density_g_cm3": "real",
@@ -955,6 +960,9 @@ def get_corrosion_observations() -> list[dict]:
                 corrosion_observations.value,
                 corrosion_observations.unit,
 
+                corrosion_observations.canonical_thickness_loss_rate_um_year,
+                corrosion_observations.canonical_mass_loss_rate_g_m2_year,
+
                 corrosion_observations.normalized_value,
                 corrosion_observations.normalized_unit,
 
@@ -1003,6 +1011,9 @@ def get_public_corrosion_observations() -> list[dict]:
                 corrosion_observations.corrosion_metric,
                 corrosion_observations.value,
                 corrosion_observations.unit,
+
+                corrosion_observations.canonical_thickness_loss_rate_um_year,
+                corrosion_observations.canonical_mass_loss_rate_g_m2_year,
 
                 corrosion_observations.normalized_value,
                 corrosion_observations.normalized_unit,
@@ -1291,16 +1302,30 @@ def import_corrosion_observations(records: list[dict]) -> dict:
                 except Exception:
                     return None
 
-            normalized_value = optional_float(
-                "normalized_value"
+            canonical_thickness_loss_rate = (
+                optional_float(
+                    "canonical_thickness_loss_rate_um_year"
+                )
             )
 
-            normalized_unit = str(
-                record.get(
-                    "normalized_unit",
-                    "",
-                ) or ""
-            ).strip()
+            canonical_mass_loss_rate = (
+                optional_float(
+                    "canonical_mass_loss_rate_g_m2_year"
+                )
+            )
+
+            # Temporary backward compatibility:
+            # normalized_value now mirrors the canonical
+            # thickness-loss rate.
+            normalized_value = (
+                canonical_thickness_loss_rate
+            )
+
+            normalized_unit = (
+                "µm/year"
+                if canonical_thickness_loss_rate is not None
+                else ""
+            )
 
             density_g_cm3 = optional_float(
                 "density_used_g_cm3"
@@ -1314,19 +1339,6 @@ def import_corrosion_observations(records: list[dict]) -> dict:
             density_basis = str(
                 record.get(
                     "density_basis",
-                    "",
-                ) or ""
-            ).strip()
-
-            derived_penetration_value = (
-                optional_float(
-                    "derived_penetration_value"
-                )
-            )
-
-            derived_penetration_unit = str(
-                record.get(
-                    "derived_penetration_unit",
                     "",
                 ) or ""
             ).strip()
@@ -1417,14 +1429,17 @@ def import_corrosion_observations(records: list[dict]) -> dict:
                         value = ?,
                         unit = ?,
 
+                        canonical_thickness_loss_rate_um_year = ?,
+                        canonical_mass_loss_rate_g_m2_year = ?,
+
                         normalized_value = ?,
                         normalized_unit = ?,
 
                         density_g_cm3 = ?,
                         density_basis = ?,
 
-                        derived_penetration_value = ?,
-                        derived_penetration_unit = ?,
+                        derived_penetration_value = null,
+                        derived_penetration_unit = '',
 
                         normalization_note = ?,
 
@@ -1442,14 +1457,14 @@ def import_corrosion_observations(records: list[dict]) -> dict:
                         value,
                         unit,
 
+                        canonical_thickness_loss_rate,
+                        canonical_mass_loss_rate,
+
                         normalized_value,
                         normalized_unit,
 
                         density_g_cm3,
                         density_basis,
-
-                        derived_penetration_value,
-                        derived_penetration_unit,
 
                         normalization_note,
 
@@ -1502,14 +1517,17 @@ def import_corrosion_observations(records: list[dict]) -> dict:
                             value = ?,
                             unit = ?,
 
+                            canonical_thickness_loss_rate_um_year = ?,
+                            canonical_mass_loss_rate_g_m2_year = ?,
+
                             normalized_value = ?,
                             normalized_unit = ?,
 
                             density_g_cm3 = ?,
                             density_basis = ?,
 
-                            derived_penetration_value = ?,
-                            derived_penetration_unit = ?,
+                            derived_penetration_value = null,
+                            derived_penetration_unit = '',
 
                             normalization_note = ?,
 
@@ -1525,14 +1543,14 @@ def import_corrosion_observations(records: list[dict]) -> dict:
                             value,
                             unit,
 
+                            canonical_thickness_loss_rate,
+                            canonical_mass_loss_rate,
+
                             normalized_value,
                             normalized_unit,
 
                             density_g_cm3,
                             density_basis,
-
-                            derived_penetration_value,
-                            derived_penetration_unit,
 
                             normalization_note,
 
@@ -1559,14 +1577,14 @@ def import_corrosion_observations(records: list[dict]) -> dict:
                             value,
                             unit,
 
+                            canonical_thickness_loss_rate_um_year,
+                            canonical_mass_loss_rate_g_m2_year,
+
                             normalized_value,
                             normalized_unit,
 
                             density_g_cm3,
                             density_basis,
-
-                            derived_penetration_value,
-                            derived_penetration_unit,
 
                             normalization_note,
 
@@ -1601,14 +1619,14 @@ def import_corrosion_observations(records: list[dict]) -> dict:
                             value,
                             unit,
 
+                            canonical_thickness_loss_rate,
+                            canonical_mass_loss_rate,
+
                             normalized_value,
                             normalized_unit,
 
                             density_g_cm3,
                             density_basis,
-
-                            derived_penetration_value,
-                            derived_penetration_unit,
 
                             normalization_note,
 
