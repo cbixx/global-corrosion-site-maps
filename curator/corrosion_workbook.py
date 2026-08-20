@@ -1026,7 +1026,270 @@ def build_corrosion_entry_workbook(
     sheet = workbook.active
     sheet.title = "Corrosion Observations"
 
-    lists_sheet = workbook.create_sheet("Lists")
+    guide_sheet = workbook.create_sheet(
+        "Guide"
+    )
+
+    lists_sheet = workbook.create_sheet(
+        "Lists"
+    )
+
+    # =========================================================
+    # User guide sheet
+    # =========================================================
+
+    guide_sheet.sheet_view.showGridLines = False
+    guide_sheet.sheet_properties.tabColor = "5B9BD5"
+
+    guide_sheet["A1"] = (
+        "Corrosion Atlas — Observation Entry Guide"
+    )
+
+    guide_sheet["A1"].font = Font(
+        bold=True,
+        size=16,
+        color="FFFFFF",
+    )
+
+    guide_sheet["A1"].fill = PatternFill(
+        "solid",
+        fgColor="17365D",
+    )
+
+    guide_sheet["A1"].alignment = Alignment(
+        vertical="center",
+    )
+
+    guide_sheet.merge_cells(
+        "A1:F1"
+    )
+
+    guide_sheet.row_dimensions[1].height = 28
+
+    guide_sheet["A3"] = "Workbook purpose"
+    guide_sheet["A3"].font = Font(
+        bold=True,
+        size=12,
+        color="17365D",
+    )
+
+    guide_sheet["A4"] = (
+        "Enter corrosion observations exactly as reported "
+        "by the selected source. Calculated fields are only "
+        "a workbook preview; the curator app independently "
+        "validates and recalculates them during import."
+    )
+
+    guide_sheet.merge_cells(
+        "A4:F5"
+    )
+
+    guide_sheet["A4"].alignment = Alignment(
+        wrap_text=True,
+        vertical="top",
+    )
+
+    guide_sheet["A7"] = "Cell colours"
+    guide_sheet["A7"].font = Font(
+        bold=True,
+        size=12,
+        color="17365D",
+    )
+
+    guide_rows = [
+        (
+            "A9",
+            "Blue",
+            "Source/site context — normally do not edit.",
+            "D9EAF7",
+        ),
+        (
+            "A10",
+            "Yellow",
+            "Curator input — enter or select source data here.",
+            "FFF2CC",
+        ),
+        (
+            "A11",
+            "Grey",
+            "Calculated field — generated automatically.",
+            "E7E6E6",
+        ),
+        (
+            "A12",
+            "Green",
+            "Existing database observation.",
+            "E2F0D9",
+        ),
+        (
+            "A13",
+            "Red/Pink",
+            "Incomplete observation row — required entry fields are missing.",
+            "F4CCCC",
+        ),
+    ]
+
+    for (
+        cell_ref,
+        label,
+        description,
+        fill_color,
+    ) in guide_rows:
+        guide_sheet[cell_ref] = label
+        guide_sheet[cell_ref].fill = PatternFill(
+            "solid",
+            fgColor=fill_color,
+        )
+        guide_sheet[cell_ref].font = Font(
+            bold=True,
+        )
+
+        description_cell = (
+            f"B{guide_sheet[cell_ref].row}"
+        )
+
+        guide_sheet[description_cell] = description
+
+    guide_sheet["A16"] = "Core input fields"
+    guide_sheet["A16"].font = Font(
+        bold=True,
+        size=12,
+        color="17365D",
+    )
+
+    guide_sheet["A18"] = "material"
+    guide_sheet["B18"] = (
+        "Metal/material exposed at the site."
+    )
+
+    guide_sheet["A19"] = "exposure_period"
+    guide_sheet["B19"] = (
+        "Exposure duration, e.g. 90 days, 6 months, "
+        "1 year, 16 years."
+    )
+
+    guide_sheet["A20"] = "corrosion_metric"
+    guide_sheet["B20"] = (
+        "Physical quantity actually reported by the source."
+    )
+
+    guide_sheet["A21"] = "reported_value"
+    guide_sheet["B21"] = (
+        "Numerical value exactly as reported."
+    )
+
+    guide_sheet["A22"] = "reported_unit"
+    guide_sheet["B22"] = (
+        "Original unit used by the source."
+    )
+
+    guide_sheet["A25"] = "Main corrosion metrics"
+    guide_sheet["A25"].font = Font(
+        bold=True,
+        size=12,
+        color="17365D",
+    )
+
+    metric_guide = [
+        (
+            "penetration_rate",
+            "Thickness/penetration loss already expressed as a rate.",
+        ),
+        (
+            "mass_loss_rate",
+            "Mass loss per exposed area per unit time.",
+        ),
+        (
+            "cumulative_penetration",
+            "Total thickness loss after the stated exposure duration.",
+        ),
+        (
+            "cumulative_mass_loss",
+            "Total mass loss after the stated exposure duration.",
+        ),
+        (
+            "maximum_pit_depth",
+            "Localized pit depth; not converted to general corrosion rate.",
+        ),
+        (
+            "net_mass_change",
+            "Net specimen mass change; not assumed to equal cleaned metal loss.",
+        ),
+        (
+            "MCI / Al-ACI / ICI",
+            "Corrosivity indices; not converted to general corrosion rate.",
+        ),
+    ]
+
+    for offset, (
+        metric_name,
+        metric_description,
+    ) in enumerate(
+        metric_guide,
+        start=27,
+    ):
+        guide_sheet.cell(
+            row=offset,
+            column=1,
+            value=metric_name,
+        ).font = Font(
+            bold=True,
+        )
+
+        guide_sheet.cell(
+            row=offset,
+            column=2,
+            value=metric_description,
+        )
+
+    guide_sheet["A36"] = "Canonical outputs"
+    guide_sheet["A36"].font = Font(
+        bold=True,
+        size=12,
+        color="17365D",
+    )
+
+    guide_sheet["A38"] = (
+        "Thickness-loss rate"
+    )
+    guide_sheet["B38"] = (
+        "µm/year"
+    )
+
+    guide_sheet["A39"] = (
+        "Mass-loss rate"
+    )
+    guide_sheet["B39"] = (
+        "g/m²/year"
+    )
+
+    guide_sheet["A41"] = (
+        "When density and exposure duration permit, "
+        "both canonical rates are calculated from the "
+        "same reported observation."
+    )
+
+    guide_sheet.merge_cells(
+        "A41:F42"
+    )
+
+    guide_sheet["A41"].alignment = Alignment(
+        wrap_text=True,
+        vertical="top",
+    )
+
+    guide_sheet.column_dimensions["A"].width = 30
+    guide_sheet.column_dimensions["B"].width = 68
+
+    for column_letter in [
+        "C",
+        "D",
+        "E",
+        "F",
+    ]:
+        guide_sheet.column_dimensions[
+            column_letter
+        ].width = 12    
 
     # =========================================================
     # Hidden lookup sheet
@@ -1238,26 +1501,65 @@ def build_corrosion_entry_workbook(
         color="D9E1F2",
     )
 
-    for cell in sheet[1]:
-        cell.fill = header_fill
+    context_header_fill = PatternFill(
+        "solid",
+        fgColor="4472C4",
+    )
+
+    input_header_fill = PatternFill(
+        "solid",
+        fgColor="BF9000",
+    )
+
+    density_header_fill = PatternFill(
+        "solid",
+        fgColor="7F8C8D",
+    )
+
+    output_header_fill = PatternFill(
+        "solid",
+        fgColor="548235",
+    )
+
+    note_header_fill = PatternFill(
+        "solid",
+        fgColor="7030A0",
+    )
+
+    for column_index, cell in enumerate(
+        sheet[1],
+        start=1,
+    ):
+
+        if 1 <= column_index <= 6:
+            cell.fill = context_header_fill
+
+        elif 7 <= column_index <= 11:
+            cell.fill = input_header_fill
+
+        elif 12 <= column_index <= 14:
+            cell.fill = density_header_fill
+
+        elif 15 <= column_index <= 16:
+            cell.fill = output_header_fill
+
+        else:
+            cell.fill = note_header_fill
+
         cell.font = header_font
+
         cell.alignment = Alignment(
             horizontal="center",
             vertical="center",
             wrap_text=True,
         )
+
         cell.border = header_border
 
-    sheet.row_dimensions[1].height = 34
+    sheet.row_dimensions[1].height = 46
 
     # Freeze source/site identity columns as well as header.
     sheet.freeze_panes = "G2"
-
-    sheet.auto_filter.ref = (
-        f"A1:"
-        f"{get_column_letter(len(WORKBOOK_COLUMNS))}"
-        f"1"
-    )
 
     # ---------------------------------------------------------
     # Header explanations
@@ -1372,6 +1674,11 @@ def build_corrosion_entry_workbook(
     )
 
     first_data_row = 2
+
+    first_row_by_site: dict[
+        str,
+        int
+    ] = {}    
 
     for site_id in site_ids:
         link = unique_links_by_site[
@@ -1502,6 +1809,10 @@ def build_corrosion_entry_workbook(
                 }
             )
 
+        first_row_by_site[
+            site_id
+        ] = sheet.max_row + 1
+
         for record in rows_for_site:
 
             output_row = [
@@ -1603,6 +1914,48 @@ def build_corrosion_entry_workbook(
 
     last_data_row = sheet.max_row
 
+    site_separator = Side(
+        style="medium",
+        color="4472C4",
+    )
+
+    for site_first_row in (
+        first_row_by_site.values()
+    ):
+        for column_index in range(
+            1,
+            len(WORKBOOK_COLUMNS) + 1,
+        ):
+            cell = sheet.cell(
+                row=site_first_row,
+                column=column_index,
+            )
+
+            cell.border = Border(
+                top=site_separator,
+                bottom=thin_gray,
+            )
+
+        # Make the site context stand out at the beginning
+        # of each new block.
+        for column_index in range(
+            1,
+            7,
+        ):
+            sheet.cell(
+                row=site_first_row,
+                column=column_index,
+            ).font = Font(
+                bold=True,
+                color="17365D",
+            )
+
+    sheet.auto_filter.ref = (
+        f"A1:"
+        f"{get_column_letter(len(WORKBOOK_COLUMNS))}"
+        f"{last_data_row}"
+    )
+
     if last_data_row < first_data_row:
         raise ValueError(
             "No corrosion workbook rows "
@@ -1652,6 +2005,10 @@ def build_corrosion_entry_workbook(
         first_data_row,
         last_data_row + 1,
     ):
+
+        sheet.row_dimensions[
+            row_number
+        ].height = 24
 
         material_cell = (
             f"G{row_number}"
@@ -2152,6 +2509,17 @@ def build_corrosion_entry_workbook(
 
     metric_validation.showErrorMessage = True
 
+    metric_validation.showInputMessage = True
+
+    metric_validation.promptTitle = (
+        "Reported corrosion metric"
+    )
+
+    metric_validation.prompt = (
+        "Choose the physical quantity reported by the source. "
+        "Do not convert the source value manually."
+    )
+
     unit_validation = DataValidation(
         type="list",
         formula1="=CorrosionUnitOptions",
@@ -2167,6 +2535,17 @@ def build_corrosion_entry_workbook(
     )
 
     unit_validation.showErrorMessage = True
+
+    unit_validation.showInputMessage = True
+
+    unit_validation.promptTitle = (
+        "Reported unit"
+    )
+
+    unit_validation.prompt = (
+        "Choose the unit exactly as reported by the source. "
+        "The workbook will calculate canonical rates automatically."
+    )
 
     numeric_value_validation = DataValidation(
         type="decimal",
@@ -2274,6 +2653,11 @@ def build_corrosion_entry_workbook(
         fgColor="FCE4D6",
     )
 
+    incomplete_fill = PatternFill(
+        "solid",
+        fgColor="F4CCCC",
+    )
+
     for row_number in range(
         first_data_row,
         last_data_row + 1,
@@ -2315,16 +2699,39 @@ def build_corrosion_entry_workbook(
             16,  # canonical unit
             17,  # conversion note
         ]:
-            cell = sheet.cell(
-                row=row_number,
-                column=column_index,
-            )
 
-            cell.fill = calculated_fill
+        # Canonical outputs are the primary derived quantities.
 
-            cell.protection = Protection(
-                locked=True
-            )
+            for column_index in [
+                15,
+                16,
+            ]:
+                sheet.cell(
+                    row=row_number,
+                    column=column_index,
+                ).font = Font(
+                    bold=True,
+                    color="375623",
+                )
+
+                sheet.cell(
+                    row=row_number,
+                    column=column_index,
+                ).alignment = Alignment(
+                    horizontal="right",
+                    vertical="center",
+                )
+                            
+                cell = sheet.cell(
+                    row=row_number,
+                    column=column_index,
+                )
+
+                cell.fill = calculated_fill
+
+                cell.protection = Protection(
+                    locked=True
+                )
 
         # Existing database rows are subtly green.
 
@@ -2354,6 +2761,14 @@ def build_corrosion_entry_workbook(
                         column=column_index,
                     ).fill = existing_fill
 
+                    sheet.cell(
+                        row=row_number,
+                        column=6,
+                    ).font = Font(
+                        bold=True,
+                        color="375623",
+                    )
+
         for column_index in range(
             1,
             len(WORKBOOK_COLUMNS) + 1,
@@ -2380,6 +2795,30 @@ def build_corrosion_entry_workbook(
                 ),
             )
 
+    # ---------------------------------------------------------
+    # Incomplete observation rows
+    #
+    # If at least one required input field G:K has been entered
+    # but one or more required fields are still blank, highlight
+    # the input area in pale red.
+    # ---------------------------------------------------------
+
+    sheet.conditional_formatting.add(
+        f"G{first_data_row}:"
+        f"K{last_data_row}",
+
+        FormulaRule(
+            formula=[
+                f'AND('
+                f'COUNTA($G{first_data_row}:$K{first_data_row})>0,'
+                f'COUNTA($G{first_data_row}:$K{first_data_row})<5'
+                f')'
+            ],
+
+            fill=incomplete_fill,
+        ),
+    )
+
     # Unsupported metric/unit combinations become orange.
 
     sheet.conditional_formatting.add(
@@ -2400,6 +2839,22 @@ def build_corrosion_entry_workbook(
         ),
     )
 
+    sheet.conditional_formatting.add(
+        f"Q{first_data_row}:"
+        f"Q{last_data_row}",
+
+        FormulaRule(
+            formula=[
+                f'OR('
+                f'ISNUMBER(SEARCH("unavailable",Q{first_data_row})),'
+                f'ISNUMBER(SEARCH("not calculated",Q{first_data_row}))'
+                f')'
+            ],
+
+            fill=warning_fill,
+        ),
+    )    
+
     # Number display
 
     for row_number in range(
@@ -2412,7 +2867,8 @@ def build_corrosion_entry_workbook(
             12,  # default density
             13,  # density override
             14,  # density used
-            15,  # canonical corrosion rate
+            15,  # canonical thickness-loss rate
+            16,  # canonical mass-loss rate
         ]:
             sheet.cell(
                 row=row_number,
@@ -2421,32 +2877,43 @@ def build_corrosion_entry_workbook(
                 "0.0000############"
             )
 
+        for column_index in [
+            15,
+            16,
+        ]:
+            sheet.cell(
+                row=row_number,
+                column=column_index,
+            ).number_format = (
+                "0.000"
+            )
+
     # Column widths
 
     column_widths = {
-        "A": 13,
-        "B": 34,
-        "C": 13,
-        "D": 26,
-        "E": 20,
-        "F": 15,
+        "A": 12,
+        "B": 30,
+        "C": 12,
+        "D": 24,
+        "E": 18,
+        "F": 14,
 
-        "G": 22,
-        "H": 18,
-        "I": 24,
+        "G": 21,
+        "H": 17,
+        "I": 25,
 
-        "J": 16,
+        "J": 15,
         "K": 18,
 
-        "L": 20,
-        "M": 21,
-        "N": 19,
+        "L": 18,
+        "M": 19,
+        "N": 18,
 
-        "O": 32,
-        "P": 32,
+        "O": 29,
+        "P": 29,
 
-        "Q": 58,
-        "R": 42,
+        "Q": 46,
+        "R": 36,
     }
 
     for (
@@ -2459,6 +2926,11 @@ def build_corrosion_entry_workbook(
         ].width = width
 
     sheet.sheet_view.showGridLines = False
+
+    sheet.sheet_properties.tabColor = "17365D"
+
+    sheet.sheet_view.zoomScale = 90
+    sheet.sheet_view.zoomScaleNormal = 90
 
     workbook.active = workbook.sheetnames.index(
         "Corrosion Observations"
