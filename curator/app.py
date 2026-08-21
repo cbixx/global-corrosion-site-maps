@@ -6558,9 +6558,10 @@ if active_page == "Corrosion Data":
     st.caption(
         "Upload the completed workbook after entering the "
         "source-reported observations. Unused starter rows are ignored. "
-        "Workbook formulas and macros are not trusted during import; "
-        "canonical corrosion rates and density-based conversions are "
-        "recalculated independently by the curator app."
+        "Exposure period may be left blank when it is not reported by "
+        "the source. Workbook formulas and macros are not trusted during "
+        "import; canonical corrosion rates and density-based conversions "
+        "are recalculated independently by the curator app."
     )
 
     uploaded_corrosion_workbook = st.file_uploader(

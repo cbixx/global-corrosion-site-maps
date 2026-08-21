@@ -1308,14 +1308,15 @@ def import_corrosion_observations(records: list[dict]) -> dict:
                 not site_id
                 or not source_code
                 or not material
-                or not exposure_period
                 or not corrosion_metric
                 or not unit
             ):
                 result["skipped"] += 1
                 result["messages"].append(
                     f"Row {row_number}: missing required "
-                    "corrosion observation field."
+                    "corrosion observation field "
+                    "(site_id, source_code, material, "
+                    "corrosion_metric, or reported_unit)."
                 )
                 continue
 

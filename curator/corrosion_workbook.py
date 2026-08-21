@@ -192,7 +192,6 @@ CORROSION_ENTRY_REQUIRED_FIELDS = [
     "source_code",
     "site_id",
     "material",
-    "exposure_period",
     "corrosion_metric",
     "reported_value",
     "reported_unit",
@@ -653,11 +652,22 @@ def normalize_corrosion_observation(
         )
 
         if exposure_years is None:
-            normalization_note = (
-                "Cumulative penetration could not be "
-                "converted to annual corrosion rates because "
-                "the exposure duration could not be interpreted."
-            )
+
+            if not exposure_period:
+                normalization_note = (
+                    "Exposure period not reported. "
+                    "Cumulative penetration is preserved as "
+                    "reported but cannot be converted to annual "
+                    "canonical corrosion rates."
+                )
+
+            else:
+                normalization_note = (
+                    "Cumulative penetration is preserved as "
+                    "reported but cannot be converted to annual "
+                    "canonical corrosion rates because the "
+                    "exposure duration could not be interpreted."
+                )
 
         else:
             canonical_thickness_loss_rate = (
@@ -718,11 +728,22 @@ def normalize_corrosion_observation(
         )
 
         if exposure_years is None:
-            normalization_note = (
-                "Cumulative mass loss could not be "
-                "converted to annual corrosion rates because "
-                "the exposure duration could not be interpreted."
-            )
+
+            if not exposure_period:
+                normalization_note = (
+                    "Exposure period not reported. "
+                    "Cumulative mass loss is preserved as "
+                    "reported but cannot be converted to annual "
+                    "canonical corrosion rates."
+                )
+
+            else:
+                normalization_note = (
+                    "Cumulative mass loss is preserved as "
+                    "reported but cannot be converted to annual "
+                    "canonical corrosion rates because the "
+                    "exposure duration could not be interpreted."
+                )
 
         else:
             canonical_mass_loss_rate = (
@@ -1269,8 +1290,10 @@ def build_corrosion_entry_workbook(
 
     guide_sheet["A19"] = "exposure_period"
     guide_sheet["B19"] = (
-        "Exposure duration, e.g. 90 days, 6 months, "
-        "1 year, 16 years."
+        "Optional exposure duration, e.g. 90 days, 6 months, "
+        "1 year, 16 years. Leave blank when the source does not "
+        "report a duration. Cumulative quantities cannot be "
+        "annualized without a known duration."
     )
 
     guide_sheet["A20"] = "corrosion_metric"
@@ -1838,8 +1861,10 @@ def build_corrosion_entry_workbook(
         ),
 
         "exposure_period": (
-            "Choose a known duration or type a custom "
-            "duration if the source uses another value."
+            "Optional. Enter the exposure duration exactly as "
+            "reported by the source. Leave blank when the source "
+            "does not report a duration. A duration is required "
+            "only to annualize cumulative corrosion quantities."
         ),
 
         "corrosion_metric": (
@@ -2631,6 +2656,16 @@ def build_corrosion_entry_workbook(
 
             f'IF('
             f'AND('
+            f'{exposure_cell}="",'
+            f'OR('
+            f'{metric_cell}="cumulative_penetration",'
+            f'{metric_cell}="cumulative_mass_loss"'
+            f')'
+            f'),'
+            f'"Exposure period not reported — cumulative value preserved; annual canonical rates unavailable",'            
+
+            f'IF('
+            f'AND('
             f'{thickness_rate_cell}<>"",'
             f'{mass_loss_rate_cell}<>""'
             f'),'
@@ -2700,8 +2735,9 @@ def build_corrosion_entry_workbook(
     )
 
     exposure_validation.prompt = (
-        "Choose a known duration or type a "
-        "custom duration."
+        "Optional. Choose a known duration, type a custom "
+        "duration, or leave blank if the source does not "
+        "report the exposure period."
     )
 
     metric_validation = DataValidation(
@@ -3091,7 +3127,12 @@ def build_corrosion_entry_workbook(
             formula=[
                 f'AND('
                 f'COUNTA($G{first_data_row}:$K{first_data_row})>0,'
-                f'COUNTA($G{first_data_row}:$K{first_data_row})<5'
+                f'OR('
+                f'$G{first_data_row}="",'
+                f'$I{first_data_row}="",'
+                f'$J{first_data_row}="",'
+                f'$K{first_data_row}=""'
+                f')'
                 f')'
             ],
 
@@ -3841,7 +3882,6 @@ def validate_corrosion_workbook_rows(
             "source_code": source_code,
             "site_id": site_id,
             "material": material,
-            "exposure_period": exposure_period,
             "corrosion_metric": corrosion_metric,
             "reported_value": row.get(
                 "reported_value",
