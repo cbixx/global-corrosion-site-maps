@@ -3879,6 +3879,9 @@ if "last_publish_batch_path" not in st.session_state:
 
 if "last_publish_sources_public_path" not in st.session_state:
     st.session_state.last_publish_sources_public_path = ""
+
+if "last_publish_extra_paths" not in st.session_state:
+    st.session_state.last_publish_extra_paths = []
     
 def apply_selected_location() -> None:
     selected_label = st.session_state.get("selected_location_label")
@@ -9342,6 +9345,36 @@ if active_page == "Export / Publish":
             key="publish_to_github_after_export",
         )
 
+        st.write("#### Website data package")
+
+        publish_include_corrosion = st.checkbox(
+            "Include curated corrosion observations",
+            value=True,
+            key="publish_include_corrosion_observations",
+            help=(
+                "Exports the current public corrosion observations "
+                "to data/corrosion_observations.csv and includes the "
+                "file in the website publish."
+            ),
+        )
+
+        publish_include_environment = st.checkbox(
+            "Include environmental observations",
+            value=True,
+            key="publish_include_environmental_observations",
+            help=(
+                "Exports the current public environmental observations "
+                "to data/environmental_observations.csv and includes the "
+                "file in the website publish."
+            ),
+        )
+
+        st.caption(
+            "Site and public-source files are always included. "
+            "Observation datasets are regenerated from the curator "
+            "database when this publish is confirmed."
+        )
+
         git_commit_message = st.text_input(
             t("publish_git_commit_message", ui_language),
             value=t("publish_default_commit_message", ui_language),
@@ -9413,10 +9446,7 @@ if active_page == "Export / Publish":
                                 github_result = publish_files_to_github(
                                     live_path=str(result["live_path"]),
                                     batch_path=str(result["batch_path"]),
-                                    commit_message=(
-                                        git_commit_message.strip()
-                                        or t("publish_quick_remove_commit_fallback", ui_language)
-                                    ),
+                                    commit_message=git_commit_message,
                                     extra_paths=[
                                         str(result["sources_public_path"]),
                                     ] if result.get("sources_public_path") else None,
@@ -9473,9 +9503,70 @@ if active_page == "Export / Publish":
                     st.error(t("publish_confirm_required_error", ui_language))
                 else:
                     try:
-                        result = publish_selected_sites_csv(selected_site_db_ids)
-                        st.session_state.last_publish_live_path = str(result["live_path"])
-                        st.session_state.last_publish_batch_path = str(result["batch_path"])
+                        result = publish_selected_sites_csv(
+                            selected_site_db_ids
+                        )
+
+                        st.session_state.last_publish_live_path = str(
+                            result["live_path"]
+                        )
+
+                        st.session_state.last_publish_batch_path = str(
+                            result["batch_path"]
+                        )
+
+                        st.session_state.last_publish_sources_public_path = str(
+                            result.get(
+                                "sources_public_path",
+                                "",
+                            )
+                        )
+
+                        # -------------------------------------
+                        # Additional website datasets
+                        # -------------------------------------
+
+                        publish_extra_paths: list[str] = []
+
+                        if result.get(
+                            "sources_public_path"
+                        ):
+                            publish_extra_paths.append(
+                                str(
+                                    result[
+                                        "sources_public_path"
+                                    ]
+                                )
+                            )
+
+                        corrosion_export_count = 0
+                        environment_export_count = 0
+
+                        if publish_include_corrosion:
+                            corrosion_export_count = (
+                                export_corrosion_observations_to_website_csv()
+                            )
+
+                            publish_extra_paths.append(
+                                str(
+                                    CORROSION_OUTPUT_CSV_PATH
+                                )
+                            )
+
+                        if publish_include_environment:
+                            environment_export_count = (
+                                export_environmental_observations_to_website_csv()
+                            )
+
+                            publish_extra_paths.append(
+                                str(
+                                    ENVIRONMENT_OUTPUT_CSV_PATH
+                                )
+                            )
+
+                        st.session_state[
+                            "last_publish_extra_paths"
+                        ] = publish_extra_paths
 
                         st.session_state.website_publish_ready_for_git = True
 
@@ -9487,14 +9578,44 @@ if active_page == "Export / Publish":
                             batch_name=result["batch_name"],
                         )
 
+                        package_parts = [
+                            f"{result['rows']} published site rows"
+                        ]
+
+                        if publish_include_corrosion:
+                            package_parts.append(
+                                f"{corrosion_export_count} corrosion observations"
+                            )
+
+                        if publish_include_environment:
+                            package_parts.append(
+                                f"{environment_export_count} environmental observations"
+                            )
+
+                        publish_message += (
+                            " Website package: "
+                            + ", ".join(
+                                package_parts
+                            )
+                            + "."
+                        )
+
                         if publish_to_github_after_export:
                             github_result = publish_files_to_github(
-                                live_path=str(result["live_path"]),
-                                batch_path=str(result["batch_path"]),
-                                commit_message=git_commit_message,
-                                extra_paths=[
-                                    str(result["sources_public_path"]),
-                                ] if result.get("sources_public_path") else None,
+                                live_path=str(
+                                    result["live_path"]
+                                ),
+                                batch_path=str(
+                                    result["batch_path"]
+                                ),
+                                commit_message=(
+                                    git_commit_message
+                                ),
+                                extra_paths=(
+                                    publish_extra_paths
+                                    if publish_extra_paths
+                                    else None
+                                ),
                             )
 
                             st.session_state.last_git_publish_output = str(github_result["output"])
@@ -9584,10 +9705,13 @@ if active_page == "Export / Publish":
             if not st.session_state.last_publish_live_path or not st.session_state.last_publish_batch_path:
                 st.error(t("publish_no_latest_paths_error", ui_language))
             else:
-                extra_paths = []
-
-                if st.session_state.get("last_publish_sources_public_path"):
-                    extra_paths.append(st.session_state.last_publish_sources_public_path)
+                extra_paths = list(
+                    st.session_state.get(
+                        "last_publish_extra_paths",
+                        [],
+                    )
+                    or []
+                )
 
                 github_result = publish_files_to_github(
                     live_path=st.session_state.last_publish_live_path,
