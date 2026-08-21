@@ -1817,34 +1817,6 @@ def build_corrosion_entry_workbook(
 
     sheet.row_dimensions[1].height = 46
 
-    if macro_enabled:
-
-        action_header = sheet[
-            "S1"
-        ]
-
-        action_header.fill = PatternFill(
-            "solid",
-            fgColor="548235",
-        )
-
-        action_header.font = Font(
-            color="FFFFFF",
-            bold=True,
-            size=14,
-        )
-
-        action_header.alignment = Alignment(
-            horizontal="center",
-            vertical="center",
-        )
-
-        action_header.comment = Comment(
-            "Click the + cell beside an observation "
-            "to insert a new observation row underneath it.",
-            "Corrosion Atlas",
-        )
-
     # Freeze source/site identity columns as well as header.
     sheet.freeze_panes = "G2"
 
@@ -2408,12 +2380,6 @@ def build_corrosion_entry_workbook(
         exposure_years_cell = (
             f"U{row_number}"
         )
-
-        if macro_enabled:
-            sheet.cell(
-                row=row_number,
-                column=19,
-            ).value = ""
 
         # -----------------------------------------------------
         # Default material density
@@ -3257,7 +3223,9 @@ def build_corrosion_entry_workbook(
                 "0.000"
             )
 
+    # =========================================================
     # Column widths
+    # =========================================================
 
     column_widths = {
         "A": 12,
@@ -3285,99 +3253,6 @@ def build_corrosion_entry_workbook(
         "R": 36,
     }
 
-# =========================================================
-# Native Excel column folding
-#
-# Groups are deliberately separated by a visible summary
-# column so that Excel keeps them as independent outline
-# groups rather than merging adjacent groups together.
-#
-# A:E -> context, F remains visible
-# G:J -> primary observation inputs, K remains visible
-# L:M -> density details, N remains visible
-# O:P -> canonical outputs, Q remains visible
-#
-# R (notes) always remains visible.
-# =========================================================
-
-sheet.sheet_properties.outlinePr.summaryRight = True
-
-sheet.sheet_view.showOutlineSymbols = True
-
-sheet.sheet_format.outlineLevelCol = 1
-
-
-def apply_column_outline(
-    column_letters: list[str],
-) -> None:
-
-    for column_letter in column_letters:
-        dimension = sheet.column_dimensions[
-            column_letter
-        ]
-
-        dimension.outlineLevel = 1
-
-        # Groups open expanded by default.
-        dimension.hidden = False
-
-
-# Blue context block
-apply_column_outline(
-    [
-        "A",
-        "B",
-        "C",
-        "D",
-        "E",
-    ]
-)
-
-# Gold input block
-apply_column_outline(
-    [
-        "G",
-        "H",
-        "I",
-        "J",
-    ]
-)
-
-# Grey density-detail block
-apply_column_outline(
-    [
-        "L",
-        "M",
-    ]
-)
-
-# Green canonical-output block
-apply_column_outline(
-    [
-        "O",
-        "P",
-    ]
-)
-
-# Source title stays hidden even while the context
-# outline group itself is expanded.
-sheet.column_dimensions[
-    "B"
-].hidden = True
-
-if macro_enabled:
-    # Column S remains available internally if required,
-    # but the actual VBA + buttons are displayed beside
-    # observation_id in column F.
-    sheet.column_dimensions[
-        "S"
-    ].hidden = True
-
-    # Density columns are advanced conversion details.
-    # Collapse them by default to keep the primary entry
-    # workflow compact. They remain available through the
-    # Excel outline + control.
-
     for (
         column_letter,
         width,
@@ -3386,20 +3261,94 @@ if macro_enabled:
         sheet.column_dimensions[
             column_letter
         ].width = width
+
+    # =========================================================
+    # Native Excel column folding
+    #
+    # A:E -> context, F remains visible
+    # G:J -> primary observation inputs, K remains visible
+    # L:M -> density details, N remains visible
+    # O:P -> canonical outputs, Q remains visible
+    #
+    # R -> notes, always visible
+    # =========================================================
+
+    sheet.sheet_properties.outlinePr.summaryRight = True
+
+    sheet.sheet_view.showOutlineSymbols = True
+
+    sheet.sheet_format.outlineLevelCol = 1
+
+    def apply_column_outline(
+        column_letters: list[str],
+    ) -> None:
+
+        for column_letter in column_letters:
+
+            dimension = sheet.column_dimensions[
+                column_letter
+            ]
+
+            dimension.outlineLevel = 1
+
+            # Groups open expanded by default.
+            dimension.hidden = False
+
+    # Blue context block
+    apply_column_outline(
+        [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E",
+        ]
+    )
+
+    # Gold input block
+    apply_column_outline(
+        [
+            "G",
+            "H",
+            "I",
+            "J",
+        ]
+    )
+
+    # Grey density-detail block
+    apply_column_outline(
+        [
+            "L",
+            "M",
+        ]
+    )
+
+    # Green canonical-output block
+    apply_column_outline(
+        [
+            "O",
+            "P",
+        ]
+    )
+
+    # ---------------------------------------------------------
+    # Hidden curator-internal columns
+    # ---------------------------------------------------------
+
     # Source title remains in the workbook for provenance
     # and import, but is hidden from the normal curator view.
     sheet.column_dimensions[
         "B"
     ].hidden = True
 
-    # Density columns are advanced conversion details.
-    # Collapse them by default to keep the primary entry
-    # workflow compact.
+    # Column S is no longer used visually; the actual VBA
+    # + buttons are positioned beside observation_id in F.
+    if macro_enabled:
+        sheet.column_dimensions[
+            "S"
+        ].hidden = True
 
     # Internal calculation helper columns.
-    # These exist only to keep the Excel formulas compatible
-    # with older/non-LET Excel installations.
-
     sheet.column_dimensions[
         "T"
     ].hidden = True
@@ -3407,6 +3356,10 @@ if macro_enabled:
     sheet.column_dimensions[
         "U"
     ].hidden = True
+
+    # ---------------------------------------------------------
+    # Workbook view
+    # ---------------------------------------------------------
 
     sheet.sheet_view.showGridLines = False
 
@@ -3418,6 +3371,10 @@ if macro_enabled:
     workbook.active = workbook.sheetnames.index(
         "Corrosion Observations"
     )
+
+    # ---------------------------------------------------------
+    # Save
+    # ---------------------------------------------------------
 
     output = BytesIO()
 
