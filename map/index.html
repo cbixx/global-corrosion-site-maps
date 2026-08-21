@@ -414,22 +414,18 @@
 
         <div class="map-tool-grid">
           <section class="map-tool-card">
-            <div class="map-tool-card-kicker">Corrosion layer</div>
-            <h3>Corrosion-rate overlay</h3>
+            <div class="map-tool-card-kicker">Corrosion data</div>
+            <h3>Curated observations</h3>
 
             <div id="corrosionImportStatus" class="small-status">
-              Curated corrosion overlay is not loaded.
+              Loading curated corrosion observations...
             </div>
 
-            <div class="button-row">
-              <button id="loadCorrosionCsvBtn" type="button">
-                Load curated corrosion overlay
-              </button>
-
-              <button id="clearCorrosionCsvBtn" type="button">
-                Clear corrosion overlay
-              </button>
-            </div>
+            <p class="small-status">
+              Observation data are loaded automatically with the map.
+              Corrosion-layer filtering and heatmap controls will be added
+              after observation browsing is validated.
+            </p>
           </section>
 
           <section class="map-tool-card">
@@ -1444,9 +1440,10 @@
     let publicSourcesByUrl = new Map();
     let publicSourcesLoaded = false;
 
-    let corrosionRatesBySiteId = new Map();
-    let corrosionOverlayActive = false;
-    let corrosionHeatLayer = null;
+    let corrosionObservations = [];
+    let corrosionObservationsBySiteId = new Map();
+    let corrosionObservationsLoaded = false;
+    let corrosionObservationsLoadError = "";
 
     let activeClimateLayerKey = "";
     let climateGridLayer = null;
@@ -2196,51 +2193,408 @@
       ).toUpperCase();
     }
 
-    function parseCorrosionNumber(value) {
-      if (value === null || value === undefined) return null;
+    function firstNonBlankValue(...values) {
+      for (const value of values) {
+        const text = normalizeText(value);
 
-      const cleaned = String(value)
-        .trim()
-        .replace(",", ".");
-
-      if (!cleaned) return null;
-
-      const number = Number(cleaned);
-
-      return Number.isFinite(number) ? number : null;
-    }
-
-    function formatCorrosionRate(rate) {
-      if (!Number.isFinite(rate)) {
-        return "No imported report";
+        if (text) {
+          return text;
+        }
       }
 
-      return `${rate.toFixed(2)} µm/year`;
+      return "";
     }
 
-    function getCorrosionRate(row) {
+    function normaliseCorrosionObservation(rawRow) {
+      const siteId = getSiteId(rawRow);
+
+      /*
+      * Keep source-reported values as text.
+      *
+      * At this ingestion stage the browser must not recalculate,
+      * average or reinterpret scientific values.
+      */
+      const canonicalThickness =
+        firstNonBlankValue(
+          rawRow.canonical_thickness_loss_rate_um_year,
+          rawRow.normalized_value
+        );
+
+      return {
+        observation_id: firstNonBlankValue(
+          rawRow.observation_id,
+          rawRow.id
+        ),
+
+        site_id: siteId,
+
+        source_code: normalizeSourceCode(
+          rawRow.source_code || ""
+        ),
+
+        source_title: normalizeText(
+          rawRow.source_title || ""
+        ),
+
+        material: normalizeText(
+          rawRow.material || ""
+        ),
+
+        exposure_period: normalizeText(
+          rawRow.exposure_period || ""
+        ),
+
+        corrosion_metric: normalizeText(
+          rawRow.corrosion_metric || ""
+        ),
+
+        value: firstNonBlankValue(
+          rawRow.value,
+          rawRow.reported_value
+        ),
+
+        unit: firstNonBlankValue(
+          rawRow.unit,
+          rawRow.reported_unit
+        ),
+
+        canonical_thickness_loss_rate_um_year:
+          canonicalThickness,
+
+        canonical_mass_loss_rate_g_m2_year:
+          normalizeText(
+            rawRow.canonical_mass_loss_rate_g_m2_year || ""
+          ),
+
+        density_g_cm3: firstNonBlankValue(
+          rawRow.density_g_cm3,
+          rawRow.density_used_g_cm3
+        ),
+
+        density_basis: normalizeText(
+          rawRow.density_basis || ""
+        ),
+
+        normalization_note: normalizeText(
+          rawRow.normalization_note || ""
+        ),
+
+        measurement_method: normalizeText(
+          rawRow.measurement_method || ""
+        ),
+
+        specimen_condition: normalizeText(
+          rawRow.specimen_condition || ""
+        ),
+
+        exposure_condition: normalizeText(
+          rawRow.exposure_condition || ""
+        ),
+
+        notes: normalizeText(
+          rawRow.notes || ""
+        )
+      };
+    }
+
+    function getCorrosionObservationsForSite(row) {
       const siteId = getSiteId(row);
-      return corrosionRatesBySiteId.get(siteId);
+
+      if (!siteId) {
+        return [];
+      }
+
+      return corrosionObservationsBySiteId.get(siteId) || [];
     }
 
-    function buildCorrosionPopupSection(row) {
-      if (!corrosionOverlayActive) return "";
+    function formatCorrosionMetricLabel(value) {
+      const text = normalizeText(value);
 
-      const rate = getCorrosionRate(row);
+      if (!text) {
+        return "Metric not specified";
+      }
 
-      if (rate === undefined) {
-        return `
-          <div class="corrosion-popup-line">
-            <strong>Steel corrosion rate:</strong> No imported report
+      return text.replace(/_/g, " ");
+    }
+
+    function buildCorrosionObservationCard(observation) {
+      const reportedValue = [
+        observation.value,
+        observation.unit
+      ]
+        .filter(Boolean)
+        .join(" ");
+
+      let html = `
+        <div class="popup-metric-card">
+          <div class="popup-metric-label">
+            ${
+              observation.observation_id
+                ? `Observation ${escapeHtml(observation.observation_id)}`
+                : "Observation"
+            }
+          </div>
+
+          <div class="popup-row">
+            <strong>Metric:</strong>
+            ${escapeHtml(
+              formatCorrosionMetricLabel(
+                observation.corrosion_metric
+              )
+            )}
+          </div>
+
+          <div class="popup-row">
+            <strong>Reported value:</strong>
+            ${escapeHtml(
+              reportedValue || "Not reported"
+            )}
+          </div>
+      `;
+
+      if (
+        observation.canonical_thickness_loss_rate_um_year
+      ) {
+        html += `
+          <div class="popup-row">
+            <strong>Canonical thickness-loss rate:</strong>
+            ${escapeHtml(
+              observation
+                .canonical_thickness_loss_rate_um_year
+            )} µm/year
           </div>
         `;
       }
 
-      return `
-        <div class="corrosion-popup-line">
-          <strong>Steel corrosion rate:</strong> ${escapeHtml(formatCorrosionRate(rate))}
-        </div>
-      `;
+      if (
+        observation.canonical_mass_loss_rate_g_m2_year
+      ) {
+        html += `
+          <div class="popup-row">
+            <strong>Canonical mass-loss rate:</strong>
+            ${escapeHtml(
+              observation
+                .canonical_mass_loss_rate_g_m2_year
+            )} g/m²/year
+          </div>
+        `;
+      }
+
+      if (observation.density_g_cm3) {
+        html += `
+          <div class="popup-row">
+            <strong>Density used:</strong>
+            ${escapeHtml(
+              observation.density_g_cm3
+            )} g/cm³
+            ${
+              observation.density_basis
+                ? ` (${escapeHtml(
+                    observation.density_basis
+                  )})`
+                : ""
+            }
+          </div>
+        `;
+      }
+
+      if (observation.measurement_method) {
+        html += `
+          <div class="popup-row">
+            <strong>Measurement method:</strong>
+            ${escapeHtml(
+              observation.measurement_method
+            )}
+          </div>
+        `;
+      }
+
+      if (observation.specimen_condition) {
+        html += `
+          <div class="popup-row">
+            <strong>Specimen condition:</strong>
+            ${escapeHtml(
+              observation.specimen_condition
+            )}
+          </div>
+        `;
+      }
+
+      if (observation.exposure_condition) {
+        html += `
+          <div class="popup-row">
+            <strong>Exposure condition:</strong>
+            ${escapeHtml(
+              observation.exposure_condition
+            )}
+          </div>
+        `;
+      }
+
+      if (observation.normalization_note) {
+        html += `
+          <div class="popup-tab-note">
+            ${escapeHtml(
+              observation.normalization_note
+            )}
+          </div>
+        `;
+      }
+
+      if (observation.notes) {
+        html += `
+          <div class="popup-tab-note">
+            <strong>Observation note:</strong>
+            ${escapeHtml(observation.notes)}
+          </div>
+        `;
+      }
+
+      html += `</div>`;
+
+      return html;
+    }
+
+    function buildCorrosionObservationHierarchy(
+      observations
+    ) {
+      const observationsBySource = new Map();
+
+      observations.forEach(observation => {
+        const sourceKey =
+          observation.source_code ||
+          observation.source_title ||
+          "Source not specified";
+
+        if (!observationsBySource.has(sourceKey)) {
+          observationsBySource.set(
+            sourceKey,
+            []
+          );
+        }
+
+        observationsBySource
+          .get(sourceKey)
+          .push(observation);
+      });
+
+      let html = "";
+
+      observationsBySource.forEach(
+        (sourceObservations, sourceKey) => {
+          const firstObservation =
+            sourceObservations[0];
+
+          const sourceTitle =
+            firstObservation.source_title || "";
+
+          html += `
+            <div class="popup-section-title">
+              ${escapeHtml(sourceKey)}
+            </div>
+          `;
+
+          if (
+            sourceTitle &&
+            sourceTitle !== sourceKey
+          ) {
+            html += `
+              <div class="popup-tab-note">
+                ${escapeHtml(sourceTitle)}
+              </div>
+            `;
+          }
+
+          const observationsByMaterial =
+            new Map();
+
+          sourceObservations.forEach(
+            observation => {
+              const material =
+                observation.material ||
+                "Material not reported";
+
+              if (
+                !observationsByMaterial.has(
+                  material
+                )
+              ) {
+                observationsByMaterial.set(
+                  material,
+                  []
+                );
+              }
+
+              observationsByMaterial
+                .get(material)
+                .push(observation);
+            }
+          );
+
+          observationsByMaterial.forEach(
+            (
+              materialObservations,
+              material
+            ) => {
+              html += `
+                <div class="popup-row">
+                  <strong>Material:</strong>
+                  ${escapeHtml(material)}
+                </div>
+              `;
+
+              const observationsByExposure =
+                new Map();
+
+              materialObservations.forEach(
+                observation => {
+                  const exposure =
+                    observation.exposure_period ||
+                    "Not reported";
+
+                  if (
+                    !observationsByExposure.has(
+                      exposure
+                    )
+                  ) {
+                    observationsByExposure.set(
+                      exposure,
+                      []
+                    );
+                  }
+
+                  observationsByExposure
+                    .get(exposure)
+                    .push(observation);
+                }
+              );
+
+              observationsByExposure.forEach(
+                (
+                  exposureObservations,
+                  exposure
+                ) => {
+                  html += `
+                    <div class="popup-row">
+                      <strong>Exposure period:</strong>
+                      ${escapeHtml(exposure)}
+                    </div>
+                  `;
+
+                  html +=
+                    exposureObservations
+                      .map(
+                        buildCorrosionObservationCard
+                      )
+                      .join("");
+                }
+              );
+            }
+          );
+        }
+      );
+
+      return html;
     }
 
     function buildClimateApiPopupSection(row) {
@@ -2346,36 +2700,51 @@
     }
 
     function buildCorrosionPopupPanel(row) {
-      if (!corrosionOverlayActive) {
+      if (!corrosionObservationsLoaded) {
+        if (corrosionObservationsLoadError) {
+          return `
+            <div class="popup-tab-placeholder">
+              Curated corrosion observations could not be loaded.
+              The site metadata remain available.
+            </div>
+          `;
+        }
+
         return `
           <div class="popup-tab-placeholder">
-            Curated corrosion data has not been loaded for this map session.
-            Use <strong>Load curated corrosion overlay</strong> in the side panel to display available corrosion observations.
+            Curated corrosion observations are loading...
           </div>
         `;
       }
 
-      const rate = getCorrosionRate(row);
+      const observations =
+        getCorrosionObservationsForSite(row);
 
-      if (rate === undefined) {
+      if (!observations.length) {
         return `
           <div class="popup-tab-placeholder">
-            No curated corrosion observation is currently available for this site.
+            No curated corrosion observation is currently
+            available for this site.
           </div>
         `;
       }
 
       return `
-        <div class="popup-section-title">Curated corrosion observation</div>
-
-        <div class="popup-metric-card">
-          <div class="popup-metric-label">Steel corrosion rate</div>
-          <div class="popup-metric-value">${escapeHtml(formatCorrosionRate(rate))}</div>
+        <div class="popup-section-title">
+          Curated corrosion observations
         </div>
 
         <div class="popup-tab-note">
-          This value is derived from the curator-exported corrosion observation dataset currently loaded into the website overlay.
+          ${observations.length}
+          observation${observations.length === 1 ? "" : "s"}
+          are available for this site.
+          Source-reported observations are shown individually;
+          no averaging or cross-source aggregation has been applied.
         </div>
+
+        ${buildCorrosionObservationHierarchy(
+          observations
+        )}
       `;
     }
 
@@ -3251,19 +3620,36 @@
 
       siteList.innerHTML = countrySites.length
         ? countrySites.map(row => {
-            const rate = getCorrosionRate(row);
-            const rateText = !corrosionOverlayActive
-              ? ""
-              : rate === undefined
-                ? "Steel corrosion rate: No imported report"
-                : `Steel corrosion rate: ${formatCorrosionRate(rate)}`;
+            const corrosionObservationCount =
+              getCorrosionObservationsForSite(
+                row
+              ).length;
+
+            const corrosionSummaryText =
+              corrosionObservationsLoaded &&
+              corrosionObservationCount > 0
+                ? (
+                    `${corrosionObservationCount} curated corrosion ` +
+                    `observation${
+                      corrosionObservationCount === 1
+                        ? ""
+                        : "s"
+                    }`
+                  )
+                : "";
 
             return `
               <div class="country-site-row">
                 <strong>${escapeHtml(row.site_label || "Unnamed site")}</strong><br>
                 <span>Site ID: ${escapeHtml(row.site_id || "")}</span><br>
                 <span>${escapeHtml(row.region_category || "Unclassified region")}</span>
-                ${rateText ? `<br><span>${escapeHtml(rateText)}</span>` : ""}
+                ${
+                  corrosionSummaryText
+                    ? `<br><span>${escapeHtml(
+                        corrosionSummaryText
+                      )}</span>`
+                    : ""
+                }
               </div>
             `;
           }).join("")
@@ -3416,201 +3802,192 @@
       });
     }
 
-    function normaliseHeatIntensity(rate, minRate, maxRate) {
-      if (!Number.isFinite(rate)) return 0;
-
-      if (maxRate === minRate) {
-        return 0.7;
-      }
-
-      const value = (rate - minRate) / (maxRate - minRate);
-
-      return Math.max(0.15, Math.min(1, value));
-    }
-
-    function updateCorrosionHeatLayer() {
-      if (corrosionHeatLayer) {
-        map.removeLayer(corrosionHeatLayer);
-        corrosionHeatLayer = null;
-      }
-
-      if (!corrosionOverlayActive) return;
-
-      const rowsForHeat = Array.isArray(visibleRows) ? visibleRows : allRows;
-
-      const matchedPoints = rowsForHeat
-        .map(row => {
-          const rate = getCorrosionRate(row);
-
-          if (!Number.isFinite(rate)) return null;
-          if (isNaN(row._lat) || isNaN(row._lon)) return null;
-
-          return {
-            lat: row._lat,
-            lon: row._lon,
-            rate
-          };
-        })
-        .filter(Boolean);
-
-      console.log("Corrosion heat matched points:", matchedPoints.length);
-
-      if (!matchedPoints.length) return;
-
-      const rates = matchedPoints.map(point => point.rate);
-      const minRate = Math.min(...rates);
-      const maxRate = Math.max(...rates);
-
-      const heatPoints = matchedPoints.map(point => [
-        point.lat,
-        point.lon,
-        normaliseHeatIntensity(point.rate, minRate, maxRate)
-      ]);
-
-      corrosionHeatLayer = L.heatLayer(heatPoints, {
-        pane: 'corrosionHeatPane',
-        radius: 42,
-        blur: 26,
-        maxZoom: 10,
-        minOpacity: 0.45,
-        gradient: {
-          0.20: '#2c7bb6',
-          0.45: '#ffffbf',
-          0.70: '#fdae61',
-          1.00: '#d7191c'
-        }
-      });
-
-      corrosionHeatLayer.addTo(map);
-      
-      const status = document.getElementById("corrosionImportStatus");
-      if (status) {
-        status.textContent += ` Heat layer rendered from ${matchedPoints.length} point(s).`;
-      }
-    }
-
-    function clearCorrosionOverlay(options = {}) {
-      const updateStatus = options.updateStatus !== false;
-      const removeLegend = options.removeLegend !== false;
-
-      corrosionRatesBySiteId = new Map();
-      corrosionOverlayActive = false;
-
-      if (corrosionHeatLayer) {
-        map.removeLayer(corrosionHeatLayer);
-        corrosionHeatLayer = null;
-      }
-
-      renderMarkers(visibleRows);
-
-      if (appShell.classList.contains("directory-open")) {
-        renderCountryDirectory(visibleRows);
-      }
-
-      if (removeLegend) {
-        removeOverlayLegend();
-      }
-
-      if (updateStatus) {
-        const status = document.getElementById("corrosionImportStatus");
-        if (status) status.textContent = "Corrosion-rate overlay cleared.";
-      }
-    }
-
-    function isSteelMaterial(value) {
-      const text = normalizeText(value).toLowerCase();
-
-      return (
-        text.includes("steel") ||
-        text.includes("carbon steel") ||
-        text.includes("weathering steel")
-      );
-    }
-
-    function isCorrosionRateMetric(value) {
-      const text = normalizeText(value).toLowerCase();
-
-      return (
-        text === "corrosion_rate" ||
-        text.includes("corrosion rate") ||
-        text.includes("corrosion_rate")
-      );
-    }
-
-    function loadCuratedCorrosionOverlay() {
-      clearClimateLayer({
-        resetSelect: true,
-        updateStatus: true,
-        removeLegend: false
-      });
-
-      const status = document.getElementById("corrosionImportStatus");
+    function setCorrosionObservationStatus(
+      message
+    ) {
+      const status =
+        document.getElementById(
+          "corrosionImportStatus"
+        );
 
       if (status) {
-        status.textContent = "Loading curated corrosion observations...";
+        status.textContent = message;
       }
+    }
 
-      Papa.parse(`/data/corrosion_observations.csv?v=${Date.now()}`, {
-        download: true,
-        header: true,
-        skipEmptyLines: true,
-        complete: function(results) {
-          const rows = results.data || [];
-          const groupedValues = new Map();
+    function sortCorrosionObservations(
+      observations
+    ) {
+      observations.sort(
+        (left, right) => {
+          const leftKey = [
+            left.source_code,
+            left.source_title,
+            left.material,
+            left.exposure_period,
+            left.corrosion_metric,
+            left.observation_id
+          ]
+            .join("|")
+            .toLowerCase();
 
-          rows.forEach(row => {
-            const siteId = getSiteId(row);
-            const value = parseCorrosionNumber(row.value);
+          const rightKey = [
+            right.source_code,
+            right.source_title,
+            right.material,
+            right.exposure_period,
+            right.corrosion_metric,
+            right.observation_id
+          ]
+            .join("|")
+            .toLowerCase();
 
-            if (!siteId || !allSiteIds.has(siteId)) return;
-            if (!Number.isFinite(value)) return;
-
-            if (row.material && !isSteelMaterial(row.material)) return;
-            if (row.corrosion_metric && !isCorrosionRateMetric(row.corrosion_metric)) return;
-
-            if (!groupedValues.has(siteId)) {
-              groupedValues.set(siteId, []);
-            }
-
-            groupedValues.get(siteId).push(value);
-          });
-
-          const loadedRates = new Map();
-
-          groupedValues.forEach((values, siteId) => {
-            const meanValue = values.reduce((sum, value) => sum + value, 0) / values.length;
-            loadedRates.set(siteId, meanValue);
-          });
-
-          corrosionRatesBySiteId = loadedRates;
-          corrosionOverlayActive = true;
-
-          renderMarkers(visibleRows);
-          updateCorrosionHeatLayer();
-
-          renderOverlayLegend(
-            "Steel corrosion rate",
-            "Curated site-based observations",
-            [
-              ["#2c7bb6", "low"],
-              ["#ffffbf", "moderate"],
-              ["#fdae61", "high"],
-              ["#d7191c", "very high"]
-            ],
-            "Site-based heatmap from curator-exported corrosion observations."
+          return leftKey.localeCompare(
+            rightKey
           );
+        }
+      );
 
-          if (status) {
-            status.textContent =
-              `Loaded ${loadedRates.size.toLocaleString()} site-matched curated steel corrosion-rate value(s).`;
-          }
-        },
-        error: function(error) {
-          if (status) {
-            status.textContent = `Could not load curated corrosion observations: ${error.message}`;
+      return observations;
+    }
+
+    function loadCuratedCorrosionObservations() {
+      corrosionObservationsLoaded = false;
+      corrosionObservationsLoadError = "";
+
+      setCorrosionObservationStatus(
+        "Loading curated corrosion observations..."
+      );
+
+      Papa.parse(
+        `/data/corrosion_observations.csv?v=${Date.now()}`,
+        {
+          download: true,
+          header: true,
+          skipEmptyLines: true,
+
+          complete: function(results) {
+            const loadedObservations =
+              (results.data || [])
+                .map(
+                  normaliseCorrosionObservation
+                )
+                .filter(observation => {
+                  if (!observation.site_id) {
+                    return false;
+                  }
+
+                  return allSiteIds.has(
+                    observation.site_id
+                  );
+                });
+
+            sortCorrosionObservations(
+              loadedObservations
+            );
+
+            const groupedBySite =
+              new Map();
+
+            loadedObservations.forEach(
+              observation => {
+                if (
+                  !groupedBySite.has(
+                    observation.site_id
+                  )
+                ) {
+                  groupedBySite.set(
+                    observation.site_id,
+                    []
+                  );
+                }
+
+                groupedBySite
+                  .get(observation.site_id)
+                  .push(observation);
+              }
+            );
+
+            corrosionObservations =
+              loadedObservations;
+
+            corrosionObservationsBySiteId =
+              groupedBySite;
+
+            corrosionObservationsLoaded =
+              true;
+
+            corrosionObservationsLoadError =
+              "";
+
+            setCorrosionObservationStatus(
+              `Loaded ${
+                loadedObservations.length
+                  .toLocaleString()
+              } curated corrosion observation${
+                loadedObservations.length === 1
+                  ? ""
+                  : "s"
+              } across ${
+                groupedBySite.size
+                  .toLocaleString()
+              } site${
+                groupedBySite.size === 1
+                  ? ""
+                  : "s"
+              }.`
+            );
+
+            /*
+            * Marker popups were originally bound before
+            * this asynchronous dataset finished loading.
+            * Rebuild them now so the Corrosion data tab
+            * receives the newly loaded observations.
+            */
+            renderMarkers(visibleRows);
+
+            if (
+              appShell.classList.contains(
+                "directory-open"
+              )
+            ) {
+              renderCountryDirectory(
+                visibleRows
+              );
+            }
+          },
+
+          error: function(error) {
+            corrosionObservations = [];
+
+            corrosionObservationsBySiteId =
+              new Map();
+
+            corrosionObservationsLoaded =
+              false;
+
+            corrosionObservationsLoadError =
+              error && error.message
+                ? error.message
+                : "Unknown loading error";
+
+            setCorrosionObservationStatus(
+              "Curated corrosion observations could not be loaded."
+            );
+
+            console.error(
+              "Could not load curated corrosion observations.",
+              error
+            );
+
+            /*
+            * Refresh popups so they show the loading-error
+            * state rather than remaining stuck on "loading".
+            */
+            renderMarkers(visibleRows);
           }
         }
-      });
+      );
     }
 
     function removeOverlayLegend() {
@@ -3892,11 +4269,6 @@
         resetSelect: false,
         updateStatus: false,
         removeLegend: true
-      });
-
-      clearCorrosionOverlay({
-        updateStatus: true,
-        removeLegend: false
       });
 
       activeClimateLayerKey = layerKey || "";
@@ -4546,7 +4918,6 @@
       });
 
       renderMarkers(visibleRows);
-      updateCorrosionHeatLayer();
 
       updateResultPanel(visibleRows.length, allRows.length);
       renderResultsList(visibleRows);
@@ -4602,7 +4973,11 @@
         updateStats(allRows);
         renderActiveFilterChips();
         renderCountryDirectory(allRows);
-        const loadedAt = new Date().toLocaleString();
+
+        loadCuratedCorrosionObservations();
+
+        const loadedAt =
+          new Date().toLocaleString();
         document.getElementById('mapStatusBadge').textContent =
           `Dataset loaded: ${allRows.length.toLocaleString()} sites · ${loadedAt}`;
 
@@ -4644,14 +5019,6 @@
         document.getElementById('downloadVisibleCsv').addEventListener('click', function() {
           const csvText = rowsToCsv(visibleRows);
           downloadCsv('visible_corrosion_sites.csv', csvText);
-        });
-
-        document.getElementById('loadCorrosionCsvBtn')?.addEventListener('click', function() {
-          loadCuratedCorrosionOverlay();
-        });
-
-        document.getElementById('clearCorrosionCsvBtn')?.addEventListener('click', function() {
-          clearCorrosionOverlay();
         });
 
         document.getElementById('climateLayerSelect')?.addEventListener('change', function(event) {
