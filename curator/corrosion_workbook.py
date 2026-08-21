@@ -1817,8 +1817,10 @@ def build_corrosion_entry_workbook(
 
     sheet.row_dimensions[1].height = 46
 
-    # Freeze source/site identity columns as well as header.
-    sheet.freeze_panes = "E2"
+    # Freeze only the header row.
+    # Do not freeze any columns; this keeps horizontal
+    # navigation predictable.
+    sheet.freeze_panes = "A2"
 
     # ---------------------------------------------------------
     # Header explanations
@@ -3206,123 +3208,38 @@ def build_corrosion_entry_workbook(
         ].width = width
 
     # =========================================================
-    # Column visibility
+    # Final worksheet visibility / view reset
+    # =========================================================
+    #
+    # Normal curator-facing columns:
+    #
+    # A  source_code
+    # C  site_id
+    # D  site_label
+    # E  country
+    # F  observation_id
+    # G  material
+    # H  exposure_period
+    # I  corrosion_metric
+    # J  reported_value
+    # K  reported_unit
+    # N  density_used_g_cm3
+    # O  canonical thickness-loss rate
+    # P  canonical mass-loss rate
+    # Q  normalization_note
+    # R  notes
+    #
+    # Hidden:
+    #
+    # B     source_title
+    # L:M   density details
+    # S:U   workbook-internal columns
+    #
+    # There are NO native Excel outline groups.
     # =========================================================
 
-    # First explicitly show every normal workbook field.
-    #
-    # This prevents stale hidden states from the XLSM template
-    # or an earlier workbook layout from carrying forward.
-
-    for column_letter in [
-        "A",
-        "C",
-        "D",
-        "E",
-        "F",
-        "G",
-        "H",
-        "I",
-        "J",
-        "K",
-        "N",
-        "O",
-        "P",
-        "Q",
-        "R",
-    ]:
-        sheet.column_dimensions[
-            column_letter
-        ].hidden = False
-
     # ---------------------------------------------------------
-    # Permanently hidden provenance field
-    # ---------------------------------------------------------
-
-    # Source title is retained in the workbook and remains
-    # available to the importer, but showing the same long
-    # title on every row wastes horizontal space.
-
-    sheet.column_dimensions[
-        "B"
-    ].hidden = True
-
-    # ---------------------------------------------------------
-    # Density detail columns
-    # ---------------------------------------------------------
-
-    # L = default_density_g_cm3
-    # M = density_override_g_cm3
-    #
-    # These start collapsed. VBA provides a dedicated toggle
-    # button so they can be shown without Excel outline groups.
-
-    sheet.column_dimensions[
-        "L"
-    ].hidden = True
-
-    sheet.column_dimensions[
-        "M"
-    ].hidden = True
-
-    # N = density_used_g_cm3 remains visible.
-
-    sheet.column_dimensions[
-        "N"
-    ].hidden = False
-
-    # ---------------------------------------------------------
-    # Internal columns
-    # ---------------------------------------------------------
-
-    # S is no longer used as the visible row-action column.
-    sheet.column_dimensions[
-        "S"
-    ].hidden = True
-
-    # Formula compatibility helpers.
-    sheet.column_dimensions[
-        "T"
-    ].hidden = True
-
-    sheet.column_dimensions[
-        "U"
-    ].hidden = True
-
-    # Source title remains in the workbook for provenance
-    # and import, but is hidden from the normal curator view.
-    sheet.column_dimensions[
-        "B"
-    ].hidden = True
-
-    # Column S is no longer used visually; the actual VBA
-    # + buttons are positioned beside observation_id in F.
-    if macro_enabled:
-        sheet.column_dimensions[
-            "S"
-        ].hidden = True
-
-    # Internal calculation helper columns.
-    sheet.column_dimensions[
-        "T"
-    ].hidden = True
-
-    sheet.column_dimensions[
-        "U"
-    ].hidden = True
-
-    # ---------------------------------------------------------
-    # Workbook view
-    # ---------------------------------------------------------
-
-    sheet.sheet_view.showGridLines = False
-
-    # ---------------------------------------------------------
-    # Disable native Excel outlining completely.
-    #
-    # Column visibility is now controlled explicitly and,
-    # for density details, by VBA. This prevents Excel from
-    # displaying outline-level 1 / 2 controls.
+    # Remove all stale outline/group state
     # ---------------------------------------------------------
 
     sheet.sheet_view.showOutlineSymbols = False
@@ -3360,10 +3277,103 @@ def build_corrosion_entry_workbook(
         dimension.outlineLevel = 0
         dimension.collapsed = False
 
+        # Start from a completely visible state.
+        dimension.hidden = False
+
+    # ---------------------------------------------------------
+    # Permanently hidden source title
+    # ---------------------------------------------------------
+
+    sheet.column_dimensions[
+        "B"
+    ].hidden = True
+
+    # ---------------------------------------------------------
+    # Density details
+    #
+    # These are hidden initially and controlled by the
+    # dedicated VBA density +/- button.
+    # ---------------------------------------------------------
+
+    sheet.column_dimensions[
+        "L"
+    ].hidden = True
+
+    sheet.column_dimensions[
+        "M"
+    ].hidden = True
+
+    # N = density_used_g_cm3 must remain visible.
+    sheet.column_dimensions[
+        "N"
+    ].hidden = False
+
+    # ---------------------------------------------------------
+    # Internal workbook columns
+    # ---------------------------------------------------------
+
+    sheet.column_dimensions[
+        "S"
+    ].hidden = True
+
+    sheet.column_dimensions[
+        "T"
+    ].hidden = True
+
+    sheet.column_dimensions[
+        "U"
+    ].hidden = True
+
+    # ---------------------------------------------------------
+    # Explicitly guarantee all normal curator columns are visible
+    # ---------------------------------------------------------
+
+    for column_letter in [
+        "A",
+        "C",
+        "D",
+        "E",
+        "F",
+        "G",
+        "H",
+        "I",
+        "J",
+        "K",
+        "N",
+        "O",
+        "P",
+        "Q",
+        "R",
+    ]:
+        sheet.column_dimensions[
+            column_letter
+        ].hidden = False
+
+    # ---------------------------------------------------------
+    # Workbook appearance
+    # ---------------------------------------------------------
+
+    sheet.sheet_view.showGridLines = False
+
     sheet.sheet_properties.tabColor = "17365D"
 
     sheet.sheet_view.zoomScale = 90
     sheet.sheet_view.zoomScaleNormal = 90
+
+    # ---------------------------------------------------------
+    # CRITICAL: reset the saved Excel viewport
+    #
+    # The reusable XLSM template may have been saved while
+    # horizontally scrolled far to the right. Without this,
+    # a newly generated workbook can open around column K/AA
+    # even though columns A:J still exist.
+    # ---------------------------------------------------------
+
+    sheet.sheet_view.topLeftCell = "A1"
+
+    for selection in sheet.sheet_view.selection:
+        selection.activeCell = "A1"
+        selection.sqref = "A1"
 
     workbook.active = workbook.sheetnames.index(
         "Corrosion Observations"
