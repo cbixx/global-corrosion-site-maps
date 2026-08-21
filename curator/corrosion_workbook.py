@@ -1400,10 +1400,11 @@ def build_corrosion_entry_workbook(
         )
 
         guide_sheet["B47"] = (
-            "Click the + cell beside any observation "
-            "row to duplicate it immediately underneath. "
-            "The new row has no observation_id and its "
-            "reported_value is cleared automatically."
+            "Click the green + button beside any observation "
+            "to create a new observation immediately underneath. "
+            "The new row keeps the source/site context and "
+            "dropdown selections, but observation_id and "
+            "reported_value are cleared automatically."
         )
 
     guide_sheet.merge_cells(
@@ -1739,6 +1740,11 @@ def build_corrosion_entry_workbook(
 
     if macro_enabled:
         sheet["S1"] = "＋"
+
+    # Hidden calculation helpers.
+    # These avoid relying on newer Excel functions such as LET.
+    sheet["T1"] = "__unit_factor"
+    sheet["U1"] = "__exposure_years"
 
     header_font = Font(
         color="FFFFFF",
@@ -2302,9 +2308,20 @@ def build_corrosion_entry_workbook(
     # =========================================================
     # Calculated columns
     #
-    # normalized_value is the FINAL comparable general
-    # corrosion penetration rate in µm/year whenever a
-    # scientifically valid conversion is possible.
+    # =========================================================
+    # Calculated corrosion outputs
+    #
+    # O = canonical general thickness-loss rate, µm/year
+    # P = canonical general mass-loss rate, g/m²/year
+    #
+    # T and U are hidden compatibility helper columns:
+    #
+    # T = reported-unit conversion factor
+    # U = exposure duration converted to years
+    #
+    # The curator app remains authoritative and independently
+    # recalculates these values during import.
+    # =========================================================
     #
     # Conversion paths:
     #
@@ -2387,6 +2404,14 @@ def build_corrosion_entry_workbook(
             f"Q{row_number}"
         )
 
+        unit_factor_cell = (
+            f"T{row_number}"
+        )
+
+        exposure_years_cell = (
+            f"U{row_number}"
+        )
+
         if macro_enabled:
 
             action_cell = sheet.cell(
@@ -2455,6 +2480,95 @@ def build_corrosion_entry_workbook(
         )
 
         # -----------------------------------------------------
+        # Hidden helper: reported-unit conversion factor
+        # -----------------------------------------------------
+
+        sheet[
+            unit_factor_cell
+        ] = (
+            f'=IF('
+            f'OR('
+            f'{metric_cell}="",'
+            f'{unit_cell}=""'
+            f'),'
+            f'"",'
+            f'IFERROR('
+            f'VLOOKUP('
+            f'{metric_cell}&"|"&{unit_cell},'
+            f'{lists_name}!$A$2:$C${unit_rule_end_row},'
+            f'3,'
+            f'FALSE'
+            f'),'
+            f'""'
+            f')'
+            f')'
+        )
+
+        # -----------------------------------------------------
+        # Hidden helper: exposure duration in years
+        #
+        # Supports:
+        # 1 year / years / yr / yrs / y
+        # 6 months / month / mo / mos
+        # 3 weeks / week / wk / wks
+        # 90 days / day / d
+        # -----------------------------------------------------
+
+        sheet[
+            exposure_years_cell
+        ] = (
+            f'=IF('
+            f'{exposure_cell}="",'
+            f'"",'
+            f'IFERROR('
+
+            f'VALUE('
+            f'LEFT('
+            f'TRIM({exposure_cell}),'
+            f'FIND(" ",TRIM({exposure_cell})&" ")-1'
+            f')'
+            f')*'
+
+            f'IF('
+            f'OR('
+            f'ISNUMBER(SEARCH("year",LOWER({exposure_cell}))),'
+            f'ISNUMBER(SEARCH(" yr",LOWER({exposure_cell}))),'
+            f'RIGHT(LOWER(TRIM({exposure_cell})),1)="y"'
+            f'),'
+            f'1,'
+
+            f'IF('
+            f'OR('
+            f'ISNUMBER(SEARCH("month",LOWER({exposure_cell}))),'
+            f'ISNUMBER(SEARCH(" mo",LOWER({exposure_cell})))'
+            f'),'
+            f'1/12,'
+
+            f'IF('
+            f'OR('
+            f'ISNUMBER(SEARCH("week",LOWER({exposure_cell}))),'
+            f'ISNUMBER(SEARCH(" wk",LOWER({exposure_cell})))'
+            f'),'
+            f'7/365.25,'
+
+            f'IF('
+            f'OR('
+            f'ISNUMBER(SEARCH("day",LOWER({exposure_cell}))),'
+            f'RIGHT(LOWER(TRIM({exposure_cell})),1)="d"'
+            f'),'
+            f'1/365.25,'
+            f'""'
+            f')'
+            f')'
+            f')'
+            f'),'
+
+            f'""'
+            f')'
+            f')'
+        )
+
+        # -----------------------------------------------------
         # FINAL canonical corrosion rate
         #
         # Exposure duration parser accepts entries such as:
@@ -2486,134 +2600,66 @@ def build_corrosion_entry_workbook(
             f'),'
             f'"",'
 
-            f'LET('
-
-            f'metric,{metric_cell},'
-            f'v,{value_cell},'
-            f'u,{unit_cell},'
-            f'density,{density_used_cell},'
-
-            f'durationText,LOWER(TRIM({exposure_cell})),'
-            f'durationValue,'
-            f'IFERROR('
-            f'VALUE('
-            f'LEFT('
-            f'durationText,'
-            f'FIND(" ",durationText&" ")-1'
-            f')'
-            f'),'
-            f'""'
-            f'),'
-
-            f'durationUnit,'
-            f'TRIM('
-            f'MID('
-            f'durationText,'
-            f'FIND(" ",durationText&" ")+1,'
-            f'99'
-            f')'
-            f'),'
-
-            f'years,'
+            # Direct penetration-rate observation
             f'IF('
-            f'durationValue="",'
+            f'OR('
+            f'{metric_cell}="penetration_rate",'
+            f'{metric_cell}="corrosion_rate"'
+            f'),'
+            f'IF('
+            f'{unit_factor_cell}="",'
             f'"",'
-            f'durationValue*'
-            f'IF('
-            f'OR('
-            f'durationUnit="year",'
-            f'durationUnit="years",'
-            f'durationUnit="yr",'
-            f'durationUnit="yrs",'
-            f'durationUnit="y"'
-            f'),'
-            f'1,'
-            f'IF('
-            f'OR('
-            f'durationUnit="month",'
-            f'durationUnit="months",'
-            f'durationUnit="mo",'
-            f'durationUnit="mos"'
-            f'),'
-            f'1/12,'
-            f'IF('
-            f'OR('
-            f'durationUnit="week",'
-            f'durationUnit="weeks",'
-            f'durationUnit="wk",'
-            f'durationUnit="wks"'
-            f'),'
-            f'7/365.25,'
-            f'IF('
-            f'OR('
-            f'durationUnit="day",'
-            f'durationUnit="days",'
-            f'durationUnit="d"'
-            f'),'
-            f'1/365.25,'
-            f'""'
-            f')'
-            f')'
-            f')'
-            f')'
+            f'{value_cell}*{unit_factor_cell}'
             f'),'
 
-            f'factor,'
-            f'IFERROR('
-            f'VLOOKUP('
-            f'metric&"|"&u,'
-            f'{lists_name}!'
-            f'$A$2:$C${unit_rule_end_row},'
-            f'3,'
-            f'FALSE'
-            f'),'
-            f'""'
-            f'),'
-
+            # Mass-loss rate -> penetration rate
+            f'IF('
+            f'{metric_cell}="mass_loss_rate",'
             f'IF('
             f'OR('
-            f'metric="penetration_rate",'
-            f'metric="corrosion_rate"'
+            f'{unit_factor_cell}="",'
+            f'{density_used_cell}=""'
             f'),'
-            f'IF(factor="","",v*factor),'
-
-            f'IF('
-            f'metric="mass_loss_rate",'
-            f'IF('
-            f'OR(factor="",density=""),'
             f'"",'
-            f'v*factor/density'
+            f'{value_cell}*{unit_factor_cell}/{density_used_cell}'
             f'),'
 
+            # Cumulative penetration -> average annual rate
             f'IF('
-            f'metric="cumulative_penetration",'
+            f'{metric_cell}="cumulative_penetration",'
             f'IF('
-            f'OR(factor="",years=""),'
+            f'OR('
+            f'{unit_factor_cell}="",'
+            f'{exposure_years_cell}=""'
+            f'),'
             f'"",'
-            f'v*factor/years'
+            f'{value_cell}*{unit_factor_cell}/{exposure_years_cell}'
             f'),'
 
+            # Cumulative mass loss -> average penetration rate
             f'IF('
-            f'metric="cumulative_mass_loss",'
+            f'{metric_cell}="cumulative_mass_loss",'
             f'IF('
-            f'OR(factor="",density="",years=""),'
+            f'OR('
+            f'{unit_factor_cell}="",'
+            f'{density_used_cell}="",'
+            f'{exposure_years_cell}=""'
+            f'),'
             f'"",'
-            f'v*factor/density/years'
+            f'{value_cell}*{unit_factor_cell}/'
+            f'{density_used_cell}/'
+            f'{exposure_years_cell}'
             f'),'
 
+            # Non-general-corrosion metric
             f'""'
-            f')'
-            f')'
-            f')'
-            f')'
 
+            f')'
+            f')'
+            f')'
             f')'
             f')'
         )
-
-        # -----------------------------------------------------
-        # Canonical unit
-        # -----------------------------------------------------
 
         # -----------------------------------------------------
         # Canonical mass-loss rate — g/m²/year
@@ -2630,127 +2676,64 @@ def build_corrosion_entry_workbook(
             f'),'
             f'"",'
 
-            f'LET('
-
-            f'metric,{metric_cell},'
-            f'v,{value_cell},'
-            f'u,{unit_cell},'
-            f'density,{density_used_cell},'
-
-            f'durationText,LOWER(TRIM({exposure_cell})),'
-            f'durationValue,'
-            f'IFERROR('
-            f'VALUE('
-            f'LEFT('
-            f'durationText,'
-            f'FIND(" ",durationText&" ")-1'
-            f')'
-            f'),'
-            f'""'
-            f'),'
-
-            f'durationUnit,'
-            f'TRIM('
-            f'MID('
-            f'durationText,'
-            f'FIND(" ",durationText&" ")+1,'
-            f'99'
-            f')'
-            f'),'
-
-            f'years,'
+            # Penetration rate -> mass-loss rate
             f'IF('
-            f'durationValue="",'
+            f'OR('
+            f'{metric_cell}="penetration_rate",'
+            f'{metric_cell}="corrosion_rate"'
+            f'),'
+            f'IF('
+            f'OR('
+            f'{unit_factor_cell}="",'
+            f'{density_used_cell}=""'
+            f'),'
             f'"",'
-            f'durationValue*'
-            f'IF('
-            f'OR('
-            f'durationUnit="year",'
-            f'durationUnit="years",'
-            f'durationUnit="yr",'
-            f'durationUnit="yrs",'
-            f'durationUnit="y"'
-            f'),'
-            f'1,'
-            f'IF('
-            f'OR('
-            f'durationUnit="month",'
-            f'durationUnit="months",'
-            f'durationUnit="mo",'
-            f'durationUnit="mos"'
-            f'),'
-            f'1/12,'
-            f'IF('
-            f'OR('
-            f'durationUnit="week",'
-            f'durationUnit="weeks",'
-            f'durationUnit="wk",'
-            f'durationUnit="wks"'
-            f'),'
-            f'7/365.25,'
-            f'IF('
-            f'OR('
-            f'durationUnit="day",'
-            f'durationUnit="days",'
-            f'durationUnit="d"'
-            f'),'
-            f'1/365.25,'
-            f'""'
-            f')'
-            f')'
-            f')'
-            f')'
+            f'{value_cell}*{unit_factor_cell}*{density_used_cell}'
             f'),'
 
-            f'factor,'
-            f'IFERROR('
-            f'VLOOKUP('
-            f'metric&"|"&u,'
-            f'{lists_name}!'
-            f'$A$2:$C${unit_rule_end_row},'
-            f'3,'
-            f'FALSE'
-            f'),'
-            f'""'
-            f'),'
-
+            # Direct mass-loss-rate observation
             f'IF('
-            f'OR('
-            f'metric="penetration_rate",'
-            f'metric="corrosion_rate"'
-            f'),'
+            f'{metric_cell}="mass_loss_rate",'
             f'IF('
-            f'OR(factor="",density=""),'
+            f'{unit_factor_cell}="",'
             f'"",'
-            f'v*factor*density'
+            f'{value_cell}*{unit_factor_cell}'
             f'),'
 
+            # Cumulative penetration -> annual mass loss
             f'IF('
-            f'metric="mass_loss_rate",'
-            f'IF(factor="","",v*factor),'
-
+            f'{metric_cell}="cumulative_penetration",'
             f'IF('
-            f'metric="cumulative_penetration",'
-            f'IF('
-            f'OR(factor="",density="",years=""),'
+            f'OR('
+            f'{unit_factor_cell}="",'
+            f'{density_used_cell}="",'
+            f'{exposure_years_cell}=""'
+            f'),'
             f'"",'
-            f'v*factor*density/years'
+            f'{value_cell}*{unit_factor_cell}*'
+            f'{density_used_cell}/'
+            f'{exposure_years_cell}'
             f'),'
 
+            # Cumulative mass loss -> annual mass-loss rate
             f'IF('
-            f'metric="cumulative_mass_loss",'
+            f'{metric_cell}="cumulative_mass_loss",'
             f'IF('
-            f'OR(factor="",years=""),'
+            f'OR('
+            f'{unit_factor_cell}="",'
+            f'{exposure_years_cell}=""'
+            f'),'
             f'"",'
-            f'v*factor/years'
+            f'{value_cell}*{unit_factor_cell}/'
+            f'{exposure_years_cell}'
             f'),'
 
+            # Non-general-corrosion metric
             f'""'
-            f')'
-            f')'
-            f')'
-            f')'
 
+            f')'
+            f')'
+            f')'
             f')'
             f')'
         )
@@ -3341,16 +3324,27 @@ def build_corrosion_entry_workbook(
         sheet.column_dimensions[
             column_letter
         ].width = width
+    # Source title remains in the workbook for provenance
+    # and import, but is hidden from the normal curator view.
+    sheet.column_dimensions[
+        "B"
+    ].hidden = True
 
     # Density columns are advanced conversion details.
     # Collapse them by default to keep the primary entry
     # workflow compact.
 
-    sheet.column_dimensions.group(
-        "L",
-        "N",
-        hidden=True,
-    )
+    # Internal calculation helper columns.
+    # These exist only to keep the Excel formulas compatible
+    # with older/non-LET Excel installations.
+
+    sheet.column_dimensions[
+        "T"
+    ].hidden = True
+
+    sheet.column_dimensions[
+        "U"
+    ].hidden = True
 
     sheet.sheet_view.showGridLines = False
 
