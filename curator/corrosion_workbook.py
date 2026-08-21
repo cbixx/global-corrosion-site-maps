@@ -3744,7 +3744,16 @@ def validate_corrosion_workbook_rows(
 
     for column in preview_columns:
         if column not in preview_df.columns:
-            preview_df[column] = ""
+            preview_df[column] = pd.Series(
+                "",
+                index=preview_df.index,
+                dtype="object",
+            )
+        else:
+            preview_df[column] = (
+                preview_df[column]
+                .astype("object")
+            )
 
     normalized_existing_sites = {
         str(value).strip().casefold()
