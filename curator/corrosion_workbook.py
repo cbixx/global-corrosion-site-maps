@@ -3061,7 +3061,7 @@ def build_corrosion_entry_workbook(
             )
 
     # Leave visual room at the left edge of material cells
-    # for the VBA + button.
+    # for the VBA + row-duplication button.
     for row_number in range(
         first_data_row,
         last_data_row + 1,
@@ -3072,7 +3072,7 @@ def build_corrosion_entry_workbook(
         ).alignment = Alignment(
             horizontal="left",
             vertical="top",
-            indent=2,
+            indent=4,
         )
 
     # ---------------------------------------------------------
