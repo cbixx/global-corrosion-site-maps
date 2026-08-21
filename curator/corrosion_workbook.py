@@ -1934,10 +1934,6 @@ def build_corrosion_entry_workbook(
 
     first_data_row = 2
 
-    expandable_blank_row_ranges: list[
-        tuple[int, int]
-    ] = []
-
     first_row_by_site: dict[
         str,
         int
@@ -2080,42 +2076,6 @@ def build_corrosion_entry_workbook(
             sheet.max_row + 1
         )
 
-        existing_count = len(
-            site_existing
-        )
-
-        blank_start_row = (
-            site_first_row
-            + existing_count
-        )
-
-        blank_end_row = (
-            site_first_row
-            + len(rows_for_site)
-            - 1
-        )
-
-        visible_blank_rows = min(
-            3,
-            blank_rows_per_site,
-        )
-
-        hidden_blank_start = (
-            blank_start_row
-            + visible_blank_rows
-        )
-
-        if (
-            hidden_blank_start
-            <= blank_end_row
-        ):
-            expandable_blank_row_ranges.append(
-                (
-                    hidden_blank_start,
-                    blank_end_row,
-                )
-            )
-
         for record in rows_for_site:
 
             output_row = [
@@ -2216,42 +2176,6 @@ def build_corrosion_entry_workbook(
             sheet.append(output_row)
 
     last_data_row = sheet.max_row
-
-    # ---------------------------------------------------------
-    # Collapse surplus blank entry rows.
-    #
-    # Excel displays a native +/- outline control beside
-    # the rows, allowing additional entry slots to be
-    # revealed only when required.
-    # ---------------------------------------------------------
-
-    sheet.sheet_properties.outlinePr.summaryBelow = False
-
-    for (
-        group_start,
-        group_end,
-    ) in expandable_blank_row_ranges:
-
-        for grouped_row in range(
-            group_start,
-            group_end + 1,
-        ):
-            sheet.row_dimensions[
-                grouped_row
-            ].outlineLevel = 1
-
-            sheet.row_dimensions[
-                grouped_row
-            ].hidden = True
-
-        summary_row = (
-            group_start - 1
-        )
-
-        if summary_row >= first_data_row:
-            sheet.row_dimensions[
-                summary_row
-            ].collapsed = True
 
     site_separator = Side(
         style="medium",
@@ -3263,7 +3187,7 @@ def build_corrosion_entry_workbook(
 
         "L": 18,
         "M": 19,
-        "N": 18,
+        "N": 22,
 
         "O": 29,
         "P": 29,
@@ -3282,86 +3206,88 @@ def build_corrosion_entry_workbook(
         ].width = width
 
     # =========================================================
-    # Native Excel column folding
-    #
-    # A:E -> context, F remains visible
-    # G:J -> primary observation inputs, K remains visible
-    # L:M -> density details, N remains visible
-    # O:P -> canonical outputs, Q remains visible
-    #
-    # R -> notes, always visible
+    # Column visibility
     # =========================================================
 
-    sheet.sheet_properties.outlinePr.summaryRight = True
-
-    sheet.sheet_view.showOutlineSymbols = True
-
-    sheet.sheet_format.outlineLevelCol = 1
-
-    def apply_column_outline(
-        column_letters: list[str],
-    ) -> None:
-
-        for column_letter in column_letters:
-
-            dimension = sheet.column_dimensions[
-                column_letter
-            ]
-
-            dimension.outlineLevel = 1
-
-            # Groups open expanded by default.
-            dimension.hidden = False
-
-    # Blue context block.
+    # First explicitly show every normal workbook field.
     #
-    # D (site_label) deliberately remains visible as the
-    # compact summary field when the context is collapsed.
+    # This prevents stale hidden states from the XLSM template
+    # or an earlier workbook layout from carrying forward.
 
-    apply_column_outline(
-        [
-            "A",
-            "B",
-            "C",
-        ]
-    )
-
-    apply_column_outline(
-        [
-            "E",
-            "F",
-        ]
-    )
-
-    # Gold input block
-    apply_column_outline(
-        [
-            "G",
-            "H",
-            "I",
-            "J",
-        ]
-    )
-
-    # Grey density-detail block
-    apply_column_outline(
-        [
-            "L",
-            "M",
-        ]
-    )
-
-    # Green canonical-output block
-    apply_column_outline(
-        [
-            "O",
-            "P",
-        ]
-    )
+    for column_letter in [
+        "A",
+        "C",
+        "D",
+        "E",
+        "F",
+        "G",
+        "H",
+        "I",
+        "J",
+        "K",
+        "N",
+        "O",
+        "P",
+        "Q",
+        "R",
+    ]:
+        sheet.column_dimensions[
+            column_letter
+        ].hidden = False
 
     # ---------------------------------------------------------
-    # Hidden curator-internal columns
+    # Permanently hidden provenance field
     # ---------------------------------------------------------
+
+    # Source title is retained in the workbook and remains
+    # available to the importer, but showing the same long
+    # title on every row wastes horizontal space.
+
+    sheet.column_dimensions[
+        "B"
+    ].hidden = True
+
+    # ---------------------------------------------------------
+    # Density detail columns
+    # ---------------------------------------------------------
+
+    # L = default_density_g_cm3
+    # M = density_override_g_cm3
+    #
+    # These start collapsed. VBA provides a dedicated toggle
+    # button so they can be shown without Excel outline groups.
+
+    sheet.column_dimensions[
+        "L"
+    ].hidden = True
+
+    sheet.column_dimensions[
+        "M"
+    ].hidden = True
+
+    # N = density_used_g_cm3 remains visible.
+
+    sheet.column_dimensions[
+        "N"
+    ].hidden = False
+
+    # ---------------------------------------------------------
+    # Internal columns
+    # ---------------------------------------------------------
+
+    # S is no longer used as the visible row-action column.
+    sheet.column_dimensions[
+        "S"
+    ].hidden = True
+
+    # Formula compatibility helpers.
+    sheet.column_dimensions[
+        "T"
+    ].hidden = True
+
+    sheet.column_dimensions[
+        "U"
+    ].hidden = True
 
     # Source title remains in the workbook for provenance
     # and import, but is hidden from the normal curator view.
@@ -3390,6 +3316,49 @@ def build_corrosion_entry_workbook(
     # ---------------------------------------------------------
 
     sheet.sheet_view.showGridLines = False
+
+    # ---------------------------------------------------------
+    # Disable native Excel outlining completely.
+    #
+    # Column visibility is now controlled explicitly and,
+    # for density details, by VBA. This prevents Excel from
+    # displaying outline-level 1 / 2 controls.
+    # ---------------------------------------------------------
+
+    sheet.sheet_view.showOutlineSymbols = False
+
+    sheet.sheet_format.outlineLevelCol = 0
+    sheet.sheet_format.outlineLevelRow = 0
+
+    for column_letter in [
+        "A",
+        "B",
+        "C",
+        "D",
+        "E",
+        "F",
+        "G",
+        "H",
+        "I",
+        "J",
+        "K",
+        "L",
+        "M",
+        "N",
+        "O",
+        "P",
+        "Q",
+        "R",
+        "S",
+        "T",
+        "U",
+    ]:
+        dimension = sheet.column_dimensions[
+            column_letter
+        ]
+
+        dimension.outlineLevel = 0
+        dimension.collapsed = False
 
     sheet.sheet_properties.tabColor = "17365D"
 
