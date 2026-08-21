@@ -1738,9 +1738,6 @@ def build_corrosion_entry_workbook(
 
     sheet.append(WORKBOOK_COLUMNS)
 
-    if macro_enabled:
-        sheet["S1"] = "＋"
-
     # Hidden calculation helpers.
     # These avoid relying on newer Excel functions such as LET.
     sheet["T1"] = "__unit_factor"
@@ -2413,33 +2410,10 @@ def build_corrosion_entry_workbook(
         )
 
         if macro_enabled:
-
-            action_cell = sheet.cell(
+            sheet.cell(
                 row=row_number,
                 column=19,
-            )
-
-            action_cell.value = "＋"
-
-            action_cell.fill = PatternFill(
-                "solid",
-                fgColor="E2F0D9",
-            )
-
-            action_cell.font = Font(
-                bold=True,
-                size=14,
-                color="548235",
-            )
-
-            action_cell.alignment = Alignment(
-                horizontal="center",
-                vertical="center",
-            )
-
-            action_cell.border = Border(
-                bottom=thin_gray
-            )
+            ).value = ""
 
         # -----------------------------------------------------
         # Default material density
@@ -3129,17 +3103,22 @@ def build_corrosion_entry_workbook(
 
             cell.alignment = Alignment(
                 horizontal=(
-                    "right"
-                    if column_index in [
-                        10,  # reported value
-                        12,  # default density
-                        13,  # density override
-                        14,  # density used
-                        15,  # canonical thickness loss
-                        16,  # canonical mass loss
-                    ]
-                    else None
+                    "left"
+                    if column_index == 6
+                    else (
+                        "right"
+                        if column_index in [
+                            10,  # reported value
+                            12,  # default density
+                            13,  # density override
+                            14,  # density used
+                            15,  # canonical thickness loss
+                            16,  # canonical mass loss
+                        ]
+                        else None
+                    )
                 ),
+
                 vertical="top",
                 wrap_text=(
                     column_index
@@ -3286,7 +3265,7 @@ def build_corrosion_entry_workbook(
         "C": 12,
         "D": 24,
         "E": 18,
-        "F": 14,
+        "F": 18,
 
         "G": 21,
         "H": 17,
@@ -3306,10 +3285,93 @@ def build_corrosion_entry_workbook(
         "R": 36,
     }
 
-    if macro_enabled:
-        sheet.column_dimensions[
-            "S"
-        ].width = 5
+# =========================================================
+# Native Excel column folding
+#
+# Groups are deliberately separated by a visible summary
+# column so that Excel keeps them as independent outline
+# groups rather than merging adjacent groups together.
+#
+# A:E -> context, F remains visible
+# G:J -> primary observation inputs, K remains visible
+# L:M -> density details, N remains visible
+# O:P -> canonical outputs, Q remains visible
+#
+# R (notes) always remains visible.
+# =========================================================
+
+sheet.sheet_properties.outlinePr.summaryRight = True
+
+sheet.sheet_view.showOutlineSymbols = True
+
+sheet.sheet_format.outlineLevelCol = 1
+
+
+def apply_column_outline(
+    column_letters: list[str],
+) -> None:
+
+    for column_letter in column_letters:
+        dimension = sheet.column_dimensions[
+            column_letter
+        ]
+
+        dimension.outlineLevel = 1
+
+        # Groups open expanded by default.
+        dimension.hidden = False
+
+
+# Blue context block
+apply_column_outline(
+    [
+        "A",
+        "B",
+        "C",
+        "D",
+        "E",
+    ]
+)
+
+# Gold input block
+apply_column_outline(
+    [
+        "G",
+        "H",
+        "I",
+        "J",
+    ]
+)
+
+# Grey density-detail block
+apply_column_outline(
+    [
+        "L",
+        "M",
+    ]
+)
+
+# Green canonical-output block
+apply_column_outline(
+    [
+        "O",
+        "P",
+    ]
+)
+
+# Source title stays hidden even while the context
+# outline group itself is expanded.
+sheet.column_dimensions[
+    "B"
+].hidden = True
+
+if macro_enabled:
+    # Column S remains available internally if required,
+    # but the actual VBA + buttons are displayed beside
+    # observation_id in column F.
+    sheet.column_dimensions[
+        "S"
+    ].hidden = True
 
     # Density columns are advanced conversion details.
     # Collapse them by default to keep the primary entry
