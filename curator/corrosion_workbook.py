@@ -1818,7 +1818,7 @@ def build_corrosion_entry_workbook(
     sheet.row_dimensions[1].height = 46
 
     # Freeze source/site identity columns as well as header.
-    sheet.freeze_panes = "G2"
+    sheet.freeze_panes = "E2"
 
     # ---------------------------------------------------------
     # Header explanations
@@ -3070,7 +3070,10 @@ def build_corrosion_entry_workbook(
             cell.alignment = Alignment(
                 horizontal=(
                     "left"
-                    if column_index == 6
+                    if column_index in [
+                        6,
+                        7,
+                    ]
                     else (
                         "right"
                         if column_index in [
@@ -3096,6 +3099,7 @@ def build_corrosion_entry_workbook(
                     ]
                 ),
             )
+
 
     # ---------------------------------------------------------
     # Site block separators
@@ -3129,6 +3133,21 @@ def build_corrosion_entry_workbook(
                 bold=True,
                 color="17365D",
             )
+
+    # Leave visual room at the left edge of material cells
+    # for the VBA + button.
+    for row_number in range(
+        first_data_row,
+        last_data_row + 1,
+    ):
+        sheet.cell(
+            row=row_number,
+            column=7,
+        ).alignment = Alignment(
+            horizontal="left",
+            vertical="top",
+            indent=2,
+        )
 
     # ---------------------------------------------------------
     # Incomplete observation rows
@@ -3235,7 +3254,7 @@ def build_corrosion_entry_workbook(
         "E": 18,
         "F": 18,
 
-        "G": 21,
+        "G": 24,
         "H": 17,
         "I": 25,
 
@@ -3294,14 +3313,23 @@ def build_corrosion_entry_workbook(
             # Groups open expanded by default.
             dimension.hidden = False
 
-    # Blue context block
+    # Blue context block.
+    #
+    # D (site_label) deliberately remains visible as the
+    # compact summary field when the context is collapsed.
+
     apply_column_outline(
         [
             "A",
             "B",
             "C",
-            "D",
+        ]
+    )
+
+    apply_column_outline(
+        [
             "E",
+            "F",
         ]
     )
 
