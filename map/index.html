@@ -415,16 +415,91 @@
         <div class="map-tool-grid">
           <section class="map-tool-card">
             <div class="map-tool-card-kicker">Corrosion data</div>
-            <h3>Curated observations</h3>
+            <h3>Corrosion heatmap</h3>
 
             <div id="corrosionImportStatus" class="small-status">
               Loading curated corrosion observations...
             </div>
 
+            <div class="control-group">
+              <label class="checkbox-row" for="corrosionHeatmapToggle">
+                <input id="corrosionHeatmapToggle" type="checkbox" disabled />
+                <span>Show corrosion heatmap</span>
+              </label>
+            </div>
+
+            <div class="control-group">
+              <label class="control-label" for="corrosionQuantitySelect">
+                Display quantity
+              </label>
+              <select id="corrosionQuantitySelect" class="control-select" disabled>
+                <option value="thickness">Thickness-loss rate — µm/year</option>
+                <option value="mass">Mass-loss rate — g/m²/year</option>
+              </select>
+            </div>
+
+            <div class="control-group">
+              <label class="control-label" for="corrosionMaterialFamilySelect">
+                Material family
+              </label>
+              <select id="corrosionMaterialFamilySelect" class="control-select" disabled>
+                <option value="ferrous">Ferrous materials</option>
+              </select>
+            </div>
+
+            <div class="control-group">
+              <label class="control-label" for="corrosionMaterialSelect">
+                Specific material
+              </label>
+              <select id="corrosionMaterialSelect" class="control-select" disabled>
+                <option value="">All materials in family</option>
+              </select>
+            </div>
+
+            <div class="control-group">
+              <label class="control-label" for="corrosionExposureSelect">
+                Exposure period
+              </label>
+              <select id="corrosionExposureSelect" class="control-select" disabled>
+                <option value="">All exposure periods</option>
+              </select>
+            </div>
+
+            <div class="control-group">
+              <label class="control-label" for="corrosionBasisSelect">
+                Observation basis
+              </label>
+              <select id="corrosionBasisSelect" class="control-select" disabled>
+                <option value="all_compatible">All canonical-compatible observations</option>
+                <option value="direct_rate">Directly reported rates only</option>
+                <option value="cumulative_derived">Annualized cumulative observations only</option>
+              </select>
+            </div>
+
+            <div class="control-group">
+              <label class="control-label" for="corrosionSourceSelect">
+                Source
+              </label>
+              <select id="corrosionSourceSelect" class="control-select" disabled>
+                <option value="">All sources</option>
+              </select>
+            </div>
+
+            <div id="corrosionFilterStatus" class="small-status">
+              Waiting for corrosion observations...
+            </div>
+
+            <div class="button-row">
+              <button id="resetCorrosionFiltersBtn" type="button" disabled>
+                Reset corrosion selection
+              </button>
+            </div>
+
             <p class="small-status">
-              Observation data are loaded automatically with the map.
-              Corrosion-layer filtering and heatmap controls will be added
-              after observation browsing is validated.
+              Heat intensity represents measured-site observations only.
+              Multiple compatible observations at one site are represented
+              by their median. Spatial smoothing is visual and is not a
+              predictive corrosion model.
             </p>
           </section>
 
@@ -1445,6 +1520,44 @@
     let corrosionObservationsLoaded = false;
     let corrosionObservationsLoadError = "";
 
+    let corrosionLayerFilterState = {
+      quantity: "thickness",
+      materialFamily: "ferrous",
+      material: "",
+      exposurePeriod: "",
+      basis: "all_compatible",
+      source: ""
+    };
+
+    const CORROSION_EXPOSURE_NOT_REPORTED =
+      "__NOT_REPORTED__";
+
+    const CORROSION_SOURCE_NOT_REPORTED =
+      "__SOURCE_NOT_REPORTED__";
+
+    let corrosionHeatmapActive = false;
+    let corrosionHeatLayer = null;
+
+    const CORROSION_MATERIAL_FAMILY_LABELS = {
+      ferrous: "Ferrous materials",
+      zinc: "Zinc & zinc coatings",
+      copper: "Copper & copper alloys",
+      aluminium: "Aluminium & aluminium alloys",
+      stainless: "Stainless steel",
+      nickel: "Nickel & nickel alloys",
+      lead: "Lead",
+      tin: "Tin",
+      magnesium: "Magnesium",
+      other: "Other materials"
+    };
+
+    const CORROSION_HEAT_GRADIENT = {
+      0.15: "#2c7bb6",
+      0.50: "#ffffbf",
+      0.75: "#fdae61",
+      1.00: "#d7191c"
+    };
+
     let activeClimateLayerKey = "";
     let climateGridLayer = null;
     let climateLayerCache = new Map();
@@ -2307,6 +2420,1350 @@
       return corrosionObservationsBySiteId.get(siteId) || [];
     }
 
+    function parseCanonicalCorrosionNumber(value) {
+      const text = normalizeText(value).replace(",", ".");
+
+      if (!text) {
+        return null;
+      }
+
+      const number = Number(text);
+
+      return Number.isFinite(number) ? number : null;
+    }
+
+    function getCorrosionQuantityLabel(
+      quantity = corrosionLayerFilterState.quantity
+    ) {
+      return quantity === "mass"
+        ? "Mass-loss rate — g/m²/year"
+        : "Thickness-loss rate — µm/year";
+    }
+
+    function getCorrosionCanonicalValue(
+      observation,
+      quantity = corrosionLayerFilterState.quantity
+    ) {
+      if (!observation) {
+        return null;
+      }
+
+      const rawValue =
+        quantity === "mass"
+          ? observation.canonical_mass_loss_rate_g_m2_year
+          : observation.canonical_thickness_loss_rate_um_year;
+
+      return parseCanonicalCorrosionNumber(rawValue);
+    }
+
+    function isDirectRateCorrosionMetric(value) {
+      const metric = normalizeText(value).toLowerCase();
+
+      return [
+        "penetration_rate",
+        "mass_loss_rate",
+        "corrosion_rate"
+      ].includes(metric);
+    }
+
+    function isCumulativeCorrosionMetric(value) {
+      const metric = normalizeText(value).toLowerCase();
+
+      return [
+        "cumulative_penetration",
+        "cumulative_mass_loss"
+      ].includes(metric);
+    }
+
+    function corrosionObservationMatchesBasis(
+      observation,
+      basis = corrosionLayerFilterState.basis
+    ) {
+      if (basis === "direct_rate") {
+        return isDirectRateCorrosionMetric(
+          observation.corrosion_metric
+        );
+      }
+
+      if (basis === "cumulative_derived") {
+        return isCumulativeCorrosionMetric(
+          observation.corrosion_metric
+        );
+      }
+
+      return true;
+    }
+
+    function getCorrosionExposureFilterValue(observation) {
+      return observation.exposure_period
+        ? observation.exposure_period
+        : CORROSION_EXPOSURE_NOT_REPORTED;
+    }
+
+    function getCorrosionSourceFilterValue(observation) {
+      if (observation.source_code) {
+        return `code:${observation.source_code}`;
+      }
+
+      if (observation.source_title) {
+        return `title:${observation.source_title.toLowerCase()}`;
+      }
+
+      return CORROSION_SOURCE_NOT_REPORTED;
+    }
+
+    function getCorrosionSourceFilterLabel(observation) {
+      const sourceCode = normalizeText(observation.source_code);
+      const sourceTitle = normalizeText(observation.source_title);
+
+      if (sourceCode && sourceTitle) {
+        return `${sourceCode.toUpperCase()} — ${sourceTitle}`;
+      }
+
+      if (sourceCode) {
+        return sourceCode.toUpperCase();
+      }
+
+      if (sourceTitle) {
+        return sourceTitle;
+      }
+
+      return "Source not specified";
+    }
+
+    function getCorrosionMaterialFamilyKey(material) {
+      const text = normalizeText(material)
+        .toLowerCase()
+        .replace(/[–—]/g, "-");
+
+      if (!text) {
+        return "other";
+      }
+
+      /*
+       * Metallic coatings are classified by the exposed
+       * coating rather than the steel substrate.
+       */
+      if (
+        text.includes("galvanized") ||
+        text.includes("galvanised") ||
+        text.includes("zinc-coated") ||
+        text.includes("zinc coated")
+      ) {
+        return "zinc";
+      }
+
+      if (
+        text.includes("aluminized") ||
+        text.includes("aluminised") ||
+        text.includes("aluminium-coated") ||
+        text.includes("aluminum-coated")
+      ) {
+        return "aluminium";
+      }
+
+      if (text.includes("stainless")) {
+        return "stainless";
+      }
+
+      /*
+       * Broad ferrous family:
+       *
+       * carbon steel
+       * mild / low-carbon steel
+       * low-alloy steel
+       * weathering steel
+       * copper-bearing steel / copper steel
+       * wrought iron
+       * ingot iron
+       * cast iron
+       * generic iron
+       */
+      if (
+        text.includes("steel") ||
+        text.includes("iron") ||
+        text.includes("corten") ||
+        text.includes("cor-ten")
+      ) {
+        return "ferrous";
+      }
+
+      if (
+        text === "zinc" ||
+        text.startsWith("zinc ")
+      ) {
+        return "zinc";
+      }
+
+      if (
+        text.includes("copper") ||
+        text.includes("brass") ||
+        text.includes("bronze")
+      ) {
+        return "copper";
+      }
+
+      if (
+        text.includes("aluminium") ||
+        text.includes("aluminum")
+      ) {
+        return "aluminium";
+      }
+
+      if (text.includes("nickel")) {
+        return "nickel";
+      }
+
+      if (
+        text === "lead" ||
+        text.startsWith("lead ")
+      ) {
+        return "lead";
+      }
+
+      if (
+        text === "tin" ||
+        text.startsWith("tin ")
+      ) {
+        return "tin";
+      }
+
+      if (text.includes("magnesium")) {
+        return "magnesium";
+      }
+
+      return "other";
+    }
+
+    function getCorrosionMaterialFamilyLabel(familyKey) {
+      return (
+        CORROSION_MATERIAL_FAMILY_LABELS[familyKey] ||
+        CORROSION_MATERIAL_FAMILY_LABELS.other
+      );
+    }
+
+    function getFilteredCorrosionLayerObservations() {
+      return corrosionObservations.filter(observation => {
+        const canonicalValue =
+          getCorrosionCanonicalValue(observation);
+
+        /*
+         * No valid canonical rate = cannot participate
+         * in the quantitative heatmap.
+         *
+         * This naturally excludes MCI, Al-ACI, ICI,
+         * pit depth, net mass change and unannualized
+         * cumulative observations.
+         */
+        if (canonicalValue === null) {
+          return false;
+        }
+
+        if (
+          corrosionLayerFilterState.materialFamily &&
+          getCorrosionMaterialFamilyKey(
+            observation.material
+          ) !== corrosionLayerFilterState.materialFamily
+        ) {
+          return false;
+        }
+
+        if (
+          corrosionLayerFilterState.material &&
+          observation.material !==
+            corrosionLayerFilterState.material
+        ) {
+          return false;
+        }
+
+        if (
+          corrosionLayerFilterState.exposurePeriod &&
+          getCorrosionExposureFilterValue(observation) !==
+            corrosionLayerFilterState.exposurePeriod
+        ) {
+          return false;
+        }
+
+        if (
+          !corrosionObservationMatchesBasis(observation)
+        ) {
+          return false;
+        }
+
+        if (
+          corrosionLayerFilterState.source &&
+          getCorrosionSourceFilterValue(observation) !==
+            corrosionLayerFilterState.source
+        ) {
+          return false;
+        }
+
+        return true;
+      });
+    }
+
+    function getFilteredCorrosionLayerObservationsForSite(row) {
+      const siteId = getSiteId(row);
+
+      if (!siteId) {
+        return [];
+      }
+
+      return getFilteredCorrosionLayerObservations()
+        .filter(
+          observation =>
+            observation.site_id === siteId
+        );
+    }
+
+    function parseExposurePeriodForSorting(value) {
+      if (
+        value === CORROSION_EXPOSURE_NOT_REPORTED
+      ) {
+        return Number.POSITIVE_INFINITY;
+      }
+
+      const text = normalizeText(value).toLowerCase();
+
+      const match = text.match(
+        /^(\d+(?:\.\d+)?)\s*(years?|yrs?|yr|y|months?|mos?|mo|weeks?|wks?|wk|days?|d)$/
+      );
+
+      if (!match) {
+        return null;
+      }
+
+      const amount = Number(match[1]);
+      const unit = match[2];
+
+      if (!Number.isFinite(amount)) {
+        return null;
+      }
+
+      if (
+        ["year", "years", "yr", "yrs", "y"].includes(unit)
+      ) {
+        return amount;
+      }
+
+      if (
+        ["month", "months", "mo", "mos"].includes(unit)
+      ) {
+        return amount / 12;
+      }
+
+      if (
+        ["week", "weeks", "wk", "wks"].includes(unit)
+      ) {
+        return amount * 7 / 365.25;
+      }
+
+      if (
+        ["day", "days", "d"].includes(unit)
+      ) {
+        return amount / 365.25;
+      }
+
+      return null;
+    }
+
+    function compareCorrosionExposureValues(left, right) {
+      if (
+        left === CORROSION_EXPOSURE_NOT_REPORTED
+      ) {
+        return 1;
+      }
+
+      if (
+        right === CORROSION_EXPOSURE_NOT_REPORTED
+      ) {
+        return -1;
+      }
+
+      const leftYears =
+        parseExposurePeriodForSorting(left);
+
+      const rightYears =
+        parseExposurePeriodForSorting(right);
+
+      if (
+        leftYears !== null &&
+        rightYears !== null
+      ) {
+        return leftYears - rightYears;
+      }
+
+      if (leftYears !== null) {
+        return -1;
+      }
+
+      if (rightYears !== null) {
+        return 1;
+      }
+
+      return left.localeCompare(right);
+    }
+
+    function replaceCorrosionSelectOptions(
+      selectId,
+      options,
+      allLabel
+    ) {
+      const select =
+        document.getElementById(selectId);
+
+      if (!select) {
+        return;
+      }
+
+      const previousValue = select.value;
+
+      select.innerHTML = "";
+
+      const allOption =
+        document.createElement("option");
+
+      allOption.value = "";
+      allOption.textContent = allLabel;
+
+      select.appendChild(allOption);
+
+      options.forEach(optionData => {
+        const option =
+          document.createElement("option");
+
+        option.value = optionData.value;
+        option.textContent = optionData.label;
+
+        select.appendChild(option);
+      });
+
+      const previousStillExists =
+        [...select.options].some(
+          option =>
+            option.value === previousValue
+        );
+
+      select.value =
+        previousStillExists
+          ? previousValue
+          : "";
+    }
+
+    function replaceCorrosionRequiredSelectOptions(
+      selectId,
+      options,
+      preferredValue
+    ) {
+      const select =
+        document.getElementById(selectId);
+
+      if (!select) {
+        return;
+      }
+
+      const previousValue =
+        select.value || preferredValue;
+
+      select.innerHTML = "";
+
+      options.forEach(optionData => {
+        const option =
+          document.createElement("option");
+
+        option.value = optionData.value;
+        option.textContent = optionData.label;
+
+        select.appendChild(option);
+      });
+
+      if (!options.length) {
+        return;
+      }
+
+      const previousStillExists =
+        [...select.options].some(
+          option =>
+            option.value === previousValue
+        );
+
+      if (previousStillExists) {
+        select.value = previousValue;
+        return;
+      }
+
+      const ferrousExists =
+        [...select.options].some(
+          option =>
+            option.value === "ferrous"
+        );
+
+      select.value =
+        ferrousExists
+          ? "ferrous"
+          : options[0].value;
+    }
+
+    function readCorrosionLayerFilterStateFromControls() {
+      corrosionLayerFilterState.quantity =
+        document.getElementById(
+          "corrosionQuantitySelect"
+        )?.value || "thickness";
+
+      corrosionLayerFilterState.materialFamily =
+        document.getElementById(
+          "corrosionMaterialFamilySelect"
+        )?.value || "ferrous";
+
+      corrosionLayerFilterState.material =
+        document.getElementById(
+          "corrosionMaterialSelect"
+        )?.value || "";
+
+      corrosionLayerFilterState.exposurePeriod =
+        document.getElementById(
+          "corrosionExposureSelect"
+        )?.value || "";
+
+      corrosionLayerFilterState.basis =
+        document.getElementById(
+          "corrosionBasisSelect"
+        )?.value || "all_compatible";
+
+      corrosionLayerFilterState.source =
+        document.getElementById(
+          "corrosionSourceSelect"
+        )?.value || "";
+    }
+
+    function populateCorrosionLayerFilterOptions() {
+      /*
+       * First restrict options to observations that can
+       * supply the currently selected canonical quantity.
+       */
+      const quantityBasisEligible =
+        corrosionObservations.filter(observation => {
+          if (
+            getCorrosionCanonicalValue(
+              observation
+            ) === null
+          ) {
+            return false;
+          }
+
+          return corrosionObservationMatchesBasis(
+            observation
+          );
+        });
+
+      const availableFamilyKeys =
+        new Set(
+          quantityBasisEligible.map(
+            observation =>
+              getCorrosionMaterialFamilyKey(
+                observation.material
+              )
+          )
+        );
+
+      const familyOptions =
+        Object.entries(
+          CORROSION_MATERIAL_FAMILY_LABELS
+        )
+          .filter(
+            ([familyKey]) =>
+              availableFamilyKeys.has(familyKey)
+          )
+          .map(
+            ([value, label]) => ({
+              value,
+              label
+            })
+          );
+
+      replaceCorrosionRequiredSelectOptions(
+        "corrosionMaterialFamilySelect",
+        familyOptions,
+        corrosionLayerFilterState.materialFamily
+      );
+
+      corrosionLayerFilterState.materialFamily =
+        document.getElementById(
+          "corrosionMaterialFamilySelect"
+        )?.value || "";
+
+      const familyEligible =
+        quantityBasisEligible.filter(
+          observation =>
+            !corrosionLayerFilterState.materialFamily ||
+            getCorrosionMaterialFamilyKey(
+              observation.material
+            ) ===
+              corrosionLayerFilterState.materialFamily
+        );
+
+      const materials =
+        [...new Set(
+          familyEligible
+            .map(
+              observation =>
+                observation.material
+            )
+            .filter(Boolean)
+        )]
+          .sort(
+            (left, right) =>
+              left.localeCompare(right)
+          )
+          .map(value => ({
+            value,
+            label: value
+          }));
+
+      replaceCorrosionSelectOptions(
+        "corrosionMaterialSelect",
+        materials,
+        "All materials in family"
+      );
+
+      corrosionLayerFilterState.material =
+        document.getElementById(
+          "corrosionMaterialSelect"
+        )?.value || "";
+
+      const materialEligible =
+        familyEligible.filter(
+          observation =>
+            !corrosionLayerFilterState.material ||
+            observation.material ===
+              corrosionLayerFilterState.material
+        );
+
+      const exposureValues =
+        [...new Set(
+          materialEligible.map(
+            getCorrosionExposureFilterValue
+          )
+        )]
+          .sort(
+            compareCorrosionExposureValues
+          )
+          .map(value => ({
+            value,
+            label:
+              value ===
+              CORROSION_EXPOSURE_NOT_REPORTED
+                ? "Not reported"
+                : value
+          }));
+
+      replaceCorrosionSelectOptions(
+        "corrosionExposureSelect",
+        exposureValues,
+        "All exposure periods"
+      );
+
+      const sourceLabels = new Map();
+
+      materialEligible.forEach(observation => {
+        const sourceValue =
+          getCorrosionSourceFilterValue(
+            observation
+          );
+
+        if (!sourceLabels.has(sourceValue)) {
+          sourceLabels.set(
+            sourceValue,
+            getCorrosionSourceFilterLabel(
+              observation
+            )
+          );
+        }
+      });
+
+      const sources =
+        [...sourceLabels.entries()]
+          .map(
+            ([value, label]) => ({
+              value,
+              label
+            })
+          )
+          .sort(
+            (left, right) =>
+              left.label.localeCompare(
+                right.label
+              )
+          );
+
+      replaceCorrosionSelectOptions(
+        "corrosionSourceSelect",
+        sources,
+        "All sources"
+      );
+
+      readCorrosionLayerFilterStateFromControls();
+      updateCorrosionLayerFilterStatus();
+    }
+
+    function setCorrosionLayerControlsDisabled(disabled) {
+      [
+        "corrosionHeatmapToggle",
+        "corrosionQuantitySelect",
+        "corrosionMaterialFamilySelect",
+        "corrosionMaterialSelect",
+        "corrosionExposureSelect",
+        "corrosionBasisSelect",
+        "corrosionSourceSelect",
+        "resetCorrosionFiltersBtn"
+      ].forEach(id => {
+        const element =
+          document.getElementById(id);
+
+        if (element) {
+          element.disabled =
+            Boolean(disabled);
+        }
+      });
+    }
+
+    function updateCorrosionLayerFilterStatus() {
+      const status =
+        document.getElementById(
+          "corrosionFilterStatus"
+        );
+
+      if (!status) {
+        return;
+      }
+
+      if (!corrosionObservationsLoaded) {
+        status.textContent =
+          corrosionObservationsLoadError
+            ? "Corrosion-layer controls are unavailable because the observation dataset could not be loaded."
+            : "Waiting for corrosion observations...";
+
+        return;
+      }
+
+      const matchingObservations =
+        getFilteredCorrosionLayerObservations();
+
+      const matchingSiteCount =
+        new Set(
+          matchingObservations.map(
+            observation =>
+              observation.site_id
+          )
+        ).size;
+
+      const familyLabel =
+        getCorrosionMaterialFamilyLabel(
+          corrosionLayerFilterState
+            .materialFamily
+        );
+
+      if (!matchingObservations.length) {
+        status.textContent =
+          `${corrosionHeatmapActive ? "Heatmap on. " : ""}` +
+          "No canonical corrosion observations match the current selection.";
+
+        return;
+      }
+
+      status.textContent =
+        `${corrosionHeatmapActive ? "Heatmap on. " : ""}` +
+        `${matchingObservations.length.toLocaleString()} compatible ` +
+        `observation${matchingObservations.length === 1 ? "" : "s"} across ` +
+        `${matchingSiteCount.toLocaleString()} measured ` +
+        `site${matchingSiteCount === 1 ? "" : "s"}. ` +
+        `${familyLabel} · ${getCorrosionQuantityLabel()}.`;
+    }
+
+    function refreshCorrosionPopupContent() {
+      /*
+       * renderMarkers() updates the marker collection even if
+       * markersLayer is currently hidden by heatmap mode.
+       */
+      renderMarkers(visibleRows);
+    }
+
+    function handleCorrosionLayerFilterChange(event) {
+      readCorrosionLayerFilterStateFromControls();
+
+      const changedControlId =
+        event?.target?.id || "";
+
+      if (
+        changedControlId ===
+          "corrosionQuantitySelect" ||
+        changedControlId ===
+          "corrosionBasisSelect" ||
+        changedControlId ===
+          "corrosionMaterialFamilySelect" ||
+        changedControlId ===
+          "corrosionMaterialSelect"
+      ) {
+        populateCorrosionLayerFilterOptions();
+      } else {
+        updateCorrosionLayerFilterStatus();
+      }
+
+      refreshCorrosionPopupContent();
+
+      if (corrosionHeatmapActive) {
+        renderCorrosionHeatmap();
+      }
+    }
+
+    function resetCorrosionLayerFilters() {
+      const quantitySelect =
+        document.getElementById(
+          "corrosionQuantitySelect"
+        );
+
+      const familySelect =
+        document.getElementById(
+          "corrosionMaterialFamilySelect"
+        );
+
+      const materialSelect =
+        document.getElementById(
+          "corrosionMaterialSelect"
+        );
+
+      const exposureSelect =
+        document.getElementById(
+          "corrosionExposureSelect"
+        );
+
+      const basisSelect =
+        document.getElementById(
+          "corrosionBasisSelect"
+        );
+
+      const sourceSelect =
+        document.getElementById(
+          "corrosionSourceSelect"
+        );
+
+      if (quantitySelect) {
+        quantitySelect.value = "thickness";
+      }
+
+      if (familySelect) {
+        familySelect.value = "ferrous";
+      }
+
+      if (materialSelect) {
+        materialSelect.value = "";
+      }
+
+      if (exposureSelect) {
+        exposureSelect.value = "";
+      }
+
+      if (basisSelect) {
+        basisSelect.value =
+          "all_compatible";
+      }
+
+      if (sourceSelect) {
+        sourceSelect.value = "";
+      }
+
+      readCorrosionLayerFilterStateFromControls();
+      populateCorrosionLayerFilterOptions();
+      refreshCorrosionPopupContent();
+
+      if (corrosionHeatmapActive) {
+        renderCorrosionHeatmap();
+      }
+    }
+
+    function getCorrosionSiteRowById(siteId) {
+      const target =
+        normalizeText(siteId).toUpperCase();
+
+      if (!target) {
+        return null;
+      }
+
+      return (
+        allRows.find(
+          row =>
+            getSiteId(row) === target
+        ) ||
+        null
+      );
+    }
+
+    function medianCorrosionNumbers(values) {
+      const sorted =
+        values
+          .map(Number)
+          .filter(Number.isFinite)
+          .sort(
+            (left, right) =>
+              left - right
+          );
+
+      if (!sorted.length) {
+        return null;
+      }
+
+      const middle =
+        Math.floor(
+          sorted.length / 2
+        );
+
+      if (
+        sorted.length % 2 === 1
+      ) {
+        return sorted[middle];
+      }
+
+      return (
+        sorted[middle - 1] +
+        sorted[middle]
+      ) / 2;
+    }
+
+    function corrosionPercentile(
+      sortedValues,
+      fraction
+    ) {
+      if (!sortedValues.length) {
+        return null;
+      }
+
+      if (sortedValues.length === 1) {
+        return sortedValues[0];
+      }
+
+      const position =
+        (sortedValues.length - 1) *
+        fraction;
+
+      const lowerIndex =
+        Math.floor(position);
+
+      const upperIndex =
+        Math.ceil(position);
+
+      if (lowerIndex === upperIndex) {
+        return sortedValues[lowerIndex];
+      }
+
+      const interpolation =
+        position - lowerIndex;
+
+      return (
+        sortedValues[lowerIndex] +
+        (
+          sortedValues[upperIndex] -
+          sortedValues[lowerIndex]
+        ) *
+        interpolation
+      );
+    }
+
+    function buildCorrosionHeatmapSiteSummaries() {
+      const observations =
+        getFilteredCorrosionLayerObservations();
+
+      const groupedBySite = new Map();
+
+      observations.forEach(observation => {
+        const value =
+          getCorrosionCanonicalValue(
+            observation
+          );
+
+        if (
+          value === null ||
+          !Number.isFinite(value) ||
+          value < 0
+        ) {
+          return;
+        }
+
+        if (
+          !groupedBySite.has(
+            observation.site_id
+          )
+        ) {
+          groupedBySite.set(
+            observation.site_id,
+            []
+          );
+        }
+
+        groupedBySite
+          .get(observation.site_id)
+          .push(value);
+      });
+
+      const summaries = [];
+
+      groupedBySite.forEach(
+        (values, siteId) => {
+          const siteRow =
+            getCorrosionSiteRowById(
+              siteId
+            );
+
+          if (
+            !siteRow ||
+            !Number.isFinite(siteRow._lat) ||
+            !Number.isFinite(siteRow._lon)
+          ) {
+            return;
+          }
+
+          const median =
+            medianCorrosionNumbers(values);
+
+          if (
+            median === null ||
+            !Number.isFinite(median)
+          ) {
+            return;
+          }
+
+          summaries.push({
+            site_id: siteId,
+            site_label:
+              siteRow.site_label ||
+              siteId,
+            lat: siteRow._lat,
+            lon: siteRow._lon,
+            value: median,
+            observation_count:
+              values.length
+          });
+        }
+      );
+
+      return summaries;
+    }
+
+    function getCorrosionHeatScale(summaries) {
+      const values =
+        summaries
+          .map(
+            summary =>
+              summary.value
+          )
+          .filter(
+            value =>
+              Number.isFinite(value) &&
+              value >= 0
+          )
+          .sort(
+            (left, right) =>
+              left - right
+          );
+
+      if (!values.length) {
+        return null;
+      }
+
+      let low =
+        values.length >= 10
+          ? corrosionPercentile(
+              values,
+              0.05
+            )
+          : values[0];
+
+      let high =
+        values.length >= 10
+          ? corrosionPercentile(
+              values,
+              0.95
+            )
+          : values[
+              values.length - 1
+            ];
+
+      if (!Number.isFinite(low)) {
+        low = values[0];
+      }
+
+      if (!Number.isFinite(high)) {
+        high =
+          values[
+            values.length - 1
+          ];
+      }
+
+      return {
+        low,
+        median:
+          corrosionPercentile(
+            values,
+            0.50
+          ),
+        high,
+        minimum: values[0],
+        maximum:
+          values[
+            values.length - 1
+          ]
+      };
+    }
+
+    function normaliseCorrosionHeatIntensity(
+      value,
+      low,
+      high
+    ) {
+      if (!Number.isFinite(value)) {
+        return 0;
+      }
+
+      if (
+        !Number.isFinite(low) ||
+        !Number.isFinite(high) ||
+        high <= low
+      ) {
+        return 0.70;
+      }
+
+      /*
+       * Atmospheric corrosion rates often span orders
+       * of magnitude. A logarithmic display scale keeps
+       * one severe marine site from washing out all
+       * moderate sites.
+       */
+      const lowLog =
+        Math.log1p(
+          Math.max(0, low)
+        );
+
+      const highLog =
+        Math.log1p(
+          Math.max(0, high)
+        );
+
+      const valueLog =
+        Math.log1p(
+          Math.max(0, value)
+        );
+
+      const normalized =
+        (valueLog - lowLog) /
+        (highLog - lowLog);
+
+      return Math.max(
+        0.15,
+        Math.min(1, normalized)
+      );
+    }
+
+    function formatCorrosionHeatValue(value) {
+      if (!Number.isFinite(value)) {
+        return "—";
+      }
+
+      if (value < 10) {
+        return value.toFixed(2);
+      }
+
+      if (value < 100) {
+        return value.toFixed(1);
+      }
+
+      return value.toFixed(0);
+    }
+
+    function getCorrosionHeatUnit() {
+      return (
+        corrosionLayerFilterState.quantity ===
+        "mass"
+          ? "g/m²/year"
+          : "µm/year"
+      );
+    }
+
+    function removeCorrosionHeatLayer() {
+      if (corrosionHeatLayer) {
+        map.removeLayer(
+          corrosionHeatLayer
+        );
+
+        corrosionHeatLayer = null;
+      }
+    }
+
+    function renderCorrosionHeatmap() {
+      removeCorrosionHeatLayer();
+
+      if (!corrosionHeatmapActive) {
+        return;
+      }
+
+      const summaries =
+        buildCorrosionHeatmapSiteSummaries();
+
+      const scale =
+        getCorrosionHeatScale(
+          summaries
+        );
+
+      if (
+        !summaries.length ||
+        !scale
+      ) {
+        removeOverlayLegend();
+        updateCorrosionLayerFilterStatus();
+        return;
+      }
+
+      const heatPoints =
+        summaries.map(
+          summary => [
+            summary.lat,
+            summary.lon,
+            normaliseCorrosionHeatIntensity(
+              summary.value,
+              scale.low,
+              scale.high
+            )
+          ]
+        );
+
+      corrosionHeatLayer =
+        L.heatLayer(
+          heatPoints,
+          {
+            pane: "corrosionHeatPane",
+            radius: 32,
+            blur: 24,
+            maxZoom: 6,
+            minOpacity: 0.28,
+            gradient:
+              CORROSION_HEAT_GRADIENT
+          }
+        );
+
+      corrosionHeatLayer.addTo(map);
+
+      const unit =
+        getCorrosionHeatUnit();
+
+      const familyLabel =
+        getCorrosionMaterialFamilyLabel(
+          corrosionLayerFilterState
+            .materialFamily
+        );
+
+      const materialLabel =
+        corrosionLayerFilterState.material ||
+        familyLabel;
+
+      const legendStops = [
+        [
+          "#2c7bb6",
+          `${formatCorrosionHeatValue(
+            scale.low
+          )} ${unit}`
+        ],
+        [
+          "#ffffbf",
+          `${formatCorrosionHeatValue(
+            scale.median
+          )} ${unit}`
+        ],
+        [
+          "#d7191c",
+          `${formatCorrosionHeatValue(
+            scale.high
+          )} ${unit}`
+        ]
+      ];
+
+      renderOverlayLegend(
+        corrosionLayerFilterState.quantity ===
+          "mass"
+          ? "Corrosion mass-loss rate"
+          : "Corrosion thickness-loss rate",
+        materialLabel,
+        legendStops,
+        (
+          `${summaries.length.toLocaleString()} measured site(s). ` +
+          "Where multiple compatible observations occur at one site, " +
+          "the displayed site value is their median. " +
+          "Colour scaling uses log-transformed 5th–95th percentile limits " +
+          "when sufficient data are available. " +
+          "Spatial smoothing is for visualization only and is not a predictive corrosion model."
+        )
+      );
+
+      updateCorrosionLayerFilterStatus();
+    }
+
+    function setCorrosionHeatmapActive(isActive) {
+      const toggle =
+        document.getElementById(
+          "corrosionHeatmapToggle"
+        );
+
+      if (
+        isActive &&
+        !corrosionObservationsLoaded
+      ) {
+        corrosionHeatmapActive = false;
+
+        if (toggle) {
+          toggle.checked = false;
+        }
+
+        return;
+      }
+
+      if (isActive) {
+        /*
+         * Climate and corrosion colour overlays are kept
+         * mutually exclusive.
+         */
+        clearClimateLayer({
+          resetSelect: true,
+          updateStatus: true,
+          removeLegend: true
+        });
+
+        corrosionHeatmapActive = true;
+
+        if (map.hasLayer(markersLayer)) {
+          map.removeLayer(markersLayer);
+        }
+
+        if (toggle) {
+          toggle.checked = true;
+        }
+
+        renderCorrosionHeatmap();
+        return;
+      }
+
+      corrosionHeatmapActive = false;
+
+      removeCorrosionHeatLayer();
+      removeOverlayLegend();
+
+      if (!map.hasLayer(markersLayer)) {
+        markersLayer.addTo(map);
+      }
+
+      if (toggle) {
+        toggle.checked = false;
+      }
+
+      updateCorrosionLayerFilterStatus();
+    }
+
     function formatCorrosionMetricLabel(value) {
       const text = normalizeText(value);
 
@@ -2729,6 +4186,27 @@
         `;
       }
 
+      const layerMatches =
+        getFilteredCorrosionLayerObservationsForSite(
+          row
+        );
+
+      const layerMatchText =
+        layerMatches.length === 0
+          ? (
+              "No observation at this site matches the current " +
+              "corrosion-layer selection."
+            )
+          : (
+              `${layerMatches.length} of ` +
+              `${observations.length} observation${
+                observations.length === 1
+                  ? ""
+                  : "s"
+              } at this site match the current ` +
+              `${getCorrosionQuantityLabel()} layer selection.`
+            );
+
       return `
         <div class="popup-section-title">
           Curated corrosion observations
@@ -2740,6 +4218,11 @@
           are available for this site.
           Source-reported observations are shown individually;
           no averaging or cross-source aggregation has been applied.
+        </div>
+
+        <div class="popup-tab-note">
+          <strong>Current layer selection:</strong>
+          ${escapeHtml(layerMatchText)}
         </div>
 
         ${buildCorrosionObservationHierarchy(
@@ -3859,6 +5342,9 @@
         "Loading curated corrosion observations..."
       );
 
+      setCorrosionLayerControlsDisabled(true);
+      updateCorrosionLayerFilterStatus();
+
       Papa.parse(
         `/data/corrosion_observations.csv?v=${Date.now()}`,
         {
@@ -3938,6 +5424,10 @@
               }.`
             );
 
+            setCorrosionLayerControlsDisabled(false);
+            readCorrosionLayerFilterStateFromControls();
+            populateCorrosionLayerFilterOptions();            
+
             /*
             * Marker popups were originally bound before
             * this asynchronous dataset finished loading.
@@ -3974,6 +5464,9 @@
             setCorrosionObservationStatus(
               "Curated corrosion observations could not be loaded."
             );
+
+            setCorrosionLayerControlsDisabled(true);
+            updateCorrosionLayerFilterStatus();            
 
             console.error(
               "Could not load curated corrosion observations.",
@@ -4138,7 +5631,10 @@
         select.value = "";
       }
 
-      if (removeLegend) {
+      if (
+        removeLegend &&
+        !corrosionHeatmapActive
+      ) {
         removeOverlayLegend();
       }
 
@@ -4265,6 +5761,13 @@
     }
 
     async function loadClimateLayer(layerKey) {
+      if (
+        layerKey &&
+        corrosionHeatmapActive
+      ) {
+        setCorrosionHeatmapActive(false);
+      }
+
       clearClimateLayer({
         resetSelect: false,
         updateStatus: false,
@@ -4973,6 +6476,40 @@
         updateStats(allRows);
         renderActiveFilterChips();
         renderCountryDirectory(allRows);
+
+        [
+          "corrosionQuantitySelect",
+          "corrosionMaterialFamilySelect",
+          "corrosionMaterialSelect",
+          "corrosionExposureSelect",
+          "corrosionBasisSelect",
+          "corrosionSourceSelect"
+        ].forEach(id => {
+          document
+            .getElementById(id)
+            ?.addEventListener(
+              "change",
+              handleCorrosionLayerFilterChange
+            );
+        });
+
+        document
+          .getElementById("corrosionHeatmapToggle")
+          ?.addEventListener(
+            "change",
+            function(event) {
+              setCorrosionHeatmapActive(
+                event.target.checked
+              );
+            }
+          );
+
+        document
+          .getElementById("resetCorrosionFiltersBtn")
+          ?.addEventListener(
+            "click",
+            resetCorrosionLayerFilters
+          );
 
         loadCuratedCorrosionObservations();
 
