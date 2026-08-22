@@ -2685,6 +2685,7 @@ def build_corrosion_entry_workbook(
             f')'
             f')'
             f')'
+            f')'
         )
 
     # =========================================================
@@ -3419,6 +3420,15 @@ def build_corrosion_entry_workbook(
     workbook.active = workbook.sheetnames.index(
         "Corrosion Observations"
     )
+
+    # ---------------------------------------------------------
+    # Force Excel to recalculate workbook formulas
+    # ---------------------------------------------------------
+
+    workbook.calculation.calcMode = "auto"
+    workbook.calculation.fullCalcOnLoad = True
+    workbook.calculation.forceFullCalc = True
+    workbook.calculation.calcOnSave = True
 
     # ---------------------------------------------------------
     # Save
