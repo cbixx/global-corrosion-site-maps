@@ -94,7 +94,10 @@ from ui_styles import (
     render_workflow_step,
 )
 
+import corrosion_workbook as corrosion_workbook_module
+
 from corrosion_workbook import (
+    CORROSION_WORKBOOK_GENERATOR_VERSION,
     build_corrosion_entry_workbook_xlsm,
     read_corrosion_entry_workbook,
     validate_corrosion_workbook_rows,
@@ -3773,6 +3776,16 @@ with manual_col_title:
     st.title(t("app_title", ui_language))
     st.caption(t("app_caption", ui_language))
 
+    st.caption(
+        "Workbook generator: "
+        f"{CORROSION_WORKBOOK_GENERATOR_VERSION}"
+    )
+
+    st.caption(
+        "Loaded workbook module: "
+        f"{Path(corrosion_workbook_module.__file__).resolve()}"
+    )
+    
 with manual_col_controls:
     language_col, manual_button_col, logout_button_col = st.columns(
         [0.34, 0.42, 0.24],
