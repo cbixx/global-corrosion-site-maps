@@ -23,6 +23,10 @@ CORROSION_XLSM_TEMPLATE_PATH = (
     )
 )
 
+CORROSION_WORKBOOK_GENERATOR_VERSION = (
+    "2026-08-22-qformula-fix-v2"
+)
+
 CORROSION_METRIC_OPTIONS = [
     "penetration_rate",
     "mass_loss_rate",
@@ -1397,6 +1401,19 @@ def build_corrosion_entry_workbook(
         "same reported observation."
     )
 
+    guide_sheet["A43"] = (
+        "Generator build"
+    )
+
+    guide_sheet["A43"].font = Font(
+        bold=True,
+        color="17365D",
+    )
+
+    guide_sheet["B43"] = (
+        CORROSION_WORKBOOK_GENERATOR_VERSION
+    )    
+
     if macro_enabled:
 
         guide_sheet["A45"] = (
@@ -2633,9 +2650,7 @@ def build_corrosion_entry_workbook(
         # Human-readable conversion note
         # -----------------------------------------------------
 
-        sheet[
-            note_cell
-        ] = (
+        note_formula = (
             f'=IF('
             f'OR('
             f'{metric_cell}="",'
@@ -2687,6 +2702,22 @@ def build_corrosion_entry_workbook(
             f')'
             f')'
         )
+
+        if (
+            note_formula.count("(")
+            != note_formula.count(")")
+        ):
+            raise RuntimeError(
+                "Generated normalization-note formula "
+                f"is unbalanced at {note_cell}: "
+                f"{note_formula.count('(')} opening "
+                f"parentheses vs "
+                f"{note_formula.count(')')} closing."
+            )
+
+        sheet[
+            note_cell
+        ] = note_formula
 
     # =========================================================
     # Data validation
