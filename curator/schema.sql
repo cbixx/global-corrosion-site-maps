@@ -79,6 +79,9 @@ create table if not exists corrosion_observations (
     value real not null,
     unit text not null,
 
+    canonical_thickness_loss_rate_um_year real,
+    canonical_mass_loss_rate_g_m2_year real,
+
     normalized_value real,
     normalized_unit text not null default '',
 
@@ -119,6 +122,54 @@ create table if not exists corrosion_observations (
         measurement_method,
         specimen_condition
     )
+);
+
+create table if not exists environmental_observations (
+    id integer primary key autoincrement,
+
+    site_fk integer not null,
+    source_fk integer,
+    site_source_fk integer,
+
+    variable_name text not null,
+    value real not null,
+    unit text not null,
+
+    aggregation text not null default '',
+    period_start text not null default '',
+    period_end text not null default '',
+    data_source text not null default '',
+    notes text not null default '',
+
+    created_at text default current_timestamp,
+    updated_at text default current_timestamp,
+
+    foreign key(site_fk)
+        references sites(id)
+        on delete cascade,
+
+    foreign key(source_fk)
+        references sources(id)
+        on delete set null,
+
+    foreign key(site_source_fk)
+        references site_sources(id)
+        on delete set null,
+
+    unique(
+        site_fk,
+        variable_name,
+        aggregation,
+        period_start,
+        period_end,
+        data_source
+    )
+);
+
+create table if not exists app_settings (
+    setting_key text primary key,
+    payload_json text not null,
+    updated_at text default current_timestamp
 );
 
 create index idx_sites_site_id on sites(site_id);

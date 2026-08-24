@@ -999,6 +999,8 @@ def get_public_corrosion_observations() -> list[dict]:
         rows = conn.execute(
             """
             select
+                corrosion_observations.id as observation_id,
+
                 sites.site_id,
                 sites.site_label,
                 sites.latitude,
