@@ -79,6 +79,13 @@ async function handleSourcesList(env) {
   );
 }
 
+async function serveAsset(request, env, pathname) {
+  const url = new URL(request.url);
+  url.pathname = pathname;
+
+  return env.ASSETS.fetch(new Request(url, request));
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -103,31 +110,14 @@ export default {
       return handleSourcesList(env);
     }    
 
-    if (path === "/" || path === "/sources") {
-      return htmlResponse(`
-<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Corrosion Atlas Curator</title>
-</head>
-<body>
-  <main>
-    <h1>Corrosion Atlas Curator</h1>
-    <p>Native curator smoke test is running.</p>
-    <p>Build: ${CURATOR_BUILD_ID}</p>
-  </main>
-</body>
-</html>
-      `);
+    if (path === "/") {
+      return Response.redirect(new URL("/sources", url).toString(), 302);
     }
 
-    return new Response("Not found.", {
-      status: 404,
-      headers: {
-        "content-type": "text/plain; charset=utf-8",
-      },
-    });
-  },
-};
+    if (path === "/sources") {
+      return serveAsset(request, env, "/sources/index.html");
+    }
+
+    return env.ASSETS.fetch(request);
+  }
+}

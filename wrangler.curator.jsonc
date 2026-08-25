@@ -6,6 +6,12 @@
   "workers_dev": false,
   "preview_urls": false,
 
+  "assets": {
+    "directory": "./curator-web",
+    "binding": "ASSETS",
+    "run_worker_first": true
+  },
+
   "routes": [
     {
       "pattern": "curator.corrosionatlas.org",
