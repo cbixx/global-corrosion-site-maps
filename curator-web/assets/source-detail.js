@@ -136,7 +136,7 @@ async function loadSource() {
     renderSource();
 
     document.title =
-      `${String(source.source_code || "").toUpperCase()} · Corrosion Atlas Curator`;
+    `${String(currentSource.source_code || "").toUpperCase()} · Corrosion Atlas Curator`;
 
     statusElement.hidden = true;
     detailElement.hidden = false;
