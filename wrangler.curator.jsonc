@@ -1,0 +1,15 @@
+{
+  "name": "corrosion-atlas-curator",
+  "main": "src/curator-worker.js",
+  "compatibility_date": "2026-05-10",
+
+  "workers_dev": false,
+  "preview_urls": false,
+
+  "routes": [
+    {
+      "pattern": "curator.corrosionatlas.org",
+      "custom_domain": true
+    }
+  ]
+}
