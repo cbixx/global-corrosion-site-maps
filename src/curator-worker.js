@@ -10,8 +10,77 @@ function htmlResponse(html, status = 200) {
   });
 }
 
+async function handleSourcesList(env) {
+  if (!env.SUPABASE_URL || !env.SUPABASE_SECRET_KEY) {
+    return Response.json(
+      {
+        ok: false,
+        error: "Supabase configuration is missing.",
+      },
+      {
+        status: 500,
+        headers: {
+          "cache-control": "no-store",
+        },
+      }
+    );
+  }
+
+  const endpoint = new URL("/rest/v1/sources", env.SUPABASE_URL);
+
+  endpoint.searchParams.set(
+    "select",
+    "id,source_code,source_title,authors_or_organization,publication_year,source_kind,source_type"
+  );
+
+  endpoint.searchParams.set("order", "source_code.asc");
+
+  const response = await fetch(endpoint, {
+    headers: {
+      apikey: env.SUPABASE_SECRET_KEY,
+      accept: "application/json",
+    },
+  });
+
+  if (!response.ok) {
+    const detail = await response.text();
+
+    console.error("Supabase sources request failed.", {
+      status: response.status,
+      detail,
+    });
+
+    return Response.json(
+      {
+        ok: false,
+        error: "Unable to load sources.",
+      },
+      {
+        status: 502,
+        headers: {
+          "cache-control": "no-store",
+        },
+      }
+    );
+  }
+
+  const sources = await response.json();
+
+  return Response.json(
+    {
+      ok: true,
+      sources,
+    },
+    {
+      headers: {
+        "cache-control": "no-store",
+      },
+    }
+  );
+}
+
 export default {
-  async fetch(request) {
+  async fetch(request, env) {
     const url = new URL(request.url);
     const path = url.pathname.replace(/\/+$/, "") || "/";
 
@@ -29,6 +98,10 @@ export default {
         }
       );
     }
+
+    if (path === "/api/sources" && request.method === "GET") {
+      return handleSourcesList(env);
+    }    
 
     if (path === "/" || path === "/sources") {
       return htmlResponse(`
