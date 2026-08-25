@@ -594,6 +594,226 @@ async function handleSiteUpdate(request, env, siteId) {
   );
 }
 
+async function handleSiteSourceLinks(env, siteId) {
+  const id = Number(siteId);
+
+  if (!Number.isInteger(id) || id <= 0) {
+    return Response.json(
+      { ok: false, error: "Invalid site ID." },
+      { status: 400, headers: { "cache-control": "no-store" } }
+    );
+  }
+
+  const endpoint = new URL("/rest/v1/site_sources", env.SUPABASE_URL);
+
+  endpoint.searchParams.set(
+    "select",
+    [
+      "id",
+      "site_fk",
+      "source_fk",
+      "source_order",
+      "metals",
+      "exposure_periods",
+      "notes",
+      "sources(source_code,source_title,programme)"
+    ].join(",")
+  );
+
+  endpoint.searchParams.set("site_fk", `eq.${id}`);
+  endpoint.searchParams.set("order", "source_order.asc,source_fk.asc");
+
+  const response = await fetch(endpoint, {
+    headers: {
+      apikey: env.SUPABASE_SECRET_KEY,
+      accept: "application/json",
+    },
+  });
+
+  if (!response.ok) {
+    const detail = await response.text();
+
+    console.error("Unable to load site-source links.", {
+      status: response.status,
+      detail,
+    });
+
+    return Response.json(
+      { ok: false, error: "Unable to load linked sources." },
+      { status: 502, headers: { "cache-control": "no-store" } }
+    );
+  }
+
+  const rows = await response.json();
+
+  const links = rows.map((row) => ({
+    id: row.id,
+    site_fk: row.site_fk,
+    source_fk: row.source_fk,
+    source_order: row.source_order,
+    metals: row.metals || "",
+    exposure_periods: row.exposure_periods || "",
+    notes: row.notes || "",
+    source_code: row.sources?.source_code || "",
+    source_title: row.sources?.source_title || "",
+    programme: row.sources?.programme || "",
+  }));
+
+  return Response.json(
+    { ok: true, links },
+    { headers: { "cache-control": "no-store" } }
+  );
+}
+
+async function handleSiteSourceUpsert(request, env, siteId) {
+  const siteFk = Number(siteId);
+
+  if (!Number.isInteger(siteFk) || siteFk <= 0) {
+    return Response.json(
+      { ok: false, error: "Invalid site ID." },
+      { status: 400, headers: { "cache-control": "no-store" } }
+    );
+  }
+
+  let payload;
+
+  try {
+    payload = await request.json();
+  } catch {
+    return Response.json(
+      { ok: false, error: "Invalid JSON body." },
+      { status: 400, headers: { "cache-control": "no-store" } }
+    );
+  }
+
+  const sourceFk = Number(payload.source_fk);
+  const sourceOrder = Number(payload.source_order || 1);
+
+  if (!Number.isInteger(sourceFk) || sourceFk <= 0) {
+    return Response.json(
+      { ok: false, error: "A valid source is required." },
+      { status: 400, headers: { "cache-control": "no-store" } }
+    );
+  }
+
+  if (!Number.isInteger(sourceOrder) || sourceOrder < 1) {
+    return Response.json(
+      { ok: false, error: "Source order must be a positive integer." },
+      { status: 400, headers: { "cache-control": "no-store" } }
+    );
+  }
+
+  const link = {
+    site_fk: siteFk,
+    source_fk: sourceFk,
+    source_order: sourceOrder,
+    metals: String(payload.metals || "").trim(),
+    exposure_periods: String(payload.exposure_periods || "").trim(),
+    notes: String(payload.notes || "").trim(),
+  };
+
+  const endpoint = new URL("/rest/v1/site_sources", env.SUPABASE_URL);
+
+  endpoint.searchParams.set(
+    "on_conflict",
+    "site_fk,source_fk"
+  );
+
+  const response = await fetch(endpoint, {
+    method: "POST",
+    headers: {
+      apikey: env.SUPABASE_SECRET_KEY,
+      "content-type": "application/json",
+      accept: "application/json",
+      prefer: "resolution=merge-duplicates,return=representation",
+    },
+    body: JSON.stringify(link),
+  });
+
+  if (!response.ok) {
+    const detail = await response.text();
+
+    console.error("Unable to save site-source link.", {
+      status: response.status,
+      detail,
+    });
+
+    return Response.json(
+      { ok: false, error: "Unable to save source link." },
+      { status: 502, headers: { "cache-control": "no-store" } }
+    );
+  }
+
+  const rows = await response.json();
+
+  return Response.json(
+    {
+      ok: true,
+      link: rows[0] || null,
+    },
+    { headers: { "cache-control": "no-store" } }
+  );
+}
+
+async function handleSiteSourceDelete(env, siteId, linkId) {
+  const siteFk = Number(siteId);
+  const id = Number(linkId);
+
+  if (
+    !Number.isInteger(siteFk) ||
+    siteFk <= 0 ||
+    !Number.isInteger(id) ||
+    id <= 0
+  ) {
+    return Response.json(
+      { ok: false, error: "Invalid link." },
+      { status: 400, headers: { "cache-control": "no-store" } }
+    );
+  }
+
+  const endpoint = new URL("/rest/v1/site_sources", env.SUPABASE_URL);
+
+  endpoint.searchParams.set("id", `eq.${id}`);
+  endpoint.searchParams.set("site_fk", `eq.${siteFk}`);
+
+  const response = await fetch(endpoint, {
+    method: "DELETE",
+    headers: {
+      apikey: env.SUPABASE_SECRET_KEY,
+      accept: "application/json",
+      prefer: "return=representation",
+    },
+  });
+
+  if (!response.ok) {
+    const detail = await response.text();
+
+    console.error("Unable to delete site-source link.", {
+      status: response.status,
+      detail,
+    });
+
+    return Response.json(
+      { ok: false, error: "Unable to remove source link." },
+      { status: 502, headers: { "cache-control": "no-store" } }
+    );
+  }
+
+  const rows = await response.json();
+
+  if (rows.length === 0) {
+    return Response.json(
+      { ok: false, error: "Link not found." },
+      { status: 404, headers: { "cache-control": "no-store" } }
+    );
+  }
+
+  return Response.json(
+    { ok: true },
+    { headers: { "cache-control": "no-store" } }
+  );
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -631,6 +851,35 @@ export default {
     if (siteDetailMatch && request.method === "PATCH") {
       return handleSiteUpdate(request, env, siteDetailMatch[1]);
     }
+
+    const siteSourcesMatch =
+      path.match(/^\/api\/sites\/(\d+)\/sources$/);
+
+    if (siteSourcesMatch && request.method === "GET") {
+      return handleSiteSourceLinks(
+        env,
+        siteSourcesMatch[1]
+      );
+    }
+
+    if (siteSourcesMatch && request.method === "POST") {
+      return handleSiteSourceUpsert(
+        request,
+        env,
+        siteSourcesMatch[1]
+      );
+    }
+
+    const siteSourceLinkMatch =
+      path.match(/^\/api\/sites\/(\d+)\/sources\/(\d+)$/);
+
+    if (siteSourceLinkMatch && request.method === "DELETE") {
+      return handleSiteSourceDelete(
+        env,
+        siteSourceLinkMatch[1],
+        siteSourceLinkMatch[2]
+      );
+    }
     
     const sourceDetailMatch = path.match(/^\/api\/sources\/(\d+)$/);
 
@@ -662,7 +911,6 @@ export default {
       return env.ASSETS.fetch(request);
     }
     
-
     return env.ASSETS.fetch(request);
   }
 }

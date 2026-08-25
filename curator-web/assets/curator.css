@@ -238,6 +238,28 @@ h1 {
   .detail-actions {
     width: 100%;
   }
+
+  .related-heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .link-form {
+    grid-template-columns: 1fr;
+  }
+
+  .link-form-field-wide,
+  .link-form-actions {
+    grid-column: auto;
+  }
+
+  .linked-source {
+    flex-direction: column;
+  }
+
+  .linked-source-actions {
+    align-self: flex-start;
+  }
 }
 
 .detail-heading {
@@ -321,4 +343,123 @@ textarea.detail-input {
 
 .save-message-error {
   background: #fbeeee;
+}
+
+.related-section {
+  margin-top: 38px;
+}
+
+.related-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 20px;
+  margin-bottom: 18px;
+}
+
+.related-heading h2 {
+  margin: 0;
+  font-size: 22px;
+}
+
+.related-description {
+  margin: 6px 0 0;
+  color: #66717b;
+  font-size: 14px;
+}
+
+.link-form {
+  display: grid;
+  grid-template-columns: 2fr 140px 1fr 1fr;
+  gap: 14px;
+  padding: 18px;
+  margin-bottom: 18px;
+  background: #ffffff;
+  border: 1px solid #dde1e5;
+  border-radius: 10px;
+}
+
+.link-form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.link-form-field label {
+  color: #66717b;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.link-form-field-wide {
+  grid-column: 1 / -1;
+}
+
+.link-form-actions {
+  grid-column: 1 / -1;
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.linked-sources {
+  overflow: hidden;
+  border: 1px solid #dde1e5;
+  border-radius: 10px;
+  background: #ffffff;
+}
+
+.linked-source {
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 16px 18px;
+  border-bottom: 1px solid #e8ebee;
+}
+
+.linked-source:last-child {
+  border-bottom: 0;
+}
+
+.linked-source-main {
+  min-width: 0;
+}
+
+.linked-source-title {
+  color: inherit;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.linked-source-title:hover {
+  text-decoration: underline;
+}
+
+.linked-source-meta {
+  margin-top: 5px;
+  color: #66717b;
+  font-size: 13px;
+}
+
+.linked-source-notes {
+  margin-top: 7px;
+  color: #505b64;
+  font-size: 14px;
+}
+
+.linked-source-actions {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  flex-shrink: 0;
+}
+
+.button-small {
+  min-height: 32px;
+  padding: 0 10px;
+  font-size: 13px;
+}
+
+.button-danger {
+  color: #9b2c2c;
 }
