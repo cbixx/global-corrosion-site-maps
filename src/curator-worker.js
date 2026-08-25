@@ -79,13 +79,6 @@ async function handleSourcesList(env) {
   );
 }
 
-async function serveAsset(request, env, pathname) {
-  const url = new URL(request.url);
-  url.pathname = pathname;
-
-  return env.ASSETS.fetch(new Request(url, request));
-}
-
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -111,11 +104,15 @@ export default {
     }    
 
     if (path === "/") {
-      return Response.redirect(new URL("/sources", url).toString(), 302);
+      return Response.redirect(new URL("/sources/", url).toString(), 302);
     }
 
     if (path === "/sources") {
-      return serveAsset(request, env, "/sources/index.html");
+      if (url.pathname === "/sources") {
+        return Response.redirect(new URL("/sources/", url).toString(), 302);
+      }
+
+      return env.ASSETS.fetch(request);
     }
 
     return env.ASSETS.fetch(request);
