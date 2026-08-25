@@ -362,6 +362,238 @@ async function handleSourceUpdate(request, env, sourceId) {
   );
 }
 
+const EDITABLE_SITE_FIELDS = new Set([
+  "site_id",
+  "site_label",
+  "site_type",
+  "latitude",
+  "longitude",
+  "modern_country_location",
+  "administering_country",
+  "former_entity",
+  "region_category",
+  "exposure_period",
+  "metal",
+  "notes",
+]);
+
+async function handleSitesList(env) {
+  if (!env.SUPABASE_URL || !env.SUPABASE_SECRET_KEY) {
+    return Response.json(
+      { ok: false, error: "Supabase configuration is missing." },
+      { status: 500, headers: { "cache-control": "no-store" } }
+    );
+  }
+
+  const endpoint = new URL("/rest/v1/sites", env.SUPABASE_URL);
+
+  endpoint.searchParams.set(
+    "select",
+    [
+      "id",
+      "site_id",
+      "site_label",
+      "site_type",
+      "latitude",
+      "longitude",
+      "modern_country_location",
+      "administering_country",
+      "region_category",
+    ].join(",")
+  );
+
+  endpoint.searchParams.set("order", "site_id.asc");
+
+  const response = await fetch(endpoint, {
+    headers: {
+      apikey: env.SUPABASE_SECRET_KEY,
+      accept: "application/json",
+    },
+  });
+
+  if (!response.ok) {
+    const detail = await response.text();
+
+    console.error("Supabase sites request failed.", {
+      status: response.status,
+      detail,
+    });
+
+    return Response.json(
+      { ok: false, error: "Unable to load sites." },
+      { status: 502, headers: { "cache-control": "no-store" } }
+    );
+  }
+
+  return Response.json(
+    {
+      ok: true,
+      sites: await response.json(),
+    },
+    {
+      headers: { "cache-control": "no-store" },
+    }
+  );
+}
+
+async function handleSiteDetail(env, siteId) {
+  const id = Number(siteId);
+
+  if (!Number.isInteger(id) || id <= 0) {
+    return Response.json(
+      { ok: false, error: "Invalid site ID." },
+      { status: 400, headers: { "cache-control": "no-store" } }
+    );
+  }
+
+  const endpoint = new URL("/rest/v1/sites", env.SUPABASE_URL);
+
+  endpoint.searchParams.set("select", "*");
+  endpoint.searchParams.set("id", `eq.${id}`);
+  endpoint.searchParams.set("limit", "1");
+
+  const response = await fetch(endpoint, {
+    headers: {
+      apikey: env.SUPABASE_SECRET_KEY,
+      accept: "application/json",
+    },
+  });
+
+  if (!response.ok) {
+    console.error(
+      "Supabase site detail request failed.",
+      response.status,
+      await response.text()
+    );
+
+    return Response.json(
+      { ok: false, error: "Unable to load site." },
+      { status: 502, headers: { "cache-control": "no-store" } }
+    );
+  }
+
+  const rows = await response.json();
+  const site = rows[0] || null;
+
+  if (!site) {
+    return Response.json(
+      { ok: false, error: "Site not found." },
+      { status: 404, headers: { "cache-control": "no-store" } }
+    );
+  }
+
+  return Response.json(
+    { ok: true, site },
+    { headers: { "cache-control": "no-store" } }
+  );
+}
+
+async function handleSiteUpdate(request, env, siteId) {
+  const id = Number(siteId);
+
+  if (!Number.isInteger(id) || id <= 0) {
+    return Response.json(
+      { ok: false, error: "Invalid site ID." },
+      { status: 400, headers: { "cache-control": "no-store" } }
+    );
+  }
+
+  let payload;
+
+  try {
+    payload = await request.json();
+  } catch {
+    return Response.json(
+      { ok: false, error: "Invalid JSON body." },
+      { status: 400, headers: { "cache-control": "no-store" } }
+    );
+  }
+
+  const updates = {};
+
+  for (const [field, value] of Object.entries(payload || {})) {
+    if (!EDITABLE_SITE_FIELDS.has(field)) {
+      continue;
+    }
+
+    if (field === "latitude" || field === "longitude") {
+      const number = Number(value);
+
+      if (!Number.isFinite(number)) {
+        return Response.json(
+          { ok: false, error: `${field} must be a valid number.` },
+          { status: 400, headers: { "cache-control": "no-store" } }
+        );
+      }
+
+      updates[field] = number;
+      continue;
+    }
+
+    updates[field] =
+      value === null || value === undefined
+        ? ""
+        : String(value).trim();
+  }
+
+  if (!updates.site_id) {
+    return Response.json(
+      { ok: false, error: "Site ID cannot be blank." },
+      { status: 400, headers: { "cache-control": "no-store" } }
+    );
+  }
+
+  if (!updates.site_label) {
+    return Response.json(
+      { ok: false, error: "Site label cannot be blank." },
+      { status: 400, headers: { "cache-control": "no-store" } }
+    );
+  }
+
+  const endpoint = new URL("/rest/v1/sites", env.SUPABASE_URL);
+  endpoint.searchParams.set("id", `eq.${id}`);
+
+  const response = await fetch(endpoint, {
+    method: "PATCH",
+    headers: {
+      apikey: env.SUPABASE_SECRET_KEY,
+      "content-type": "application/json",
+      accept: "application/json",
+      prefer: "return=representation",
+    },
+    body: JSON.stringify(updates),
+  });
+
+  if (!response.ok) {
+    const detail = await response.text();
+
+    console.error("Supabase site update failed.", {
+      status: response.status,
+      detail,
+    });
+
+    return Response.json(
+      { ok: false, error: "Unable to save site." },
+      { status: 502, headers: { "cache-control": "no-store" } }
+    );
+  }
+
+  const rows = await response.json();
+  const site = rows[0] || null;
+
+  if (!site) {
+    return Response.json(
+      { ok: false, error: "Site not found." },
+      { status: 404, headers: { "cache-control": "no-store" } }
+    );
+  }
+
+  return Response.json(
+    { ok: true, site },
+    { headers: { "cache-control": "no-store" } }
+  );
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -385,6 +617,20 @@ export default {
     if (path === "/api/sources" && request.method === "GET") {
       return handleSourcesList(env);
     }
+
+    if (path === "/api/sites" && request.method === "GET") {
+      return handleSitesList(env);
+    }
+
+    const siteDetailMatch = path.match(/^\/api\/sites\/(\d+)$/);
+
+    if (siteDetailMatch && request.method === "GET") {
+      return handleSiteDetail(env, siteDetailMatch[1]);
+    }
+
+    if (siteDetailMatch && request.method === "PATCH") {
+      return handleSiteUpdate(request, env, siteDetailMatch[1]);
+    }
     
     const sourceDetailMatch = path.match(/^\/api\/sources\/(\d+)$/);
 
@@ -407,6 +653,15 @@ export default {
 
       return env.ASSETS.fetch(request);
     }
+
+    if (path === "/sites") {
+      if (url.pathname === "/sites") {
+        return Response.redirect(new URL("/sites/", url).toString(), 302);
+      }
+
+      return env.ASSETS.fetch(request);
+    }
+    
 
     return env.ASSETS.fetch(request);
   }

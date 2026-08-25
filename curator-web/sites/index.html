@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sites · Corrosion Atlas Curator</title>
+  <link rel="stylesheet" href="/assets/curator.css">
+</head>
+
+<body>
+  <header class="app-header">
+    <div class="brand">
+      <div class="brand-title">Corrosion Atlas</div>
+      <div class="brand-subtitle">Curator</div>
+    </div>
+  </header>
+
+  <main class="page">
+    <div class="page-heading">
+      <div>
+        <h1>Sites</h1>
+        <p class="page-description">
+          Browse and search exposure sites in the Corrosion Atlas database.
+        </p>
+      </div>
+
+      <div id="site-count" class="source-count"></div>
+    </div>
+
+    <div class="search-panel">
+      <input
+        id="site-search"
+        class="search-input"
+        type="search"
+        placeholder="Search ID, site name, country, region, or type…"
+        autocomplete="off"
+      >
+    </div>
+
+    <div id="status" class="status">Loading sites…</div>
+    <div id="site-list" class="source-list" hidden></div>
+  </main>
+
+  <script src="/assets/sites.js"></script>
+</body>
+</html>

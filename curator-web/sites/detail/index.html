@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <title>Site · Corrosion Atlas Curator</title>
+
+  <link rel="stylesheet" href="/assets/curator.css">
+</head>
+
+<body>
+  <header class="app-header">
+    <div class="brand">
+      <div class="brand-title">Corrosion Atlas</div>
+      <div class="brand-subtitle">Curator</div>
+    </div>
+  </header>
+
+  <main class="page">
+    <a class="back-link" href="/sites/">← Sites</a>
+
+    <div id="status" class="status">Loading site…</div>
+
+    <div id="site-detail" hidden>
+      <div class="detail-heading">
+        <div>
+          <div id="site-code" class="detail-code"></div>
+          <h1 id="site-title"></h1>
+        </div>
+
+        <div class="detail-actions">
+          <button id="edit-button" class="button" type="button">Edit</button>
+          <button id="cancel-button" class="button button-secondary" type="button" hidden>
+            Cancel
+          </button>
+          <button id="save-button" class="button button-primary" type="button" hidden>
+            Save
+          </button>
+        </div>
+      </div>
+
+      <div id="save-message" class="save-message" hidden></div>
+      <div id="site-fields" class="detail-fields"></div>
+    </div>
+  </main>
+
+  <script src="/assets/site-detail.js"></script>
+</body>
+</html>
