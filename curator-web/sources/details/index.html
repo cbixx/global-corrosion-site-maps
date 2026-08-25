@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <title>Source · Corrosion Atlas Curator</title>
+
+  <link rel="stylesheet" href="/assets/curator.css">
+</head>
+
+<body>
+  <header class="app-header">
+    <div class="brand">
+      <div class="brand-title">Corrosion Atlas</div>
+      <div class="brand-subtitle">Curator</div>
+    </div>
+  </header>
+
+  <main class="page">
+    <a class="back-link" href="/sources/">← Sources</a>
+
+    <div id="status" class="status">
+      Loading source…
+    </div>
+
+    <div id="source-detail" hidden>
+      <div class="detail-heading">
+        <div>
+          <div id="source-code" class="detail-code"></div>
+          <h1 id="source-title"></h1>
+        </div>
+      </div>
+
+      <div id="source-fields" class="detail-fields"></div>
+    </div>
+  </main>
+
+  <script src="/assets/source-detail.js"></script>
+</body>
+</html>

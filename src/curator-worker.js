@@ -79,6 +79,104 @@ async function handleSourcesList(env) {
   );
 }
 
+async function handleSourceDetail(env, sourceId) {
+  if (!env.SUPABASE_URL || !env.SUPABASE_SECRET_KEY) {
+    return Response.json(
+      {
+        ok: false,
+        error: "Supabase configuration is missing.",
+      },
+      {
+        status: 500,
+        headers: {
+          "cache-control": "no-store",
+        },
+      }
+    );
+  }
+
+  const id = Number(sourceId);
+
+  if (!Number.isInteger(id) || id <= 0) {
+    return Response.json(
+      {
+        ok: false,
+        error: "Invalid source ID.",
+      },
+      {
+        status: 400,
+        headers: {
+          "cache-control": "no-store",
+        },
+      }
+    );
+  }
+
+  const endpoint = new URL("/rest/v1/sources", env.SUPABASE_URL);
+
+  endpoint.searchParams.set("select", "*");
+  endpoint.searchParams.set("id", `eq.${id}`);
+  endpoint.searchParams.set("limit", "1");
+
+  const response = await fetch(endpoint, {
+    headers: {
+      apikey: env.SUPABASE_SECRET_KEY,
+      accept: "application/json",
+    },
+  });
+
+  if (!response.ok) {
+    console.error(
+      "Supabase source detail request failed.",
+      response.status,
+      await response.text()
+    );
+
+    return Response.json(
+      {
+        ok: false,
+        error: "Unable to load source.",
+      },
+      {
+        status: 502,
+        headers: {
+          "cache-control": "no-store",
+        },
+      }
+    );
+  }
+
+  const rows = await response.json();
+  const source = rows[0] || null;
+
+  if (!source) {
+    return Response.json(
+      {
+        ok: false,
+        error: "Source not found.",
+      },
+      {
+        status: 404,
+        headers: {
+          "cache-control": "no-store",
+        },
+      }
+    );
+  }
+
+  return Response.json(
+    {
+      ok: true,
+      source,
+    },
+    {
+      headers: {
+        "cache-control": "no-store",
+      },
+    }
+  );
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -101,7 +199,13 @@ export default {
 
     if (path === "/api/sources" && request.method === "GET") {
       return handleSourcesList(env);
-    }    
+    }
+    
+    const sourceDetailMatch = path.match(/^\/api\/sources\/(\d+)$/);
+
+    if (sourceDetailMatch && request.method === "GET") {
+      return handleSourceDetail(env, sourceDetailMatch[1]);
+    }
 
     if (path === "/") {
       return Response.redirect(new URL("/sources/", url).toString(), 302);

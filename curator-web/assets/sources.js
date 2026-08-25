@@ -48,8 +48,9 @@ function renderSources(sources) {
   }
 
   for (const source of sources) {
-    const item = document.createElement("article");
+    const item = document.createElement("a");
     item.className = "source-item";
+    item.href = `/sources/detail/?id=${encodeURIComponent(source.id)}`;
 
     const code = document.createElement("div");
     code.className = "source-code";

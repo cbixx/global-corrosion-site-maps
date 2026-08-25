@@ -110,6 +110,12 @@ h1 {
   gap: 20px;
   padding: 18px 20px;
   border-bottom: 1px solid #e8ebee;
+  text-decoration: none;
+  color: inherit;
+}
+
+.source-item:hover {
+  background: #f8f9fa;
 }
 
 .source-item:last-child {
@@ -141,6 +147,65 @@ h1 {
   font-size: 13px;
 }
 
+.back-link {
+  display: inline-block;
+  margin-bottom: 28px;
+  color: #505b64;
+  text-decoration: none;
+  font-size: 14px;
+}
+
+.back-link:hover {
+  text-decoration: underline;
+}
+
+.detail-heading {
+  margin-bottom: 28px;
+}
+
+.detail-code {
+  margin-bottom: 8px;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  color: #66717b;
+}
+
+.detail-fields {
+  overflow: hidden;
+  background: #ffffff;
+  border: 1px solid #dde1e5;
+  border-radius: 10px;
+}
+
+.detail-field {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr);
+  gap: 24px;
+  padding: 16px 20px;
+  border-bottom: 1px solid #e8ebee;
+}
+
+.detail-field:last-child {
+  border-bottom: 0;
+}
+
+.detail-label {
+  color: #66717b;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.detail-value {
+  min-width: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.detail-empty {
+  color: #a0a7ad;
+}
+
 @media (max-width: 640px) {
   .app-header {
     padding: 0 20px;
@@ -157,6 +222,11 @@ h1 {
   }
 
   .source-item {
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+
+  .detail-field {
     grid-template-columns: 1fr;
     gap: 6px;
   }
