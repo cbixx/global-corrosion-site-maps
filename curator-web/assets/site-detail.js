@@ -611,7 +611,6 @@ saveButton.addEventListener("click", async () => {
 
     renderSite();
 
-    saveMessage.textContent = "Saved.";
     saveMessage.className =
       "save-message save-message-success";
     saveMessage.hidden = false;

@@ -2757,6 +2757,167 @@ async function handleSiteCreate(
   );
 }
 
+async function getSupabaseTableCount(
+  env,
+  tableName
+) {
+  const endpoint =
+    new URL(
+      `/rest/v1/${tableName}`,
+      env.SUPABASE_URL
+    );
+
+  endpoint.searchParams.set(
+    "select",
+    "id"
+  );
+
+  const response =
+    await fetch(endpoint, {
+      headers: {
+        apikey:
+          env.SUPABASE_SECRET_KEY,
+
+        accept:
+          "application/json",
+
+        prefer:
+          "count=exact",
+
+        range:
+          "0-0",
+      },
+    });
+
+  if (!response.ok) {
+    throw new Error(
+      `Unable to count ${tableName}.`
+    );
+  }
+
+  const contentRange =
+    response.headers.get(
+      "content-range"
+    ) || "";
+
+  const match =
+    contentRange.match(
+      /\/(\d+|\*)$/
+    );
+
+  if (
+    !match ||
+    match[1] === "*"
+  ) {
+    return 0;
+  }
+
+  return Number(match[1]);
+}
+
+async function handleDashboardSummary(env) {
+  if (
+    !env.SUPABASE_URL ||
+    !env.SUPABASE_SECRET_KEY
+  ) {
+    return Response.json(
+      {
+        ok: false,
+        error:
+          "Supabase configuration is missing.",
+      },
+      {
+        status: 500,
+        headers: {
+          "cache-control":
+            "no-store",
+        },
+      }
+    );
+  }
+
+  try {
+    const [
+      sites,
+      sources,
+      siteSources,
+      corrosionObservations,
+      environmentalObservations,
+    ] = await Promise.all([
+      getSupabaseTableCount(
+        env,
+        "sites"
+      ),
+
+      getSupabaseTableCount(
+        env,
+        "sources"
+      ),
+
+      getSupabaseTableCount(
+        env,
+        "site_sources"
+      ),
+
+      getSupabaseTableCount(
+        env,
+        "corrosion_observations"
+      ),
+
+      getSupabaseTableCount(
+        env,
+        "environmental_observations"
+      ),
+    ]);
+
+    return Response.json(
+      {
+        ok: true,
+
+        counts: {
+          sites,
+          sources,
+
+          site_sources:
+            siteSources,
+
+          corrosion_observations:
+            corrosionObservations,
+
+          environmental_observations:
+            environmentalObservations,
+        },
+      },
+      {
+        headers: {
+          "cache-control":
+            "no-store",
+        },
+      }
+    );
+  } catch (error) {
+    console.error(
+      "Unable to load dashboard summary.",
+      error
+    );
+
+    return Response.json(
+      {
+        ok: false,
+        error:
+          "Unable to load dashboard summary.",
+      },
+      {
+        status: 502,
+        headers: {
+          "cache-control":
+            "no-store",
+        },
+      }
+    );
+  }
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -2775,6 +2936,13 @@ export default {
           },
         }
       );
+    }
+
+    if (
+      path === "/api/dashboard-summary" &&
+      request.method === "GET"
+    ) {
+      return handleDashboardSummary(env);
     }
     
     if (
@@ -2884,7 +3052,7 @@ export default {
     }
 
     if (path === "/") {
-      return Response.redirect(new URL("/sources/", url).toString(), 302);
+      return env.ASSETS.fetch(request);
     }
 
     if (path === "/sources") {
