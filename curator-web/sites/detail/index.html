@@ -41,6 +41,71 @@
       </div>
 
       <div id="save-message" class="save-message" hidden></div>
+      <section
+        id="site-create-tools"
+        class="site-create-tools"
+        hidden
+      >
+        <div class="site-create-tool">
+          <h2>Location lookup</h2>
+
+          <p class="related-description">
+            Search OpenStreetMap, then apply a result to fill the
+            site name, coordinates, and country.
+          </p>
+
+          <div class="location-search-row">
+            <input
+              id="location-query"
+              class="detail-input"
+              type="search"
+              placeholder="e.g. Yakutsk, Russia"
+              autocomplete="off"
+            >
+
+            <button
+              id="location-search-button"
+              class="button"
+              type="button"
+            >
+              Search
+            </button>
+
+            <button
+              id="location-clear-button"
+              class="button button-secondary"
+              type="button"
+            >
+              Clear
+            </button>
+          </div>
+
+          <div
+            id="location-search-status"
+            class="helper-message"
+            hidden
+          ></div>
+
+          <div
+            id="location-results"
+            class="location-results"
+            hidden
+          ></div>
+        </div>
+
+        <div
+          id="site-id-suggestion"
+          class="helper-message"
+        >
+          Enter a modern country / location to generate a Site ID.
+        </div>
+
+        <div
+          id="site-match-preview"
+          class="save-message"
+          hidden
+        ></div>
+      </section>
       <div id="site-fields" class="detail-fields"></div>
 
       <section id="source-links-section" class="related-section">

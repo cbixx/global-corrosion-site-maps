@@ -1607,115 +1607,1152 @@ async function handleSourceCreate(request, env) {
   );
 }
 
-async function handleSiteCreate(request, env) {
+const COUNTRY_CODE_NAME_OVERRIDES = {
+  "russia": "RU",
+  "united states": "US",
+  "united kingdom": "GB",
+  "south korea": "KR",
+  "north korea": "KP",
+  "czech republic": "CZ",
+  "bolivia": "BO",
+  "venezuela": "VE",
+  "iran": "IR",
+  "syria": "SY",
+  "tanzania": "TZ",
+  "moldova": "MD",
+  "laos": "LA",
+  "vietnam": "VN",
+  "taiwan": "CN",
+  "chinese taipei": "CN",
+};
+
+let countryNameToCodeCache = null;
+
+function normaliseSiteMatchText(value) {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, " ");
+}
+
+function getCountryNameToCodeMap() {
+  if (countryNameToCodeCache) {
+    return countryNameToCodeCache;
+  }
+
+  const map = new Map();
+
+  const displayNames =
+    new Intl.DisplayNames(
+      ["en"],
+      { type: "region" }
+    );
+
+  const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+
+  for (const first of letters) {
+    for (const second of letters) {
+      const code = `${first}${second}`;
+
+      try {
+        const name = displayNames.of(code);
+
+        if (
+          name &&
+          name !== code
+        ) {
+          map.set(
+            String(name).trim().toLowerCase(),
+            code
+          );
+        }
+      } catch {
+        // Ignore invalid region codes.
+      }
+    }
+  }
+
+  countryNameToCodeCache = map;
+
+  return map;
+}
+
+function getCountryCode(value) {
+  let text =
+    String(value || "").trim();
+
+  if (!text) {
+    return "";
+  }
+
+  if (/^[a-z]{2}$/i.test(text)) {
+    return text.toUpperCase();
+  }
+
+  const lower = text.toLowerCase();
+
+  if (
+    lower === "antarctica" ||
+    lower === "sub-antarctic islands"
+  ) {
+    return "AQ";
+  }
+
+  if (
+    COUNTRY_CODE_NAME_OVERRIDES[lower]
+  ) {
+    return COUNTRY_CODE_NAME_OVERRIDES[lower];
+  }
+
+  if (text.includes(",")) {
+    const lastPart =
+      text.split(",").at(-1).trim();
+
+    if (lastPart && lastPart !== text) {
+      return getCountryCode(lastPart);
+    }
+  }
+
+  return (
+    getCountryNameToCodeMap().get(lower) || ""
+  );
+}
+
+function buildSiteIdPrefix(
+  modernCountryLocation,
+  administeringCountry = "",
+  suppliedCountryCode = ""
+) {
+  const locationCode =
+    String(suppliedCountryCode || "")
+      .trim()
+      .toUpperCase() ||
+    getCountryCode(modernCountryLocation);
+
+  if (locationCode === "AQ") {
+    const adminCode =
+      getCountryCode(administeringCountry);
+
+    if (adminCode) {
+      return `AQ-${adminCode}`;
+    }
+
+    return "AQ";
+  }
+
+  return locationCode || "XX";
+}
+
+function firstNonemptyValue(
+  existingValue,
+  incomingValue
+) {
+  const existingText =
+    existingValue === null ||
+    existingValue === undefined
+      ? ""
+      : String(existingValue).trim();
+
+  return existingText
+    ? existingValue
+    : incomingValue;
+}
+
+function splitSiteMetadata(value) {
+  return String(value || "")
+    .replaceAll(";", ",")
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function mergeSiteMetadata(
+  existingValue,
+  incomingValue
+) {
+  const merged = [];
+
+  for (
+    const value
+    of [
+      ...splitSiteMetadata(existingValue),
+      ...splitSiteMetadata(incomingValue),
+    ]
+  ) {
+    if (!merged.includes(value)) {
+      merged.push(value);
+    }
+  }
+
+  return merged.join(", ");
+}
+
+function mergeSiteNotes(
+  existingValue,
+  incomingValue
+) {
+  const existing =
+    String(existingValue || "").trim();
+
+  const incoming =
+    String(incomingValue || "").trim();
+
+  if (!incoming) {
+    return existing;
+  }
+
+  if (!existing) {
+    return incoming;
+  }
+
+  if (existing.includes(incoming)) {
+    return existing;
+  }
+
+  return `${existing}\n${incoming}`;
+}
+
+async function loadSiteMatchCandidates(env) {
+  const endpoint =
+    new URL(
+      "/rest/v1/sites",
+      env.SUPABASE_URL
+    );
+
+  endpoint.searchParams.set(
+    "select",
+    [
+      "id",
+      "site_id",
+      "site_label",
+      "site_type",
+      "latitude",
+      "longitude",
+      "modern_country_location",
+      "administering_country",
+      "former_entity",
+      "region_category",
+      "exposure_period",
+      "metal",
+      "notes",
+    ].join(",")
+  );
+
+  endpoint.searchParams.set(
+    "order",
+    "id.asc"
+  );
+
+  const response =
+    await fetch(endpoint, {
+      headers: {
+        apikey: env.SUPABASE_SECRET_KEY,
+        accept: "application/json",
+      },
+    });
+
+  if (!response.ok) {
+    throw new Error(
+      "Unable to inspect existing Sites."
+    );
+  }
+
+  return response.json();
+}
+
+function findExistingSite(
+  rows,
+  values
+) {
+  const cleanSiteId =
+    String(values.site_id || "")
+      .trim()
+      .toLowerCase();
+
+  const cleanLabel =
+    normaliseSiteMatchText(
+      values.site_label
+    );
+
+  const cleanLocation =
+    normaliseSiteMatchText(
+      values.modern_country_location
+    );
+
+  if (cleanSiteId) {
+    const existing =
+      rows.find(
+        (row) =>
+          String(row.site_id || "")
+            .trim()
+            .toLowerCase() === cleanSiteId
+      );
+
+    if (existing) {
+      return {
+        site: existing,
+        reason: "site_id",
+      };
+    }
+  }
+
+  if (cleanLabel && cleanLocation) {
+    const existing =
+      rows.find(
+        (row) =>
+          normaliseSiteMatchText(
+            row.site_label
+          ) === cleanLabel &&
+          normaliseSiteMatchText(
+            row.modern_country_location
+          ) === cleanLocation
+      );
+
+    if (existing) {
+      return {
+        site: existing,
+        reason:
+          "site_label + modern_country_location",
+      };
+    }
+  }
+
+  const latitude =
+    Number(values.latitude);
+
+  const longitude =
+    Number(values.longitude);
+
+  const coordinateTolerance =
+    0.0005;
+
+  if (
+    Number.isFinite(latitude) &&
+    Number.isFinite(longitude) &&
+    (cleanLabel || cleanLocation)
+  ) {
+    const existing =
+      rows.find((row) => {
+        const rowLatitude =
+          Number(row.latitude);
+
+        const rowLongitude =
+          Number(row.longitude);
+
+        if (
+          !Number.isFinite(rowLatitude) ||
+          !Number.isFinite(rowLongitude)
+        ) {
+          return false;
+        }
+
+        const closeEnough =
+          Math.abs(
+            rowLatitude - latitude
+          ) <= coordinateTolerance &&
+          Math.abs(
+            rowLongitude - longitude
+          ) <= coordinateTolerance;
+
+        if (!closeEnough) {
+          return false;
+        }
+
+        return (
+          normaliseSiteMatchText(
+            row.site_label
+          ) === cleanLabel ||
+          normaliseSiteMatchText(
+            row.modern_country_location
+          ) === cleanLocation
+        );
+      });
+
+    if (existing) {
+      return {
+        site: existing,
+        reason:
+          "coordinates + label/location",
+      };
+    }
+  }
+
+  return {
+    site: null,
+    reason: "",
+  };
+}
+
+async function handleSiteIdSuggestion(
+  request,
+  env
+) {
+  const url =
+    new URL(request.url);
+
+  const country =
+    String(
+      url.searchParams.get("country") || ""
+    ).trim();
+
+  const administeringCountry =
+    String(
+      url.searchParams.get("admin") || ""
+    ).trim();
+
+  const countryCode =
+    String(
+      url.searchParams.get("country_code") || ""
+    ).trim();
+
+  const prefix =
+    buildSiteIdPrefix(
+      country,
+      administeringCountry,
+      countryCode
+    );
+
+  const endpoint =
+    new URL(
+      "/rest/v1/sites",
+      env.SUPABASE_URL
+    );
+
+  endpoint.searchParams.set(
+    "select",
+    "site_id"
+  );
+
+  const response =
+    await fetch(endpoint, {
+      headers: {
+        apikey: env.SUPABASE_SECRET_KEY,
+        accept: "application/json",
+      },
+    });
+
+  if (!response.ok) {
+    return Response.json(
+      {
+        ok: false,
+        error:
+          "Unable to generate Site ID.",
+      },
+      {
+        status: 502,
+        headers: {
+          "cache-control": "no-store",
+        },
+      }
+    );
+  }
+
+  const rows =
+    await response.json();
+
+  let maxNumber = 0;
+
+  const prefixText =
+    `${prefix}-`.toUpperCase();
+
+  for (const row of rows) {
+    const siteId =
+      String(row.site_id || "")
+        .trim()
+        .toUpperCase();
+
+    if (!siteId.startsWith(prefixText)) {
+      continue;
+    }
+
+    const suffix =
+      siteId.slice(
+        prefixText.length
+      );
+
+    if (/^\d+$/.test(suffix)) {
+      maxNumber =
+        Math.max(
+          maxNumber,
+          Number(suffix)
+        );
+    }
+  }
+
+  const suggestedSiteId =
+    `${prefix}-${String(maxNumber + 1).padStart(3, "0")}`;
+
+  return Response.json(
+    {
+      ok: true,
+      prefix,
+      suggested_site_id:
+        suggestedSiteId,
+    },
+    {
+      headers: {
+        "cache-control": "no-store",
+      },
+    }
+  );
+}
+
+async function handleLocationSearch(
+  request
+) {
+  const url =
+    new URL(request.url);
+
+  const query =
+    String(
+      url.searchParams.get("q") || ""
+    ).trim();
+
+  if (!query) {
+    return Response.json(
+      {
+        ok: false,
+        error:
+          "Enter a place name first.",
+      },
+      {
+        status: 400,
+        headers: {
+          "cache-control": "no-store",
+        },
+      }
+    );
+  }
+
+  const endpoint =
+    new URL(
+      "https://nominatim.openstreetmap.org/search"
+    );
+
+  endpoint.searchParams.set(
+    "q",
+    query
+  );
+
+  endpoint.searchParams.set(
+    "format",
+    "jsonv2"
+  );
+
+  endpoint.searchParams.set(
+    "addressdetails",
+    "1"
+  );
+
+  endpoint.searchParams.set(
+    "limit",
+    "5"
+  );
+
+  endpoint.searchParams.set(
+    "accept-language",
+    "en"
+  );
+
+  const response =
+    await fetch(endpoint, {
+      headers: {
+        accept: "application/json",
+        "user-agent":
+          "CorrosionAtlasCurator/1.0 (corrosionatlas.org)",
+        referer:
+          "https://corrosionatlas.org/",
+      },
+    });
+
+  if (!response.ok) {
+    return Response.json(
+      {
+        ok: false,
+        error:
+          "Location search failed.",
+      },
+      {
+        status: 502,
+        headers: {
+          "cache-control": "no-store",
+        },
+      }
+    );
+  }
+
+  const rows =
+    await response.json();
+
+  const results =
+    rows.map((row) => {
+      const address =
+        row.address || {};
+
+      const city =
+        address.city ||
+        address.town ||
+        address.village ||
+        address.municipality ||
+        address.county ||
+        "";
+
+      const country =
+        address.country || "";
+
+      let label = "";
+
+      if (city && country) {
+        label =
+          `${city}, ${country}`;
+      } else if (country) {
+        label = country;
+      } else {
+        label =
+          row.display_name || "";
+      }
+
+      const siteLabel =
+        city ||
+        String(
+          row.display_name || ""
+        )
+          .split(",", 1)[0]
+          .trim() ||
+        label;
+
+      return {
+        label,
+        site_label:
+          siteLabel,
+
+        full_label:
+          row.display_name || label,
+
+        latitude:
+          Number(row.lat),
+
+        longitude:
+          Number(row.lon),
+
+        country,
+
+        country_code:
+          String(
+            address.country_code || ""
+          ).toUpperCase(),
+      };
+    });
+
+  return Response.json(
+    {
+      ok: true,
+      results,
+    },
+    {
+      headers: {
+        "cache-control": "no-store",
+      },
+    }
+  );
+}
+
+async function handleSiteMatchPreview(
+  request,
+  env
+) {
   let payload;
 
   try {
-    payload = await request.json();
+    payload =
+      await request.json();
   } catch {
     return Response.json(
-      { ok: false, error: "Invalid JSON body." },
-      { status: 400, headers: { "cache-control": "no-store" } }
+      {
+        ok: false,
+        error:
+          "Invalid JSON body.",
+      },
+      { status: 400 }
+    );
+  }
+
+  if (
+    !String(
+      payload.site_label || ""
+    ).trim() ||
+    payload.latitude === "" ||
+    payload.latitude === null ||
+    payload.latitude === undefined ||
+    payload.longitude === "" ||
+    payload.longitude === null ||
+    payload.longitude === undefined
+  ) {
+    return Response.json({
+      ok: true,
+      checked: false,
+      will_merge: false,
+    });
+  }
+
+  const latitude =
+    Number(payload.latitude);
+
+  const longitude =
+    Number(payload.longitude);
+
+  if (
+    !Number.isFinite(latitude) ||
+    !Number.isFinite(longitude)
+  ) {
+    return Response.json({
+      ok: true,
+      checked: false,
+      will_merge: false,
+      message:
+        "Existing-site check skipped: invalid coordinates.",
+    });
+  }
+
+  const rows =
+    await loadSiteMatchCandidates(env);
+
+  const match =
+    findExistingSite(
+      rows,
+      {
+        ...payload,
+        latitude,
+        longitude,
+      }
+    );
+
+  if (!match.site) {
+    return Response.json({
+      ok: true,
+      checked: true,
+      will_merge: false,
+    });
+  }
+
+  return Response.json({
+    ok: true,
+    checked: true,
+    will_merge: true,
+
+    existing: {
+      id: match.site.id,
+      site_id:
+        match.site.site_id || "",
+      site_label:
+        match.site.site_label || "",
+      modern_country_location:
+        match.site
+          .modern_country_location || "",
+    },
+
+    match_reason:
+      match.reason,
+  });
+}
+
+async function handleSiteCreate(
+  request,
+  env
+) {
+  let payload;
+
+  try {
+    payload =
+      await request.json();
+  } catch {
+    return Response.json(
+      {
+        ok: false,
+        error:
+          "Invalid JSON body.",
+      },
+      {
+        status: 400,
+        headers: {
+          "cache-control": "no-store",
+        },
+      }
     );
   }
 
   const site = {};
 
-  for (const field of EDITABLE_SITE_FIELDS) {
-    const value = payload?.[field];
+  for (
+    const field
+    of EDITABLE_SITE_FIELDS
+  ) {
+    const value =
+      payload?.[field];
 
-    if (field === "latitude" || field === "longitude") {
-      const number = Number(value);
+    if (
+      field === "latitude" ||
+      field === "longitude"
+    ) {
+      const number =
+        Number(value);
 
       if (!Number.isFinite(number)) {
         return Response.json(
           {
             ok: false,
-            error: `${field} must be a valid number.`,
+            error:
+              `${field} must be a valid number.`,
           },
-          { status: 400, headers: { "cache-control": "no-store" } }
+          { status: 400 }
         );
       }
 
       site[field] = number;
     } else {
       site[field] =
-        value === null || value === undefined
+        value === null ||
+        value === undefined
           ? ""
           : String(value).trim();
     }
   }
 
+  const validationErrors = [];
+
   if (!site.site_id) {
-    return Response.json(
-      { ok: false, error: "Site ID is required." },
-      { status: 400, headers: { "cache-control": "no-store" } }
+    validationErrors.push(
+      "Site ID is required."
     );
   }
 
   if (!site.site_label) {
-    return Response.json(
-      { ok: false, error: "Site label is required." },
-      { status: 400, headers: { "cache-control": "no-store" } }
+    validationErrors.push(
+      "Site label is required."
     );
   }
 
-  if (site.latitude < -90 || site.latitude > 90) {
-    return Response.json(
-      { ok: false, error: "Latitude must be between -90 and 90." },
-      { status: 400 }
+  if (
+    payload.latitude === "" ||
+    payload.latitude === null ||
+    payload.latitude === undefined
+  ) {
+    validationErrors.push(
+      "Latitude is required."
     );
   }
 
-  if (site.longitude < -180 || site.longitude > 180) {
-    return Response.json(
-      { ok: false, error: "Longitude must be between -180 and 180." },
-      { status: 400 }
+  if (
+    payload.longitude === "" ||
+    payload.longitude === null ||
+    payload.longitude === undefined
+  ) {
+    validationErrors.push(
+      "Longitude is required."
     );
   }
 
-  const endpoint = new URL("/rest/v1/sites", env.SUPABASE_URL);
+  if (!site.modern_country_location) {
+    validationErrors.push(
+      "Modern country / location is required."
+    );
+  }
 
-  const response = await fetch(endpoint, {
-    method: "POST",
-    headers: {
-      apikey: env.SUPABASE_SECRET_KEY,
-      "content-type": "application/json",
-      accept: "application/json",
-      prefer: "return=representation",
-    },
-    body: JSON.stringify(site),
-  });
+  if (
+    site.latitude < -90 ||
+    site.latitude > 90
+  ) {
+    validationErrors.push(
+      "Latitude must be between -90 and 90."
+    );
+  }
 
-  if (!response.ok) {
-    const detail = await response.text();
+  if (
+    site.longitude < -180 ||
+    site.longitude > 180
+  ) {
+    validationErrors.push(
+      "Longitude must be between -180 and 180."
+    );
+  }
 
-    console.error("Unable to create site.", {
-      status: response.status,
-      detail,
+  if (validationErrors.length) {
+    return Response.json(
+      {
+        ok: false,
+        error:
+          validationErrors.join(" "),
+        errors:
+          validationErrors,
+      },
+      {
+        status: 400,
+        headers: {
+          "cache-control": "no-store",
+        },
+      }
+    );
+  }
+
+  let candidateRows;
+
+  try {
+    candidateRows =
+      await loadSiteMatchCandidates(env);
+  } catch (error) {
+    console.error(
+      "Unable to inspect Site duplicates.",
+      error
+    );
+
+    return Response.json(
+      {
+        ok: false,
+        error:
+          "Unable to check for an existing Site.",
+      },
+      {
+        status: 502,
+        headers: {
+          "cache-control": "no-store",
+        },
+      }
+    );
+  }
+
+  const match =
+    findExistingSite(
+      candidateRows,
+      site
+    );
+
+  /*
+   * Existing Site:
+   * preserve populated scalar fields,
+   * merge multi-value summary fields,
+   * append new notes without duplication.
+   */
+  if (match.site) {
+    const existing =
+      match.site;
+
+    const merged = {
+      site_id:
+        firstNonemptyValue(
+          existing.site_id,
+          site.site_id
+        ),
+
+      site_label:
+        firstNonemptyValue(
+          existing.site_label,
+          site.site_label
+        ),
+
+      site_type:
+        firstNonemptyValue(
+          existing.site_type,
+          site.site_type
+        ),
+
+      latitude:
+        firstNonemptyValue(
+          existing.latitude,
+          site.latitude
+        ),
+
+      longitude:
+        firstNonemptyValue(
+          existing.longitude,
+          site.longitude
+        ),
+
+      modern_country_location:
+        firstNonemptyValue(
+          existing.modern_country_location,
+          site.modern_country_location
+        ),
+
+      administering_country:
+        firstNonemptyValue(
+          existing.administering_country,
+          site.administering_country
+        ),
+
+      former_entity:
+        firstNonemptyValue(
+          existing.former_entity,
+          site.former_entity
+        ),
+
+      region_category:
+        mergeSiteMetadata(
+          existing.region_category,
+          site.region_category
+        ),
+
+      exposure_period:
+        mergeSiteMetadata(
+          existing.exposure_period,
+          site.exposure_period
+        ),
+
+      metal:
+        mergeSiteMetadata(
+          existing.metal,
+          site.metal
+        ),
+
+      notes:
+        mergeSiteNotes(
+          existing.notes,
+          site.notes
+        ),
+    };
+
+    const endpoint =
+      new URL(
+        "/rest/v1/sites",
+        env.SUPABASE_URL
+      );
+
+    endpoint.searchParams.set(
+      "id",
+      `eq.${existing.id}`
+    );
+
+    const response =
+      await fetch(endpoint, {
+        method: "PATCH",
+        headers: {
+          apikey:
+            env.SUPABASE_SECRET_KEY,
+
+          "content-type":
+            "application/json",
+
+          accept:
+            "application/json",
+
+          prefer:
+            "return=representation",
+        },
+        body:
+          JSON.stringify(merged),
+      });
+
+    if (!response.ok) {
+      console.error(
+        "Unable to merge Site.",
+        response.status,
+        await response.text()
+      );
+
+      return Response.json(
+        {
+          ok: false,
+          error:
+            "Unable to merge existing Site.",
+        },
+        {
+          status: 502,
+          headers: {
+            "cache-control": "no-store",
+          },
+        }
+      );
+    }
+
+    const rows =
+      await response.json();
+
+    return Response.json(
+      {
+        ok: true,
+        site:
+          rows[0] || null,
+
+        action:
+          "merged",
+
+        match_reason:
+          match.reason,
+      },
+      {
+        headers: {
+          "cache-control": "no-store",
+        },
+      }
+    );
+  }
+
+  const endpoint =
+    new URL(
+      "/rest/v1/sites",
+      env.SUPABASE_URL
+    );
+
+  const response =
+    await fetch(endpoint, {
+      method: "POST",
+      headers: {
+        apikey:
+          env.SUPABASE_SECRET_KEY,
+
+        "content-type":
+          "application/json",
+
+        accept:
+          "application/json",
+
+        prefer:
+          "return=representation",
+      },
+      body:
+        JSON.stringify(site),
     });
 
-    const message =
-      response.status === 409
-        ? "That site ID already exists."
-        : "Unable to create site.";
+  if (!response.ok) {
+    console.error(
+      "Unable to create Site.",
+      response.status,
+      await response.text()
+    );
 
     return Response.json(
-      { ok: false, error: message },
-      { status: response.status === 409 ? 409 : 502 }
+      {
+        ok: false,
+        error:
+          "Unable to create Site.",
+      },
+      {
+        status: 502,
+        headers: {
+          "cache-control": "no-store",
+        },
+      }
     );
   }
 
-  const rows = await response.json();
+  const rows =
+    await response.json();
 
   return Response.json(
     {
       ok: true,
-      site: rows[0] || null,
+      site:
+        rows[0] || null,
+
+      action:
+        "created",
+
+      match_reason: "",
     },
     {
       status: 201,
-      headers: { "cache-control": "no-store" },
+      headers: {
+        "cache-control": "no-store",
+      },
     }
   );
 }
@@ -1737,6 +2774,33 @@ export default {
             "cache-control": "no-store",
           },
         }
+      );
+    }
+    
+    if (
+      path === "/api/location-search" &&
+      request.method === "GET"
+    ) {
+      return handleLocationSearch(request);
+    }
+
+    if (
+      path === "/api/site-id-suggestion" &&
+      request.method === "GET"
+    ) {
+      return handleSiteIdSuggestion(
+        request,
+        env
+      );
+    }
+
+    if (
+      path === "/api/site-match-preview" &&
+      request.method === "POST"
+    ) {
+      return handleSiteMatchPreview(
+        request,
+        env
       );
     }
 

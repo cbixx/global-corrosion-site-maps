@@ -8,6 +8,17 @@ const editButton = document.getElementById("edit-button");
 const cancelButton = document.getElementById("cancel-button");
 const saveButton = document.getElementById("save-button");
 const saveMessage = document.getElementById("save-message");
+const siteCreateTools = document.getElementById("site-create-tools");
+const locationQuery = document.getElementById("location-query");
+const locationSearchButton = document.getElementById("location-search-button");
+const locationClearButton = document.getElementById("location-clear-button");
+const locationSearchStatus = document.getElementById("location-search-status");
+const locationResults = document.getElementById("location-results");
+const siteIdSuggestion = document.getElementById("site-id-suggestion");
+const siteMatchPreview = document.getElementById("site-match-preview");
+
+let lastSuggestedSiteId = "";
+let siteCountryCode = "";
 
 const addSourceLinkButton = document.getElementById("add-source-link-button");
 const linkForm = document.getElementById("link-form");
@@ -54,27 +65,156 @@ function getSiteId() {
   return new URLSearchParams(window.location.search).get("id");
 }
 
-function addField(fieldName, label, value) {
-  const row = document.createElement("div");
-  row.className = "detail-field";
+const REQUIRED_NEW_SITE_FIELDS =
+  new Set([
+    "site_id",
+    "site_label",
+    "latitude",
+    "longitude",
+    "modern_country_location",
+  ]);
 
-  const labelElement = document.createElement("label");
-  labelElement.className = "detail-label";
-  labelElement.textContent = label;
+const SITE_FIELD_PLACEHOLDERS = {
+  site_id:
+    "Automatically suggested from country/location",
 
-  const valueElement = document.createElement("div");
-  valueElement.className = "detail-value";
+  site_label:
+    "e.g. Yakutsk",
 
-  if (editing) {
-    const input = document.createElement(
-      fieldName === "notes" ? "textarea" : "input"
+  site_type:
+    "e.g. City, Research station, Industrial site",
+
+  latitude:
+    "e.g. 62.0355",
+
+  longitude:
+    "e.g. 129.6755",
+
+  modern_country_location:
+    "e.g. Russia or Antarctica",
+
+  administering_country:
+    "For Antarctic IDs such as AQ-RU-001",
+
+  former_entity:
+    "e.g. USSR",
+
+  region_category:
+    "Comma-separated region tags",
+
+  exposure_period:
+    "e.g. 1987–1991 or 1 year",
+
+  metal:
+    "Comma-separated materials",
+
+  notes:
+    "Optional Site notes",
+};
+
+const SITE_FIELD_OPTIONS = {
+  site_type: [
+    "Cape site",
+    "Cathedral",
+    "City",
+    "Field site",
+    "Industrial Locality",
+    "Industrial site",
+    "Island",
+    "Locality",
+    "Monitoring site",
+    "National Park",
+    "Point site",
+    "Port city",
+    "Research Park",
+    "Research centre",
+    "Research station",
+    "Rural",
+    "Rural monitoring site",
+    "Settlement",
+    "Sub-Antarctic Islands",
+    "Sub-arctic test site",
+    "Test site",
+    "Town",
+    "Village",
+    "Waterfall locality",
+  ],
+
+  former_entity: [
+    "Czechoslovakia",
+    "USSR",
+  ],
+
+  metal: [
+    "Carbon steel",
+    "Weathering steel",
+    "Zinc",
+    "Copper",
+    "Aluminium",
+    "Galvanized steel",
+    "Lead",
+    "Nickel",
+    "Tin",
+    "Brass",
+    "Bronze",
+  ],
+};
+
+function addField(
+  fieldName,
+  label,
+  value
+) {
+  const row =
+    document.createElement("div");
+
+  row.className =
+    "detail-field";
+
+  const labelElement =
+    document.createElement("label");
+
+  labelElement.className =
+    "detail-label";
+
+  const required =
+    isNewSite() &&
+    REQUIRED_NEW_SITE_FIELDS.has(
+      fieldName
     );
 
-    input.id = `field-${fieldName}`;
-    input.dataset.field = fieldName;
-    input.className = "detail-input";
+  labelElement.textContent =
+    required
+      ? `${label} *`
+      : label;
 
-    if (fieldName === "latitude" || fieldName === "longitude") {
+  const valueElement =
+    document.createElement("div");
+
+  valueElement.className =
+    "detail-value";
+
+  if (editing) {
+    const input =
+      document.createElement(
+        fieldName === "notes"
+          ? "textarea"
+          : "input"
+      );
+
+    input.id =
+      `field-${fieldName}`;
+
+    input.dataset.field =
+      fieldName;
+
+    input.className =
+      "detail-input";
+
+    if (
+      fieldName === "latitude" ||
+      fieldName === "longitude"
+    ) {
       input.type = "number";
       input.step = "any";
     }
@@ -84,24 +224,124 @@ function addField(fieldName, label, value) {
     }
 
     input.value =
-      value === null || value === undefined
+      value === null ||
+      value === undefined
         ? ""
         : String(value);
 
-    labelElement.htmlFor = input.id;
-    valueElement.append(input);
+    const placeholder =
+      SITE_FIELD_PLACEHOLDERS[
+        fieldName
+      ];
+
+    if (placeholder) {
+      input.placeholder =
+        placeholder;
+    }
+
+    labelElement.htmlFor =
+      input.id;
+
+    const options =
+      SITE_FIELD_OPTIONS[
+        fieldName
+      ] || [];
+
+    if (
+      input.tagName === "INPUT" &&
+      options.length > 0
+    ) {
+      const datalist =
+        document.createElement(
+          "datalist"
+        );
+
+      datalist.id =
+        `options-${fieldName}`;
+
+      for (
+        const optionValue
+        of options
+      ) {
+        const option =
+          document.createElement(
+            "option"
+          );
+
+        option.value =
+          optionValue;
+
+        datalist.append(option);
+      }
+
+      input.setAttribute(
+        "list",
+        datalist.id
+      );
+
+      valueElement.append(
+        input,
+        datalist
+      );
+    } else {
+      valueElement.append(input);
+    }
+
+    if (isNewSite()) {
+      input.addEventListener(
+        "change",
+        async () => {
+          if (
+            fieldName ===
+            "modern_country_location"
+          ) {
+            siteCountryCode = "";
+          }
+
+          if (
+            fieldName ===
+              "modern_country_location" ||
+            fieldName ===
+              "administering_country"
+          ) {
+            await refreshSuggestedSiteId();
+          }
+
+          if (
+            [
+              "site_id",
+              "site_label",
+              "latitude",
+              "longitude",
+              "modern_country_location",
+            ].includes(fieldName)
+          ) {
+            await refreshSiteMatchPreview();
+          }
+        }
+      );
+    }
   } else if (
     value === null ||
     value === undefined ||
     String(value).trim() === ""
   ) {
-    valueElement.textContent = "—";
-    valueElement.classList.add("detail-empty");
+    valueElement.textContent =
+      "—";
+
+    valueElement.classList.add(
+      "detail-empty"
+    );
   } else {
-    valueElement.textContent = String(value);
+    valueElement.textContent =
+      String(value);
   }
 
-  row.append(labelElement, valueElement);
+  row.append(
+    labelElement,
+    valueElement
+  );
+
   fieldsElement.append(row);
 }
 
@@ -144,6 +384,8 @@ async function loadSite() {
     };
 
     editing = true;
+    siteCreateTools.hidden = false;
+    sourceLinksSection.hidden = true;
 
     renderSite();
 
@@ -217,10 +459,95 @@ cancelButton.addEventListener("click", () => {
 });
 
 saveButton.addEventListener("click", async () => {
+  const creating =
+    !currentSite.id;
   const updates = {};
 
   for (const input of fieldsElement.querySelectorAll("[data-field]")) {
     updates[input.dataset.field] = input.value;
+  }
+
+  if (creating) {
+    const missing = [];
+
+    if (!updates.site_id?.trim()) {
+      missing.push("Site ID");
+    }
+
+    if (!updates.site_label?.trim()) {
+      missing.push("Site label");
+    }
+
+    if (!updates.latitude?.trim()) {
+      missing.push("Latitude");
+    }
+
+    if (!updates.longitude?.trim()) {
+      missing.push("Longitude");
+    }
+
+    if (
+      !updates
+        .modern_country_location
+        ?.trim()
+    ) {
+      missing.push(
+        "Modern country / location"
+      );
+    }
+
+    if (missing.length) {
+      saveMessage.textContent =
+        `Required: ${missing.join(", ")}.`;
+
+      saveMessage.className =
+        "save-message save-message-error";
+
+      saveMessage.hidden =
+        false;
+
+      return;
+    }
+
+    const latitude =
+      Number(updates.latitude);
+
+    const longitude =
+      Number(updates.longitude);
+
+    if (
+      !Number.isFinite(latitude) ||
+      latitude < -90 ||
+      latitude > 90
+    ) {
+      saveMessage.textContent =
+        "Latitude must be a valid number between -90 and 90.";
+
+      saveMessage.className =
+        "save-message save-message-error";
+
+      saveMessage.hidden =
+        false;
+
+      return;
+    }
+
+    if (
+      !Number.isFinite(longitude) ||
+      longitude < -180 ||
+      longitude > 180
+    ) {
+      saveMessage.textContent =
+        "Longitude must be a valid number between -180 and 180.";
+
+      saveMessage.className =
+        "save-message save-message-error";
+
+      saveMessage.hidden =
+        false;
+
+      return;
+    }
   }
 
   saveButton.disabled = true;
@@ -229,7 +556,7 @@ saveButton.addEventListener("click", async () => {
   saveMessage.hidden = true;
 
   try {
-    const creating = !currentSite.id;
+
     const endpoint = creating
       ? "/api/sites"
       : `/api/sites/${encodeURIComponent(currentSite.id)}`;
@@ -255,6 +582,18 @@ saveButton.addEventListener("click", async () => {
     currentSite = payload.site;
     editing = false;
 
+    if (
+      creating &&
+      payload.action === "merged"
+    ) {
+      saveMessage.textContent =
+        `Merged with existing Site. ` +
+        `Match basis: ${payload.match_reason}.`;
+    } else {
+      saveMessage.textContent =
+        "Saved.";
+    }
+
     if (creating) {
       window.history.replaceState(
         {},
@@ -262,6 +601,7 @@ saveButton.addEventListener("click", async () => {
         `/sites/detail/?id=${encodeURIComponent(currentSite.id)}`
       );
       sourceLinksSection.hidden = false;
+      siteCreateTools.hidden = true;
 
       await Promise.all([
         loadSourceOptions(),
@@ -621,6 +961,498 @@ async function removeSourceLink(link) {
   }
 }
 
+function getSiteInput(
+  fieldName
+) {
+  return fieldsElement.querySelector(
+    `[data-field="${fieldName}"]`
+  );
+}
 
+async function refreshSuggestedSiteId() {
+  if (!isNewSite()) {
+    return;
+  }
+
+  const countryInput =
+    getSiteInput(
+      "modern_country_location"
+    );
+
+  const adminInput =
+    getSiteInput(
+      "administering_country"
+    );
+
+  const siteIdInput =
+    getSiteInput("site_id");
+
+  const country =
+    countryInput?.value.trim() || "";
+
+  const admin =
+    adminInput?.value.trim() || "";
+
+  if (!country) {
+    siteIdSuggestion.textContent =
+      "Enter a modern country / location to generate a Site ID.";
+
+    return;
+  }
+
+  try {
+    const url =
+      new URL(
+        "/api/site-id-suggestion",
+        window.location.origin
+      );
+
+    url.searchParams.set(
+      "country",
+      country
+    );
+
+    url.searchParams.set(
+      "admin",
+      admin
+    );
+
+    if (siteCountryCode) {
+      url.searchParams.set(
+        "country_code",
+        siteCountryCode
+      );
+    }
+
+    const response =
+      await fetch(url, {
+        headers: {
+          accept:
+            "application/json",
+        },
+      });
+
+    const payload =
+      await response.json();
+
+    if (
+      !response.ok ||
+      !payload.ok
+    ) {
+      throw new Error(
+        payload.error ||
+        "Unable to suggest Site ID."
+      );
+    }
+
+    const suggested =
+      payload.suggested_site_id;
+
+    siteIdSuggestion.textContent =
+      `Suggested Site ID: ${suggested}`;
+
+    if (
+      siteIdInput &&
+      (
+        !siteIdInput.value.trim() ||
+        siteIdInput.value.trim() ===
+          lastSuggestedSiteId
+      )
+    ) {
+      siteIdInput.value =
+        suggested;
+    }
+
+    lastSuggestedSiteId =
+      suggested;
+  } catch (error) {
+    console.error(error);
+
+    siteIdSuggestion.textContent =
+      "Unable to generate a Site ID suggestion.";
+  }
+}
+
+async function refreshSiteMatchPreview() {
+  if (!isNewSite()) {
+    return;
+  }
+
+  const siteId =
+    getSiteInput("site_id")
+      ?.value.trim() || "";
+
+  const siteLabel =
+    getSiteInput("site_label")
+      ?.value.trim() || "";
+
+  const latitude =
+    getSiteInput("latitude")
+      ?.value.trim() || "";
+
+  const longitude =
+    getSiteInput("longitude")
+      ?.value.trim() || "";
+
+  const country =
+    getSiteInput(
+      "modern_country_location"
+    )?.value.trim() || "";
+
+  if (
+    !siteLabel ||
+    !latitude ||
+    !longitude
+  ) {
+    siteMatchPreview.hidden =
+      true;
+
+    return;
+  }
+
+  try {
+    const response =
+      await fetch(
+        "/api/site-match-preview",
+        {
+          method: "POST",
+          headers: {
+            "content-type":
+              "application/json",
+
+            accept:
+              "application/json",
+          },
+
+          body:
+            JSON.stringify({
+              site_id:
+                siteId,
+
+              site_label:
+                siteLabel,
+
+              latitude,
+              longitude,
+
+              modern_country_location:
+                country,
+            }),
+        }
+      );
+
+    const payload =
+      await response.json();
+
+    if (
+      !response.ok ||
+      !payload.ok
+    ) {
+      throw new Error(
+        payload.error ||
+        "Unable to check existing Sites."
+      );
+    }
+
+    if (!payload.checked) {
+      siteMatchPreview.hidden =
+        true;
+
+      return;
+    }
+
+    if (payload.will_merge) {
+      const existing =
+        payload.existing || {};
+
+      siteMatchPreview.textContent =
+        `Existing Site likely found: ` +
+        `${existing.site_id || ""} — ` +
+        `${existing.site_label || ""}. ` +
+        `Saving will merge into this row. ` +
+        `Match basis: ${payload.match_reason}.`;
+
+      siteMatchPreview.className =
+        "save-message save-message-warning";
+    } else {
+      siteMatchPreview.textContent =
+        "No matching Site found. Saving will create a new Site row.";
+
+      siteMatchPreview.className =
+        "save-message save-message-success";
+    }
+
+    siteMatchPreview.hidden =
+      false;
+  } catch (error) {
+    console.error(error);
+
+    siteMatchPreview.textContent =
+      "Existing-Site check is currently unavailable.";
+
+    siteMatchPreview.className =
+      "save-message save-message-warning";
+
+    siteMatchPreview.hidden =
+      false;
+  }
+}
+
+function renderLocationResults(
+  results
+) {
+  locationResults.replaceChildren();
+
+  if (!results.length) {
+    locationSearchStatus.textContent =
+      "No matching locations found.";
+
+    locationSearchStatus.hidden =
+      false;
+
+    locationResults.hidden =
+      true;
+
+    return;
+  }
+
+  for (const result of results) {
+    const row =
+      document.createElement("div");
+
+    row.className =
+      "location-result";
+
+    const main =
+      document.createElement("div");
+
+    const title =
+      document.createElement("div");
+
+    title.className =
+      "location-result-title";
+
+    title.textContent =
+      result.label ||
+      result.site_label ||
+      "(Unnamed result)";
+
+    const detail =
+      document.createElement("div");
+
+    detail.className =
+      "location-result-detail";
+
+    detail.textContent =
+      `${result.full_label || ""} · ` +
+      `${result.latitude}, ${result.longitude}`;
+
+    main.append(
+      title,
+      detail
+    );
+
+    const applyButton =
+      document.createElement("button");
+
+    applyButton.type =
+      "button";
+
+    applyButton.className =
+      "button button-small";
+
+    applyButton.textContent =
+      "Apply";
+
+    applyButton.addEventListener(
+      "click",
+      async () => {
+        await applyLocationResult(
+          result
+        );
+      }
+    );
+
+    row.append(
+      main,
+      applyButton
+    );
+
+    locationResults.append(row);
+  }
+
+  locationSearchStatus.textContent =
+    "Location suggestions found.";
+
+  locationSearchStatus.hidden =
+    false;
+
+  locationResults.hidden =
+    false;
+}
+
+async function applyLocationResult(
+  result
+) {
+  const siteLabelInput =
+    getSiteInput("site_label");
+
+  const latitudeInput =
+    getSiteInput("latitude");
+
+  const longitudeInput =
+    getSiteInput("longitude");
+
+  const countryInput =
+    getSiteInput(
+      "modern_country_location"
+    );
+
+  const siteIdInput =
+    getSiteInput("site_id");
+
+  if (siteLabelInput) {
+    siteLabelInput.value =
+      result.site_label || "";
+  }
+
+  if (latitudeInput) {
+    latitudeInput.value =
+      result.latitude;
+  }
+
+  if (longitudeInput) {
+    longitudeInput.value =
+      result.longitude;
+  }
+
+  if (countryInput) {
+    countryInput.value =
+      result.country || "";
+  }
+
+  siteCountryCode =
+    result.country_code || "";
+
+  if (siteIdInput) {
+    siteIdInput.value = "";
+  }
+
+  lastSuggestedSiteId = "";
+
+  await refreshSuggestedSiteId();
+  await refreshSiteMatchPreview();
+
+  locationSearchStatus.textContent =
+    "Selected location applied to the Site form.";
+
+  locationSearchStatus.hidden =
+    false;
+}
+
+async function searchLocations() {
+  const query =
+    locationQuery.value.trim();
+
+  if (!query) {
+    locationSearchStatus.textContent =
+      "Enter a place name first.";
+
+    locationSearchStatus.hidden =
+      false;
+
+    return;
+  }
+
+  locationSearchButton.disabled =
+    true;
+
+  locationSearchButton.textContent =
+    "Searching…";
+
+  try {
+    const url =
+      new URL(
+        "/api/location-search",
+        window.location.origin
+      );
+
+    url.searchParams.set(
+      "q",
+      query
+    );
+
+    const response =
+      await fetch(url, {
+        headers: {
+          accept:
+            "application/json",
+        },
+      });
+
+    const payload =
+      await response.json();
+
+    if (
+      !response.ok ||
+      !payload.ok ||
+      !Array.isArray(
+        payload.results
+      )
+    ) {
+      throw new Error(
+        payload.error ||
+        "Location search failed."
+      );
+    }
+
+    renderLocationResults(
+      payload.results
+    );
+  } catch (error) {
+    console.error(error);
+
+    locationSearchStatus.textContent =
+      error.message ||
+      "Location search failed.";
+
+    locationSearchStatus.hidden =
+      false;
+
+    locationResults.hidden =
+      true;
+  } finally {
+    locationSearchButton.disabled =
+      false;
+
+    locationSearchButton.textContent =
+      "Search";
+  }
+}
+
+locationSearchButton.addEventListener(
+  "click",
+  searchLocations
+);
+
+locationQuery.addEventListener(
+  "keydown",
+  (event) => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      searchLocations();
+    }
+  }
+);
+
+locationClearButton.addEventListener(
+  "click",
+  () => {
+    locationQuery.value = "";
+    locationResults.replaceChildren();
+    locationResults.hidden = true;
+    locationSearchStatus.hidden = true;
+  }
+);
 
 loadSite();
