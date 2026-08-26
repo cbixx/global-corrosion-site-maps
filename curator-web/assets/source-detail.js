@@ -47,6 +47,55 @@ const FIELD_LABELS = {
   notes: "Internal notes",
 };
 
+const REQUIRED_NEW_SOURCE_FIELDS = new Set([
+  "source_code",
+  "programme",
+  "metals",
+  "exposure_periods",
+]);
+
+const HIDDEN_NEW_SOURCE_FIELDS = new Set([
+  "local_file_name",
+  "private_pdf_object_key",
+]);
+
+const FIELD_PLACEHOLDERS = {
+  source_code:
+    "e.g. 21, S21, or s021",
+
+  source_title:
+    "Paper, report, dataset, or source title",
+
+  authors_or_organization:
+    "e.g. ISO, ASTM, ICP Materials, or author names",
+
+  publication_year:
+    "e.g. 2014",
+
+  doi:
+    "e.g. 10.xxxx/xxxxx",
+
+  public_url:
+    "Publisher, DOI, dataset, or public landing page",
+
+  display_citation:
+    "Leave blank to auto-generate from authors, year, and title.",
+
+  programme:
+    "e.g. ICP/UNECE",
+
+  metals:
+    "Comma-separated, e.g. Carbon steel, Zinc",
+
+  exposure_periods:
+    "Comma-separated, e.g. 1 year, 2 years",
+
+  source_url:
+    "External source URL",
+};
+
+let sourceFormOptions = null;
+
 function isNewSource() {
   const params = new URLSearchParams(window.location.search);
   return params.get("new") === "1";
@@ -57,13 +106,96 @@ function getSourceId() {
   return params.get("id");
 }
 
+function normaliseSourceCode(value) {
+  const text = String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/\.pdf$/i, "");
+
+  const match =
+    text.match(/^s?0*(\d{1,4})$/);
+
+  if (!match) {
+    return text;
+  }
+
+  return `s${String(Number(match[1])).padStart(3, "0")}`;
+}
+
+async function loadSourceFormOptions() {
+  const response =
+    await fetch("/api/source-form-options", {
+      headers: {
+        accept: "application/json",
+      },
+    });
+
+  const payload = await response.json();
+
+  if (!response.ok || !payload.ok) {
+    throw new Error(
+      payload.error ||
+      "Unable to load Source form options."
+    );
+  }
+
+  sourceFormOptions = payload;
+
+  return payload;
+}
+
+function getSourceFieldOptions(fieldName) {
+  if (!sourceFormOptions) {
+    return [];
+  }
+
+  const optionKeyByField = {
+    source_kind:
+      "source_kind_options",
+
+    source_type:
+      "source_type_options",
+
+    programme:
+      "programme_options",
+
+    metals:
+      "metal_options",
+
+    exposure_periods:
+      "exposure_period_options",
+  };
+
+  const optionKey =
+    optionKeyByField[fieldName];
+
+  if (!optionKey) {
+    return [];
+  }
+
+  const options =
+    sourceFormOptions[optionKey];
+
+  return Array.isArray(options)
+    ? options
+    : [];
+}
+
 function addField(fieldName, label, value) {
   const row = document.createElement("div");
   row.className = "detail-field";
 
   const labelElement = document.createElement("label");
   labelElement.className = "detail-label";
-  labelElement.textContent = label;
+
+  const requiredForNewSource =
+    isNewSource() &&
+    REQUIRED_NEW_SOURCE_FIELDS.has(fieldName);
+
+  labelElement.textContent =
+    requiredForNewSource
+      ? `${label} *`
+      : label;
 
   const valueElement = document.createElement("div");
   valueElement.className = "detail-value";
@@ -76,24 +208,85 @@ function addField(fieldName, label, value) {
     ]);
 
     const input = document.createElement(
-      longFields.has(fieldName) ? "textarea" : "input"
+      longFields.has(fieldName)
+        ? "textarea"
+        : "input"
     );
 
     input.className = "detail-input";
     input.dataset.field = fieldName;
+
     input.value =
-      value === null || value === undefined
+      value === null ||
+      value === undefined
         ? ""
         : String(value);
+
+    const placeholder =
+      FIELD_PLACEHOLDERS[fieldName];
+
+    if (placeholder) {
+      input.placeholder = placeholder;
+    }
 
     if (input.tagName === "TEXTAREA") {
       input.rows = 4;
     }
 
-    labelElement.htmlFor = `field-${fieldName}`;
-    input.id = `field-${fieldName}`;
+    labelElement.htmlFor =
+      `field-${fieldName}`;
 
-    valueElement.append(input);
+    input.id =
+      `field-${fieldName}`;
+
+    if (fieldName === "source_code") {
+      input.autocapitalize = "off";
+      input.autocomplete = "off";
+
+      input.addEventListener(
+        "blur",
+        () => {
+          input.value =
+            normaliseSourceCode(
+              input.value
+            );
+        }
+      );
+    }
+
+    const fieldOptions =
+      getSourceFieldOptions(fieldName);
+
+    if (
+      input.tagName === "INPUT" &&
+      fieldOptions.length > 0
+    ) {
+      const datalist =
+        document.createElement("datalist");
+
+      datalist.id =
+        `options-${fieldName}`;
+
+      for (const optionValue of fieldOptions) {
+        const option =
+          document.createElement("option");
+
+        option.value = optionValue;
+        datalist.append(option);
+      }
+
+      input.setAttribute(
+        "list",
+        datalist.id
+      );
+
+      valueElement.append(
+        input,
+        datalist
+      );
+    } else {
+      valueElement.append(input);
+    }
   } else if (
     value === null ||
     value === undefined ||
@@ -105,7 +298,11 @@ function addField(fieldName, label, value) {
     valueElement.textContent = String(value);
   }
 
-  row.append(labelElement, valueElement);
+  row.append(
+    labelElement,
+    valueElement
+  );
+
   fieldsElement.append(row);
 }
 
@@ -122,8 +319,22 @@ function renderSource() {
 
   fieldsElement.replaceChildren();
 
-  for (const [fieldName, label] of Object.entries(FIELD_LABELS)) {
-    addField(fieldName, label, currentSource[fieldName]);
+  for (
+    const [fieldName, label]
+    of Object.entries(FIELD_LABELS)
+  ) {
+    if (
+      isNewSource() &&
+      HIDDEN_NEW_SOURCE_FIELDS.has(fieldName)
+    ) {
+      continue;
+    }
+
+    addField(
+      fieldName,
+      label,
+      currentSource[fieldName]
+    );
   }
 
   editButton.hidden = editing;
@@ -134,9 +345,24 @@ function renderSource() {
 async function loadSource() {
 
   if (isNewSource()) {
+    let suggestedSourceCode = "";
+
+    try {
+      const options =
+        await loadSourceFormOptions();
+
+      suggestedSourceCode =
+        options.next_source_code || "";
+    } catch (error) {
+      console.error(
+        "Unable to load Source creation options.",
+        error
+      );
+    }
+    
     currentSource = {
       id: null,
-      source_code: "",
+      source_code: suggestedSourceCode,
       source_title: "",
       source_kind: "",
       source_type: "",
@@ -212,13 +438,26 @@ async function loadSource() {
   }
 }
 
-editButton.addEventListener("click", () => {
-  editing = true;
+editButton.addEventListener(
+  "click",
+  async () => {
+    if (!sourceFormOptions) {
+      try {
+        await loadSourceFormOptions();
+      } catch (error) {
+        console.error(
+          "Unable to load Source field options.",
+          error
+        );
+      }
+    }
 
-  saveMessage.hidden = true;
+    editing = true;
+    saveMessage.hidden = true;
 
-  renderSource();
-});
+    renderSource();
+  }
+);
 
 cancelButton.addEventListener("click", () => {
   if (isNewSource()) {
@@ -236,10 +475,66 @@ saveButton.addEventListener("click", async () => {
     return;
   }
 
+  const creating =
+    !currentSource.id;
+
   const updates = {};
 
   for (const input of fieldsElement.querySelectorAll("[data-field]")) {
     updates[input.dataset.field] = input.value;
+  }
+
+  if (creating) {
+    updates.source_code =
+      normaliseSourceCode(
+        updates.source_code
+      );
+
+    const missingFields = [];
+
+    if (!updates.source_code?.trim()) {
+      missingFields.push("Source code");
+    }
+
+    if (!updates.programme?.trim()) {
+      missingFields.push("Programme");
+    }
+
+    if (!updates.metals?.trim()) {
+      missingFields.push("Metals");
+    }
+
+    if (!updates.exposure_periods?.trim()) {
+      missingFields.push(
+        "Exposure periods"
+      );
+    }
+
+    if (missingFields.length > 0) {
+      saveMessage.textContent =
+        `Required: ${missingFields.join(", ")}.`;
+
+      saveMessage.className =
+        "save-message save-message-error";
+
+      saveMessage.hidden = false;
+      return;
+    }
+
+    if (
+      !/^s\d{3}$/.test(
+        updates.source_code
+      )
+    ) {
+      saveMessage.textContent =
+        "Source code must resolve to canonical sNNN format.";
+
+      saveMessage.className =
+        "save-message save-message-error";
+
+      saveMessage.hidden = false;
+      return;
+    }
   }
 
   saveButton.disabled = true;
@@ -250,8 +545,7 @@ saveButton.addEventListener("click", async () => {
   saveMessage.hidden = true;
 
   try {
-    const creating = !currentSource.id;
-
+    
     const endpoint = creating
       ? "/api/sources"
       : `/api/sources/${encodeURIComponent(currentSource.id)}`;

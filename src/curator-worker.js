@@ -277,22 +277,71 @@ async function handleSourceUpdate(request, env, sourceId) {
     );
   }
 
-  if (
-    Object.hasOwn(updates, "source_code") &&
-    !/^s\d{3}$/i.test(updates.source_code)
-  ) {
-    return Response.json(
-      {
-        ok: false,
-        error: "Source code must have the form S001.",
-      },
-      {
-        status: 400,
-        headers: {
-          "cache-control": "no-store",
+  if (Object.hasOwn(updates, "source_code")) {
+    updates.source_code =
+      normaliseSourceCode(
+        updates.source_code
+      );
+
+    if (
+      !isCanonicalSourceCode(
+        updates.source_code
+      )
+    ) {
+      return Response.json(
+        {
+          ok: false,
+          error:
+            "Source code must resolve to canonical sNNN format.",
         },
+        {
+          status: 400,
+          headers: {
+            "cache-control": "no-store",
+          },
+        }
+      );
+    }
+
+    try {
+      if (
+        await sourceCodeExists(
+          env,
+          updates.source_code,
+          id
+        )
+      ) {
+        return Response.json(
+          {
+            ok: false,
+            error:
+              `Source code ${updates.source_code} already exists.`,
+          },
+          {
+            status: 409,
+            headers: {
+              "cache-control": "no-store",
+            },
+          }
+        );
       }
-    );
+    } catch (error) {
+      console.error(error);
+
+      return Response.json(
+        {
+          ok: false,
+          error:
+            "Unable to verify Source-code uniqueness.",
+        },
+        {
+          status: 502,
+          headers: {
+            "cache-control": "no-store",
+          },
+        }
+      );
+    }
   }
 
   const endpoint = new URL("/rest/v1/sources", env.SUPABASE_URL);
@@ -886,15 +935,489 @@ async function handleSourceSiteLinks(env, sourceId) {
   );
 }
 
+const SOURCE_KIND_OPTIONS = [
+  "Literature",
+  "Dataset",
+  "Standard",
+  "Technical report",
+  "Website",
+  "Other / independent",
+];
+
+const SOURCE_TYPE_OPTIONS = [
+  "Journal Article",
+  "Conference Paper",
+  "Technical Report",
+  "Standard",
+  "Dataset",
+  "Book / Chapter",
+  "Website / Web Page",
+  "Other",
+];
+
+const PROGRAMME_OPTIONS = [
+  "ICP/UNECE",
+  "MICAT",
+  "ISOCORRAG",
+  "Other / independent",
+];
+
+const METAL_OPTIONS = [
+  "Carbon steel",
+  "Weathering steel",
+  "Zinc",
+  "Copper",
+  "Aluminium",
+  "Galvanized steel",
+  "Lead",
+  "Nickel",
+  "Tin",
+  "Brass",
+  "Bronze",
+];
+
+const EXPOSURE_PERIOD_OPTIONS = [
+  "1 month",
+  "3 months",
+  "6 months",
+  "1 year",
+  "2 years",
+  "3 years",
+  "4 years",
+  "5 years",
+  "8 years",
+  "10 years",
+];
+
+function normaliseSourceCode(value) {
+  const text = String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/\.pdf$/i, "");
+
+  const match = text.match(/^s?0*(\d{1,4})$/);
+
+  if (!match) {
+    return text;
+  }
+
+  return `s${String(Number(match[1])).padStart(3, "0")}`;
+}
+
+function isCanonicalSourceCode(value) {
+  return /^s\d{3}$/.test(
+    String(value || "").trim().toLowerCase()
+  );
+}
+
+function sourceCodeNumber(value) {
+  const canonical = normaliseSourceCode(value);
+
+  if (!isCanonicalSourceCode(canonical)) {
+    return null;
+  }
+
+  return Number(canonical.slice(1));
+}
+
+function splitMetadataValues(value) {
+  return String(value || "")
+    .replaceAll(";", ",")
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function mergeOptionValues(...groups) {
+  const merged = [];
+
+  for (const group of groups) {
+    for (const value of group || []) {
+      const clean = String(value || "").trim();
+
+      if (clean && !merged.includes(clean)) {
+        merged.push(clean);
+      }
+    }
+  }
+
+  return merged;
+}
+
+function buildDefaultDisplayCitation(
+  authorsOrOrganization,
+  publicationYear,
+  sourceTitle
+) {
+  const authors =
+    String(authorsOrOrganization || "").trim();
+
+  const year =
+    String(publicationYear || "").trim();
+
+  const title =
+    String(sourceTitle || "").trim();
+
+  if (authors && year && title) {
+    return `${authors}. (${year}). ${title}.`;
+  }
+
+  if (authors && title) {
+    return `${authors}. ${title}.`;
+  }
+
+  if (year && title) {
+    return `(${year}). ${title}.`;
+  }
+
+  return title;
+}
+
+async function sourceCodeExists(
+  env,
+  sourceCode,
+  excludeSourceId = null
+) {
+  const endpoint =
+    new URL("/rest/v1/sources", env.SUPABASE_URL);
+
+  endpoint.searchParams.set("select", "id");
+
+  endpoint.searchParams.set(
+    "source_code",
+    `ilike.${sourceCode}`
+  );
+
+  if (
+    Number.isInteger(Number(excludeSourceId)) &&
+    Number(excludeSourceId) > 0
+  ) {
+    endpoint.searchParams.set(
+      "id",
+      `neq.${Number(excludeSourceId)}`
+    );
+  }
+
+  endpoint.searchParams.set("limit", "1");
+
+  const response = await fetch(endpoint, {
+    headers: {
+      apikey: env.SUPABASE_SECRET_KEY,
+      accept: "application/json",
+    },
+  });
+
+  if (!response.ok) {
+    const detail = await response.text();
+
+    console.error(
+      "Unable to check source-code uniqueness.",
+      {
+        status: response.status,
+        detail,
+      }
+    );
+
+    throw new Error(
+      "Unable to check source-code uniqueness."
+    );
+  }
+
+  const rows = await response.json();
+
+  return rows.length > 0;
+}
+
+async function handleSourceFormOptions(env) {
+  if (!env.SUPABASE_URL || !env.SUPABASE_SECRET_KEY) {
+    return Response.json(
+      {
+        ok: false,
+        error: "Supabase configuration is missing.",
+      },
+      {
+        status: 500,
+        headers: { "cache-control": "no-store" },
+      }
+    );
+  }
+
+  const sourceEndpoint =
+    new URL("/rest/v1/sources", env.SUPABASE_URL);
+
+  sourceEndpoint.searchParams.set(
+    "select",
+    "source_code,programme,metals"
+  );
+
+  const sourceResponse = await fetch(
+    sourceEndpoint,
+    {
+      headers: {
+        apikey: env.SUPABASE_SECRET_KEY,
+        accept: "application/json",
+      },
+    }
+  );
+
+  if (!sourceResponse.ok) {
+    const detail = await sourceResponse.text();
+
+    console.error(
+      "Unable to load Source form options.",
+      {
+        status: sourceResponse.status,
+        detail,
+      }
+    );
+
+    return Response.json(
+      {
+        ok: false,
+        error: "Unable to load Source form options.",
+      },
+      {
+        status: 502,
+        headers: { "cache-control": "no-store" },
+      }
+    );
+  }
+
+  const sourceRows =
+    await sourceResponse.json();
+
+  let maxSourceNumber = 0;
+
+  const existingProgrammes = [];
+  const existingMetals = [];
+
+  for (const row of sourceRows) {
+    const number =
+      sourceCodeNumber(row.source_code);
+
+    if (
+      number !== null &&
+      number > maxSourceNumber
+    ) {
+      maxSourceNumber = number;
+    }
+
+    existingProgrammes.push(
+      ...splitMetadataValues(row.programme)
+    );
+
+    existingMetals.push(
+      ...splitMetadataValues(row.metals)
+    );
+  }
+
+  let savedProgrammes = [];
+  let savedMetals = [];
+
+  try {
+    const metadataEndpoint =
+      new URL(
+        "/rest/v1/metadata_options",
+        env.SUPABASE_URL
+      );
+
+    metadataEndpoint.searchParams.set(
+      "select",
+      "category,value"
+    );
+
+    metadataEndpoint.searchParams.set(
+      "order",
+      "value.asc"
+    );
+
+    const metadataResponse =
+      await fetch(metadataEndpoint, {
+        headers: {
+          apikey: env.SUPABASE_SECRET_KEY,
+          accept: "application/json",
+        },
+      });
+
+    if (metadataResponse.ok) {
+      const metadataRows =
+        await metadataResponse.json();
+
+      savedProgrammes = metadataRows
+        .filter(
+          (row) => row.category === "programme"
+        )
+        .map((row) => row.value);
+
+      savedMetals = metadataRows
+        .filter(
+          (row) => row.category === "metal"
+        )
+        .map((row) => row.value);
+    } else {
+      console.warn(
+        "metadata_options could not be loaded.",
+        metadataResponse.status
+      );
+    }
+  } catch (error) {
+    console.warn(
+      "metadata_options lookup failed.",
+      error
+    );
+  }
+
+  const nextSourceCode =
+    `s${String(maxSourceNumber + 1).padStart(3, "0")}`;
+
+  return Response.json(
+    {
+      ok: true,
+
+      next_source_code:
+        nextSourceCode,
+
+      source_kind_options:
+        SOURCE_KIND_OPTIONS,
+
+      source_type_options:
+        SOURCE_TYPE_OPTIONS,
+
+      programme_options:
+        mergeOptionValues(
+          PROGRAMME_OPTIONS,
+          existingProgrammes,
+          savedProgrammes
+        ),
+
+      metal_options:
+        mergeOptionValues(
+          METAL_OPTIONS,
+          existingMetals,
+          savedMetals
+        ),
+
+      exposure_period_options:
+        EXPOSURE_PERIOD_OPTIONS,
+    },
+    {
+      headers: {
+        "cache-control": "no-store",
+      },
+    }
+  );
+}
+
+async function persistSourceMetadataOptions(
+  env,
+  source
+) {
+  const rows = [];
+
+  for (
+    const value
+    of splitMetadataValues(source.programme)
+  ) {
+    rows.push({
+      category: "programme",
+      value,
+    });
+  }
+
+  for (
+    const value
+    of splitMetadataValues(source.metals)
+  ) {
+    rows.push({
+      category: "metal",
+      value,
+    });
+  }
+
+  const seen = new Set();
+
+  const uniqueRows = rows.filter((row) => {
+    const key =
+      `${row.category}\u0000${row.value}`;
+
+    if (seen.has(key)) {
+      return false;
+    }
+
+    seen.add(key);
+    return true;
+  });
+
+  if (uniqueRows.length === 0) {
+    return;
+  }
+
+  try {
+    const endpoint =
+      new URL(
+        "/rest/v1/metadata_options",
+        env.SUPABASE_URL
+      );
+
+    endpoint.searchParams.set(
+      "on_conflict",
+      "category,value"
+    );
+
+    const response = await fetch(endpoint, {
+      method: "POST",
+      headers: {
+        apikey: env.SUPABASE_SECRET_KEY,
+        "content-type": "application/json",
+        prefer:
+          "resolution=ignore-duplicates,return=minimal",
+      },
+      body: JSON.stringify(uniqueRows),
+    });
+
+    if (!response.ok) {
+      console.warn(
+        "Unable to persist Source metadata options.",
+        response.status,
+        await response.text()
+      );
+    }
+  } catch (error) {
+    console.warn(
+      "Source metadata option persistence failed.",
+      error
+    );
+  }
+}
+
 async function handleSourceCreate(request, env) {
+  if (!env.SUPABASE_URL || !env.SUPABASE_SECRET_KEY) {
+    return Response.json(
+      {
+        ok: false,
+        error: "Supabase configuration is missing.",
+      },
+      {
+        status: 500,
+        headers: { "cache-control": "no-store" },
+      }
+    );
+  }
+
   let payload;
 
   try {
     payload = await request.json();
   } catch {
     return Response.json(
-      { ok: false, error: "Invalid JSON body." },
-      { status: 400, headers: { "cache-control": "no-store" } }
+      {
+        ok: false,
+        error: "Invalid JSON body.",
+      },
+      {
+        status: 400,
+        headers: { "cache-control": "no-store" },
+      }
     );
   }
 
@@ -909,19 +1432,113 @@ async function handleSourceCreate(request, env) {
         : String(value).trim();
   }
 
-  source.source_code = source.source_code.toLowerCase();
+  source.source_code =
+    normaliseSourceCode(source.source_code);
 
-  if (!/^s\d{3}$/i.test(source.source_code)) {
-    return Response.json(
-      {
-        ok: false,
-        error: "Source code must have the form S001.",
-      },
-      { status: 400, headers: { "cache-control": "no-store" } }
+  const validationErrors = [];
+
+  if (!source.source_code) {
+    validationErrors.push(
+      "Source code is required."
+    );
+  } else if (
+    !isCanonicalSourceCode(source.source_code)
+  ) {
+    validationErrors.push(
+      "Source code must resolve to canonical sNNN format."
     );
   }
 
-  const endpoint = new URL("/rest/v1/sources", env.SUPABASE_URL);
+  if (!source.programme) {
+    validationErrors.push(
+      "Source programme is required."
+    );
+  }
+
+  if (!source.metals) {
+    validationErrors.push(
+      "At least one source metal is required."
+    );
+  }
+
+  if (!source.exposure_periods) {
+    validationErrors.push(
+      "At least one source exposure period is required."
+    );
+  }
+
+  if (validationErrors.length > 0) {
+    return Response.json(
+      {
+        ok: false,
+        error: validationErrors.join(" "),
+        errors: validationErrors,
+      },
+      {
+        status: 400,
+        headers: { "cache-control": "no-store" },
+      }
+    );
+  }
+
+  try {
+    if (
+      await sourceCodeExists(
+        env,
+        source.source_code
+      )
+    ) {
+      return Response.json(
+        {
+          ok: false,
+          error:
+            `Source code ${source.source_code} already exists.`,
+        },
+        {
+          status: 409,
+          headers: { "cache-control": "no-store" },
+        }
+      );
+    }
+  } catch (error) {
+    console.error(error);
+
+    return Response.json(
+      {
+        ok: false,
+        error:
+          "Unable to verify Source-code uniqueness.",
+      },
+      {
+        status: 502,
+        headers: { "cache-control": "no-store" },
+      }
+    );
+  }
+
+  /*
+   * PDF/R2 creation is not part of 4B.
+   * These fields will be populated by the dedicated
+   * private-PDF workflow later.
+   */
+  source.local_file_name = "";
+  source.private_pdf_object_key = "";
+
+  if (!source.public_url) {
+    source.public_url = source.source_url;
+  }
+
+  if (!source.display_citation) {
+    source.display_citation =
+      buildDefaultDisplayCitation(
+        source.authors_or_organization,
+        source.publication_year,
+        source.source_title
+      );
+  }
+
+  const endpoint =
+    new URL("/rest/v1/sources", env.SUPABASE_URL);
 
   const response = await fetch(endpoint, {
     method: "POST",
@@ -937,10 +1554,13 @@ async function handleSourceCreate(request, env) {
   if (!response.ok) {
     const detail = await response.text();
 
-    console.error("Unable to create source.", {
-      status: response.status,
-      detail,
-    });
+    console.error(
+      "Unable to create source.",
+      {
+        status: response.status,
+        detail,
+      }
+    );
 
     const message =
       response.status === 409
@@ -948,21 +1568,41 @@ async function handleSourceCreate(request, env) {
         : "Unable to create source.";
 
     return Response.json(
-      { ok: false, error: message },
-      { status: response.status === 409 ? 409 : 502 }
+      {
+        ok: false,
+        error: message,
+      },
+      {
+        status:
+          response.status === 409
+            ? 409
+            : 502,
+
+        headers: {
+          "cache-control": "no-store",
+        },
+      }
     );
   }
 
   const rows = await response.json();
+  const createdSource = rows[0] || null;
+
+  await persistSourceMetadataOptions(
+    env,
+    source
+  );
 
   return Response.json(
     {
       ok: true,
-      source: rows[0] || null,
+      source: createdSource,
     },
     {
       status: 201,
-      headers: { "cache-control": "no-store" },
+      headers: {
+        "cache-control": "no-store",
+      },
     }
   );
 }
@@ -1100,6 +1740,10 @@ export default {
       );
     }
 
+    if (path === "/api/source-form-options" && request.method === "GET") {
+      return handleSourceFormOptions(env);
+    }
+    
     if (path === "/api/sources" && request.method === "GET") {
       return handleSourcesList(env);
     }
