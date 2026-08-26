@@ -260,6 +260,11 @@ h1 {
   .linked-source-actions {
     align-self: flex-start;
   }
+
+  .page-actions {
+    width: 100%;
+    justify-content: space-between;
+  }
 }
 
 .detail-heading {
@@ -462,4 +467,17 @@ textarea.detail-input {
 
 .button-danger {
   color: #9b2c2c;
+}
+
+.page-actions {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.page-actions .button {
+  display: inline-flex;
+  align-items: center;
+  text-decoration: none;
+  white-space: nowrap;
 }

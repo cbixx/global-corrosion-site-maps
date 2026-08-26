@@ -814,6 +814,200 @@ async function handleSiteSourceDelete(env, siteId, linkId) {
   );
 }
 
+async function handleSourceCreate(request, env) {
+  let payload;
+
+  try {
+    payload = await request.json();
+  } catch {
+    return Response.json(
+      { ok: false, error: "Invalid JSON body." },
+      { status: 400, headers: { "cache-control": "no-store" } }
+    );
+  }
+
+  const source = {};
+
+  for (const field of EDITABLE_SOURCE_FIELDS) {
+    const value = payload?.[field];
+
+    source[field] =
+      value === null || value === undefined
+        ? ""
+        : String(value).trim();
+  }
+
+  source.source_code = source.source_code.toLowerCase();
+
+  if (!/^s\d{3}$/i.test(source.source_code)) {
+    return Response.json(
+      {
+        ok: false,
+        error: "Source code must have the form S001.",
+      },
+      { status: 400, headers: { "cache-control": "no-store" } }
+    );
+  }
+
+  const endpoint = new URL("/rest/v1/sources", env.SUPABASE_URL);
+
+  const response = await fetch(endpoint, {
+    method: "POST",
+    headers: {
+      apikey: env.SUPABASE_SECRET_KEY,
+      "content-type": "application/json",
+      accept: "application/json",
+      prefer: "return=representation",
+    },
+    body: JSON.stringify(source),
+  });
+
+  if (!response.ok) {
+    const detail = await response.text();
+
+    console.error("Unable to create source.", {
+      status: response.status,
+      detail,
+    });
+
+    const message =
+      response.status === 409
+        ? "That source code already exists."
+        : "Unable to create source.";
+
+    return Response.json(
+      { ok: false, error: message },
+      { status: response.status === 409 ? 409 : 502 }
+    );
+  }
+
+  const rows = await response.json();
+
+  return Response.json(
+    {
+      ok: true,
+      source: rows[0] || null,
+    },
+    {
+      status: 201,
+      headers: { "cache-control": "no-store" },
+    }
+  );
+}
+
+async function handleSiteCreate(request, env) {
+  let payload;
+
+  try {
+    payload = await request.json();
+  } catch {
+    return Response.json(
+      { ok: false, error: "Invalid JSON body." },
+      { status: 400, headers: { "cache-control": "no-store" } }
+    );
+  }
+
+  const site = {};
+
+  for (const field of EDITABLE_SITE_FIELDS) {
+    const value = payload?.[field];
+
+    if (field === "latitude" || field === "longitude") {
+      const number = Number(value);
+
+      if (!Number.isFinite(number)) {
+        return Response.json(
+          {
+            ok: false,
+            error: `${field} must be a valid number.`,
+          },
+          { status: 400, headers: { "cache-control": "no-store" } }
+        );
+      }
+
+      site[field] = number;
+    } else {
+      site[field] =
+        value === null || value === undefined
+          ? ""
+          : String(value).trim();
+    }
+  }
+
+  if (!site.site_id) {
+    return Response.json(
+      { ok: false, error: "Site ID is required." },
+      { status: 400, headers: { "cache-control": "no-store" } }
+    );
+  }
+
+  if (!site.site_label) {
+    return Response.json(
+      { ok: false, error: "Site label is required." },
+      { status: 400, headers: { "cache-control": "no-store" } }
+    );
+  }
+
+  if (site.latitude < -90 || site.latitude > 90) {
+    return Response.json(
+      { ok: false, error: "Latitude must be between -90 and 90." },
+      { status: 400 }
+    );
+  }
+
+  if (site.longitude < -180 || site.longitude > 180) {
+    return Response.json(
+      { ok: false, error: "Longitude must be between -180 and 180." },
+      { status: 400 }
+    );
+  }
+
+  const endpoint = new URL("/rest/v1/sites", env.SUPABASE_URL);
+
+  const response = await fetch(endpoint, {
+    method: "POST",
+    headers: {
+      apikey: env.SUPABASE_SECRET_KEY,
+      "content-type": "application/json",
+      accept: "application/json",
+      prefer: "return=representation",
+    },
+    body: JSON.stringify(site),
+  });
+
+  if (!response.ok) {
+    const detail = await response.text();
+
+    console.error("Unable to create site.", {
+      status: response.status,
+      detail,
+    });
+
+    const message =
+      response.status === 409
+        ? "That site ID already exists."
+        : "Unable to create site.";
+
+    return Response.json(
+      { ok: false, error: message },
+      { status: response.status === 409 ? 409 : 502 }
+    );
+  }
+
+  const rows = await response.json();
+
+  return Response.json(
+    {
+      ok: true,
+      site: rows[0] || null,
+    },
+    {
+      status: 201,
+      headers: { "cache-control": "no-store" },
+    }
+  );
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -838,8 +1032,16 @@ export default {
       return handleSourcesList(env);
     }
 
+    if (path === "/api/sources" && request.method === "POST") {
+      return handleSourceCreate(request, env);
+    }
+
     if (path === "/api/sites" && request.method === "GET") {
       return handleSitesList(env);
+    }
+
+    if (path === "/api/sites" && request.method === "POST") {
+      return handleSiteCreate(request, env);
     }
 
     const siteDetailMatch = path.match(/^\/api\/sites\/(\d+)$/);

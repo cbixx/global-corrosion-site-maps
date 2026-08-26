@@ -29,6 +29,11 @@ const FIELD_LABELS = {
   notes: "Internal notes",
 };
 
+function isNewSource() {
+  const params = new URLSearchParams(window.location.search);
+  return params.get("new") === "1";
+}
+
 function getSourceId() {
   const params = new URLSearchParams(window.location.search);
   return params.get("id");
@@ -109,6 +114,40 @@ function renderSource() {
 }
 
 async function loadSource() {
+
+  if (isNewSource()) {
+    currentSource = {
+      id: null,
+      source_code: "",
+      source_title: "",
+      source_kind: "",
+      source_type: "",
+      authors_or_organization: "",
+      publication_year: "",
+      doi: "",
+      public_url: "",
+      display_citation: "",
+      public_notes: "",
+      programme: "",
+      metals: "",
+      exposure_periods: "",
+      local_file_name: "",
+      source_url: "",
+      private_pdf_object_key: "",
+      notes: "",
+    };
+
+    editing = true;
+
+    renderSource();
+
+    document.title = "New Source · Corrosion Atlas Curator";
+
+    statusElement.hidden = true;
+    detailElement.hidden = false;
+
+    return;
+  }
   const sourceId = getSourceId();
 
   if (!sourceId) {
@@ -157,10 +196,13 @@ editButton.addEventListener("click", () => {
 });
 
 cancelButton.addEventListener("click", () => {
+  if (isNewSource()) {
+    window.location.href = "/sources/";
+    return;
+  }
+
   editing = false;
-
   saveMessage.hidden = true;
-
   renderSource();
 });
 
@@ -183,10 +225,16 @@ saveButton.addEventListener("click", async () => {
   saveMessage.hidden = true;
 
   try {
+    const creating = !currentSource.id;
+
+    const endpoint = creating
+      ? "/api/sources"
+      : `/api/sources/${encodeURIComponent(currentSource.id)}`;
+
     const response = await fetch(
-      `/api/sources/${encodeURIComponent(currentSource.id)}`,
+      endpoint,
       {
-        method: "PATCH",
+        method: creating ? "POST" : "PATCH",
         headers: {
           "content-type": "application/json",
           accept: "application/json",
@@ -203,6 +251,14 @@ saveButton.addEventListener("click", async () => {
 
     currentSource = payload.source;
     editing = false;
+
+    if (creating) {
+      window.history.replaceState(
+        {},
+        "",
+        `/sources/detail/?id=${encodeURIComponent(currentSource.id)}`
+      );
+    }
 
     renderSource();
 

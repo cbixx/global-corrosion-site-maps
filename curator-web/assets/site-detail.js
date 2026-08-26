@@ -44,6 +44,11 @@ const FIELD_LABELS = {
   notes: "Notes",
 };
 
+function isNewSite() {
+  const params = new URLSearchParams(window.location.search);
+  return params.get("new") === "1";
+}
+
 function getSiteId() {
   return new URLSearchParams(window.location.search).get("id");
 }
@@ -120,6 +125,35 @@ function renderSite() {
 }
 
 async function loadSite() {
+  if (isNewSite()) {
+    currentSite = {
+      id: null,
+      site_id: "",
+      site_label: "",
+      site_type: "",
+      latitude: "",
+      longitude: "",
+      modern_country_location: "",
+      administering_country: "",
+      former_entity: "",
+      region_category: "",
+      exposure_period: "",
+      metal: "",
+      notes: "",
+    };
+
+    editing = true;
+
+    renderSite();
+
+    document.title = "New Site · Corrosion Atlas Curator";
+
+    statusElement.hidden = true;
+    detailElement.hidden = false;
+
+    return;
+  }
+
   const siteId = getSiteId();
 
   if (!siteId) {
@@ -170,6 +204,11 @@ editButton.addEventListener("click", () => {
 });
 
 cancelButton.addEventListener("click", () => {
+  if (isNewSite()) {
+    window.location.href = "/sites/";
+    return;
+  }
+
   editing = false;
   saveMessage.hidden = true;
   renderSite();
@@ -188,10 +227,15 @@ saveButton.addEventListener("click", async () => {
   saveMessage.hidden = true;
 
   try {
+    const creating = !currentSite.id;
+    const endpoint = creating
+      ? "/api/sites"
+      : `/api/sites/${encodeURIComponent(currentSite.id)}`;
+
     const response = await fetch(
-      `/api/sites/${encodeURIComponent(currentSite.id)}`,
+      endpoint,
       {
-        method: "PATCH",
+        method: creating ? "POST" : "PATCH",
         headers: {
           "content-type": "application/json",
           accept: "application/json",
@@ -208,6 +252,14 @@ saveButton.addEventListener("click", async () => {
 
     currentSite = payload.site;
     editing = false;
+
+    if (creating) {
+      window.history.replaceState(
+        {},
+        "",
+        `/sites/detail/?id=${encodeURIComponent(currentSite.id)}`
+      );
+    }
 
     renderSite();
 
