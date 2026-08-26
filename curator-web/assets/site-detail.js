@@ -21,6 +21,7 @@ const saveLinkButton = document.getElementById("save-link-button");
 const linkMessage = document.getElementById("link-message");
 const linkedSourcesStatus = document.getElementById("linked-sources-status");
 const linkedSourcesElement = document.getElementById("linked-sources");
+const sourceLinksSection = document.getElementById("source-links-section");
 
 let sourceOptions = [];
 let currentLinks = [];
@@ -150,6 +151,7 @@ async function loadSite() {
 
     statusElement.hidden = true;
     detailElement.hidden = false;
+    sourceLinksSection.hidden = true;
 
     return;
   }
@@ -259,6 +261,12 @@ saveButton.addEventListener("click", async () => {
         "",
         `/sites/detail/?id=${encodeURIComponent(currentSite.id)}`
       );
+      sourceLinksSection.hidden = false;
+
+      await Promise.all([
+        loadSourceOptions(),
+        loadLinkedSources(),
+      ]);
     }
 
     renderSite();

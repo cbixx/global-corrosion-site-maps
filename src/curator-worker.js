@@ -814,6 +814,78 @@ async function handleSiteSourceDelete(env, siteId, linkId) {
   );
 }
 
+async function handleSourceSiteLinks(env, sourceId) {
+  const id = Number(sourceId);
+
+  if (!Number.isInteger(id) || id <= 0) {
+    return Response.json(
+      { ok: false, error: "Invalid source ID." },
+      { status: 400, headers: { "cache-control": "no-store" } }
+    );
+  }
+
+  const endpoint = new URL("/rest/v1/site_sources", env.SUPABASE_URL);
+
+  endpoint.searchParams.set(
+    "select",
+    [
+      "id",
+      "site_fk",
+      "source_fk",
+      "source_order",
+      "metals",
+      "exposure_periods",
+      "notes",
+      "sites(site_id,site_label,modern_country_location)"
+    ].join(",")
+  );
+
+  endpoint.searchParams.set("source_fk", `eq.${id}`);
+  endpoint.searchParams.set("order", "source_order.asc,site_fk.asc");
+
+  const response = await fetch(endpoint, {
+    headers: {
+      apikey: env.SUPABASE_SECRET_KEY,
+      accept: "application/json",
+    },
+  });
+
+  if (!response.ok) {
+    const detail = await response.text();
+
+    console.error("Unable to load source-site links.", {
+      status: response.status,
+      detail,
+    });
+
+    return Response.json(
+      { ok: false, error: "Unable to load linked sites." },
+      { status: 502, headers: { "cache-control": "no-store" } }
+    );
+  }
+
+  const rows = await response.json();
+
+  const links = rows.map((row) => ({
+    id: row.id,
+    site_fk: row.site_fk,
+    source_fk: row.source_fk,
+    source_order: row.source_order,
+    metals: row.metals || "",
+    exposure_periods: row.exposure_periods || "",
+    notes: row.notes || "",
+    site_id: row.sites?.site_id || "",
+    site_label: row.sites?.site_label || "",
+    modern_country_location:
+      row.sites?.modern_country_location || "",
+  }));
+
+  return Response.json(
+    { ok: true, links },
+    { headers: { "cache-control": "no-store" } }
+  );
+}
+
 async function handleSourceCreate(request, env) {
   let payload;
 
@@ -1034,6 +1106,16 @@ export default {
 
     if (path === "/api/sources" && request.method === "POST") {
       return handleSourceCreate(request, env);
+    }
+
+    const sourceSitesMatch =
+      path.match(/^\/api\/sources\/(\d+)\/sites$/);
+
+    if (sourceSitesMatch && request.method === "GET") {
+      return handleSourceSiteLinks(
+        env,
+        sourceSitesMatch[1]
+      );
     }
 
     if (path === "/api/sites" && request.method === "GET") {

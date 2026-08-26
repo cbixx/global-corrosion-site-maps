@@ -59,6 +59,106 @@
       <div id="save-message" class="save-message" hidden></div>
 
       <div id="source-fields" class="detail-fields"></div>
+
+      <section id="site-links-section" class="related-section">
+
+        <div class="related-heading">
+          <div>
+            <h2>Linked sites</h2>
+            <p class="related-description">
+              Exposure sites associated with this source.
+            </p>
+          </div>
+
+          <button
+            id="add-site-link-button"
+            class="button"
+            type="button"
+          >
+            + Add site
+          </button>
+        </div>
+
+        <div id="site-link-form" class="link-form" hidden>
+
+          <div class="link-form-field">
+            <label for="link-site">Site</label>
+            <select id="link-site" class="detail-input"></select>
+          </div>
+
+          <div class="link-form-field">
+            <label for="site-link-order">Source order</label>
+            <input
+              id="site-link-order"
+              class="detail-input"
+              type="number"
+              min="1"
+              step="1"
+              value="1"
+            >
+          </div>
+
+          <div class="link-form-field">
+            <label for="site-link-metals">Metals</label>
+            <input
+              id="site-link-metals"
+              class="detail-input"
+              type="text"
+            >
+          </div>
+
+          <div class="link-form-field">
+            <label for="site-link-exposure-periods">
+              Exposure periods
+            </label>
+            <input
+              id="site-link-exposure-periods"
+              class="detail-input"
+              type="text"
+            >
+          </div>
+
+          <div class="link-form-field link-form-field-wide">
+            <label for="site-link-notes">Notes</label>
+            <textarea
+              id="site-link-notes"
+              class="detail-input"
+              rows="3"
+            ></textarea>
+          </div>
+
+          <div class="link-form-actions">
+            <button
+              id="cancel-site-link-button"
+              class="button button-secondary"
+              type="button"
+            >
+              Cancel
+            </button>
+
+            <button
+              id="save-site-link-button"
+              class="button button-primary"
+              type="button"
+            >
+              Save link
+            </button>
+          </div>
+        </div>
+
+        <div
+          id="site-link-message"
+          class="save-message"
+          hidden
+        ></div>
+
+        <div id="linked-sites-status" class="status">
+          Loading linked sites…
+        </div>
+
+        <div id="linked-sites" class="linked-sources" hidden></div>
+
+      </section>
     </div>
   </main>
 
