@@ -6743,6 +6743,8 @@ if active_page == "Corrosion Data":
 
                     "material",
                     "exposure_period",
+                    "exposure_start",
+                    "exposure_end",
                     "corrosion_metric",
 
                     "reported_value",
@@ -6851,6 +6853,20 @@ if active_page == "Corrosion Data":
                                         "exposure_period": str(
                                             preview_row.get(
                                                 "exposure_period",
+                                                "",
+                                            ) or ""
+                                        ).strip(),
+
+                                        "exposure_start": str(
+                                            preview_row.get(
+                                                "exposure_start",
+                                                "",
+                                            ) or ""
+                                        ).strip(),
+
+                                        "exposure_end": str(
+                                            preview_row.get(
+                                                "exposure_end",
                                                 "",
                                             ) or ""
                                         ).strip(),

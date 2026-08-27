@@ -2357,6 +2357,14 @@
           rawRow.exposure_period || ""
         ),
 
+        exposure_start: normalizeText(
+          rawRow.exposure_start || ""
+        ),
+
+        exposure_end: normalizeText(
+          rawRow.exposure_end || ""
+        ),
+
         corrosion_metric: normalizeText(
           rawRow.corrosion_metric || ""
         ),
@@ -3774,6 +3782,34 @@
       return text.replace(/_/g, " ");
     }
 
+    function formatCorrosionExposureWindow(observation) {
+      if (!observation) {
+        return "";
+      }
+
+      const start = normalizeText(
+        observation.exposure_start
+      );
+
+      const end = normalizeText(
+        observation.exposure_end
+      );
+
+      if (start && end) {
+        return `${start} – ${end}`;
+      }
+
+      if (start) {
+        return `From ${start}`;
+      }
+
+      if (end) {
+        return `Until ${end}`;
+      }
+
+      return "";
+    }
+
     function buildCorrosionObservationCard(observation) {
       const reportedValue = [
         observation.value,
@@ -3809,9 +3845,25 @@
           </div>
       `;
 
+      const exposureWindow =
+        formatCorrosionExposureWindow(
+          observation
+        );
+
+      if (exposureWindow) {
+        html += `
+          <div class="popup-row">
+            <strong>Exposure window:</strong>
+            ${escapeHtml(exposureWindow)}
+          </div>
+        `;
+      }
+
       if (
         observation.canonical_thickness_loss_rate_um_year
       ) {
+
+
         html += `
           <div class="popup-row">
             <strong>Canonical thickness-loss rate:</strong>
@@ -5308,6 +5360,8 @@
             left.source_title,
             left.material,
             left.exposure_period,
+            left.exposure_start,
+            left.exposure_end,
             left.corrosion_metric,
             left.observation_id
           ]
@@ -5319,6 +5373,8 @@
             right.source_title,
             right.material,
             right.exposure_period,
+            right.exposure_start,
+            right.exposure_end,
             right.corrosion_metric,
             right.observation_id
           ]

@@ -24,7 +24,7 @@ CORROSION_XLSM_TEMPLATE_PATH = (
 )
 
 CORROSION_WORKBOOK_GENERATOR_VERSION = (
-    "2026-08-27-exposure-dates-v1"
+    "2026-08-27-exposure-dates-v2"
 )
 
 CORROSION_METRIC_OPTIONS = [
@@ -2439,10 +2439,6 @@ def build_corrosion_entry_workbook(
         first_data_row,
         last_data_row + 1,
     ):
-
-        sheet.row_dimensions[
-            row_number
-        ].height = 24
 
         material_cell = (
             f"G{row_number}"
