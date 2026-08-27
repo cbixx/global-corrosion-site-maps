@@ -56,7 +56,291 @@ def list_tables() -> list[str]:
             "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name"
         ).fetchall()
         return [row[0] for row in rows]
-    
+
+def _get_sqlite_unique_index_columns(
+    conn: sqlite3.Connection,
+    table_name: str,
+) -> list[list[str]]:
+    unique_indexes: list[list[str]] = []
+
+    index_rows = conn.execute(
+        f"PRAGMA index_list({table_name})"
+    ).fetchall()
+
+    for index_row in index_rows:
+        if not int(
+            index_row["unique"]
+        ):
+            continue
+
+        index_name = str(
+            index_row["name"]
+        )
+
+        quoted_index_name = (
+            index_name.replace(
+                '"',
+                '""',
+            )
+        )
+
+        column_rows = conn.execute(
+            f'PRAGMA index_info("{quoted_index_name}")'
+        ).fetchall()
+
+        columns = [
+            str(row["name"])
+            for row in column_rows
+        ]
+
+        unique_indexes.append(
+            columns
+        )
+
+    return unique_indexes
+
+
+def _ensure_corrosion_observation_identity(
+    conn: sqlite3.Connection,
+) -> None:
+    old_identity = [
+        "site_fk",
+        "source_fk",
+        "material",
+        "exposure_period",
+        "corrosion_metric",
+        "measurement_method",
+        "specimen_condition",
+    ]
+
+    new_identity = [
+        "site_fk",
+        "source_fk",
+        "material",
+        "exposure_period",
+        "exposure_start",
+        "exposure_end",
+        "corrosion_metric",
+        "measurement_method",
+        "specimen_condition",
+        "exposure_condition",
+    ]
+
+    unique_indexes = (
+        _get_sqlite_unique_index_columns(
+            conn,
+            "corrosion_observations",
+        )
+    )
+
+    if new_identity in unique_indexes:
+        return
+
+    # If the old table-level UNIQUE constraint is not
+    # present, a normal unique index is sufficient.
+    if old_identity not in unique_indexes:
+        conn.execute(
+            """
+            create unique index if not exists
+                corrosion_observations_identity_unique
+            on corrosion_observations (
+                site_fk,
+                source_fk,
+                material,
+                exposure_period,
+                exposure_start,
+                exposure_end,
+                corrosion_metric,
+                measurement_method,
+                specimen_condition,
+                exposure_condition
+            )
+            """
+        )
+
+        return
+
+    # SQLite cannot drop a table-level UNIQUE constraint.
+    # Rebuild the table while preserving every observation
+    # and its primary-key ID.
+
+    conn.execute(
+        """
+        drop table if exists
+            corrosion_observations__identity_migration
+        """
+    )
+
+    conn.execute(
+        """
+        create table
+            corrosion_observations__identity_migration (
+                id integer primary key autoincrement,
+
+                site_fk integer not null,
+                source_fk integer not null,
+                site_source_fk integer,
+
+                material text not null,
+                exposure_period text not null,
+
+                exposure_start text not null default '',
+                exposure_end text not null default '',
+
+                corrosion_metric text not null
+                    default 'penetration_rate',
+
+                value real not null,
+                unit text not null,
+
+                canonical_thickness_loss_rate_um_year real,
+                canonical_mass_loss_rate_g_m2_year real,
+
+                normalized_value real,
+                normalized_unit text not null default '',
+
+                density_g_cm3 real,
+                density_basis text not null default '',
+
+                derived_penetration_value real,
+                derived_penetration_unit text not null default '',
+
+                normalization_note text not null default '',
+
+                measurement_method text not null default '',
+                specimen_condition text not null default '',
+                exposure_condition text not null default '',
+                notes text not null default '',
+
+                created_at text default current_timestamp,
+                updated_at text default current_timestamp,
+
+                foreign key(site_fk)
+                    references sites(id)
+                    on delete cascade,
+
+                foreign key(source_fk)
+                    references sources(id)
+                    on delete cascade,
+
+                foreign key(site_source_fk)
+                    references site_sources(id)
+                    on delete set null,
+
+                constraint
+                    corrosion_observations_identity_unique
+                unique(
+                    site_fk,
+                    source_fk,
+                    material,
+                    exposure_period,
+                    exposure_start,
+                    exposure_end,
+                    corrosion_metric,
+                    measurement_method,
+                    specimen_condition,
+                    exposure_condition
+                )
+            )
+        """
+    )
+
+    conn.execute(
+        """
+        insert into
+            corrosion_observations__identity_migration (
+                id,
+
+                site_fk,
+                source_fk,
+                site_source_fk,
+
+                material,
+                exposure_period,
+                exposure_start,
+                exposure_end,
+                corrosion_metric,
+
+                value,
+                unit,
+
+                canonical_thickness_loss_rate_um_year,
+                canonical_mass_loss_rate_g_m2_year,
+
+                normalized_value,
+                normalized_unit,
+
+                density_g_cm3,
+                density_basis,
+
+                derived_penetration_value,
+                derived_penetration_unit,
+
+                normalization_note,
+
+                measurement_method,
+                specimen_condition,
+                exposure_condition,
+                notes,
+
+                created_at,
+                updated_at
+            )
+        select
+                id,
+
+                site_fk,
+                source_fk,
+                site_source_fk,
+
+                material,
+                exposure_period,
+                exposure_start,
+                exposure_end,
+                corrosion_metric,
+
+                value,
+                unit,
+
+                canonical_thickness_loss_rate_um_year,
+                canonical_mass_loss_rate_g_m2_year,
+
+                normalized_value,
+                normalized_unit,
+
+                density_g_cm3,
+                density_basis,
+
+                derived_penetration_value,
+                derived_penetration_unit,
+
+                normalization_note,
+
+                measurement_method,
+                specimen_condition,
+                exposure_condition,
+                notes,
+
+                created_at,
+                updated_at
+        from corrosion_observations
+        """
+    )
+
+    conn.execute(
+        """
+        drop table corrosion_observations
+        """
+    )
+
+    conn.execute(
+        """
+        alter table
+            corrosion_observations__identity_migration
+        rename to corrosion_observations
+        """
+    )
+
 def ensure_schema_updates() -> None:
     """Apply non-destructive schema updates to an existing database."""
     with get_connection() as conn:
@@ -164,14 +448,19 @@ def ensure_schema_updates() -> None:
                 foreign key(site_fk) references sites(id) on delete cascade,
                 foreign key(source_fk) references sources(id) on delete cascade,
                 foreign key(site_source_fk) references site_sources(id) on delete set null,
+                constraint
+                    corrosion_observations_identity_unique
                 unique(
                     site_fk,
                     source_fk,
                     material,
                     exposure_period,
+                    exposure_start,
+                    exposure_end,
                     corrosion_metric,
                     measurement_method,
-                    specimen_condition
+                    specimen_condition,
+                    exposure_condition
                 )
             )
             """
@@ -210,6 +499,9 @@ def ensure_schema_updates() -> None:
                     """
                 )
 
+        _ensure_corrosion_observation_identity(
+            conn
+        )
         conn.execute(
             """
             create table if not exists environmental_observations (
@@ -1524,9 +1816,13 @@ def import_corrosion_observations(records: list[dict]) -> dict:
                           lower(trim(?))
                       and lower(trim(corrosion_metric)) =
                           lower(trim(?))
-                      and trim(measurement_method) = ''
-                      and trim(specimen_condition) = ''
-                    limit 1
+                      and trim(measurement_method) =
+                          trim(?)
+                      and trim(specimen_condition) =
+                          trim(?)
+                      and trim(exposure_condition) =
+                          trim(?)
+                      limit 1
                     """,
                     (
                         site_fk,
@@ -1536,6 +1832,9 @@ def import_corrosion_observations(records: list[dict]) -> dict:
                         exposure_start,
                         exposure_end,
                         corrosion_metric,
+                        measurement_method,
+                        specimen_condition,
+                        exposure_condition,
                     ),
                 ).fetchone()
 

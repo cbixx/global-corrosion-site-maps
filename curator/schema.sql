@@ -117,14 +117,18 @@ create table if not exists corrosion_observations (
         references site_sources(id)
         on delete set null,
 
+    constraint corrosion_observations_identity_unique
     unique(
         site_fk,
         source_fk,
         material,
         exposure_period,
+        exposure_start,
+        exposure_end,
         corrosion_metric,
         measurement_method,
-        specimen_condition
+        specimen_condition,
+        exposure_condition
     )
 );
 

@@ -278,14 +278,18 @@ def ensure_schema_updates() -> None:
                 notes text not null default '',
                 created_at timestamptz default now(),
                 updated_at timestamptz default now(),
+                constraint corrosion_observations_identity_unique
                 unique(
                     site_fk,
                     source_fk,
                     material,
                     exposure_period,
+                    exposure_start,
+                    exposure_end,
                     corrosion_metric,
                     measurement_method,
-                    specimen_condition
+                    specimen_condition,
+                    exposure_condition
                 )
             )
             """
@@ -313,6 +317,128 @@ def ensure_schema_updates() -> None:
                 ALTER TABLE corrosion_observations
                 ADD COLUMN IF NOT EXISTS
                 {column_name} {column_definition}
+                """
+            )
+
+        # -----------------------------------------------------
+        # Corrosion-observation identity migration
+        #
+        # Older databases used:
+        #
+        # site + source + material + duration + metric
+        # + measurement method + specimen condition
+        #
+        # Calendar exposure windows and exposure condition
+        # are now part of observation identity.
+        # -----------------------------------------------------
+
+        old_corrosion_identity_columns = [
+            "site_fk",
+            "source_fk",
+            "material",
+            "exposure_period",
+            "corrosion_metric",
+            "measurement_method",
+            "specimen_condition",
+        ]
+
+        new_corrosion_identity_columns = [
+            "site_fk",
+            "source_fk",
+            "material",
+            "exposure_period",
+            "exposure_start",
+            "exposure_end",
+            "corrosion_metric",
+            "measurement_method",
+            "specimen_condition",
+            "exposure_condition",
+        ]
+
+        corrosion_unique_constraints = conn.execute(
+            """
+            select
+                c.conname,
+                array_agg(
+                    a.attname
+                    order by u.ordinality
+                ) as column_names
+            from pg_constraint c
+            join unnest(c.conkey)
+                with ordinality
+                as u(attnum, ordinality)
+                on true
+            join pg_attribute a
+                on a.attrelid = c.conrelid
+                and a.attnum = u.attnum
+            where
+                c.conrelid =
+                    'corrosion_observations'::regclass
+                and c.contype = 'u'
+            group by
+                c.oid,
+                c.conname
+            """
+        ).fetchall()
+
+        has_new_corrosion_identity = False
+
+        for constraint_row in corrosion_unique_constraints:
+            constraint_columns = [
+                str(column_name)
+                for column_name
+                in (
+                    constraint_row.get(
+                        "column_names",
+                        [],
+                    )
+                    or []
+                )
+            ]
+
+            if (
+                constraint_columns
+                == new_corrosion_identity_columns
+            ):
+                has_new_corrosion_identity = True
+                continue
+
+            if (
+                constraint_columns
+                == old_corrosion_identity_columns
+            ):
+                constraint_name = str(
+                    constraint_row["conname"]
+                ).replace(
+                    '"',
+                    '""',
+                )
+
+                conn.execute(
+                    f"""
+                    alter table corrosion_observations
+                    drop constraint "{constraint_name}"
+                    """
+                )
+
+        if not has_new_corrosion_identity:
+            conn.execute(
+                """
+                alter table corrosion_observations
+                add constraint
+                    corrosion_observations_identity_unique
+                unique (
+                    site_fk,
+                    source_fk,
+                    material,
+                    exposure_period,
+                    exposure_start,
+                    exposure_end,
+                    corrosion_metric,
+                    measurement_method,
+                    specimen_condition,
+                    exposure_condition
+                )
                 """
             )
 
