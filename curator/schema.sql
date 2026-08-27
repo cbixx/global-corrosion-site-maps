@@ -74,6 +74,10 @@ create table if not exists corrosion_observations (
 
     material text not null,
     exposure_period text not null,
+
+    exposure_start text not null default '',
+    exposure_end text not null default '',
+
     corrosion_metric text not null default 'penetration_rate',
 
     value real not null,

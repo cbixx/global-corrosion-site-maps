@@ -132,6 +132,10 @@ def ensure_schema_updates() -> None:
                 site_source_fk integer,
                 material text not null,
                 exposure_period text not null,
+
+                exposure_start text not null default '',
+                exposure_end text not null default '',
+
                 corrosion_metric text not null default 'penetration_rate',
 
                 value real not null,
@@ -183,6 +187,9 @@ def ensure_schema_updates() -> None:
         }
 
         corrosion_schema_columns = {
+            "exposure_start": "text not null default ''",
+            "exposure_end": "text not null default ''",
+
             "canonical_thickness_loss_rate_um_year": "real",
             "canonical_mass_loss_rate_g_m2_year": "real",
             "normalized_value": "real",
@@ -956,6 +963,8 @@ def get_corrosion_observations() -> list[dict]:
                 sources.source_title,
                 corrosion_observations.material,
                 corrosion_observations.exposure_period,
+                corrosion_observations.exposure_start,
+                corrosion_observations.exposure_end,
                 corrosion_observations.corrosion_metric,
                 corrosion_observations.value,
                 corrosion_observations.unit,
@@ -1010,6 +1019,8 @@ def get_public_corrosion_observations() -> list[dict]:
                 sources.source_title,
                 corrosion_observations.material,
                 corrosion_observations.exposure_period,
+                corrosion_observations.exposure_start,
+                corrosion_observations.exposure_end,
                 corrosion_observations.corrosion_metric,
                 corrosion_observations.value,
                 corrosion_observations.unit,
@@ -1122,6 +1133,20 @@ def import_corrosion_observations(records: list[dict]) -> dict:
             exposure_period = str(
                 record.get(
                     "exposure_period",
+                    "",
+                ) or ""
+            ).strip()
+
+            exposure_start = str(
+                record.get(
+                    "exposure_start",
+                    "",
+                ) or ""
+            ).strip()
+
+            exposure_end = str(
+                record.get(
+                    "exposure_end",
                     "",
                 ) or ""
             ).strip()
@@ -1427,6 +1452,8 @@ def import_corrosion_observations(records: list[dict]) -> dict:
                         site_source_fk = ?,
                         material = ?,
                         exposure_period = ?,
+                        exposure_start = ?,
+                        exposure_end = ?,
                         corrosion_metric = ?,
 
                         value = ?,
@@ -1455,6 +1482,8 @@ def import_corrosion_observations(records: list[dict]) -> dict:
                         site_source_fk,
                         material,
                         exposure_period,
+                        exposure_start,
+                        exposure_end,
                         corrosion_metric,
 
                         value,
@@ -1489,6 +1518,10 @@ def import_corrosion_observations(records: list[dict]) -> dict:
                           lower(trim(?))
                       and lower(trim(exposure_period)) =
                           lower(trim(?))
+                      and lower(trim(exposure_start)) =
+                          lower(trim(?))
+                      and lower(trim(exposure_end)) =
+                          lower(trim(?))
                       and lower(trim(corrosion_metric)) =
                           lower(trim(?))
                       and trim(measurement_method) = ''
@@ -1500,6 +1533,8 @@ def import_corrosion_observations(records: list[dict]) -> dict:
                         source_fk,
                         material,
                         exposure_period,
+                        exposure_start,
+                        exposure_end,
                         corrosion_metric,
                     ),
                 ).fetchone()
@@ -1575,6 +1610,8 @@ def import_corrosion_observations(records: list[dict]) -> dict:
 
                             material,
                             exposure_period,
+                            exposure_start,
+                            exposure_end,
                             corrosion_metric,
 
                             value,
@@ -1600,7 +1637,7 @@ def import_corrosion_observations(records: list[dict]) -> dict:
                         )
                         values (
                             ?, ?, ?,
-                            ?, ?, ?,
+                            ?, ?, ?, ?, ?,
                             ?, ?,
                             ?, ?,
                             ?, ?,
@@ -1617,6 +1654,8 @@ def import_corrosion_observations(records: list[dict]) -> dict:
 
                             material,
                             exposure_period,
+                            exposure_start,
+                            exposure_end,
                             corrosion_metric,
 
                             value,

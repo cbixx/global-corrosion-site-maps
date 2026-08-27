@@ -24,7 +24,7 @@ CORROSION_XLSM_TEMPLATE_PATH = (
 )
 
 CORROSION_WORKBOOK_GENERATOR_VERSION = (
-    "2026-08-22-qformula-fix-v2"
+    "2026-08-27-exposure-dates-v1"
 )
 
 CORROSION_METRIC_OPTIONS = [
@@ -153,6 +153,8 @@ WORKBOOK_COLUMNS = [
 
     "material",
     "exposure_period",
+    "exposure_start",
+    "exposure_end",
     "corrosion_metric",
 
     "reported_value",
@@ -179,6 +181,8 @@ WORKBOOK_INPUT_COLUMNS = [
     "observation_id",
     "material",
     "exposure_period",
+    "exposure_start",
+    "exposure_end",
     "corrosion_metric",
     "reported_value",
     "reported_unit",
@@ -205,6 +209,8 @@ CORROSION_ENTRY_REQUIRED_FIELDS = [
 CORROSION_ENTRY_FIELDS = {
     "material",
     "exposure_period",
+    "exposure_start",
+    "exposure_end",
     "corrosion_metric",
     "reported_value",
     "reported_unit",
@@ -357,6 +363,81 @@ def parse_exposure_years(
         )
 
     return None
+
+def is_valid_partial_iso_date(
+    value: Any,
+) -> bool:
+    """
+    Accept source-supported calendar precision:
+
+        YYYY
+        YYYY-MM
+        YYYY-MM-DD
+
+    Blank values are allowed.
+
+    This validates the stored canonical text only.
+    Natural-language Excel input is normalized separately by VBA.
+    """
+
+    import re
+    from datetime import date
+
+    text = str(
+        value or ""
+    ).strip()
+
+    if not text:
+        return True
+
+    match = re.fullmatch(
+        r"(\d{4})"
+        r"(?:-(\d{2})"
+        r"(?:-(\d{2}))?"
+        r")?",
+        text,
+    )
+
+    if match is None:
+        return False
+
+    year = int(
+        match.group(1)
+    )
+
+    if not 1 <= year <= 9999:
+        return False
+
+    month_text = match.group(2)
+    day_text = match.group(3)
+
+    if month_text is None:
+        return True
+
+    month = int(
+        month_text
+    )
+
+    if not 1 <= month <= 12:
+        return False
+
+    if day_text is None:
+        return True
+
+    day = int(
+        day_text
+    )
+
+    try:
+        date(
+            year,
+            month,
+            day,
+        )
+    except ValueError:
+        return False
+
+    return True
 
 def _get_unit_rule(
     metric: str,
@@ -1009,6 +1090,18 @@ def build_corrosion_entry_workbook(
                     row.get("exposure_period", "") or ""
                 ).casefold(),
                 str(
+                    row.get(
+                        "exposure_start",
+                        "",
+                    ) or ""
+                ).casefold(),
+                str(
+                    row.get(
+                        "exposure_end",
+                        "",
+                    ) or ""
+                ).casefold(),
+                str(
                     row.get("corrosion_metric", "") or ""
                 ).casefold(),
                 int(row.get("id", 0) or 0),
@@ -1300,18 +1393,32 @@ def build_corrosion_entry_workbook(
         "annualized without a known duration."
     )
 
-    guide_sheet["A20"] = "corrosion_metric"
+    guide_sheet["A20"] = "exposure_start"
     guide_sheet["B20"] = (
+        "Optional calendar start of exposure. Use YYYY, YYYY-MM, "
+        "or YYYY-MM-DD according to the precision actually reported "
+        "by the source. Do not invent missing months or days."
+    )
+
+    guide_sheet["A21"] = "exposure_end"
+    guide_sheet["B21"] = (
+        "Optional calendar end of exposure. Use YYYY, YYYY-MM, "
+        "or YYYY-MM-DD according to the precision actually reported "
+        "by the source. Do not invent missing months or days."
+    )
+
+    guide_sheet["A22"] = "corrosion_metric"
+    guide_sheet["B22"] = (
         "Physical quantity actually reported by the source."
     )
 
-    guide_sheet["A21"] = "reported_value"
-    guide_sheet["B21"] = (
+    guide_sheet["A23"] = "reported_value"
+    guide_sheet["B23"] = (
         "Numerical value exactly as reported."
     )
 
-    guide_sheet["A22"] = "reported_unit"
-    guide_sheet["B22"] = (
+    guide_sheet["A24"] = "reported_unit"
+    guide_sheet["B24"] = (
         "Original unit used by the source."
     )
 
@@ -1780,8 +1887,8 @@ def build_corrosion_entry_workbook(
 
     # Hidden calculation helpers.
     # These avoid relying on newer Excel functions such as LET.
-    sheet["T1"] = "__unit_factor"
-    sheet["U1"] = "__exposure_years"
+    sheet["V1"] = "__unit_factor"
+    sheet["W1"] = "__exposure_years"
 
     header_font = Font(
         color="FFFFFF",
@@ -1833,13 +1940,13 @@ def build_corrosion_entry_workbook(
         if 1 <= column_index <= 6:
             cell.fill = context_header_fill
 
-        elif 7 <= column_index <= 11:
+        elif 7 <= column_index <= 13:
             cell.fill = input_header_fill
 
-        elif 12 <= column_index <= 14:
+        elif 14 <= column_index <= 16:
             cell.fill = density_header_fill
 
-        elif 15 <= column_index <= 16:
+        elif 17 <= column_index <= 18:
             cell.fill = output_header_fill
 
         else:
@@ -1882,6 +1989,18 @@ def build_corrosion_entry_workbook(
             "reported by the source. Leave blank when the source "
             "does not report a duration. A duration is required "
             "only to annualize cumulative corrosion quantities."
+        ),
+
+        "exposure_start": (
+            "Optional calendar start of exposure. "
+            "Stored as text using YYYY, YYYY-MM, or YYYY-MM-DD. "
+            "Use only the precision explicitly reported by the source."
+        ),
+
+        "exposure_end": (
+            "Optional calendar end of exposure. "
+            "Stored as text using YYYY, YYYY-MM, or YYYY-MM-DD. "
+            "Use only the precision explicitly reported by the source."
         ),
 
         "corrosion_metric": (
@@ -2050,6 +2169,20 @@ def build_corrosion_entry_workbook(
                         )
                     ),
 
+                    "exposure_start": (
+                        observation.get(
+                            "exposure_start",
+                            "",
+                        )
+                    ),
+
+                    "exposure_end": (
+                        observation.get(
+                            "exposure_end",
+                            "",
+                        )
+                    ),
+
                     "corrosion_metric": (
                         observation.get(
                             "corrosion_metric",
@@ -2101,6 +2234,8 @@ def build_corrosion_entry_workbook(
 
                     "material": "",
                     "exposure_period": "",
+                    "exposure_start": "",
+                    "exposure_end": "",
                     "corrosion_metric": "",
 
                     "reported_value": "",
@@ -2171,46 +2306,58 @@ def build_corrosion_entry_workbook(
                     "",
                 ),
 
-                # I — corrosion_metric
+                # I — exposure_start
+                record.get(
+                    "exposure_start",
+                    "",
+                ),
+
+                # J — exposure_end
+                record.get(
+                    "exposure_end",
+                    "",
+                ),
+
+                # K — corrosion_metric
                 record.get(
                     "corrosion_metric",
                     "",
                 ),
 
-                # J — reported_value
+                # L — reported_value
                 record.get(
                     "reported_value",
                     "",
                 ),
 
-                # K — reported_unit
+                # M — reported_unit
                 record.get(
                     "reported_unit",
                     "",
                 ),
 
-                # L — default_density_g_cm3
+                # N — default_density_g_cm3
                 "",
 
-                # M — density_override_g_cm3
+                # O — density_override_g_cm3
                 record.get(
                     "density_override_g_cm3",
                     "",
                 ),
 
-                # N — density_used_g_cm3
+                # P — density_used_g_cm3
                 "",
 
-                # O — canonical_thickness_loss_rate_um_year
+                # Q — canonical_thickness_loss_rate_um_year
                 "",
 
-                # P — canonical_mass_loss_rate_g_m2_year
+                # R — canonical_mass_loss_rate_g_m2_year
                 "",
 
-                # Q — normalization_note
+                # S — normalization_note
                 "",
 
-                # R — notes
+                # T — notes
                 record.get(
                     "notes",
                     "",
@@ -2248,13 +2395,13 @@ def build_corrosion_entry_workbook(
     # =========================================================
     # Calculated corrosion outputs
     #
-    # O = canonical general thickness-loss rate, µm/year
-    # P = canonical general mass-loss rate, g/m²/year
+    # Q = canonical general thickness-loss rate, µm/year
+    # R = canonical general mass-loss rate, g/m²/year
     #
-    # T and U are hidden compatibility helper columns:
+    # V and W are hidden compatibility helper columns:
     #
-    # T = reported-unit conversion factor
-    # U = exposure duration converted to years
+    # V = reported-unit conversion factor
+    # W = exposure duration converted to years
     #
     # The curator app remains authoritative and independently
     # recalculates these values during import.
@@ -2306,47 +2453,47 @@ def build_corrosion_entry_workbook(
         )
 
         metric_cell = (
-            f"I{row_number}"
-        )
-
-        value_cell = (
-            f"J{row_number}"
-        )
-
-        unit_cell = (
             f"K{row_number}"
         )
 
-        default_density_cell = (
+        value_cell = (
             f"L{row_number}"
         )
 
-        density_override_cell = (
+        unit_cell = (
             f"M{row_number}"
         )
 
-        density_used_cell = (
+        default_density_cell = (
             f"N{row_number}"
         )
 
-        thickness_rate_cell = (
+        density_override_cell = (
             f"O{row_number}"
         )
 
-        mass_loss_rate_cell = (
+        density_used_cell = (
             f"P{row_number}"
         )
 
-        note_cell = (
+        thickness_rate_cell = (
             f"Q{row_number}"
         )
 
+        mass_loss_rate_cell = (
+            f"R{row_number}"
+        )
+
+        note_cell = (
+            f"S{row_number}"
+        )
+
         unit_factor_cell = (
-            f"T{row_number}"
+            f"V{row_number}"
         )
 
         exposure_years_cell = (
-            f"U{row_number}"
+            f"W{row_number}"
         )
 
         # -----------------------------------------------------
@@ -2804,10 +2951,10 @@ def build_corrosion_entry_workbook(
         formula1=(
             '=INDIRECT('
             'IF('
-            '$I2="",'
+            '$K2="",'
             '"CorrosionUnits_blank",'
             '"CorrosionUnits_"&'
-            'SUBSTITUTE($I2,"-","_")'
+            'SUBSTITUTE($K2,"-","_")'
             ')'
             ')'
         ),
@@ -2893,23 +3040,23 @@ def build_corrosion_entry_workbook(
     )
 
     metric_validation.add(
-        f"I{first_data_row}:"
-        f"I{last_data_row}"
-    )
-
-    numeric_value_validation.add(
-        f"J{first_data_row}:"
-        f"J{last_data_row}"
-    )
-
-    unit_validation.add(
         f"K{first_data_row}:"
         f"K{last_data_row}"
     )
 
-    density_validation.add(
+    numeric_value_validation.add(
+        f"L{first_data_row}:"
+        f"L{last_data_row}"
+    )
+
+    unit_validation.add(
         f"M{first_data_row}:"
         f"M{last_data_row}"
+    )
+
+    density_validation.add(
+        f"O{first_data_row}:"
+        f"O{last_data_row}"
     )
 
     # =========================================================
@@ -2966,12 +3113,14 @@ def build_corrosion_entry_workbook(
 
         for column_index in [
             7,   # material
-            8,   # exposure
-            9,   # metric
-            10,  # reported value
-            11,  # reported unit
-            13,  # density override
-            18,  # notes
+            8,   # exposure period
+            9,   # exposure start
+            10,  # exposure end
+            11,  # metric
+            12,  # reported value
+            13,  # reported unit
+            15,  # density override
+            20,  # notes
         ]:
             sheet.cell(
                 row=row_number,
@@ -2981,11 +3130,11 @@ def build_corrosion_entry_workbook(
         # Calculated columns
 
         for column_index in [
-            12,  # default density
-            14,  # density used
-            15,  # canonical thickness-loss rate
-            16,  # canonical mass-loss rate
-            17,  # conversion note
+            14,  # default density
+            16,  # density used
+            17,  # canonical thickness-loss rate
+            18,  # canonical mass-loss rate
+            19,  # normalization note
         ]:
             cell = sheet.cell(
                 row=row_number,
@@ -3001,8 +3150,8 @@ def build_corrosion_entry_workbook(
         # Canonical outputs are the primary derived quantities.
 
         for column_index in [
-            15,
-            16,
+            17,
+            18,
         ]:
             sheet.cell(
                 row=row_number,
@@ -3029,11 +3178,11 @@ def build_corrosion_entry_workbook(
             ):
                 # Keep calculated fields grey.
                 if column_index not in [
-                    12,
                     14,
-                    15,
                     16,
                     17,
+                    18,
+                    19,
                 ]:
                     sheet.cell(
                         row=row_number,
@@ -3071,12 +3220,12 @@ def build_corrosion_entry_workbook(
                     else (
                         "right"
                         if column_index in [
-                            10,  # reported value
-                            12,  # default density
-                            13,  # density override
-                            14,  # density used
-                            15,  # canonical thickness loss
-                            16,  # canonical mass loss
+                            12,  # reported value
+                            14,  # default density
+                            15,  # density override
+                            16,  # density used
+                            17,  # canonical thickness loss
+                            18,  # canonical mass loss
                         ]
                         else None
                     )
@@ -3088,8 +3237,8 @@ def build_corrosion_entry_workbook(
                     in [
                         2,
                         4,
-                        17,
-                        18,
+                        19,
+                        20,
                     ]
                 ),
             )
@@ -3146,24 +3295,24 @@ def build_corrosion_entry_workbook(
     # ---------------------------------------------------------
     # Incomplete observation rows
     #
-    # If at least one required input field G:K has been entered
+    # If at least one observation-input field G:M has been entered
     # but one or more required fields are still blank, highlight
     # the input area in pale red.
     # ---------------------------------------------------------
 
     sheet.conditional_formatting.add(
         f"G{first_data_row}:"
-        f"K{last_data_row}",
+        f"M{last_data_row}",
 
         FormulaRule(
             formula=[
                 f'AND('
-                f'COUNTA($G{first_data_row}:$K{first_data_row})>0,'
+                f'COUNTA($G{first_data_row}:$M{first_data_row})>0,'
                 f'OR('
                 f'$G{first_data_row}="",'
-                f'$I{first_data_row}="",'
-                f'$J{first_data_row}="",'
-                f'$K{first_data_row}=""'
+                f'$K{first_data_row}="",'
+                f'$L{first_data_row}="",'
+                f'$M{first_data_row}=""'
                 f')'
                 f')'
             ],
@@ -3175,15 +3324,15 @@ def build_corrosion_entry_workbook(
     # Unsupported metric/unit combinations become orange.
 
     sheet.conditional_formatting.add(
-        f"Q{first_data_row}:"
-        f"Q{last_data_row}",
+        f"S{first_data_row}:"
+        f"S{last_data_row}",
 
         FormulaRule(
             formula=[
                 f'ISNUMBER('
                 f'SEARCH('
                 f'"Unsupported",'
-                f'Q{first_data_row}'
+                f'S{first_data_row}'
                 f')'
                 f')'
             ],
@@ -3193,20 +3342,44 @@ def build_corrosion_entry_workbook(
     )
 
     sheet.conditional_formatting.add(
-        f"Q{first_data_row}:"
-        f"Q{last_data_row}",
+        f"S{first_data_row}:"
+        f"S{last_data_row}",
 
         FormulaRule(
             formula=[
                 f'OR('
-                f'ISNUMBER(SEARCH("unavailable",Q{first_data_row})),'
-                f'ISNUMBER(SEARCH("not calculated",Q{first_data_row}))'
+                f'ISNUMBER(SEARCH("unavailable",S{first_data_row})),'
+                f'ISNUMBER(SEARCH("not calculated",S{first_data_row}))'
                 f')'
             ],
 
             fill=warning_fill,
         ),
     )    
+
+    # Exposure calendar dates are deliberately stored as text.
+    # This preserves partial source precision such as:
+    #
+    # 1994
+    # 1994-12
+    # 1994-12-15
+    #
+    # It also lets the VBA normalizer see natural-language
+    # curator input before Excel converts it to a serial date.
+
+    for row_number in range(
+        first_data_row,
+        last_data_row + 1,
+    ):
+        sheet.cell(
+            row=row_number,
+            column=9,   # exposure_start
+        ).number_format = "@"
+
+        sheet.cell(
+            row=row_number,
+            column=10,  # exposure_end
+        ).number_format = "@"
 
     # Number display
 
@@ -3216,12 +3389,12 @@ def build_corrosion_entry_workbook(
     ):
 
         for column_index in [
-            10,  # reported value
-            12,  # default density
-            13,  # density override
-            14,  # density used
-            15,  # canonical thickness-loss rate
-            16,  # canonical mass-loss rate
+            12,  # reported value
+            14,  # default density
+            15,  # density override
+            16,  # density used
+            17,  # canonical thickness-loss rate
+            18,  # canonical mass-loss rate
         ]:
             sheet.cell(
                 row=row_number,
@@ -3231,8 +3404,8 @@ def build_corrosion_entry_workbook(
             )
 
         for column_index in [
-            15,
-            16,
+            17,
+            18,
         ]:
             sheet.cell(
                 row=row_number,
@@ -3255,20 +3428,22 @@ def build_corrosion_entry_workbook(
 
         "G": 24,
         "H": 17,
-        "I": 25,
+        "I": 16,
+        "J": 16,
+        "K": 25,
 
-        "J": 15,
-        "K": 18,
+        "L": 15,
+        "M": 18,
 
-        "L": 18,
-        "M": 19,
-        "N": 22,
+        "N": 18,
+        "O": 19,
+        "P": 22,
 
-        "O": 29,
-        "P": 29,
+        "Q": 29,
+        "R": 29,
 
-        "Q": 46,
-        "R": 36,
+        "S": 46,
+        "T": 36,
     }
 
     for (
@@ -3286,27 +3461,29 @@ def build_corrosion_entry_workbook(
     #
     # Normal curator-facing columns:
     #
-    # A  source_code
-    # C  site_id
-    # D  site_label
-    # E  country
-    # F  observation_id
-    # G  material
-    # H  exposure_period
-    # I  corrosion_metric
-    # J  reported_value
-    # K  reported_unit
-    # N  density_used_g_cm3
-    # O  canonical thickness-loss rate
-    # P  canonical mass-loss rate
-    # Q  normalization_note
-    # R  notes
+    #   A  source_code
+    #   C  site_id
+    #   D  site_label
+    #   E  country
+    #   F  observation_id
+    #   G  material
+    #   H  exposure_period
+    #   I  exposure_start
+    #   J  exposure_end
+    #   K  corrosion_metric
+    #   L  reported_value
+    #   M  reported_unit
+    #   P  density_used_g_cm3
+    #   Q  canonical thickness-loss rate
+    #   R  canonical mass-loss rate
+    #   S  normalization_note
+    #   T  notes
     #
-    # Hidden:
+    #   Hidden:
     #
-    # B     source_title
-    # L:M   density details
-    # S:U   workbook-internal columns
+    #    B     source_title
+    #    N:O   density details
+    #    U:W   workbook-internal columns
     #
     # There are NO native Excel outline groups.
     # =========================================================
@@ -3342,6 +3519,8 @@ def build_corrosion_entry_workbook(
         "S",
         "T",
         "U",
+        "V",
+        "W",
     ]:
         dimension = sheet.column_dimensions[
             column_letter
@@ -3369,16 +3548,16 @@ def build_corrosion_entry_workbook(
     # ---------------------------------------------------------
 
     sheet.column_dimensions[
-        "L"
-    ].hidden = True
-
-    sheet.column_dimensions[
-        "M"
-    ].hidden = True
-
-    # N = density_used_g_cm3 must remain visible.
-    sheet.column_dimensions[
         "N"
+    ].hidden = True
+
+    sheet.column_dimensions[
+        "O"
+    ].hidden = True
+
+    # P = density_used_g_cm3 must remain visible.
+    sheet.column_dimensions[
+        "P"
     ].hidden = False
 
     # ---------------------------------------------------------
@@ -3386,15 +3565,15 @@ def build_corrosion_entry_workbook(
     # ---------------------------------------------------------
 
     sheet.column_dimensions[
-        "S"
-    ].hidden = True
-
-    sheet.column_dimensions[
-        "T"
-    ].hidden = True
-
-    sheet.column_dimensions[
         "U"
+    ].hidden = True
+
+    sheet.column_dimensions[
+        "V"
+    ].hidden = True
+
+    sheet.column_dimensions[
+        "W"
     ].hidden = True
 
     # ---------------------------------------------------------
@@ -3412,11 +3591,13 @@ def build_corrosion_entry_workbook(
         "I",
         "J",
         "K",
-        "N",
-        "O",
+        "L",
+        "M",
         "P",
         "Q",
         "R",
+        "S",
+        "T",
     ]:
         sheet.column_dimensions[
             column_letter
@@ -3651,6 +3832,20 @@ def read_corrosion_entry_workbook(
                 ) or ""
             ).strip(),
 
+            "exposure_start": str(
+                raw_record.get(
+                    "exposure_start",
+                    "",
+                ) or ""
+            ).strip(),
+
+            "exposure_end": str(
+                raw_record.get(
+                    "exposure_end",
+                    "",
+                ) or ""
+            ).strip(),
+
             "corrosion_metric": str(
                 raw_record.get(
                     "corrosion_metric",
@@ -3704,6 +3899,14 @@ def read_corrosion_entry_workbook(
             ),
             record.get(
                 "exposure_period",
+                ""
+            ),
+            record.get(
+                "exposure_start",
+                ""
+            ),
+            record.get(
+                "exposure_end",
                 ""
             ),
             record.get(
@@ -3874,6 +4077,42 @@ def validate_corrosion_workbook_rows(
                 "",
             ) or ""
         ).strip()
+
+        exposure_start = str(
+            row.get(
+                "exposure_start",
+                "",
+            ) or ""
+        ).strip()
+
+        exposure_end = str(
+            row.get(
+                "exposure_end",
+                "",
+            ) or ""
+        ).strip()
+
+        if (
+            exposure_start
+            and not is_valid_partial_iso_date(
+                exposure_start
+            )
+        ):
+            errors.append(
+                "exposure_start must use YYYY, "
+                "YYYY-MM, or YYYY-MM-DD."
+            )
+
+        if (
+            exposure_end
+            and not is_valid_partial_iso_date(
+                exposure_end
+            )
+        ):
+            errors.append(
+                "exposure_end must use YYYY, "
+                "YYYY-MM, or YYYY-MM-DD."
+            )
 
         corrosion_metric = str(
             row.get(
