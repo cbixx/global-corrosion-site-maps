@@ -1,4 +1,4 @@
-const CURATOR_BUILD_ID = "native-curator-smoke-001";
+const CURATOR_BUILD_ID = "processor-bridge-001";
 
 function htmlResponse(html, status = 200) {
   return new Response(html, {
@@ -2906,6 +2906,1414 @@ async function handleDashboardSummary(env) {
         ok: false,
         error:
           "Unable to load dashboard summary.",
+      },
+      {
+        status: 502,
+        headers: {
+          "cache-control":
+            "no-store",
+        },
+      }
+    );
+  }
+}
+
+const REGION_CLASSIFICATION_SETTINGS_KEY =
+  "region_classification_rules";
+
+const COAST_TAGS =
+  new Set([
+    "Marine",
+    "Coastal",
+    "Near-coastal",
+    "Inland",
+  ]);
+
+const SETTLEMENT_TAGS =
+  new Set([
+    "Urban",
+    "Rural",
+  ]);
+
+const CLIMATE_TAGS =
+  new Set([
+    "Tropical",
+    "Hot-arid",
+    "Temperate",
+    "Cold",
+    "Extreme cold",
+  ]);
+
+const POLAR_TAGS =
+  new Set([
+    "Sub-arctic",
+    "Sub-Antarctic",
+    "Antarctic",
+  ]);
+
+const REGION_TAG_ORDER = {
+  "Marine": 1,
+  "Coastal": 2,
+  "Near-coastal": 3,
+  "Inland": 4,
+  "Island": 5,
+  "Industrial": 6,
+  "Urban": 7,
+  "Rural": 8,
+  "Sub-arctic": 9,
+  "Sub-Antarctic": 10,
+  "Antarctic": 11,
+  "Tropical": 12,
+  "Hot-arid": 13,
+  "Temperate": 14,
+  "Cold": 15,
+  "Extreme cold": 16,
+};
+
+const DEFAULT_REGION_CLASSIFICATION_SETTINGS = {
+  distance_to_coast: {
+    marine_km: 1.0,
+    coastal_km: 10.0,
+    near_coastal_km: 50.0,
+  },
+
+  latitude_rules: {
+    antarctic_latitude_max: -60.0,
+
+    sub_antarctic_latitude_min: -60.0,
+    sub_antarctic_latitude_max: -45.0,
+
+    sub_arctic_latitude_min: 60.0,
+    sub_arctic_latitude_max: 66.5,
+
+    tropical_abs_latitude_max: 23.5,
+    cold_abs_latitude_min: 50.0,
+    extreme_cold_abs_latitude_min: 66.5,
+  },
+
+  temperature_rules: {
+    use_temperature_when_available: true,
+
+    tropical_mean_temperature_min: 18.0,
+    temperate_mean_temperature_min: 5.0,
+
+    cold_mean_temperature_max: 5.0,
+    extreme_cold_mean_temperature_max: 0.0,
+  },
+
+  semantic_rules: {
+    island_country_hints: [
+      "antigua and barbuda",
+      "bahamas",
+      "bahrain",
+      "barbados",
+      "cape verde",
+      "comoros",
+      "cuba",
+      "cyprus",
+      "dominica",
+      "dominican republic",
+      "fiji",
+      "grenada",
+      "haiti",
+      "iceland",
+      "indonesia",
+      "ireland",
+      "jamaica",
+      "japan",
+      "kiribati",
+      "madagascar",
+      "maldives",
+      "malta",
+      "mauritius",
+      "micronesia",
+      "new zealand",
+      "palau",
+      "papua new guinea",
+      "philippines",
+      "saint kitts and nevis",
+      "saint lucia",
+      "saint vincent and the grenadines",
+      "samoa",
+      "seychelles",
+      "singapore",
+      "solomon islands",
+      "sri lanka",
+      "tonga",
+      "trinidad and tobago",
+      "tuvalu",
+      "united kingdom",
+      "vanuatu",
+    ],
+
+    island_text_patterns: [
+      "\\bisland\\b",
+      "\\bislands\\b",
+      "\\bisle\\b",
+      "\\bisles\\b",
+      "\\barchipelago\\b",
+      "\\batoll\\b",
+    ],
+
+    urban_patterns: [
+      "\\bcity\\b",
+      "\\btown\\b",
+      "\\burban\\b",
+      "\\bmetropolitan\\b",
+      "\\bport city\\b",
+    ],
+
+    rural_patterns: [
+      "\\brural\\b",
+      "\\bvillage\\b",
+      "\\bfield site\\b",
+      "\\brural monitoring site\\b",
+    ],
+
+    industrial_patterns: [
+      "\\bindustrial\\b",
+      "\\bindustry\\b",
+      "\\bfactory\\b",
+      "\\brefinery\\b",
+      "\\bpower plant\\b",
+      "\\bsteelworks\\b",
+      "\\bsmelter\\b",
+    ],
+
+    hot_arid_patterns: [
+      "\\barid\\b",
+      "\\bdesert\\b",
+      "\\bsahara\\b",
+      "\\barabian desert\\b",
+      "\\bgobi\\b",
+    ],
+  },
+};
+
+function mergeRegionClassificationSettings(
+  settings
+) {
+  const merged =
+    structuredClone(
+      DEFAULT_REGION_CLASSIFICATION_SETTINGS
+    );
+
+  if (
+    !settings ||
+    typeof settings !== "object" ||
+    Array.isArray(settings)
+  ) {
+    return merged;
+  }
+
+  for (
+    const [
+      groupKey,
+      groupValue,
+    ]
+    of Object.entries(settings)
+  ) {
+    if (
+      groupValue &&
+      typeof groupValue === "object" &&
+      !Array.isArray(groupValue) &&
+      merged[groupKey] &&
+      typeof merged[groupKey] === "object" &&
+      !Array.isArray(merged[groupKey])
+    ) {
+      Object.assign(
+        merged[groupKey],
+        groupValue
+      );
+    } else {
+      merged[groupKey] =
+        groupValue;
+    }
+  }
+
+  return merged;
+}
+
+function regionSettingsNumber(
+  settings,
+  group,
+  key,
+  fallback
+) {
+  const value =
+    Number(
+      settings?.[group]?.[key]
+    );
+
+  return Number.isFinite(value)
+    ? value
+    : fallback;
+}
+
+function regionSettingsPatterns(
+  settings,
+  group,
+  key,
+  fallback
+) {
+  const value =
+    settings?.[group]?.[key];
+
+  if (Array.isArray(value)) {
+    return value
+      .map(
+        (item) =>
+          String(item || "").trim()
+      )
+      .filter(Boolean);
+  }
+
+  if (
+    typeof value === "string"
+  ) {
+    return value
+      .split(/\r?\n/)
+      .map(
+        (item) =>
+          item.trim()
+      )
+      .filter(Boolean);
+  }
+
+  return fallback;
+}
+
+function splitRegionTags(value) {
+  return String(value || "")
+    .replaceAll(";", ",")
+    .split(",")
+    .map(
+      (tag) => tag.trim()
+    )
+    .filter(Boolean);
+}
+
+function orderedRegionTags(tags) {
+  const unique =
+    [...new Set(
+      tags.filter(Boolean)
+    )];
+
+  return unique.sort(
+    (a, b) =>
+      (
+        REGION_TAG_ORDER[a] ??
+        999
+      ) -
+      (
+        REGION_TAG_ORDER[b] ??
+        999
+      )
+  );
+}
+
+function normaliseRegionTags(tags) {
+  return orderedRegionTags(
+    tags
+  ).join(", ");
+}
+
+function buildRegionTextBlob(
+  ...values
+) {
+  return values
+    .map(
+      (value) =>
+        String(value || "")
+    )
+    .join(" ")
+    .toLowerCase();
+}
+
+function regionHasPattern(
+  text,
+  patterns
+) {
+  for (const pattern of patterns) {
+    try {
+      if (
+        new RegExp(
+          pattern,
+          "i"
+        ).test(text)
+      ) {
+        return true;
+      }
+    } catch (error) {
+      console.warn(
+        "Ignoring invalid region regex.",
+        pattern,
+        error
+      );
+    }
+  }
+
+  return false;
+}
+
+function optionalRegionNumber(
+  value
+) {
+  if (
+    value === null ||
+    value === undefined ||
+    String(value).trim() === ""
+  ) {
+    return null;
+  }
+
+  const number =
+    Number(value);
+
+  return Number.isFinite(number)
+    ? number
+    : null;
+}
+
+async function loadRegionClassificationSettings(
+  env
+) {
+  const endpoint =
+    new URL(
+      "/rest/v1/app_settings",
+      env.SUPABASE_URL
+    );
+
+  endpoint.searchParams.set(
+    "select",
+    "payload_json"
+  );
+
+  endpoint.searchParams.set(
+    "setting_key",
+    `eq.${REGION_CLASSIFICATION_SETTINGS_KEY}`
+  );
+
+  endpoint.searchParams.set(
+    "limit",
+    "1"
+  );
+
+  try {
+    const response =
+      await fetch(endpoint, {
+        headers: {
+          apikey:
+            env.SUPABASE_SECRET_KEY,
+
+          authorization:
+            `Bearer ${env.SUPABASE_SECRET_KEY}`,
+
+          accept:
+            "application/json",
+        },
+      });
+
+    if (!response.ok) {
+      console.warn(
+        "Unable to load saved region settings.",
+        response.status,
+        await response.text()
+      );
+
+      return mergeRegionClassificationSettings(
+        null
+      );
+    }
+
+    const rows =
+      await response.json();
+
+    if (!rows.length) {
+      return mergeRegionClassificationSettings(
+        null
+      );
+    }
+
+    let payload =
+      rows[0].payload_json;
+
+    if (
+      typeof payload === "string"
+    ) {
+      try {
+        payload =
+          JSON.parse(payload);
+      } catch (error) {
+        console.warn(
+          "Saved region settings are invalid JSON.",
+          error
+        );
+
+        payload = null;
+      }
+    }
+
+    return mergeRegionClassificationSettings(
+      payload
+    );
+  } catch (error) {
+    console.warn(
+      "Region settings lookup failed.",
+      error
+    );
+
+    return mergeRegionClassificationSettings(
+      null
+    );
+  }
+}
+
+async function getRegionSpatialContext(
+  env,
+  latitude,
+  longitude
+) {
+  const endpoint =
+    new URL(
+      "/rest/v1/rpc/region_spatial_context",
+      env.SUPABASE_URL
+    );
+
+  const response =
+    await fetch(endpoint, {
+      method: "POST",
+
+      headers: {
+        apikey:
+          env.SUPABASE_SECRET_KEY,
+
+        authorization:
+          `Bearer ${env.SUPABASE_SECRET_KEY}`,
+
+        "content-type":
+          "application/json",
+
+        accept:
+          "application/json",
+      },
+
+      body:
+        JSON.stringify({
+          p_latitude:
+            latitude,
+
+          p_longitude:
+            longitude,
+        }),
+    });
+
+  if (!response.ok) {
+    const detail =
+      await response.text();
+
+    console.error(
+      "PostGIS region spatial lookup failed.",
+      {
+        status:
+          response.status,
+
+        detail,
+      }
+    );
+
+    throw new Error(
+      "Unable to calculate geographic context."
+    );
+  }
+
+  const rows =
+    await response.json();
+
+  const row =
+    rows[0];
+
+  if (!row) {
+    throw new Error(
+      "Region spatial lookup returned no result."
+    );
+  }
+
+  return {
+    on_land:
+      Boolean(row.on_land),
+
+    coast_distance_km:
+      row.coast_distance_km === null ||
+      row.coast_distance_km === undefined
+        ? null
+        : Number(
+            row.coast_distance_km
+          ),
+  };
+}
+
+function classifyCoastalContext(
+  spatial,
+  notes,
+  settings
+) {
+  const distance =
+    spatial.coast_distance_km;
+
+  if (
+    Number.isFinite(distance)
+  ) {
+    notes.push(
+      `Nearest coastline distance ≈ ${distance.toFixed(1)} km.`
+    );
+  }
+
+  if (!spatial.on_land) {
+    notes.push(
+      "Point appears offshore or outside the Natural Earth land polygon; classified as Marine."
+    );
+
+    return "Marine";
+  }
+
+  if (
+    !Number.isFinite(distance)
+  ) {
+    return null;
+  }
+
+  const marineKm =
+    regionSettingsNumber(
+      settings,
+      "distance_to_coast",
+      "marine_km",
+      1.0
+    );
+
+  const coastalKm =
+    regionSettingsNumber(
+      settings,
+      "distance_to_coast",
+      "coastal_km",
+      10.0
+    );
+
+  const nearCoastalKm =
+    regionSettingsNumber(
+      settings,
+      "distance_to_coast",
+      "near_coastal_km",
+      50.0
+    );
+
+  if (distance <= marineKm) {
+    return "Marine";
+  }
+
+  if (distance <= coastalKm) {
+    return "Coastal";
+  }
+
+  if (
+    distance <=
+    nearCoastalKm
+  ) {
+    return "Near-coastal";
+  }
+
+  return "Inland";
+}
+
+function classifyIsland(
+  text,
+  modernCountryLocation,
+  settings
+) {
+  const fallbackPatterns =
+    DEFAULT_REGION_CLASSIFICATION_SETTINGS
+      .semantic_rules
+      .island_text_patterns;
+
+  const patterns =
+    regionSettingsPatterns(
+      settings,
+      "semantic_rules",
+      "island_text_patterns",
+      fallbackPatterns
+    );
+
+  if (
+    regionHasPattern(
+      text,
+      patterns
+    )
+  ) {
+    return true;
+  }
+
+  const fallbackCountries =
+    DEFAULT_REGION_CLASSIFICATION_SETTINGS
+      .semantic_rules
+      .island_country_hints;
+
+  const countryHints =
+    new Set(
+      regionSettingsPatterns(
+        settings,
+        "semantic_rules",
+        "island_country_hints",
+        fallbackCountries
+      ).map(
+        (item) =>
+          item.toLowerCase()
+      )
+    );
+
+  const country =
+    String(
+      modernCountryLocation || ""
+    )
+      .trim()
+      .toLowerCase();
+
+  return countryHints.has(
+    country
+  );
+}
+
+function classifySettlement(
+  text,
+  settings
+) {
+  const urbanPatterns =
+    regionSettingsPatterns(
+      settings,
+      "semantic_rules",
+      "urban_patterns",
+      DEFAULT_REGION_CLASSIFICATION_SETTINGS
+        .semantic_rules
+        .urban_patterns
+    );
+
+  const ruralPatterns =
+    regionSettingsPatterns(
+      settings,
+      "semantic_rules",
+      "rural_patterns",
+      DEFAULT_REGION_CLASSIFICATION_SETTINGS
+        .semantic_rules
+        .rural_patterns
+    );
+
+  if (
+    regionHasPattern(
+      text,
+      urbanPatterns
+    )
+  ) {
+    return "Urban";
+  }
+
+  if (
+    regionHasPattern(
+      text,
+      ruralPatterns
+    )
+  ) {
+    return "Rural";
+  }
+
+  return null;
+}
+
+function classifyIndustrial(
+  text,
+  settings
+) {
+  const patterns =
+    regionSettingsPatterns(
+      settings,
+      "semantic_rules",
+      "industrial_patterns",
+      DEFAULT_REGION_CLASSIFICATION_SETTINGS
+        .semantic_rules
+        .industrial_patterns
+    );
+
+  return regionHasPattern(
+    text,
+    patterns
+  );
+}
+
+function classifyPolarContext(
+  latitude,
+  text,
+  islandDetected,
+  settings
+) {
+  const tags = [];
+
+  const antarcticMax =
+    regionSettingsNumber(
+      settings,
+      "latitude_rules",
+      "antarctic_latitude_max",
+      -60.0
+    );
+
+  const subAntarcticMin =
+    regionSettingsNumber(
+      settings,
+      "latitude_rules",
+      "sub_antarctic_latitude_min",
+      -60.0
+    );
+
+  const subAntarcticMax =
+    regionSettingsNumber(
+      settings,
+      "latitude_rules",
+      "sub_antarctic_latitude_max",
+      -45.0
+    );
+
+  const subArcticMin =
+    regionSettingsNumber(
+      settings,
+      "latitude_rules",
+      "sub_arctic_latitude_min",
+      60.0
+    );
+
+  const subArcticMax =
+    regionSettingsNumber(
+      settings,
+      "latitude_rules",
+      "sub_arctic_latitude_max",
+      66.5
+    );
+
+  if (
+    text.includes(
+      "sub-antarctic"
+    ) ||
+    text.includes(
+      "subantarctic"
+    )
+  ) {
+    tags.push(
+      "Sub-Antarctic"
+    );
+  } else if (
+    latitude >
+      subAntarcticMin &&
+    latitude <=
+      subAntarcticMax &&
+    islandDetected
+  ) {
+    tags.push(
+      "Sub-Antarctic"
+    );
+  }
+
+  if (
+    text.includes(
+      "antarctica"
+    ) ||
+    latitude <= antarcticMax
+  ) {
+    tags.push(
+      "Antarctic"
+    );
+  }
+
+  if (
+    text.includes(
+      "sub-arctic"
+    ) ||
+    text.includes(
+      "subarctic"
+    )
+  ) {
+    tags.push(
+      "Sub-arctic"
+    );
+  } else if (
+    latitude >= subArcticMin &&
+    latitude < subArcticMax
+  ) {
+    tags.push(
+      "Sub-arctic"
+    );
+  }
+
+  return tags;
+}
+
+function classifyClimateContext(
+  latitude,
+  text,
+  settings,
+  annualMeanTemperature = null
+) {
+  const hotAridPatterns =
+    regionSettingsPatterns(
+      settings,
+      "semantic_rules",
+      "hot_arid_patterns",
+      DEFAULT_REGION_CLASSIFICATION_SETTINGS
+        .semantic_rules
+        .hot_arid_patterns
+    );
+
+  if (
+    regionHasPattern(
+      text,
+      hotAridPatterns
+    )
+  ) {
+    return {
+      tag:
+        "Hot-arid",
+
+      basis:
+        "text pattern",
+    };
+  }
+
+  const temperature =
+    optionalRegionNumber(
+      annualMeanTemperature
+    );
+
+  const useTemperature =
+    settings
+      ?.temperature_rules
+      ?.use_temperature_when_available !==
+      false;
+
+  if (
+    useTemperature &&
+    temperature !== null
+  ) {
+    const tropicalMin =
+      regionSettingsNumber(
+        settings,
+        "temperature_rules",
+        "tropical_mean_temperature_min",
+        18.0
+      );
+
+    const temperateMin =
+      regionSettingsNumber(
+        settings,
+        "temperature_rules",
+        "temperate_mean_temperature_min",
+        5.0
+      );
+
+    const coldMax =
+      regionSettingsNumber(
+        settings,
+        "temperature_rules",
+        "cold_mean_temperature_max",
+        5.0
+      );
+
+    const extremeColdMax =
+      regionSettingsNumber(
+        settings,
+        "temperature_rules",
+        "extreme_cold_mean_temperature_max",
+        0.0
+      );
+
+    if (
+      temperature <=
+      extremeColdMax
+    ) {
+      return {
+        tag:
+          "Extreme cold",
+
+        basis:
+          "annual mean temperature",
+      };
+    }
+
+    if (
+      temperature <= coldMax
+    ) {
+      return {
+        tag:
+          "Cold",
+
+        basis:
+          "annual mean temperature",
+      };
+    }
+
+    if (
+      temperature >= tropicalMin
+    ) {
+      return {
+        tag:
+          "Tropical",
+
+        basis:
+          "annual mean temperature",
+      };
+    }
+
+    if (
+      temperature >= temperateMin
+    ) {
+      return {
+        tag:
+          "Temperate",
+
+        basis:
+          "annual mean temperature",
+      };
+    }
+
+    return {
+      tag:
+        "Temperate",
+
+      basis:
+        "annual mean temperature",
+    };
+  }
+
+  const absoluteLatitude =
+    Math.abs(latitude);
+
+  const tropicalMax =
+    regionSettingsNumber(
+      settings,
+      "latitude_rules",
+      "tropical_abs_latitude_max",
+      23.5
+    );
+
+  const coldMin =
+    regionSettingsNumber(
+      settings,
+      "latitude_rules",
+      "cold_abs_latitude_min",
+      50.0
+    );
+
+  const extremeColdMin =
+    regionSettingsNumber(
+      settings,
+      "latitude_rules",
+      "extreme_cold_abs_latitude_min",
+      66.5
+    );
+
+  const antarcticMax =
+    regionSettingsNumber(
+      settings,
+      "latitude_rules",
+      "antarctic_latitude_max",
+      -60.0
+    );
+
+  if (
+    latitude <= antarcticMax ||
+    absoluteLatitude >=
+      extremeColdMin
+  ) {
+    return {
+      tag:
+        "Extreme cold",
+
+      basis:
+        "latitude/text heuristic",
+    };
+  }
+
+  if (
+    absoluteLatitude <=
+    tropicalMax
+  ) {
+    return {
+      tag:
+        "Tropical",
+
+      basis:
+        "latitude/text heuristic",
+    };
+  }
+
+  if (
+    absoluteLatitude >=
+    coldMin
+  ) {
+    return {
+      tag:
+        "Cold",
+
+      basis:
+        "latitude/text heuristic",
+    };
+  }
+
+  return {
+    tag:
+      "Temperate",
+
+    basis:
+      "latitude/text heuristic",
+  };
+}
+
+function mergeExistingRegionTags(
+  existingTags,
+  inferredTags
+) {
+  const inferredSet =
+    new Set(
+      inferredTags
+    );
+
+  const inferredHasCoast =
+    [...COAST_TAGS].some(
+      (tag) =>
+        inferredSet.has(tag)
+    );
+
+  const inferredHasSettlement =
+    [...SETTLEMENT_TAGS].some(
+      (tag) =>
+        inferredSet.has(tag)
+    );
+
+  const inferredHasClimate =
+    [...CLIMATE_TAGS].some(
+      (tag) =>
+        inferredSet.has(tag)
+    );
+
+  const inferredHasPolar =
+    [...POLAR_TAGS].some(
+      (tag) =>
+        inferredSet.has(tag)
+    );
+
+  const preserved = [];
+
+  for (
+    const tag
+    of existingTags
+  ) {
+    if (
+      COAST_TAGS.has(tag) &&
+      inferredHasCoast
+    ) {
+      continue;
+    }
+
+    if (
+      SETTLEMENT_TAGS.has(tag) &&
+      inferredHasSettlement
+    ) {
+      continue;
+    }
+
+    if (
+      CLIMATE_TAGS.has(tag) &&
+      inferredHasClimate
+    ) {
+      continue;
+    }
+
+    if (
+      POLAR_TAGS.has(tag) &&
+      inferredHasPolar
+    ) {
+      continue;
+    }
+
+    preserved.push(tag);
+  }
+
+  return orderedRegionTags([
+    ...preserved,
+    ...inferredTags,
+  ]);
+}
+
+async function classifyRegion(
+  env,
+  {
+    latitude,
+    longitude,
+
+    current_region_category = "",
+
+    modern_country_location = "",
+
+    site_type = "",
+
+    annual_mean_temperature = null,
+  }
+) {
+  const lat =
+    Number(latitude);
+
+  const lon =
+    Number(longitude);
+
+  const existingTags =
+    splitRegionTags(
+      current_region_category
+    );
+
+  if (
+    !Number.isFinite(lat) ||
+    !Number.isFinite(lon)
+  ) {
+    return {
+      region_category:
+        normaliseRegionTags(
+          existingTags
+        ),
+
+      notes:
+        "Skipped: missing or invalid coordinates.",
+
+      spatial:
+        null,
+    };
+  }
+
+  if (
+    lat < -90 ||
+    lat > 90 ||
+    lon < -180 ||
+    lon > 180
+  ) {
+    return {
+      region_category:
+        normaliseRegionTags(
+          existingTags
+        ),
+
+      notes:
+        "Skipped: coordinates outside valid latitude/longitude range.",
+
+      spatial:
+        null,
+    };
+  }
+
+  const settings =
+    await loadRegionClassificationSettings(
+      env
+    );
+
+  const spatial =
+    await getRegionSpatialContext(
+      env,
+      lat,
+      lon
+    );
+
+  const text =
+    buildRegionTextBlob(
+      modern_country_location,
+      site_type,
+      current_region_category
+    );
+
+  const notes = [];
+  const inferredTags = [];
+
+  const coastalContext =
+    classifyCoastalContext(
+      spatial,
+      notes,
+      settings
+    );
+
+  if (coastalContext) {
+    inferredTags.push(
+      coastalContext
+    );
+  }
+
+  const islandDetected =
+    classifyIsland(
+      text,
+      modern_country_location,
+      settings
+    );
+
+  if (islandDetected) {
+    inferredTags.push(
+      "Island"
+    );
+
+    notes.push(
+      "Island flag inferred from location/site text or island-country hint."
+    );
+  }
+
+  if (
+    classifyIndustrial(
+      text,
+      settings
+    )
+  ) {
+    inferredTags.push(
+      "Industrial"
+    );
+
+    notes.push(
+      "Industrial flag inferred from site/location text."
+    );
+  }
+
+  const settlement =
+    classifySettlement(
+      text,
+      settings
+    );
+
+  if (settlement) {
+    inferredTags.push(
+      settlement
+    );
+
+    notes.push(
+      `Settlement context inferred as ${settlement} from site/location text.`
+    );
+  }
+
+  const polarTags =
+    classifyPolarContext(
+      lat,
+      text,
+      islandDetected,
+      settings
+    );
+
+  inferredTags.push(
+    ...polarTags
+  );
+
+  if (
+    polarTags.length > 0
+  ) {
+    notes.push(
+      "Polar/subpolar context inferred from latitude and/or explicit text."
+    );
+  }
+
+  const climate =
+    classifyClimateContext(
+      lat,
+      text,
+      settings,
+      annual_mean_temperature
+    );
+
+  inferredTags.push(
+    climate.tag
+  );
+
+  notes.push(
+    `Broad climate context suggested as ${climate.tag} using ${climate.basis}.`
+  );
+
+  const finalTags =
+    mergeExistingRegionTags(
+      existingTags,
+      inferredTags
+    );
+
+  return {
+    region_category:
+      normaliseRegionTags(
+        finalTags
+      ),
+
+    notes:
+      notes.join(" "),
+
+    spatial,
+  };
+}
+
+async function handleRegionClassification(
+  request,
+  env
+) {
+  let payload;
+
+  try {
+    payload =
+      await request.json();
+  } catch {
+    return Response.json(
+      {
+        ok: false,
+        error:
+          "Invalid JSON body.",
+      },
+      {
+        status: 400,
+        headers: {
+          "cache-control":
+            "no-store",
+        },
+      }
+    );
+  }
+
+  try {
+    const result =
+      await classifyRegion(
+        env,
+        payload || {}
+      );
+
+    return Response.json(
+      {
+        ok: true,
+
+        region_category:
+          result.region_category,
+
+        notes:
+          result.notes,
+
+        spatial:
+          result.spatial,
+      },
+      {
+        headers: {
+          "cache-control":
+            "no-store",
+        },
+      }
+    );
+  } catch (error) {
+    console.error(
+      "Region classification failed.",
+      error
+    );
+
+    return Response.json(
+      {
+        ok: false,
+        error:
+          "Unable to classify region.",
       },
       {
         status: 502,
