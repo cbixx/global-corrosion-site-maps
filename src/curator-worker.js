@@ -4392,6 +4392,16 @@ export default {
       return handleSourceCreate(request, env);
     }
 
+    if (
+      path === "/api/region-classification" &&
+      request.method === "POST"
+    ) {
+      return handleRegionClassification(
+        request,
+        env
+      );
+    }
+
     const sourceSitesMatch =
       path.match(/^\/api\/sources\/(\d+)\/sites$/);
 
