@@ -707,3 +707,126 @@ a.dashboard-nav-card:hover {
   font-size: 13px;
   line-height: 1.45;
 }
+
+.bulk-link-grid {
+  display: grid;
+  grid-template-columns:
+    repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.bulk-link-panel {
+  padding: 20px;
+  background: #ffffff;
+  border: 1px solid #dde1e5;
+  border-radius: 10px;
+}
+
+.bulk-link-panel h2 {
+  margin: 0 0 14px;
+  font-size: 19px;
+}
+
+.bulk-link-panel-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 14px;
+}
+
+.bulk-link-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.bulk-option-list {
+  max-height: 420px;
+  margin-top: 12px;
+  overflow-y: auto;
+  border: 1px solid #e1e5e8;
+  border-radius: 8px;
+}
+
+.bulk-option-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  border-bottom: 1px solid #edf0f2;
+  cursor: pointer;
+  line-height: 1.4;
+}
+
+.bulk-option-row:last-child {
+  border-bottom: 0;
+}
+
+.bulk-option-row:hover {
+  background: #f8f9fa;
+}
+
+.bulk-option-row input {
+  margin-top: 3px;
+}
+
+.bulk-link-metadata {
+  margin-top: 18px;
+}
+
+.bulk-link-suggestion {
+  margin-bottom: 16px;
+  padding: 12px 14px;
+  background: #f8f9fa;
+  border: 1px solid #dde1e5;
+  border-radius: 7px;
+  color: #4f5962;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.bulk-checkbox-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  margin-top: 18px;
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.bulk-checkbox-row input {
+  margin-top: 3px;
+}
+
+.bulk-submit-actions {
+  margin-top: 18px;
+}
+
+.recent-sites-panel {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 12px;
+  padding: 11px 13px;
+  background: #f8f9fa;
+  border: 1px solid #dde1e5;
+  border-radius: 7px;
+  font-size: 13px;
+}
+
+@media (max-width: 800px) {
+  .bulk-link-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .bulk-link-panel-heading,
+  .recent-sites-panel {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .bulk-link-actions {
+    flex-wrap: wrap;
+  }
+}

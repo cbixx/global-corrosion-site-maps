@@ -1,4 +1,4 @@
-const CURATOR_BUILD_ID = "postgis-region-002";
+const CURATOR_BUILD_ID = "bulk-evidence-links-001";
 
 function htmlResponse(html, status = 200) {
   return new Response(html, {
@@ -4326,6 +4326,884 @@ async function handleRegionClassification(
   }
 }
 
+const SITE_SOURCE_LINK_BASELINE_KEY =
+  "site_source_link_last_successful_site_max_id";
+
+
+function cleanIdArray(value) {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return [
+    ...new Set(
+      value
+        .map(Number)
+        .filter(
+          (id) =>
+            Number.isInteger(id) &&
+            id > 0
+        )
+    ),
+  ];
+}
+
+
+function mergeBulkMetadataValues(
+  ...values
+) {
+  const merged = [];
+
+  for (const value of values) {
+    for (
+      const item
+      of String(value || "")
+        .replaceAll(";", ",")
+        .split(",")
+        .map(
+          (part) =>
+            part.trim()
+        )
+        .filter(Boolean)
+    ) {
+      if (!merged.includes(item)) {
+        merged.push(item);
+      }
+    }
+  }
+
+  return merged.join(", ");
+}
+
+
+function parseStoredSetting(
+  value
+) {
+  if (
+    value === null ||
+    value === undefined
+  ) {
+    return null;
+  }
+
+  if (
+    typeof value !== "string"
+  ) {
+    return value;
+  }
+
+  try {
+    return JSON.parse(value);
+  } catch {
+    return value;
+  }
+}
+
+
+async function saveAppSetting(
+  env,
+  settingKey,
+  value
+) {
+  const endpoint =
+    new URL(
+      "/rest/v1/app_settings",
+      env.SUPABASE_URL
+    );
+
+  endpoint.searchParams.set(
+    "on_conflict",
+    "setting_key"
+  );
+
+  const response =
+    await fetch(endpoint, {
+      method: "POST",
+
+      headers: {
+        apikey:
+          env.SUPABASE_SECRET_KEY,
+
+        authorization:
+          `Bearer ${env.SUPABASE_SECRET_KEY}`,
+
+        "content-type":
+          "application/json",
+
+        prefer:
+          "resolution=merge-duplicates,return=minimal",
+      },
+
+      body:
+        JSON.stringify({
+          setting_key:
+            settingKey,
+
+          payload_json:
+            JSON.stringify(value),
+
+          updated_at:
+            new Date().toISOString(),
+        }),
+    });
+
+  if (!response.ok) {
+    throw new Error(
+      `Unable to save app setting ${settingKey}.`
+    );
+  }
+}
+
+
+async function handleLinkingOptions(
+  env
+) {
+  const sitesEndpoint =
+    new URL(
+      "/rest/v1/sites",
+      env.SUPABASE_URL
+    );
+
+  sitesEndpoint.searchParams.set(
+    "select",
+    [
+      "id",
+      "site_id",
+      "site_label",
+      "modern_country_location",
+    ].join(",")
+  );
+
+  sitesEndpoint.searchParams.set(
+    "order",
+    "site_id.asc"
+  );
+
+
+  const sourcesEndpoint =
+    new URL(
+      "/rest/v1/sources",
+      env.SUPABASE_URL
+    );
+
+  sourcesEndpoint.searchParams.set(
+    "select",
+    [
+      "id",
+      "source_code",
+      "source_title",
+      "programme",
+      "metals",
+      "exposure_periods",
+    ].join(",")
+  );
+
+  sourcesEndpoint.searchParams.set(
+    "order",
+    "source_code.asc"
+  );
+
+
+  const settingEndpoint =
+    new URL(
+      "/rest/v1/app_settings",
+      env.SUPABASE_URL
+    );
+
+  settingEndpoint.searchParams.set(
+    "select",
+    "payload_json"
+  );
+
+  settingEndpoint.searchParams.set(
+    "setting_key",
+    `eq.${SITE_SOURCE_LINK_BASELINE_KEY}`
+  );
+
+  settingEndpoint.searchParams.set(
+    "limit",
+    "1"
+  );
+
+
+  const headers = {
+    apikey:
+      env.SUPABASE_SECRET_KEY,
+
+    authorization:
+      `Bearer ${env.SUPABASE_SECRET_KEY}`,
+
+    accept:
+      "application/json",
+  };
+
+
+  const [
+    sitesResponse,
+    sourcesResponse,
+    settingResponse,
+  ] = await Promise.all([
+    fetch(
+      sitesEndpoint,
+      { headers }
+    ),
+
+    fetch(
+      sourcesEndpoint,
+      { headers }
+    ),
+
+    fetch(
+      settingEndpoint,
+      { headers }
+    ),
+  ]);
+
+
+  if (
+    !sitesResponse.ok ||
+    !sourcesResponse.ok
+  ) {
+    return Response.json(
+      {
+        ok: false,
+        error:
+          "Unable to load linking options.",
+      },
+      {
+        status: 502,
+        headers: {
+          "cache-control":
+            "no-store",
+        },
+      }
+    );
+  }
+
+
+  const sites =
+    await sitesResponse.json();
+
+  const sources =
+    await sourcesResponse.json();
+
+  let baseline = null;
+
+  if (settingResponse.ok) {
+    const rows =
+      await settingResponse.json();
+
+    if (rows.length) {
+      baseline =
+        Number(
+          parseStoredSetting(
+            rows[0].payload_json
+          )
+        );
+    }
+  }
+
+
+  const currentMaxSiteId =
+    sites.reduce(
+      (maxValue, site) =>
+        Math.max(
+          maxValue,
+          Number(site.id) || 0
+        ),
+      0
+    );
+
+
+  /*
+   * Legacy behavior:
+   * first use establishes the current maximum
+   * as the baseline, so nothing pre-existing is
+   * considered "new".
+   */
+  if (
+    !Number.isInteger(baseline) ||
+    baseline < 0
+  ) {
+    baseline =
+      currentMaxSiteId;
+
+    try {
+      await saveAppSetting(
+        env,
+        SITE_SOURCE_LINK_BASELINE_KEY,
+        baseline
+      );
+    } catch (error) {
+      console.warn(
+        "Unable to initialize evidence-link baseline.",
+        error
+      );
+    }
+  }
+
+
+  const recentSiteIds =
+    sites
+      .filter(
+        (site) =>
+          Number(site.id) >
+          baseline
+      )
+      .map(
+        (site) =>
+          Number(site.id)
+      );
+
+
+  return Response.json(
+    {
+      ok: true,
+      sites,
+      sources,
+
+      recent_site_ids:
+        recentSiteIds,
+    },
+    {
+      headers: {
+        "cache-control":
+          "no-store",
+      },
+    }
+  );
+}
+
+
+async function mergeSelectedSiteSummaries(
+  env,
+  siteIds
+) {
+  if (!siteIds.length) {
+    return 0;
+  }
+
+  const idFilter =
+    `in.(${siteIds.join(",")})`;
+
+
+  const sitesEndpoint =
+    new URL(
+      "/rest/v1/sites",
+      env.SUPABASE_URL
+    );
+
+  sitesEndpoint.searchParams.set(
+    "select",
+    "id,metal,exposure_period"
+  );
+
+  sitesEndpoint.searchParams.set(
+    "id",
+    idFilter
+  );
+
+
+  const linksEndpoint =
+    new URL(
+      "/rest/v1/site_sources",
+      env.SUPABASE_URL
+    );
+
+  linksEndpoint.searchParams.set(
+    "select",
+    "site_fk,metals,exposure_periods"
+  );
+
+  linksEndpoint.searchParams.set(
+    "site_fk",
+    idFilter
+  );
+
+
+  const headers = {
+    apikey:
+      env.SUPABASE_SECRET_KEY,
+
+    authorization:
+      `Bearer ${env.SUPABASE_SECRET_KEY}`,
+
+    accept:
+      "application/json",
+  };
+
+
+  const [
+    sitesResponse,
+    linksResponse,
+  ] = await Promise.all([
+    fetch(
+      sitesEndpoint,
+      { headers }
+    ),
+
+    fetch(
+      linksEndpoint,
+      { headers }
+    ),
+  ]);
+
+
+  if (
+    !sitesResponse.ok ||
+    !linksResponse.ok
+  ) {
+    throw new Error(
+      "Unable to load Site metadata for summary merge."
+    );
+  }
+
+
+  const siteRows =
+    await sitesResponse.json();
+
+  const linkRows =
+    await linksResponse.json();
+
+
+  const linksBySite =
+    new Map();
+
+  for (const link of linkRows) {
+    const siteFk =
+      Number(link.site_fk);
+
+    if (
+      !linksBySite.has(siteFk)
+    ) {
+      linksBySite.set(
+        siteFk,
+        []
+      );
+    }
+
+    linksBySite
+      .get(siteFk)
+      .push(link);
+  }
+
+
+  let updatedCount = 0;
+
+  for (const site of siteRows) {
+    const siteId =
+      Number(site.id);
+
+    const links =
+      linksBySite.get(siteId) ||
+      [];
+
+
+    const mergedMetal =
+      mergeBulkMetadataValues(
+        site.metal || "",
+        ...links.map(
+          (link) =>
+            link.metals || ""
+        )
+      );
+
+
+    const mergedExposurePeriod =
+      mergeBulkMetadataValues(
+        site.exposure_period || "",
+        ...links.map(
+          (link) =>
+            link.exposure_periods || ""
+        )
+      );
+
+
+    const endpoint =
+      new URL(
+        "/rest/v1/sites",
+        env.SUPABASE_URL
+      );
+
+    endpoint.searchParams.set(
+      "id",
+      `eq.${siteId}`
+    );
+
+
+    const response =
+      await fetch(endpoint, {
+        method: "PATCH",
+
+        headers: {
+          apikey:
+            env.SUPABASE_SECRET_KEY,
+
+          authorization:
+            `Bearer ${env.SUPABASE_SECRET_KEY}`,
+
+          "content-type":
+            "application/json",
+
+          prefer:
+            "return=minimal",
+        },
+
+        body:
+          JSON.stringify({
+            metal:
+              mergedMetal,
+
+            exposure_period:
+              mergedExposurePeriod,
+          }),
+      });
+
+
+    if (!response.ok) {
+      throw new Error(
+        `Unable to update Site ${siteId} summary metadata.`
+      );
+    }
+
+    updatedCount += 1;
+  }
+
+
+  return updatedCount;
+}
+
+
+async function updateLinkBaseline(
+  env
+) {
+  const endpoint =
+    new URL(
+      "/rest/v1/sites",
+      env.SUPABASE_URL
+    );
+
+  endpoint.searchParams.set(
+    "select",
+    "id"
+  );
+
+  endpoint.searchParams.set(
+    "order",
+    "id.desc"
+  );
+
+  endpoint.searchParams.set(
+    "limit",
+    "1"
+  );
+
+
+  const response =
+    await fetch(endpoint, {
+      headers: {
+        apikey:
+          env.SUPABASE_SECRET_KEY,
+
+        authorization:
+          `Bearer ${env.SUPABASE_SECRET_KEY}`,
+
+        accept:
+          "application/json",
+      },
+    });
+
+
+  if (!response.ok) {
+    throw new Error(
+      "Unable to update evidence-link baseline."
+    );
+  }
+
+
+  const rows =
+    await response.json();
+
+  const maxId =
+    rows.length
+      ? Number(rows[0].id) || 0
+      : 0;
+
+
+  await saveAppSetting(
+    env,
+    SITE_SOURCE_LINK_BASELINE_KEY,
+    maxId
+  );
+}
+
+
+async function handleBulkSiteSourceLinks(
+  request,
+  env
+) {
+  let payload;
+
+  try {
+    payload =
+      await request.json();
+  } catch {
+    return Response.json(
+      {
+        ok: false,
+        error:
+          "Invalid JSON body.",
+      },
+      {
+        status: 400,
+        headers: {
+          "cache-control":
+            "no-store",
+        },
+      }
+    );
+  }
+
+
+  const siteIds =
+    cleanIdArray(
+      payload.site_ids
+    );
+
+  const sourceIds =
+    cleanIdArray(
+      payload.source_ids
+    );
+
+
+  if (!siteIds.length) {
+    return Response.json(
+      {
+        ok: false,
+        error:
+          "Select at least one Site.",
+      },
+      {
+        status: 400,
+        headers: {
+          "cache-control":
+            "no-store",
+        },
+      }
+    );
+  }
+
+
+  if (!sourceIds.length) {
+    return Response.json(
+      {
+        ok: false,
+        error:
+          "Select at least one Source.",
+      },
+      {
+        status: 400,
+        headers: {
+          "cache-control":
+            "no-store",
+        },
+      }
+    );
+  }
+
+
+  const sourceOrder =
+    Number(
+      payload.source_order
+    );
+
+
+  if (
+    !Number.isInteger(sourceOrder) ||
+    sourceOrder < 1 ||
+    sourceOrder > 99
+  ) {
+    return Response.json(
+      {
+        ok: false,
+        error:
+          "Source order must be an integer from 1 to 99.",
+      },
+      {
+        status: 400,
+        headers: {
+          "cache-control":
+            "no-store",
+        },
+      }
+    );
+  }
+
+
+  const metals =
+    String(
+      payload.metals || ""
+    ).trim();
+
+  const exposurePeriods =
+    String(
+      payload.exposure_periods || ""
+    ).trim();
+
+  const notes =
+    String(
+      payload.notes || ""
+    ).trim();
+
+
+  const rows = [];
+
+  for (const siteFk of siteIds) {
+    for (const sourceFk of sourceIds) {
+      rows.push({
+        site_fk:
+          siteFk,
+
+        source_fk:
+          sourceFk,
+
+        source_order:
+          sourceOrder,
+
+        metals,
+
+        exposure_periods:
+          exposurePeriods,
+
+        notes,
+      });
+    }
+  }
+
+
+  const endpoint =
+    new URL(
+      "/rest/v1/site_sources",
+      env.SUPABASE_URL
+    );
+
+  endpoint.searchParams.set(
+    "on_conflict",
+    "site_fk,source_fk"
+  );
+
+
+  const response =
+    await fetch(endpoint, {
+      method: "POST",
+
+      headers: {
+        apikey:
+          env.SUPABASE_SECRET_KEY,
+
+        authorization:
+          `Bearer ${env.SUPABASE_SECRET_KEY}`,
+
+        "content-type":
+          "application/json",
+
+        prefer:
+          "resolution=merge-duplicates,return=minimal",
+      },
+
+      body:
+        JSON.stringify(rows),
+    });
+
+
+  if (!response.ok) {
+    console.error(
+      "Bulk Site–Source upsert failed.",
+      response.status,
+      await response.text()
+    );
+
+    return Response.json(
+      {
+        ok: false,
+        error:
+          "Unable to create or update Site–Source links.",
+      },
+      {
+        status: 502,
+        headers: {
+          "cache-control":
+            "no-store",
+        },
+      }
+    );
+  }
+
+
+  let summaryUpdatedCount = 0;
+  let warning = "";
+
+
+  if (
+    payload.update_site_summary !==
+    false
+  ) {
+    try {
+      summaryUpdatedCount =
+        await mergeSelectedSiteSummaries(
+          env,
+          siteIds
+        );
+    } catch (error) {
+      console.error(
+        "Site summary merge failed after link upsert.",
+        error
+      );
+
+      warning =
+        "Links were saved, but Site-level summary metadata could not be merged.";
+    }
+  }
+
+
+  try {
+    await updateLinkBaseline(
+      env
+    );
+  } catch (error) {
+    console.warn(
+      "Unable to update newly-added-Site baseline.",
+      error
+    );
+
+    if (!warning) {
+      warning =
+        "Links were saved, but the newly-added-Site baseline could not be updated.";
+    }
+  }
+
+
+  return Response.json(
+    {
+      ok: true,
+
+      changed_count:
+        rows.length,
+
+      summary_updated_count:
+        summaryUpdatedCount,
+
+      warning,
+    },
+    {
+      headers: {
+        "cache-control":
+          "no-store",
+      },
+    }
+  );
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -4375,6 +5253,25 @@ export default {
       request.method === "POST"
     ) {
       return handleSiteMatchPreview(
+        request,
+        env
+      );
+    }
+
+    if (
+      path === "/api/linking-options" &&
+      request.method === "GET"
+    ) {
+      return handleLinkingOptions(
+        env
+      );
+    }
+
+    if (
+      path === "/api/site-source-links/bulk" &&
+      request.method === "POST"
+    ) {
+      return handleBulkSiteSourceLinks(
         request,
         env
       );
@@ -4487,6 +5384,24 @@ export default {
       }
 
       return env.ASSETS.fetch(request);
+    }
+
+    if (path === "/links") {
+      if (
+        url.pathname === "/links"
+      ) {
+        return Response.redirect(
+          new URL(
+            "/links/",
+            url
+          ).toString(),
+          302
+        );
+      }
+
+      return env.ASSETS.fetch(
+        request
+      );
     }
     
     return env.ASSETS.fetch(request);

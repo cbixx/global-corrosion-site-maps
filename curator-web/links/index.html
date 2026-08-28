@@ -1,0 +1,297 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <title>Evidence Links · Corrosion Atlas Curator</title>
+
+  <link rel="stylesheet" href="/assets/curator.css">
+</head>
+
+<body>
+  <header class="app-header">
+    <div class="brand">
+      <div class="brand-title">Corrosion Atlas</div>
+      <div class="brand-subtitle">Curator</div>
+    </div>
+  </header>
+
+  <main class="page">
+    <div class="page-heading">
+      <div>
+        <h1>Evidence links</h1>
+
+        <p class="page-description">
+          Attach one or more Sources to one or more Sites.
+          Existing relationships are updated rather than duplicated.
+        </p>
+      </div>
+
+      <div class="page-actions">
+        <a class="button" href="/">Dashboard</a>
+        <a class="button" href="/sites/">Sites</a>
+        <a class="button" href="/sources/">Sources</a>
+      </div>
+    </div>
+
+    <div id="linking-status" class="status">
+      Loading Sites and Sources…
+    </div>
+
+    <div id="linking-content" hidden>
+
+      <div class="bulk-link-grid">
+
+        <section class="bulk-link-panel">
+          <div class="bulk-link-panel-heading">
+            <div>
+              <h2>1. Sites</h2>
+              <div
+                id="selected-site-count"
+                class="helper-message"
+              >
+                0 selected
+              </div>
+            </div>
+
+            <div class="bulk-link-actions">
+              <button
+                id="select-all-sites"
+                class="button button-small"
+                type="button"
+              >
+                Select all
+              </button>
+
+              <button
+                id="deselect-all-sites"
+                class="button button-small"
+                type="button"
+              >
+                Deselect all
+              </button>
+            </div>
+          </div>
+
+          <input
+            id="site-filter"
+            class="search-input"
+            type="search"
+            placeholder="Filter Sites…"
+            autocomplete="off"
+          >
+
+          <div
+            id="recent-sites-panel"
+            class="recent-sites-panel"
+            hidden
+          >
+            <strong id="recent-sites-message"></strong>
+
+            <button
+              id="use-recent-sites"
+              class="button button-small"
+              type="button"
+            >
+              Use newly added Sites
+            </button>
+          </div>
+
+          <div
+            id="site-options"
+            class="bulk-option-list"
+          ></div>
+        </section>
+
+
+        <section class="bulk-link-panel">
+          <div class="bulk-link-panel-heading">
+            <div>
+              <h2>2. Sources</h2>
+              <div
+                id="selected-source-count"
+                class="helper-message"
+              >
+                0 selected
+              </div>
+            </div>
+
+            <div class="bulk-link-actions">
+              <button
+                id="select-all-sources"
+                class="button button-small"
+                type="button"
+              >
+                Select all
+              </button>
+
+              <button
+                id="deselect-all-sources"
+                class="button button-small"
+                type="button"
+              >
+                Deselect all
+              </button>
+            </div>
+          </div>
+
+          <input
+            id="source-filter"
+            class="search-input"
+            type="search"
+            placeholder="Filter Sources…"
+            autocomplete="off"
+          >
+
+          <div
+            id="source-options"
+            class="bulk-option-list"
+          ></div>
+        </section>
+
+      </div>
+
+
+      <section class="bulk-link-panel bulk-link-metadata">
+        <h2>3. Relationship metadata</h2>
+
+        <div
+          id="source-metadata-suggestion"
+          class="bulk-link-suggestion"
+          hidden
+        ></div>
+
+        <div class="detail-fields">
+
+          <div class="detail-field">
+            <label
+              class="detail-label"
+              for="bulk-source-order"
+            >
+              Source order *
+            </label>
+
+            <div class="detail-value">
+              <input
+                id="bulk-source-order"
+                class="detail-input"
+                type="number"
+                min="1"
+                max="99"
+                step="1"
+                value="1"
+              >
+
+              <div class="helper-message">
+                Controls Source ordering later when exported.
+              </div>
+            </div>
+          </div>
+
+
+          <div class="detail-field">
+            <label
+              class="detail-label"
+              for="bulk-metals"
+            >
+              Metal(s) for these Site–Source links
+            </label>
+
+            <div class="detail-value">
+              <input
+                id="bulk-metals"
+                class="detail-input"
+                type="text"
+                placeholder="Comma-separated materials"
+              >
+            </div>
+          </div>
+
+
+          <div class="detail-field">
+            <label
+              class="detail-label"
+              for="bulk-exposure-periods"
+            >
+              Exposure period(s) for these links
+            </label>
+
+            <div class="detail-value">
+              <input
+                id="bulk-exposure-periods"
+                class="detail-input"
+                type="text"
+                placeholder="e.g. 1 year, 2 years"
+              >
+            </div>
+          </div>
+
+
+          <div class="detail-field">
+            <label
+              class="detail-label"
+              for="bulk-link-notes"
+            >
+              Relationship notes
+            </label>
+
+            <div class="detail-value">
+              <textarea
+                id="bulk-link-notes"
+                class="detail-input"
+                rows="4"
+                placeholder="Optional: table number, exposure series, extraction remarks…"
+              ></textarea>
+            </div>
+          </div>
+
+        </div>
+
+
+        <label class="bulk-checkbox-row">
+          <input
+            id="update-site-summary"
+            type="checkbox"
+            checked
+          >
+
+          <span>
+            After linking, add missing metals and exposure periods
+            to the Site-level summary fields.
+          </span>
+        </label>
+
+
+        <div
+          id="bulk-link-preview"
+          class="helper-message"
+        >
+          Select at least one Site and one Source.
+        </div>
+
+
+        <div class="page-actions bulk-submit-actions">
+          <button
+            id="attach-selected"
+            class="button button-primary"
+            type="button"
+          >
+            Attach selected Sources
+          </button>
+        </div>
+
+        <div
+          id="bulk-link-message"
+          class="save-message"
+          hidden
+        ></div>
+
+      </section>
+
+    </div>
+  </main>
+
+  <script src="/assets/links.js"></script>
+</body>
+</html>
