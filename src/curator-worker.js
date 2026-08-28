@@ -1,4 +1,4 @@
-const CURATOR_BUILD_ID = "processor-bridge-001";
+const CURATOR_BUILD_ID = "postgis-region-002";
 
 function htmlResponse(html, status = 200) {
   return new Response(html, {
