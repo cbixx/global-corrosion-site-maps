@@ -19,6 +19,9 @@ const siteMatchPreview = document.getElementById("site-match-preview");
 
 let lastSuggestedSiteId = "";
 let siteCountryCode = "";
+let currentRegionSuggestion = null;
+let regionSuggestionRequestId = 0;
+let regionSuggestionPanel = null;
 
 const addSourceLinkButton = document.getElementById("add-source-link-button");
 const linkForm = document.getElementById("link-form");
@@ -159,6 +162,257 @@ const SITE_FIELD_OPTIONS = {
     "Bronze",
   ],
 };
+
+function hideRegionSuggestion() {
+  currentRegionSuggestion = null;
+
+  if (regionSuggestionPanel) {
+    regionSuggestionPanel.hidden = true;
+  }
+}
+
+function ensureRegionSuggestionPanel() {
+  if (
+    regionSuggestionPanel &&
+    regionSuggestionPanel.isConnected
+  ) {
+    return regionSuggestionPanel;
+  }
+
+  regionSuggestionPanel = null;
+
+  const panel =
+    document.createElement("div");
+
+  panel.className =
+    "region-suggestion";
+
+  panel.hidden = true;
+
+  const heading =
+    document.createElement("div");
+
+  heading.className =
+    "region-suggestion-heading";
+
+  heading.textContent =
+    "Automatic region classification";
+
+  const value =
+    document.createElement("div");
+
+  value.className =
+    "region-suggestion-value";
+
+  value.dataset.role =
+    "region-suggestion-value";
+
+  const notes =
+    document.createElement("div");
+
+  notes.className =
+    "region-suggestion-notes";
+
+  notes.dataset.role =
+    "region-suggestion-notes";
+
+  panel.append(
+    heading,
+    value,
+    notes
+  );
+
+  const regionInput =
+    getSiteInput(
+      "region_category"
+    );
+
+  const regionValueElement =
+    regionInput?.closest(
+      ".detail-value"
+    );
+
+  if (regionValueElement) {
+    regionValueElement.append(
+      panel
+    );
+  } else {
+    fieldsElement.insertAdjacentElement(
+      "afterend",
+      panel
+    );
+  }
+
+  regionSuggestionPanel =
+    panel;
+
+  return panel;
+}
+
+async function refreshRegionClassification() {
+  if (!editing) {
+    hideRegionSuggestion();
+    return;
+  }
+
+  const latitude =
+    getSiteInput("latitude")
+      ?.value.trim() || "";
+
+  const longitude =
+    getSiteInput("longitude")
+      ?.value.trim() || "";
+
+  if (
+    latitude === "" ||
+    longitude === ""
+  ) {
+    hideRegionSuggestion();
+    return;
+  }
+
+  const lat =
+    Number(latitude);
+
+  const lon =
+    Number(longitude);
+
+  if (
+    !Number.isFinite(lat) ||
+    !Number.isFinite(lon)
+  ) {
+    hideRegionSuggestion();
+    return;
+  }
+
+  const requestId =
+    ++regionSuggestionRequestId;
+
+  const panel =
+    ensureRegionSuggestionPanel();
+
+  const valueElement =
+    panel.querySelector(
+      '[data-role="region-suggestion-value"]'
+    );
+
+  const notesElement =
+    panel.querySelector(
+      '[data-role="region-suggestion-notes"]'
+    );
+
+  panel.hidden = false;
+
+  valueElement.textContent =
+    "Classifying…";
+
+  notesElement.textContent = "";
+
+  try {
+    const response =
+      await fetch(
+        "/api/region-classification",
+        {
+          method: "POST",
+
+          headers: {
+            "content-type":
+              "application/json",
+
+            accept:
+              "application/json",
+          },
+
+          body:
+            JSON.stringify({
+              latitude: lat,
+              longitude: lon,
+
+              current_region_category:
+                getSiteInput(
+                  "region_category"
+                )?.value.trim() || "",
+
+              modern_country_location:
+                getSiteInput(
+                  "modern_country_location"
+                )?.value.trim() || "",
+
+              site_type:
+                getSiteInput(
+                  "site_type"
+                )?.value.trim() || "",
+            }),
+        }
+      );
+
+    const payload =
+      await response.json();
+
+    if (
+      requestId !==
+      regionSuggestionRequestId
+    ) {
+      return;
+    }
+
+    if (
+      !response.ok ||
+      !payload.ok
+    ) {
+      throw new Error(
+        payload.error ||
+        "Unable to classify region."
+      );
+    }
+
+    currentRegionSuggestion =
+      payload;
+
+    const regionInput =
+      getSiteInput(
+        "region_category"
+      );
+
+    if (
+      regionInput &&
+      payload.region_category
+    ) {
+      regionInput.value =
+        payload.region_category;
+    }
+
+    valueElement.textContent =
+      payload.region_category ||
+      "No classification suggested.";
+
+    notesElement.textContent =
+      payload.notes || "";
+
+    panel.hidden = false;
+  } catch (error) {
+    console.error(
+      "Unable to classify region.",
+      error
+    );
+
+    if (
+      requestId !==
+      regionSuggestionRequestId
+    ) {
+      return;
+    }
+
+    currentRegionSuggestion =
+      null;
+
+    valueElement.textContent =
+      "Region classification unavailable.";
+
+    notesElement.textContent =
+      error.message || "";
+  }
+}
 
 function addField(
   fieldName,
@@ -321,6 +575,23 @@ function addField(
         }
       );
     }
+
+    if (
+      [
+        "latitude",
+        "longitude",
+        "modern_country_location",
+        "site_type",
+      ].includes(fieldName)
+    ) {
+      input.addEventListener(
+        "change",
+        async () => {
+          await refreshRegionClassification();
+        }
+      );
+    }
+
   } else if (
     value === null ||
     value === undefined ||
@@ -363,6 +634,9 @@ function renderSite() {
   editButton.hidden = editing;
   cancelButton.hidden = !editing;
   saveButton.hidden = !editing;
+  if (!editing) {
+    hideRegionSuggestion();
+  }
 }
 
 async function loadSite() {
@@ -441,11 +715,17 @@ async function loadSite() {
   }
 }
 
-editButton.addEventListener("click", () => {
-  editing = true;
-  saveMessage.hidden = true;
-  renderSite();
-});
+editButton.addEventListener(
+  "click",
+  async () => {
+    editing = true;
+    saveMessage.hidden = true;
+
+    renderSite();
+
+    await refreshRegionClassification();
+  }
+);
 
 cancelButton.addEventListener("click", () => {
   if (isNewSite()) {
@@ -1341,6 +1621,7 @@ async function applyLocationResult(
 
   await refreshSuggestedSiteId();
   await refreshSiteMatchPreview();
+  await refreshRegionClassification();
 
   locationSearchStatus.textContent =
     "Selected location applied to the Site form.";
