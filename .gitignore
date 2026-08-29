@@ -4,3 +4,10 @@
 python_modules/
 __pycache__/
 *.pyc
+node_modules/
+.streamlit/secrets.toml
+curator/curation.db
+curator/geo_data/
+source_pdfs/
+*.zip
+curator-processing/
