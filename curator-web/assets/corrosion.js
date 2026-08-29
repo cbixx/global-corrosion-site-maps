@@ -930,10 +930,14 @@ function renderWorkbookSourceContext() {
     Number(
       workbookSource.value
     );
-
+  const source =
+    workbookSources.find(
+      (item) =>
+        Number(item.id) ===
+        sourceId
+    );
 
   workbookSourceContext.replaceChildren();
-
 
   if (!source) {
     generateWorkbookButton.disabled =
