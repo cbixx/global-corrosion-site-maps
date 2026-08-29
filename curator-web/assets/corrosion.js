@@ -74,6 +74,88 @@ const workbookMessage =
     "corrosion-workbook-message"
   );
 
+const chooseWorkbookButton =
+  document.getElementById(
+    "corrosion-choose-workbook"
+  );
+
+const workbookUploadInput =
+  document.getElementById(
+    "corrosion-workbook-upload"
+  );
+
+const uploadFileName =
+  document.getElementById(
+    "corrosion-upload-file-name"
+  );
+
+const importStatus =
+  document.getElementById(
+    "corrosion-import-status"
+  );
+
+const importPreview =
+  document.getElementById(
+    "corrosion-import-preview"
+  );
+
+const previewReady =
+  document.getElementById(
+    "corrosion-preview-ready"
+  );
+
+const previewErrors =
+  document.getElementById(
+    "corrosion-preview-errors"
+  );
+
+const previewCreate =
+  document.getElementById(
+    "corrosion-preview-create"
+  );
+
+const previewUpdate =
+  document.getElementById(
+    "corrosion-preview-update"
+  );
+
+const previewMessage =
+  document.getElementById(
+    "corrosion-preview-message"
+  );
+
+const previewBody =
+  document.getElementById(
+    "corrosion-preview-body"
+  );
+
+const importConfirm =
+  document.getElementById(
+    "corrosion-import-confirm"
+  );
+
+const importConfirmCheckbox =
+  document.getElementById(
+    "corrosion-import-confirm-checkbox"
+  );
+
+const importButton =
+  document.getElementById(
+    "corrosion-import-button"
+  );
+
+const importResult =
+  document.getElementById(
+    "corrosion-import-result"
+  );
+
+
+let currentWorkbookFile =
+  null;
+
+let currentPreviewSummary =
+  null;
+
 let workbookSources = [];
 
 let currentPage = 1;
@@ -1358,6 +1440,687 @@ generateWorkbookButton.addEventListener(
 
       generateWorkbookButton.textContent =
         "Generate XLSM";
+    }
+  }
+);
+
+function appendPreviewCell(
+  row,
+  value
+) {
+  const cell =
+    document.createElement(
+      "td"
+    );
+
+  cell.textContent =
+    value === null ||
+    value === undefined ||
+    String(value).trim() === ""
+      ? "—"
+      : String(value);
+
+  row.append(
+    cell
+  );
+}
+
+
+function renderCorrosionPreview(
+  payload
+) {
+  const preview =
+    Array.isArray(
+      payload.preview
+    )
+      ? payload.preview
+      : [];
+
+  const summary =
+    payload.summary ||
+    {};
+
+  currentPreviewSummary =
+    summary;
+
+
+  importConfirmCheckbox.checked =
+    false;
+
+  importButton.disabled =
+    true;
+
+  importResult.hidden =
+    true;
+
+
+  previewReady.textContent =
+    String(
+      summary.ready ||
+      0
+    );
+
+  previewErrors.textContent =
+    String(
+      summary.errors ||
+      0
+    );
+
+  previewCreate.textContent =
+    String(
+      summary.create ||
+      0
+    );
+
+  previewUpdate.textContent =
+    String(
+      summary.update ||
+      0
+    );
+
+
+  previewBody.replaceChildren();
+
+
+  for (
+    const observation
+    of preview
+  ) {
+    const row =
+      document.createElement(
+        "tr"
+      );
+
+
+    row.className =
+      observation.validation_status ===
+      "ERROR"
+        ? "corrosion-preview-row-error"
+        : "corrosion-preview-row-ready";
+
+
+    appendPreviewCell(
+      row,
+      observation.excel_row
+    );
+
+    appendPreviewCell(
+      row,
+      observation.record_action
+    );
+
+    appendPreviewCell(
+      row,
+      observation.validation_status
+    );
+
+    appendPreviewCell(
+      row,
+      observation.source_code
+    );
+
+    appendPreviewCell(
+      row,
+      observation.site_id
+    );
+
+    appendPreviewCell(
+      row,
+      observation.material
+    );
+
+    appendPreviewCell(
+      row,
+      observation.exposure_period
+    );
+
+
+    const dates =
+      [
+        observation.exposure_start,
+        observation.exposure_end,
+      ]
+        .filter(Boolean)
+        .join(" → ");
+
+
+    appendPreviewCell(
+      row,
+      dates
+    );
+
+    appendPreviewCell(
+      row,
+      observation.corrosion_metric
+    );
+
+
+    const reported =
+      observation.reported_value !==
+        "" &&
+      observation.reported_value !==
+        null &&
+      observation.reported_value !==
+        undefined
+        ? `${formatNumber(
+            observation.reported_value
+          )} ${observation.reported_unit || ""}`.trim()
+        : "";
+
+
+    appendPreviewCell(
+      row,
+      reported
+    );
+
+
+    const thickness =
+      hasValue(
+        observation
+          .canonical_thickness_loss_rate_um_year
+      )
+        ? `${formatNumber(
+            observation
+              .canonical_thickness_loss_rate_um_year
+          )} µm/year`
+        : "";
+
+
+    appendPreviewCell(
+      row,
+      thickness
+    );
+
+
+    const mass =
+      hasValue(
+        observation
+          .canonical_mass_loss_rate_g_m2_year
+      )
+        ? `${formatNumber(
+            observation
+              .canonical_mass_loss_rate_g_m2_year
+          )} g/m²/year`
+        : "";
+
+
+    appendPreviewCell(
+      row,
+      mass
+    );
+
+
+    const density =
+      hasValue(
+        observation
+          .density_used_g_cm3
+      )
+        ? `${formatNumber(
+            observation
+              .density_used_g_cm3
+          )} g/cm³`
+        : "";
+
+
+    appendPreviewCell(
+      row,
+      density
+    );
+
+
+    appendPreviewCell(
+      row,
+      observation.validation_message
+    );
+
+
+    previewBody.append(
+      row
+    );
+  }
+
+
+  if (
+    preview.length === 0
+  ) {
+    previewMessage.textContent =
+      "No completed corrosion observation rows were found. " +
+      "Blank starter rows were ignored.";
+
+    previewMessage.className =
+      "save-message save-message-warning";
+
+    previewMessage.hidden =
+      false;
+
+  } else if (
+    Number(
+      summary.errors ||
+      0
+    ) > 0
+  ) {
+    previewMessage.textContent =
+      "The workbook contains validation errors. " +
+      "Correct those rows in Excel and upload the workbook again.";
+
+    previewMessage.className =
+      "save-message save-message-error";
+
+    previewMessage.hidden =
+      false;
+
+  } else {
+    previewMessage.textContent =
+      "All workbook rows passed validation. " +
+      "Database import is intentionally disabled in this preview-only patch.";
+
+    previewMessage.className =
+      "save-message save-message-success";
+
+    previewMessage.hidden =
+      false;
+  }
+
+  const canImport =
+    preview.length > 0 &&
+    Number(
+      summary.errors ||
+      0
+    ) === 0;
+
+
+  importConfirm.hidden =
+    !canImport;
+
+  importPreview.hidden =
+    false;
+}
+
+
+chooseWorkbookButton.addEventListener(
+  "click",
+  () => {
+    workbookUploadInput.value =
+      "";
+
+    workbookUploadInput.click();
+  }
+);
+
+
+workbookUploadInput.addEventListener(
+  "change",
+  async () => {
+    const file =
+      workbookUploadInput
+        .files?.[0];
+
+
+    if (!file) {
+      return;
+    }
+
+    currentWorkbookFile =
+      file;
+
+    currentPreviewSummary =
+      null;
+
+    importConfirm.hidden =
+      true;
+
+    importConfirmCheckbox.checked =
+      false;
+
+    importButton.disabled =
+      true;
+
+    importResult.hidden =
+      true;
+
+    if (
+      !/\.(xlsm|xlsx)$/i.test(
+        file.name
+      )
+    ) {
+      importStatus.textContent =
+        "Choose an XLSM or XLSX workbook.";
+
+      importStatus.className =
+        "save-message save-message-error";
+
+      importStatus.hidden =
+        false;
+
+      return;
+    }
+
+
+    uploadFileName.textContent =
+      file.name;
+
+    chooseWorkbookButton.disabled =
+      true;
+
+    chooseWorkbookButton.textContent =
+      "Validating…";
+
+    importPreview.hidden =
+      true;
+
+    importStatus.textContent =
+      "Reading workbook and independently recalculating corrosion values…";
+
+    importStatus.className =
+      "save-message";
+
+    importStatus.hidden =
+      false;
+
+
+    try {
+      const response =
+        await fetch(
+          "/api/corrosion-workbook-preview",
+          {
+            method:
+              "POST",
+
+            headers: {
+              "content-type":
+                file.type ||
+                "application/octet-stream",
+
+              "x-corrosion-file-name":
+                encodeURIComponent(
+                  file.name
+                ),
+
+              accept:
+                "application/json",
+            },
+
+            body:
+              file,
+          }
+        );
+
+
+      const payload =
+        await response.json();
+
+
+      if (
+        !response.ok ||
+        !payload.ok
+      ) {
+        throw new Error(
+          payload.error ||
+          `HTTP ${response.status}`
+        );
+      }
+
+
+      importStatus.hidden =
+        true;
+
+
+      renderCorrosionPreview(
+        payload
+      );
+
+    } catch (error) {
+      console.error(
+        "Unable to validate corrosion workbook.",
+        error
+      );
+
+
+      importStatus.textContent =
+        error.message ||
+        "Unable to validate corrosion workbook.";
+
+      importStatus.className =
+        "save-message save-message-error";
+
+      importStatus.hidden =
+        false;
+
+    } finally {
+      chooseWorkbookButton.disabled =
+        false;
+
+      chooseWorkbookButton.textContent =
+        "Choose XLSM / XLSX";
+    }
+  }
+);
+
+importConfirmCheckbox.addEventListener(
+  "change",
+  () => {
+    const canImport =
+      Boolean(
+        currentWorkbookFile
+      ) &&
+      Number(
+        currentPreviewSummary
+          ?.errors ||
+        0
+      ) === 0 &&
+      Number(
+        currentPreviewSummary
+          ?.ready ||
+        0
+      ) > 0;
+
+
+    importButton.disabled =
+      !(
+        canImport &&
+        importConfirmCheckbox.checked
+      );
+  }
+);
+
+importButton.addEventListener(
+  "click",
+  async () => {
+    if (
+      !currentWorkbookFile
+    ) {
+      return;
+    }
+
+
+    if (
+      !importConfirmCheckbox.checked
+    ) {
+      importResult.textContent =
+        "Confirm that you reviewed the validated rows first.";
+
+      importResult.className =
+        "save-message save-message-error";
+
+      importResult.hidden =
+        false;
+
+      return;
+    }
+
+
+    if (
+      Number(
+        currentPreviewSummary
+          ?.errors ||
+        0
+      ) > 0
+    ) {
+      importResult.textContent =
+        "The workbook contains validation errors and cannot be imported.";
+
+      importResult.className =
+        "save-message save-message-error";
+
+      importResult.hidden =
+        false;
+
+      return;
+    }
+
+
+    importButton.disabled =
+      true;
+
+    importButton.textContent =
+      "Importing…";
+
+    chooseWorkbookButton.disabled =
+      true;
+
+    importResult.textContent =
+      "Re-reading and revalidating the workbook before database import…";
+
+    importResult.className =
+      "save-message";
+
+    importResult.hidden =
+      false;
+
+
+    try {
+      const response =
+        await fetch(
+          "/api/corrosion-workbook-import",
+          {
+            method:
+              "POST",
+
+            headers: {
+              "content-type":
+                currentWorkbookFile
+                  .type ||
+                "application/octet-stream",
+
+              "x-corrosion-file-name":
+                encodeURIComponent(
+                  currentWorkbookFile
+                    .name
+                ),
+
+              accept:
+                "application/json",
+            },
+
+            body:
+              currentWorkbookFile,
+          }
+        );
+
+
+      const payload =
+        await response.json();
+
+
+      if (
+        !response.ok ||
+        !payload.ok
+      ) {
+        throw new Error(
+          payload.error ||
+          `HTTP ${response.status}`
+        );
+      }
+
+
+      let message =
+        `Imported ${payload.imported} corrosion observation` +
+        `${payload.imported === 1 ? "" : "s"}. ` +
+        `${payload.created} created, ` +
+        `${payload.updated} updated.`;
+
+
+      if (
+        payload.warning
+      ) {
+        message +=
+          ` ${payload.warning}`;
+      }
+
+
+      importResult.textContent =
+        message;
+
+      importResult.className =
+        payload.warning
+          ? "save-message save-message-warning"
+          : "save-message save-message-success";
+
+      importResult.hidden =
+        false;
+
+
+      /*
+       * Prevent accidental second import from the
+       * same preview without explicitly selecting
+       * the workbook again.
+       */
+      currentWorkbookFile =
+        null;
+
+      currentPreviewSummary =
+        null;
+
+      importConfirmCheckbox.checked =
+        false;
+
+      importConfirmCheckbox.disabled =
+        true;
+
+      importButton.disabled =
+        true;
+
+
+      /*
+       * Refresh the observation browser so newly
+       * created / updated rows are immediately visible.
+       */
+      currentPage =
+        1;
+
+      await loadObservations();
+
+    } catch (error) {
+      console.error(
+        "Unable to import corrosion workbook.",
+        error
+      );
+
+
+      importResult.textContent =
+        error.message ||
+        "Unable to import corrosion workbook.";
+
+      importResult.className =
+        "save-message save-message-error";
+
+      importResult.hidden =
+        false;
+
+
+      /*
+       * Keep the selected workbook available after
+       * a failed import so the user can retry.
+       */
+      importButton.disabled =
+        !importConfirmCheckbox.checked;
+
+    } finally {
+      chooseWorkbookButton.disabled =
+        false;
+
+      importButton.textContent =
+        "Import validated observations";
     }
   }
 );

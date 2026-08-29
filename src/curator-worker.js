@@ -1,6 +1,10 @@
 import JSZip from "jszip";
+import {
+  readCorrosionWorkbook,
+  validateCorrosionWorkbookRows,
+} from "./corrosion-workbook-import.js";
 
-const CURATOR_BUILD_ID = "corrosion-xlsm-generate-001";
+const CURATOR_BUILD_ID = "corrosion-xlsm-import-001";
 
 function htmlResponse(html, status = 200) {
   return new Response(html, {
@@ -10581,6 +10585,1750 @@ async function handleCorrosionWorkbookGenerate(
   }
 }
 
+async function fetchAllCorrosionContextRows(
+  env,
+  table,
+  select
+) {
+  const allRows = [];
+
+  const pageSize =
+    1000;
+
+  let start =
+    0;
+
+
+  while (true) {
+    const endpoint =
+      new URL(
+        `/rest/v1/${table}`,
+        env.SUPABASE_URL
+      );
+
+
+    endpoint.searchParams.set(
+      "select",
+      select
+    );
+
+
+    const response =
+      await fetch(
+        endpoint,
+        {
+          headers: {
+            apikey:
+              env.SUPABASE_SECRET_KEY,
+
+            authorization:
+              `Bearer ${env.SUPABASE_SECRET_KEY}`,
+
+            accept:
+              "application/json",
+
+            range:
+              `${start}-${start + pageSize - 1}`,
+          },
+        }
+      );
+
+
+    if (!response.ok) {
+      console.error(
+        `Unable to load ${table} for corrosion validation.`,
+        response.status,
+        await response.text()
+      );
+
+
+      throw new Error(
+        "Unable to load database context for corrosion validation."
+      );
+    }
+
+
+    const rows =
+      await response.json();
+
+
+    allRows.push(
+      ...rows
+    );
+
+
+    if (
+      rows.length <
+      pageSize
+    ) {
+      break;
+    }
+
+
+    start +=
+      pageSize;
+  }
+
+
+  return allRows;
+}
+
+
+async function loadCorrosionValidationContext(
+  env
+) {
+  const [
+    siteRows,
+    sourceRows,
+    linkRows,
+    observationRows,
+  ] =
+    await Promise.all([
+      fetchAllCorrosionContextRows(
+        env,
+        "sites",
+        "site_id"
+      ),
+
+      fetchAllCorrosionContextRows(
+        env,
+        "sources",
+        "source_code"
+      ),
+
+      fetchAllCorrosionContextRows(
+        env,
+        "site_sources",
+        "sites(site_id),sources(source_code)"
+      ),
+
+      fetchAllCorrosionContextRows(
+        env,
+        "corrosion_observations",
+        "id,sites(site_id),sources(source_code)"
+      ),
+    ]);
+
+
+  const existingSiteIds =
+    siteRows
+      .map(
+        (row) =>
+          String(
+            row.site_id ||
+            ""
+          ).trim()
+      )
+      .filter(Boolean);
+
+
+  const existingSourceCodes =
+    sourceRows
+      .map(
+        (row) =>
+          normaliseSourceCode(
+            row.source_code
+          )
+      )
+      .filter(Boolean);
+
+
+  const existingSiteSourcePairs =
+    linkRows
+      .map(
+        (row) => [
+          String(
+            row.sites
+              ?.site_id ||
+            ""
+          ).trim(),
+
+          normaliseSourceCode(
+            row.sources
+              ?.source_code ||
+            ""
+          ),
+        ]
+      )
+      .filter(
+        ([siteId, sourceCode]) =>
+          siteId &&
+          sourceCode
+      );
+
+
+  const existingObservations =
+    observationRows
+      .map(
+        (row) => ({
+          id:
+            row.id,
+
+          site_id:
+            String(
+              row.sites
+                ?.site_id ||
+              ""
+            ).trim(),
+
+          source_code:
+            String(
+              row.sources
+                ?.source_code ||
+              ""
+            ).trim(),
+        })
+      );
+
+
+  return {
+    existingSiteIds,
+    existingSourceCodes,
+    existingSiteSourcePairs,
+    existingObservations,
+  };
+}
+
+
+async function handleCorrosionWorkbookPreview(
+  request,
+  env
+) {
+  if (
+    !env.SUPABASE_URL ||
+    !env.SUPABASE_SECRET_KEY
+  ) {
+    return Response.json(
+      {
+        ok: false,
+        error:
+          "Supabase configuration is missing.",
+      },
+      {
+        status: 500,
+        headers: {
+          "cache-control":
+            "no-store",
+        },
+      }
+    );
+  }
+
+
+  let fileName = "";
+
+
+  try {
+    fileName =
+      decodeURIComponent(
+        request.headers.get(
+          "x-corrosion-file-name"
+        ) ||
+        ""
+      );
+  } catch {
+    fileName =
+      "";
+  }
+
+
+  if (
+    fileName &&
+    !/\.(xlsm|xlsx)$/i.test(
+      fileName
+    )
+  ) {
+    return Response.json(
+      {
+        ok: false,
+        error:
+          "Upload an XLSM or XLSX corrosion workbook.",
+      },
+      {
+        status: 400,
+        headers: {
+          "cache-control":
+            "no-store",
+        },
+      }
+    );
+  }
+
+
+  let bytes;
+
+
+  try {
+    bytes =
+      await request.arrayBuffer();
+  } catch {
+    return Response.json(
+      {
+        ok: false,
+        error:
+          "Unable to read uploaded workbook.",
+      },
+      {
+        status: 400,
+        headers: {
+          "cache-control":
+            "no-store",
+        },
+      }
+    );
+  }
+
+
+  if (
+    !bytes.byteLength
+  ) {
+    return Response.json(
+      {
+        ok: false,
+        error:
+          "The uploaded workbook is empty.",
+      },
+      {
+        status: 400,
+        headers: {
+          "cache-control":
+            "no-store",
+        },
+      }
+    );
+  }
+
+
+  try {
+    const records =
+      readCorrosionWorkbook(
+        bytes
+      );
+
+
+    if (
+      records.length === 0
+    ) {
+      return Response.json(
+        {
+          ok: true,
+
+          file_name:
+            fileName,
+
+          preview:
+            [],
+
+          summary: {
+            total:
+              0,
+
+            ready:
+              0,
+
+            errors:
+              0,
+
+            create:
+              0,
+
+            update:
+              0,
+          },
+        },
+        {
+          headers: {
+            "cache-control":
+              "no-store",
+          },
+        }
+      );
+    }
+
+
+    const context =
+      await loadCorrosionValidationContext(
+        env
+      );
+
+
+    const preview =
+      validateCorrosionWorkbookRows(
+        records,
+        context
+      );
+
+
+    const summary = {
+      total:
+        preview.length,
+
+      ready:
+        preview.filter(
+          (row) =>
+            row.validation_status ===
+            "READY"
+        ).length,
+
+      errors:
+        preview.filter(
+          (row) =>
+            row.validation_status ===
+            "ERROR"
+        ).length,
+
+      create:
+        preview.filter(
+          (row) =>
+            row.record_action ===
+            "CREATE"
+        ).length,
+
+      update:
+        preview.filter(
+          (row) =>
+            row.record_action ===
+            "UPDATE"
+        ).length,
+    };
+
+
+    return Response.json(
+      {
+        ok: true,
+
+        file_name:
+          fileName,
+
+        preview,
+
+        summary,
+      },
+      {
+        headers: {
+          "cache-control":
+            "no-store",
+        },
+      }
+    );
+
+  } catch (error) {
+    console.error(
+      "Corrosion workbook preview failed.",
+      error
+    );
+
+
+    return Response.json(
+      {
+        ok: false,
+
+        error:
+          error?.message ||
+          "Unable to validate corrosion workbook.",
+      },
+      {
+        status: 400,
+
+        headers: {
+          "cache-control":
+            "no-store",
+        },
+      }
+    );
+  }
+}
+
+function corrosionImportKey(
+  value
+) {
+  return String(
+    value ?? ""
+  )
+    .trim()
+    .toLocaleLowerCase();
+}
+
+
+function corrosionObservationIdentityKey({
+  siteFk,
+  sourceFk,
+  material,
+  exposurePeriod,
+  exposureStart,
+  exposureEnd,
+  corrosionMetric,
+  measurementMethod = "",
+  specimenCondition = "",
+  exposureCondition = "",
+}) {
+  return [
+    Number(siteFk),
+    Number(sourceFk),
+
+    corrosionImportKey(
+      material
+    ),
+
+    corrosionImportKey(
+      exposurePeriod
+    ),
+
+    corrosionImportKey(
+      exposureStart
+    ),
+
+    corrosionImportKey(
+      exposureEnd
+    ),
+
+    corrosionImportKey(
+      corrosionMetric
+    ),
+
+    corrosionImportKey(
+      measurementMethod
+    ),
+
+    corrosionImportKey(
+      specimenCondition
+    ),
+
+    corrosionImportKey(
+      exposureCondition
+    ),
+  ].join(
+    "\u0000"
+  );
+}
+
+
+function corrosionOptionalNumber(
+  value
+) {
+  if (
+    value === null ||
+    value === undefined ||
+    String(value).trim() === ""
+  ) {
+    return null;
+  }
+
+
+  const number =
+    Number(value);
+
+
+  return Number.isFinite(
+    number
+  )
+    ? number
+    : null;
+}
+
+
+async function loadCorrosionImportContext(
+  env
+) {
+  const [
+    sites,
+    sources,
+    links,
+    observations,
+  ] =
+    await Promise.all([
+      fetchAllCorrosionContextRows(
+        env,
+        "sites",
+        [
+          "id",
+          "site_id",
+          "metal",
+          "exposure_period",
+        ].join(",")
+      ),
+
+      fetchAllCorrosionContextRows(
+        env,
+        "sources",
+        [
+          "id",
+          "source_code",
+        ].join(",")
+      ),
+
+      fetchAllCorrosionContextRows(
+        env,
+        "site_sources",
+        [
+          "id",
+          "site_fk",
+          "source_fk",
+          "metals",
+          "exposure_periods",
+          "sites(site_id)",
+          "sources(source_code)",
+        ].join(",")
+      ),
+
+      fetchAllCorrosionContextRows(
+        env,
+        "corrosion_observations",
+        [
+          "id",
+          "site_fk",
+          "source_fk",
+
+          "material",
+          "exposure_period",
+          "exposure_start",
+          "exposure_end",
+          "corrosion_metric",
+
+          "measurement_method",
+          "specimen_condition",
+          "exposure_condition",
+
+          "sites(site_id)",
+          "sources(source_code)",
+        ].join(",")
+      ),
+    ]);
+
+
+  const validationContext = {
+    existingSiteIds:
+      sites
+        .map(
+          (row) =>
+            String(
+              row.site_id ||
+              ""
+            ).trim()
+        )
+        .filter(Boolean),
+
+    existingSourceCodes:
+      sources
+        .map(
+          (row) =>
+            normaliseSourceCode(
+              row.source_code
+            )
+        )
+        .filter(Boolean),
+
+    existingSiteSourcePairs:
+      links
+        .map(
+          (row) => [
+            String(
+              row.sites
+                ?.site_id ||
+              ""
+            ).trim(),
+
+            normaliseSourceCode(
+              row.sources
+                ?.source_code ||
+              ""
+            ),
+          ]
+        )
+        .filter(
+          (pair) =>
+            pair[0] &&
+            pair[1]
+        ),
+
+    existingObservations:
+      observations.map(
+        (row) => ({
+          id:
+            row.id,
+
+          site_id:
+            String(
+              row.sites
+                ?.site_id ||
+              ""
+            ).trim(),
+
+          source_code:
+            String(
+              row.sources
+                ?.source_code ||
+              ""
+            ).trim(),
+        })
+      ),
+  };
+
+
+  return {
+    sites,
+    sources,
+    links,
+    observations,
+    validationContext,
+  };
+}
+
+
+async function writeCorrosionObservation(
+  env,
+  {
+    id = null,
+    payload,
+  }
+) {
+  const endpoint =
+    new URL(
+      "/rest/v1/corrosion_observations",
+      env.SUPABASE_URL
+    );
+
+
+  const headers = {
+    apikey:
+      env.SUPABASE_SECRET_KEY,
+
+    authorization:
+      `Bearer ${env.SUPABASE_SECRET_KEY}`,
+
+    "content-type":
+      "application/json",
+
+    accept:
+      "application/json",
+
+    prefer:
+      "return=representation",
+  };
+
+
+  let response;
+
+
+  if (
+    id !== null
+  ) {
+    endpoint.searchParams.set(
+      "id",
+      `eq.${Number(id)}`
+    );
+
+
+    response =
+      await fetch(
+        endpoint,
+        {
+          method:
+            "PATCH",
+
+          headers,
+
+          body:
+            JSON.stringify(
+              payload
+            ),
+        }
+      );
+
+  } else {
+    response =
+      await fetch(
+        endpoint,
+        {
+          method:
+            "POST",
+
+          headers,
+
+          body:
+            JSON.stringify(
+              payload
+            ),
+        }
+      );
+  }
+
+
+  if (!response.ok) {
+    const detail =
+      await response.text();
+
+
+    console.error(
+      "Corrosion observation write failed.",
+      {
+        id,
+        status:
+          response.status,
+        detail,
+      }
+    );
+
+
+    throw new Error(
+      id === null
+        ? "Unable to create corrosion observation."
+        : `Unable to update corrosion observation #${id}.`
+    );
+  }
+
+
+  const rows =
+    await response.json();
+
+
+  if (
+    id !== null &&
+    rows.length === 0
+  ) {
+    throw new Error(
+      `Corrosion observation #${id} was not found during import.`
+    );
+  }
+
+
+  return rows[0] ||
+    null;
+}
+
+
+async function updateCorrosionLinkMetadata(
+  env,
+  linkUpdates
+) {
+  const headers = {
+    apikey:
+      env.SUPABASE_SECRET_KEY,
+
+    authorization:
+      `Bearer ${env.SUPABASE_SECRET_KEY}`,
+
+    "content-type":
+      "application/json",
+
+    accept:
+      "application/json",
+  };
+
+
+  for (
+    const update
+    of linkUpdates.values()
+  ) {
+    const endpoint =
+      new URL(
+        "/rest/v1/site_sources",
+        env.SUPABASE_URL
+      );
+
+
+    endpoint.searchParams.set(
+      "id",
+      `eq.${update.id}`
+    );
+
+
+    const response =
+      await fetch(
+        endpoint,
+        {
+          method:
+            "PATCH",
+
+          headers,
+
+          body:
+            JSON.stringify({
+              metals:
+                update.metals,
+
+              exposure_periods:
+                update.exposure_periods,
+            }),
+        }
+      );
+
+
+    if (!response.ok) {
+      console.error(
+        "Unable to update corrosion Site–Source metadata.",
+        response.status,
+        await response.text()
+      );
+
+
+      throw new Error(
+        "Corrosion observations were saved, but Site–Source metadata could not be updated."
+      );
+    }
+  }
+}
+
+
+async function handleCorrosionWorkbookImport(
+  request,
+  env
+) {
+  if (
+    !env.SUPABASE_URL ||
+    !env.SUPABASE_SECRET_KEY
+  ) {
+    return Response.json(
+      {
+        ok: false,
+        error:
+          "Supabase configuration is missing.",
+      },
+      {
+        status: 500,
+        headers: {
+          "cache-control":
+            "no-store",
+        },
+      }
+    );
+  }
+
+
+  let fileName = "";
+
+
+  try {
+    fileName =
+      decodeURIComponent(
+        request.headers.get(
+          "x-corrosion-file-name"
+        ) ||
+        ""
+      );
+  } catch {
+    fileName =
+      "";
+  }
+
+
+  if (
+    fileName &&
+    !/\.(xlsm|xlsx)$/i.test(
+      fileName
+    )
+  ) {
+    return Response.json(
+      {
+        ok: false,
+        error:
+          "Upload an XLSM or XLSX corrosion workbook.",
+      },
+      {
+        status: 400,
+        headers: {
+          "cache-control":
+            "no-store",
+        },
+      }
+    );
+  }
+
+
+  let bytes;
+
+
+  try {
+    bytes =
+      await request.arrayBuffer();
+  } catch {
+    return Response.json(
+      {
+        ok: false,
+        error:
+          "Unable to read uploaded workbook.",
+      },
+      {
+        status: 400,
+        headers: {
+          "cache-control":
+            "no-store",
+        },
+      }
+    );
+  }
+
+
+  if (
+    !bytes.byteLength
+  ) {
+    return Response.json(
+      {
+        ok: false,
+        error:
+          "The uploaded workbook is empty.",
+      },
+      {
+        status: 400,
+        headers: {
+          "cache-control":
+            "no-store",
+        },
+      }
+    );
+  }
+
+
+  try {
+    /*
+     * ---------------------------------------------------
+     * Parse the ORIGINAL workbook again.
+     * Nothing from the browser preview is trusted.
+     * ---------------------------------------------------
+     */
+
+    let records =
+      readCorrosionWorkbook(
+        bytes
+      );
+
+
+    records =
+      records.map(
+        (record) => ({
+          ...record,
+
+          source_code:
+            normaliseSourceCode(
+              record.source_code
+            ),
+        })
+      );
+
+
+    if (
+      records.length === 0
+    ) {
+      return Response.json(
+        {
+          ok: false,
+
+          error:
+            "No completed corrosion observation rows were found.",
+        },
+        {
+          status: 400,
+
+          headers: {
+            "cache-control":
+              "no-store",
+          },
+        }
+      );
+    }
+
+
+    const context =
+      await loadCorrosionImportContext(
+        env
+      );
+
+
+    /*
+     * ---------------------------------------------------
+     * Full independent validation AGAIN.
+     * ---------------------------------------------------
+     */
+
+    const validated =
+      validateCorrosionWorkbookRows(
+        records,
+        context.validationContext
+      );
+
+
+    const errors =
+      validated.filter(
+        (row) =>
+          row.validation_status ===
+          "ERROR"
+      );
+
+
+    if (
+      errors.length > 0
+    ) {
+      return Response.json(
+        {
+          ok: false,
+
+          error:
+            `Import stopped because ${errors.length} workbook row(s) failed revalidation.`,
+
+          validation_errors:
+            errors.map(
+              (row) => ({
+                excel_row:
+                  row.excel_row,
+
+                message:
+                  row.validation_message,
+              })
+            ),
+        },
+        {
+          status: 409,
+
+          headers: {
+            "cache-control":
+              "no-store",
+          },
+        }
+      );
+    }
+
+
+    /*
+     * ---------------------------------------------------
+     * Build lookup maps BEFORE making any writes.
+     * ---------------------------------------------------
+     */
+
+    const sitesByCode =
+      new Map();
+
+
+    for (
+      const site
+      of context.sites
+    ) {
+      sitesByCode.set(
+        corrosionImportKey(
+          site.site_id
+        ),
+        site
+      );
+    }
+
+
+    const sourcesByCode =
+      new Map();
+
+
+    for (
+      const source
+      of context.sources
+    ) {
+      sourcesByCode.set(
+        corrosionImportKey(
+          normaliseSourceCode(
+            source.source_code
+          )
+        ),
+        source
+      );
+    }
+
+
+    const linksByPair =
+      new Map();
+
+
+    for (
+      const link
+      of context.links
+    ) {
+      linksByPair.set(
+        `${Number(
+          link.site_fk
+        )}\u0000${Number(
+          link.source_fk
+        )}`,
+        link
+      );
+    }
+
+
+    const observationsById =
+      new Map();
+
+
+    const observationsByIdentity =
+      new Map();
+
+
+    for (
+      const observation
+      of context.observations
+    ) {
+      const id =
+        Number(
+          observation.id
+        );
+
+
+      observationsById.set(
+        id,
+        observation
+      );
+
+
+      observationsByIdentity.set(
+        corrosionObservationIdentityKey({
+          siteFk:
+            observation.site_fk,
+
+          sourceFk:
+            observation.source_fk,
+
+          material:
+            observation.material,
+
+          exposurePeriod:
+            observation.exposure_period,
+
+          exposureStart:
+            observation.exposure_start,
+
+          exposureEnd:
+            observation.exposure_end,
+
+          corrosionMetric:
+            observation.corrosion_metric,
+
+          measurementMethod:
+            observation.measurement_method,
+
+          specimenCondition:
+            observation.specimen_condition,
+
+          exposureCondition:
+            observation.exposure_condition,
+        }),
+        observation
+      );
+    }
+
+
+    /*
+     * ---------------------------------------------------
+     * Preflight every validated row.
+     *
+     * No DB writes occur until every row has resolved
+     * Site / Source / Site–Source provenance.
+     * ---------------------------------------------------
+     */
+
+    const operations = [];
+
+
+    for (
+      const row
+      of validated
+    ) {
+      const site =
+        sitesByCode.get(
+          corrosionImportKey(
+            row.site_id
+          )
+        );
+
+
+      const source =
+        sourcesByCode.get(
+          corrosionImportKey(
+            normaliseSourceCode(
+              row.source_code
+            )
+          )
+        );
+
+
+      if (
+        !site ||
+        !source
+      ) {
+        throw new Error(
+          `Excel row ${row.excel_row}: Site or Source disappeared after validation.`
+        );
+      }
+
+
+      const link =
+        linksByPair.get(
+          `${Number(site.id)}\u0000${Number(source.id)}`
+        );
+
+
+      if (!link) {
+        throw new Error(
+          `Excel row ${row.excel_row}: the Site–Source relationship no longer exists.`
+        );
+      }
+
+
+      let targetObservationId =
+        null;
+
+
+      if (
+        row.observation_id !== null &&
+        row.observation_id !== undefined &&
+        String(
+          row.observation_id
+        ).trim() !== ""
+      ) {
+        const requestedId =
+          Number(
+            row.observation_id
+          );
+
+
+        const existing =
+          observationsById.get(
+            requestedId
+          );
+
+
+        if (!existing) {
+          throw new Error(
+            `Excel row ${row.excel_row}: observation #${requestedId} no longer exists.`
+          );
+        }
+
+
+        if (
+          Number(
+            existing.site_fk
+          ) !==
+            Number(site.id) ||
+          Number(
+            existing.source_fk
+          ) !==
+            Number(source.id)
+        ) {
+          throw new Error(
+            `Excel row ${row.excel_row}: observation #${requestedId} belongs to a different Site/Source pair.`
+          );
+        }
+
+
+        targetObservationId =
+          requestedId;
+
+      } else {
+        /*
+         * Legacy behavior:
+         * a row without observation_id still updates an
+         * existing record if its complete observation
+         * identity already exists.
+         */
+
+        const identity =
+          corrosionObservationIdentityKey({
+            siteFk:
+              site.id,
+
+            sourceFk:
+              source.id,
+
+            material:
+              row.material,
+
+            exposurePeriod:
+              row.exposure_period,
+
+            exposureStart:
+              row.exposure_start,
+
+            exposureEnd:
+              row.exposure_end,
+
+            corrosionMetric:
+              row.corrosion_metric,
+
+            measurementMethod:
+              "",
+
+            specimenCondition:
+              "",
+
+            exposureCondition:
+              "",
+          });
+
+
+        const existing =
+          observationsByIdentity.get(
+            identity
+          );
+
+
+        if (existing) {
+          targetObservationId =
+            Number(
+              existing.id
+            );
+        }
+      }
+
+
+      const canonicalThickness =
+        corrosionOptionalNumber(
+          row
+            .canonical_thickness_loss_rate_um_year
+        );
+
+
+      const canonicalMass =
+        corrosionOptionalNumber(
+          row
+            .canonical_mass_loss_rate_g_m2_year
+        );
+
+
+      const densityUsed =
+        corrosionOptionalNumber(
+          row.density_used_g_cm3
+        );
+
+
+      const payload = {
+        site_fk:
+          Number(site.id),
+
+        source_fk:
+          Number(source.id),
+
+        site_source_fk:
+          Number(link.id),
+
+        material:
+          String(
+            row.material ||
+            ""
+          ).trim(),
+
+        exposure_period:
+          String(
+            row.exposure_period ||
+            ""
+          ).trim(),
+
+        exposure_start:
+          String(
+            row.exposure_start ||
+            ""
+          ).trim(),
+
+        exposure_end:
+          String(
+            row.exposure_end ||
+            ""
+          ).trim(),
+
+        corrosion_metric:
+          String(
+            row.corrosion_metric ||
+            ""
+          ).trim(),
+
+        value:
+          Number(
+            row.reported_value
+          ),
+
+        unit:
+          String(
+            row.reported_unit ||
+            ""
+          ).trim(),
+
+        canonical_thickness_loss_rate_um_year:
+          canonicalThickness,
+
+        canonical_mass_loss_rate_g_m2_year:
+          canonicalMass,
+
+        /*
+         * Backward compatibility:
+         * normalized_value mirrors canonical thickness.
+         */
+        normalized_value:
+          canonicalThickness,
+
+        normalized_unit:
+          canonicalThickness !==
+            null
+            ? "µm/year"
+            : "",
+
+        density_g_cm3:
+          densityUsed,
+
+        density_basis:
+          String(
+            row.density_basis ||
+            ""
+          ).trim(),
+
+        derived_penetration_value:
+          null,
+
+        derived_penetration_unit:
+          "",
+
+        normalization_note:
+          String(
+            row.normalization_note ||
+            ""
+          ).trim(),
+
+        measurement_method:
+          "",
+
+        specimen_condition:
+          "",
+
+        exposure_condition:
+          "",
+
+        notes:
+          String(
+            row.notes ||
+            ""
+          ).trim(),
+
+        updated_at:
+          new Date()
+            .toISOString(),
+      };
+
+
+      operations.push({
+        excelRow:
+          row.excel_row,
+
+        site,
+
+        source,
+
+        link,
+
+        targetObservationId,
+
+        payload,
+      });
+    }
+
+
+    /*
+     * ---------------------------------------------------
+     * Perform observation writes.
+     * ---------------------------------------------------
+     */
+
+    let created = 0;
+    let updated = 0;
+
+
+    const touchedSiteIds =
+      new Set();
+
+    const linkUpdates =
+      new Map();
+
+
+    for (
+      const operation
+      of operations
+    ) {
+      await writeCorrosionObservation(
+        env,
+        {
+          id:
+            operation
+              .targetObservationId,
+
+          payload:
+            operation.payload,
+        }
+      );
+
+
+      if (
+        operation
+          .targetObservationId ===
+        null
+      ) {
+        created +=
+          1;
+
+      } else {
+        updated +=
+          1;
+      }
+
+
+      touchedSiteIds.add(
+        Number(
+          operation.site.id
+        )
+      );
+
+
+      const linkId =
+        Number(
+          operation.link.id
+        );
+
+
+      let linkUpdate =
+        linkUpdates.get(
+          linkId
+        );
+
+
+      if (!linkUpdate) {
+        linkUpdate = {
+          id:
+            linkId,
+
+          metals:
+            String(
+              operation
+                .link
+                .metals ||
+              ""
+            ),
+
+          exposure_periods:
+            String(
+              operation
+                .link
+                .exposure_periods ||
+              ""
+            ),
+        };
+      }
+
+
+      linkUpdate.metals =
+        mergeBulkMetadataValues(
+          linkUpdate.metals,
+
+          operation
+            .payload
+            .material
+        );
+
+
+      linkUpdate.exposure_periods =
+        mergeBulkMetadataValues(
+          linkUpdate
+            .exposure_periods,
+
+          operation
+            .payload
+            .exposure_period
+        );
+
+
+      linkUpdates.set(
+        linkId,
+        linkUpdate
+      );
+    }
+
+
+    /*
+     * ---------------------------------------------------
+     * Preserve legacy metadata propagation.
+     * ---------------------------------------------------
+     */
+
+    let warning = "";
+
+
+    try {
+      await updateCorrosionLinkMetadata(
+        env,
+        linkUpdates
+      );
+
+
+      await mergeSelectedSiteSummaries(
+        env,
+        [
+          ...touchedSiteIds,
+        ]
+      );
+
+    } catch (error) {
+      console.error(
+        "Corrosion metadata propagation failed after observation import.",
+        error
+      );
+
+
+      warning =
+        error?.message ||
+        "Observations were imported, but metadata summary propagation failed.";
+    }
+
+
+    return Response.json(
+      {
+        ok: true,
+
+        imported:
+          created +
+          updated,
+
+        created,
+
+        updated,
+
+        skipped:
+          0,
+
+        warning,
+      },
+      {
+        headers: {
+          "cache-control":
+            "no-store",
+        },
+      }
+    );
+
+  } catch (error) {
+    console.error(
+      "Corrosion workbook import failed.",
+      error
+    );
+
+
+    return Response.json(
+      {
+        ok: false,
+
+        error:
+          error?.message ||
+          "Unable to import corrosion workbook.",
+      },
+      {
+        status: 500,
+
+        headers: {
+          "cache-control":
+            "no-store",
+        },
+      }
+    );
+  }
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -10700,6 +12448,28 @@ export default {
       request.method === "GET"
     ) {
       return handleCorrosionWorkbookGenerate(
+        request,
+        env
+      );
+    }
+
+    if (
+      path ===
+        "/api/corrosion-workbook-preview" &&
+      request.method === "POST"
+    ) {
+      return handleCorrosionWorkbookPreview(
+        request,
+        env
+      );
+    }
+
+    if (
+      path ===
+        "/api/corrosion-workbook-import" &&
+      request.method === "POST"
+    ) {
+      return handleCorrosionWorkbookImport(
         request,
         env
       );

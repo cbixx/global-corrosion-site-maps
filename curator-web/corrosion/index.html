@@ -127,6 +127,171 @@
 
       </div>
 
+      <div class="corrosion-import-panel">
+
+        <div class="corrosion-import-heading">
+          <h3>
+            Import completed workbook
+          </h3>
+
+          <p class="related-description">
+            Upload the completed XLSM or XLSX. Blank starter rows are
+            ignored. Workbook formulas are not trusted; the curator
+            independently recalculates canonical corrosion values.
+          </p>
+        </div>
+
+
+        <div class="corrosion-import-picker">
+
+          <button
+            id="corrosion-choose-workbook"
+            class="button"
+            type="button"
+          >
+            Choose XLSM / XLSX
+          </button>
+
+          <span
+            id="corrosion-upload-file-name"
+            class="corrosion-upload-file-name"
+          >
+            No file selected
+          </span>
+
+        </div>
+
+
+        <input
+          id="corrosion-workbook-upload"
+          type="file"
+          accept=".xlsm,.xlsx,application/vnd.ms-excel.sheet.macroEnabled.12,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+          hidden
+        >
+
+
+        <div
+          id="corrosion-import-status"
+          class="save-message"
+          hidden
+        ></div>
+
+
+        <div
+          id="corrosion-import-preview"
+          hidden
+        >
+
+          <div class="corrosion-preview-metrics">
+
+            <div class="corrosion-preview-metric">
+              <span>Ready</span>
+              <strong id="corrosion-preview-ready">0</strong>
+            </div>
+
+            <div class="corrosion-preview-metric">
+              <span>Errors</span>
+              <strong id="corrosion-preview-errors">0</strong>
+            </div>
+
+            <div class="corrosion-preview-metric">
+              <span>New</span>
+              <strong id="corrosion-preview-create">0</strong>
+            </div>
+
+            <div class="corrosion-preview-metric">
+              <span>Updates</span>
+              <strong id="corrosion-preview-update">0</strong>
+            </div>
+
+          </div>
+
+
+          <div
+            id="corrosion-preview-message"
+            class="save-message"
+            hidden
+          ></div>
+
+
+          <div class="corrosion-preview-table-wrap">
+
+            <table class="corrosion-preview-table">
+
+              <thead>
+                <tr>
+                  <th>Excel row</th>
+                  <th>Action</th>
+                  <th>Status</th>
+                  <th>Source</th>
+                  <th>Site</th>
+                  <th>Material</th>
+                  <th>Exposure</th>
+                  <th>Dates</th>
+                  <th>Metric</th>
+                  <th>Reported</th>
+                  <th>Canonical thickness</th>
+                  <th>Canonical mass</th>
+                  <th>Density</th>
+                  <th>Validation</th>
+                </tr>
+              </thead>
+
+              <tbody
+                id="corrosion-preview-body"
+              ></tbody>
+
+            </table>
+
+          </div>
+
+          <div
+            id="corrosion-import-confirm"
+            class="corrosion-import-confirm"
+            hidden
+          >
+
+            <label class="corrosion-import-confirm-check">
+
+              <input
+                id="corrosion-import-confirm-checkbox"
+                type="checkbox"
+              >
+
+              <span>
+                I reviewed the validated workbook rows and want to
+                import these corrosion observations.
+              </span>
+
+            </label>
+
+
+            <div class="corrosion-import-confirm-actions">
+
+              <button
+                id="corrosion-import-button"
+                class="button button-primary"
+                type="button"
+                disabled
+              >
+                Import validated observations
+              </button>
+
+            </div>
+
+
+            <div
+              id="corrosion-import-result"
+              class="save-message"
+              hidden
+            ></div>
+
+          </div>
+
+        </div>
+
+      </div>
+
     </section>
 
 
