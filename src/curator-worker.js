@@ -1,4 +1,4 @@
-const CURATOR_BUILD_ID = "bulk-evidence-links-001";
+const CURATOR_BUILD_ID = "manage-records-bulk-edit-001";
 
 function htmlResponse(html, status = 200) {
   return new Response(html, {
@@ -5204,6 +5204,2401 @@ async function handleBulkSiteSourceLinks(
   );
 }
 
+const MANAGE_RECORD_TYPES =
+  new Set([
+    "sites",
+    "sources",
+    "links",
+    "corrosion",
+    "environmental",
+  ]);
+
+
+function parseManageInteger(
+  value,
+  fallback,
+  minimum,
+  maximum
+) {
+  const number =
+    Number(value);
+
+  if (
+    !Number.isInteger(number) ||
+    number < minimum ||
+    number > maximum
+  ) {
+    return fallback;
+  }
+
+  return number;
+}
+
+
+function cleanManageSearchTerm(
+  value
+) {
+  return String(
+    value || ""
+  )
+    .trim()
+
+    /*
+     * Commas and parentheses have structural
+     * meaning inside PostgREST `or` filters.
+     */
+    .replace(
+      /[(),*]/g,
+      " "
+    )
+
+    .replace(
+      /\s+/g,
+      " "
+    )
+
+    .slice(
+      0,
+      120
+    );
+}
+
+
+function buildManageIlikeClauses(
+  fields,
+  searchTerm
+) {
+  const pattern =
+    `*${searchTerm}*`;
+
+  return fields.map(
+    (field) =>
+      `${field}.ilike.${pattern}`
+  );
+}
+
+
+function manageContentRangeTotal(
+  response
+) {
+  const contentRange =
+    response.headers.get(
+      "content-range"
+    ) || "";
+
+  const match =
+    contentRange.match(
+      /\/(\d+|\*)$/
+    );
+
+  if (
+    !match ||
+    match[1] === "*"
+  ) {
+    return 0;
+  }
+
+  return Number(
+    match[1]
+  );
+}
+
+
+async function findManageRelatedIds(
+  env,
+  tableName,
+  fields,
+  searchTerm
+) {
+  if (!searchTerm) {
+    return [];
+  }
+
+  const endpoint =
+    new URL(
+      `/rest/v1/${tableName}`,
+      env.SUPABASE_URL
+    );
+
+  endpoint.searchParams.set(
+    "select",
+    "id"
+  );
+
+  endpoint.searchParams.set(
+    "or",
+    `(${buildManageIlikeClauses(
+      fields,
+      searchTerm
+    ).join(",")})`
+  );
+
+  /*
+   * These are only lookup IDs used to expand
+   * searches such as "Yakutsk" into site_fk.
+   * They are not the managed result page itself.
+   */
+  endpoint.searchParams.set(
+    "limit",
+    "500"
+  );
+
+
+  const response =
+    await fetch(endpoint, {
+      headers: {
+        apikey:
+          env.SUPABASE_SECRET_KEY,
+
+        authorization:
+          `Bearer ${env.SUPABASE_SECRET_KEY}`,
+
+        accept:
+          "application/json",
+      },
+    });
+
+
+  if (!response.ok) {
+    throw new Error(
+      `Unable to resolve ${tableName} search matches.`
+    );
+  }
+
+
+  const rows =
+    await response.json();
+
+
+  return rows
+    .map(
+      (row) =>
+        Number(row.id)
+    )
+    .filter(
+      (id) =>
+        Number.isInteger(id) &&
+        id > 0
+    );
+}
+
+
+async function getManageSearchRelations(
+  env,
+  searchTerm
+) {
+  if (!searchTerm) {
+    return {
+      siteIds: [],
+      sourceIds: [],
+    };
+  }
+
+
+  const [
+    siteIds,
+    sourceIds,
+  ] = await Promise.all([
+    findManageRelatedIds(
+      env,
+      "sites",
+      [
+        "site_id",
+        "site_label",
+        "site_type",
+        "modern_country_location",
+        "region_category",
+        "metal",
+      ],
+      searchTerm
+    ),
+
+    findManageRelatedIds(
+      env,
+      "sources",
+      [
+        "source_code",
+        "source_title",
+        "authors_or_organization",
+        "programme",
+        "metals",
+      ],
+      searchTerm
+    ),
+  ]);
+
+
+  return {
+    siteIds,
+    sourceIds,
+  };
+}
+
+
+function manageRecordConfig(
+  recordType
+) {
+  if (
+    recordType === "sites"
+  ) {
+    return {
+      table:
+        "sites",
+
+      select: [
+        "id",
+        "site_id",
+        "site_label",
+        "site_type",
+        "latitude",
+        "longitude",
+        "modern_country_location",
+        "administering_country",
+        "former_entity",
+        "region_category",
+        "exposure_period",
+        "metal",
+        "notes",
+      ].join(","),
+
+      searchFields: [
+        "site_id",
+        "site_label",
+        "site_type",
+        "modern_country_location",
+        "administering_country",
+        "former_entity",
+        "region_category",
+        "exposure_period",
+        "metal",
+        "notes",
+      ],
+
+      order:
+        "site_id.asc",
+    };
+  }
+
+
+  if (
+    recordType === "sources"
+  ) {
+    return {
+      table:
+        "sources",
+
+      select: [
+        "id",
+        "source_code",
+        "source_kind",
+        "source_type",
+        "source_title",
+        "authors_or_organization",
+        "publication_year",
+        "programme",
+        "metals",
+        "exposure_periods",
+        "doi",
+        "notes",
+      ].join(","),
+
+      searchFields: [
+        "source_code",
+        "source_kind",
+        "source_type",
+        "source_title",
+        "authors_or_organization",
+        "publication_year",
+        "programme",
+        "metals",
+        "exposure_periods",
+        "doi",
+        "notes",
+      ],
+
+      order:
+        "source_code.asc",
+    };
+  }
+
+
+  if (
+    recordType === "links"
+  ) {
+    return {
+      table:
+        "site_sources",
+
+      select: [
+        "id",
+        "site_fk",
+        "source_fk",
+        "source_order",
+        "metals",
+        "exposure_periods",
+        "notes",
+        "sites(site_id,site_label,modern_country_location)",
+        "sources(source_code,source_title,programme)",
+      ].join(","),
+
+      searchFields: [
+        "metals",
+        "exposure_periods",
+        "notes",
+      ],
+
+      order:
+        "id.desc",
+    };
+  }
+
+
+  if (
+    recordType === "corrosion"
+  ) {
+    return {
+      table:
+        "corrosion_observations",
+
+      select: [
+        "id",
+        "site_fk",
+        "source_fk",
+        "material",
+        "exposure_period",
+        "corrosion_metric",
+        "value",
+        "unit",
+        "canonical_thickness_loss_rate_um_year",
+        "canonical_mass_loss_rate_g_m2_year",
+        "measurement_method",
+        "specimen_condition",
+        "exposure_condition",
+        "normalization_note",
+        "notes",
+        "sites(site_id,site_label,modern_country_location)",
+        "sources(source_code,source_title)",
+      ].join(","),
+
+      searchFields: [
+        "material",
+        "exposure_period",
+        "corrosion_metric",
+        "unit",
+        "measurement_method",
+        "specimen_condition",
+        "exposure_condition",
+        "normalization_note",
+        "notes",
+      ],
+
+      order:
+        "id.desc",
+    };
+  }
+
+
+  return {
+    table:
+      "environmental_observations",
+
+    select: [
+      "id",
+      "site_fk",
+      "source_fk",
+      "variable_name",
+      "value",
+      "unit",
+      "aggregation",
+      "period_start",
+      "period_end",
+      "data_source",
+      "notes",
+      "sites(site_id,site_label,modern_country_location)",
+      "sources(source_code,source_title)",
+    ].join(","),
+
+    searchFields: [
+      "variable_name",
+      "unit",
+      "aggregation",
+      "period_start",
+      "period_end",
+      "data_source",
+      "notes",
+    ],
+
+    order:
+      "id.desc",
+  };
+}
+
+
+function manageHasValue(
+  value
+) {
+  return (
+    value !== null &&
+    value !== undefined &&
+    String(value).trim() !== ""
+  );
+}
+
+
+function joinManageText(
+  values
+) {
+  return values
+    .filter(
+      manageHasValue
+    )
+    .map(
+      (value) =>
+        String(value).trim()
+    )
+    .join(" · ");
+}
+
+
+function formatManagedRecord(
+  recordType,
+  row
+) {
+  if (
+    recordType === "sites"
+  ) {
+    return {
+      id:
+        row.id,
+
+      eyebrow:
+        `Site · DB #${row.id}`,
+
+      title:
+        `${row.site_id || "No Site ID"} — ` +
+        `${row.site_label || "(Unnamed Site)"}`,
+
+      metadata:
+        joinManageText([
+          row.modern_country_location,
+          row.site_type,
+          row.region_category,
+        ]),
+
+      detail:
+        joinManageText([
+          row.metal
+            ? `Metal: ${row.metal}`
+            : "",
+
+          row.exposure_period
+            ? `Exposure: ${row.exposure_period}`
+            : "",
+        ]),
+
+      data: {
+        site_id:
+          row.site_id || "",
+
+        site_label:
+          row.site_label || "",
+
+        site_type:
+          row.site_type || "",
+
+        latitude:
+          row.latitude,
+
+        longitude:
+          row.longitude,
+
+        modern_country_location:
+          row.modern_country_location || "",
+
+        region_category:
+          row.region_category || "",
+      },
+
+      href:
+        `/sites/detail/?id=${row.id}`,
+    };
+  }
+
+
+  if (
+    recordType === "sources"
+  ) {
+    return {
+      id:
+        row.id,
+
+      eyebrow:
+        `Source · DB #${row.id}`,
+
+      title:
+        `${String(
+          row.source_code || ""
+        ).toUpperCase() || "No source code"} — ` +
+        `${row.source_title || "(Untitled Source)"}`,
+
+      metadata:
+        joinManageText([
+          row.authors_or_organization,
+          row.publication_year,
+          row.programme,
+        ]),
+
+      detail:
+        joinManageText([
+          row.metals
+            ? `Metals: ${row.metals}`
+            : "",
+
+          row.exposure_periods
+            ? `Exposure: ${row.exposure_periods}`
+            : "",
+        ]),
+
+      href:
+        `/sources/detail/?id=${row.id}`,
+    };
+  }
+
+
+  const site =
+    row.sites || {};
+
+  const source =
+    row.sources || {};
+
+
+  if (
+    recordType === "links"
+  ) {
+    return {
+      id:
+        row.id,
+
+      eyebrow:
+        `Evidence link · DB #${row.id}`,
+
+      title:
+        `${site.site_id || "Unknown Site"} — ` +
+        `${site.site_label || "(Unnamed Site)"} ` +
+        `↔ ` +
+        `${String(
+          source.source_code || ""
+        ).toUpperCase() || "Unknown Source"} — ` +
+        `${source.source_title || "(Untitled Source)"}`,
+
+      metadata:
+        joinManageText([
+          manageHasValue(
+            row.source_order
+          )
+            ? `Order ${row.source_order}`
+            : "",
+
+          row.metals,
+          row.exposure_periods,
+          source.programme,
+        ]),
+
+      detail:
+        row.notes || "",
+
+      href:
+        "",
+    };
+  }
+
+
+  if (
+    recordType === "corrosion"
+  ) {
+    const canonicalParts =
+      [];
+
+    if (
+      manageHasValue(
+        row.canonical_thickness_loss_rate_um_year
+      )
+    ) {
+      canonicalParts.push(
+        `Thickness rate: ` +
+        `${row.canonical_thickness_loss_rate_um_year} µm/year`
+      );
+    }
+
+    if (
+      manageHasValue(
+        row.canonical_mass_loss_rate_g_m2_year
+      )
+    ) {
+      canonicalParts.push(
+        `Mass rate: ` +
+        `${row.canonical_mass_loss_rate_g_m2_year} g/m²/year`
+      );
+    }
+
+
+    return {
+      id:
+        row.id,
+
+      eyebrow:
+        `Corrosion observation · DB #${row.id}`,
+
+      title:
+        joinManageText([
+          site.site_id ||
+            "Unknown Site",
+
+          String(
+            source.source_code || ""
+          ).toUpperCase() ||
+            "Unknown Source",
+
+          row.material,
+
+          row.exposure_period,
+        ]),
+
+      metadata:
+        joinManageText([
+          row.corrosion_metric,
+
+          manageHasValue(
+            row.value
+          )
+            ? `${row.value} ${row.unit || ""}`.trim()
+            : "",
+        ]),
+
+      detail:
+        joinManageText(
+          canonicalParts
+        ),
+
+      href:
+        "",
+    };
+  }
+
+
+  return {
+    id:
+      row.id,
+
+    eyebrow:
+      `Environmental observation · DB #${row.id}`,
+
+    title:
+      joinManageText([
+        site.site_id ||
+          "Unknown Site",
+
+        row.variable_name,
+      ]),
+
+    metadata:
+      joinManageText([
+        manageHasValue(
+          row.value
+        )
+          ? `${row.value} ${row.unit || ""}`.trim()
+          : "",
+
+        row.aggregation,
+
+        row.period_start &&
+        row.period_end
+          ? `${row.period_start} → ${row.period_end}`
+          : (
+              row.period_start ||
+              row.period_end ||
+              ""
+            ),
+      ]),
+
+    detail:
+      joinManageText([
+        source.source_code
+          ? `Source ${String(
+              source.source_code
+            ).toUpperCase()}`
+          : "",
+
+        row.data_source,
+      ]),
+
+    href:
+      "",
+  };
+}
+
+
+async function handleManageRecords(
+  request,
+  env
+) {
+  if (
+    !env.SUPABASE_URL ||
+    !env.SUPABASE_SECRET_KEY
+  ) {
+    return Response.json(
+      {
+        ok: false,
+        error:
+          "Supabase configuration is missing.",
+      },
+      {
+        status: 500,
+        headers: {
+          "cache-control":
+            "no-store",
+        },
+      }
+    );
+  }
+
+
+  const url =
+    new URL(
+      request.url
+    );
+
+
+  const requestedType =
+    String(
+      url.searchParams.get(
+        "type"
+      ) || "sites"
+    ).trim();
+
+
+  if (
+    !MANAGE_RECORD_TYPES.has(
+      requestedType
+    )
+  ) {
+    return Response.json(
+      {
+        ok: false,
+        error:
+          "Unknown record type.",
+      },
+      {
+        status: 400,
+        headers: {
+          "cache-control":
+            "no-store",
+        },
+      }
+    );
+  }
+
+
+  const page =
+    parseManageInteger(
+      url.searchParams.get(
+        "page"
+      ),
+      1,
+      1,
+      1000000
+    );
+
+
+  const requestedPageSize =
+    parseManageInteger(
+      url.searchParams.get(
+        "page_size"
+      ),
+      50,
+      1,
+      200
+    );
+
+
+  const allowedPageSizes =
+    new Set([
+      25,
+      50,
+      100,
+      200,
+    ]);
+
+
+  const pageSize =
+    allowedPageSizes.has(
+      requestedPageSize
+    )
+      ? requestedPageSize
+      : 50;
+
+
+  const searchTerm =
+    cleanManageSearchTerm(
+      url.searchParams.get(
+        "q"
+      )
+    );
+
+
+  const config =
+    manageRecordConfig(
+      requestedType
+    );
+
+
+  const endpoint =
+    new URL(
+      `/rest/v1/${config.table}`,
+      env.SUPABASE_URL
+    );
+
+
+  endpoint.searchParams.set(
+    "select",
+    config.select
+  );
+
+  endpoint.searchParams.set(
+    "order",
+    config.order
+  );
+
+
+  if (searchTerm) {
+    const clauses =
+      buildManageIlikeClauses(
+        config.searchFields,
+        searchTerm
+      );
+
+
+    if (
+      [
+        "links",
+        "corrosion",
+        "environmental",
+      ].includes(
+        requestedType
+      )
+    ) {
+      const {
+        siteIds,
+        sourceIds,
+      } =
+        await getManageSearchRelations(
+          env,
+          searchTerm
+        );
+
+
+      if (
+        siteIds.length
+      ) {
+        clauses.push(
+          `site_fk.in.(${siteIds.join(",")})`
+        );
+      }
+
+
+      if (
+        sourceIds.length
+      ) {
+        clauses.push(
+          `source_fk.in.(${sourceIds.join(",")})`
+        );
+      }
+    }
+
+
+    endpoint.searchParams.set(
+      "or",
+      `(${clauses.join(",")})`
+    );
+  }
+
+
+  const start =
+    (page - 1) *
+    pageSize;
+
+  const end =
+    start +
+    pageSize -
+    1;
+
+
+  const response =
+    await fetch(endpoint, {
+      headers: {
+        apikey:
+          env.SUPABASE_SECRET_KEY,
+
+        authorization:
+          `Bearer ${env.SUPABASE_SECRET_KEY}`,
+
+        accept:
+          "application/json",
+
+        prefer:
+          "count=exact",
+
+        range:
+          `${start}-${end}`,
+      },
+    });
+
+
+  if (!response.ok) {
+    const detail =
+      await response.text();
+
+    console.error(
+      "Manage Records query failed.",
+      {
+        type:
+          requestedType,
+
+        status:
+          response.status,
+
+        detail,
+      }
+    );
+
+
+    return Response.json(
+      {
+        ok: false,
+        error:
+          "Unable to load managed records.",
+      },
+      {
+        status: 502,
+        headers: {
+          "cache-control":
+            "no-store",
+        },
+      }
+    );
+  }
+
+
+  const rows =
+    await response.json();
+
+  const total =
+    manageContentRangeTotal(
+      response
+    );
+
+  const totalPages =
+    Math.max(
+      1,
+      Math.ceil(
+        total /
+        pageSize
+      )
+    );
+
+
+  const records =
+    rows.map(
+      (row) =>
+        formatManagedRecord(
+          requestedType,
+          row
+        )
+    );
+
+
+  return Response.json(
+    {
+      ok: true,
+
+      record_type:
+        requestedType,
+
+      records,
+
+      total,
+
+      page,
+
+      page_size:
+        pageSize,
+
+      total_pages:
+        totalPages,
+    },
+    {
+      headers: {
+        "cache-control":
+          "no-store",
+      },
+    }
+  );
+}
+
+async function countManageDependency(
+  env,
+  tableName,
+  fieldName,
+  ids
+) {
+  if (!ids.length) {
+    return 0;
+  }
+
+
+  const endpoint =
+    new URL(
+      `/rest/v1/${tableName}`,
+      env.SUPABASE_URL
+    );
+
+
+  endpoint.searchParams.set(
+    "select",
+    "id"
+  );
+
+
+  endpoint.searchParams.set(
+    fieldName,
+    `in.(${ids.join(",")})`
+  );
+
+
+  const response =
+    await fetch(endpoint, {
+      headers: {
+        apikey:
+          env.SUPABASE_SECRET_KEY,
+
+        authorization:
+          `Bearer ${env.SUPABASE_SECRET_KEY}`,
+
+        accept:
+          "application/json",
+
+        prefer:
+          "count=exact",
+
+        range:
+          "0-0",
+      },
+    });
+
+
+  if (!response.ok) {
+    console.error(
+      "Dependency count failed.",
+      {
+        tableName,
+        fieldName,
+        status:
+          response.status,
+      }
+    );
+
+    throw new Error(
+      "Unable to calculate deletion dependencies."
+    );
+  }
+
+
+  return manageContentRangeTotal(
+    response
+  );
+}
+
+async function handleManageDeletePreview(
+  request,
+  env
+) {
+  let payload;
+
+
+  try {
+    payload =
+      await request.json();
+  } catch {
+    return Response.json(
+      {
+        ok: false,
+        error:
+          "Invalid JSON body.",
+      },
+      {
+        status: 400,
+        headers: {
+          "cache-control":
+            "no-store",
+        },
+      }
+    );
+  }
+
+
+  const recordType =
+    String(
+      payload?.type || ""
+    ).trim();
+
+
+  if (
+    !MANAGE_RECORD_TYPES.has(
+      recordType
+    )
+  ) {
+    return Response.json(
+      {
+        ok: false,
+        error:
+          "Unknown record type.",
+      },
+      {
+        status: 400,
+        headers: {
+          "cache-control":
+            "no-store",
+        },
+      }
+    );
+  }
+
+
+  const ids =
+    cleanIdArray(
+      payload?.ids
+    );
+
+
+  if (!ids.length) {
+    return Response.json(
+      {
+        ok: false,
+        error:
+          "Select at least one record.",
+      },
+      {
+        status: 400,
+        headers: {
+          "cache-control":
+            "no-store",
+        },
+      }
+    );
+  }
+
+
+  const consequences =
+    [];
+
+
+  let title =
+    `Delete ${ids.length} selected record` +
+    `${ids.length === 1 ? "" : "s"}?`;
+
+  let note =
+    "This operation cannot be undone.";
+
+
+  if (
+    recordType === "sites"
+  ) {
+    const [
+      evidenceLinks,
+      corrosionObservations,
+      environmentalObservations,
+    ] =
+      await Promise.all([
+        countManageDependency(
+          env,
+          "site_sources",
+          "site_fk",
+          ids
+        ),
+
+        countManageDependency(
+          env,
+          "corrosion_observations",
+          "site_fk",
+          ids
+        ),
+
+        countManageDependency(
+          env,
+          "environmental_observations",
+          "site_fk",
+          ids
+        ),
+      ]);
+
+
+    title =
+      `Delete ${ids.length} Site` +
+      `${ids.length === 1 ? "" : "s"}?`;
+
+
+    consequences.push(
+      {
+        label:
+          "Selected Sites",
+        count:
+          ids.length,
+      },
+
+      {
+        label:
+          "Evidence Links referencing these Sites",
+        count:
+          evidenceLinks,
+      },
+
+      {
+        label:
+          "Corrosion Observations deleted by Site cascade",
+        count:
+          corrosionObservations,
+      },
+
+      {
+        label:
+          "Environmental Observations deleted by Site cascade",
+        count:
+          environmentalObservations,
+      }
+    );
+
+
+    note =
+      "Deleting a Site is highly destructive because its scientific observations are tied to that Site.";
+  }
+
+
+  if (
+    recordType === "sources"
+  ) {
+    const [
+      evidenceLinks,
+      corrosionObservations,
+      environmentalObservations,
+    ] =
+      await Promise.all([
+        countManageDependency(
+          env,
+          "site_sources",
+          "source_fk",
+          ids
+        ),
+
+        countManageDependency(
+          env,
+          "corrosion_observations",
+          "source_fk",
+          ids
+        ),
+
+        countManageDependency(
+          env,
+          "environmental_observations",
+          "source_fk",
+          ids
+        ),
+      ]);
+
+
+    title =
+      `Delete ${ids.length} Source` +
+      `${ids.length === 1 ? "" : "s"}?`;
+
+
+    consequences.push(
+      {
+        label:
+          "Selected Sources",
+        count:
+          ids.length,
+      },
+
+      {
+        label:
+          "Evidence Links referencing these Sources",
+        count:
+          evidenceLinks,
+      },
+
+      {
+        label:
+          "Corrosion Observations deleted by Source cascade",
+        count:
+          corrosionObservations,
+      },
+
+      {
+        label:
+          "Environmental Observations retained but Source reference cleared",
+        count:
+          environmentalObservations,
+      }
+    );
+
+
+    note =
+      "Deleting a Source removes its database record. Environmental observations remain but lose that Source reference. Any private PDF object in R2 is not deleted by this database operation.";
+  }
+
+
+  if (
+    recordType === "links"
+  ) {
+    const [
+      corrosionReferences,
+      environmentalReferences,
+    ] =
+      await Promise.all([
+        countManageDependency(
+          env,
+          "corrosion_observations",
+          "site_source_fk",
+          ids
+        ),
+
+        countManageDependency(
+          env,
+          "environmental_observations",
+          "site_source_fk",
+          ids
+        ),
+      ]);
+
+
+    title =
+      `Delete ${ids.length} Evidence Link` +
+      `${ids.length === 1 ? "" : "s"}?`;
+
+
+    consequences.push(
+      {
+        label:
+          "Evidence Links deleted",
+        count:
+          ids.length,
+      },
+
+      {
+        label:
+          "Corrosion Observations retained but Evidence-Link reference cleared",
+        count:
+          corrosionReferences,
+      },
+
+      {
+        label:
+          "Environmental Observations retained but Evidence-Link reference cleared",
+        count:
+          environmentalReferences,
+      }
+    );
+
+
+    note =
+      "Deleting an Evidence Link does not delete its Site, Source, or scientific observations.";
+  }
+
+
+  if (
+    recordType === "corrosion"
+  ) {
+    title =
+      `Delete ${ids.length} Corrosion Observation` +
+      `${ids.length === 1 ? "" : "s"}?`;
+
+
+    consequences.push({
+      label:
+        "Corrosion Observations deleted",
+      count:
+        ids.length,
+    });
+
+
+    note =
+      "Only the selected corrosion-observation rows will be deleted.";
+  }
+
+
+  if (
+    recordType === "environmental"
+  ) {
+    title =
+      `Delete ${ids.length} Environmental Observation` +
+      `${ids.length === 1 ? "" : "s"}?`;
+
+
+    consequences.push({
+      label:
+        "Environmental Observations deleted",
+      count:
+        ids.length,
+    });
+
+
+    note =
+      "Only the selected environmental-observation rows will be deleted.";
+  }
+
+
+  return Response.json(
+    {
+      ok: true,
+
+      record_type:
+        recordType,
+
+      selected_count:
+        ids.length,
+
+      title,
+
+      consequences,
+
+      note,
+    },
+    {
+      headers: {
+        "cache-control":
+          "no-store",
+      },
+    }
+  );
+}
+
+const MANAGE_DELETE_TABLES = {
+  sites:
+    "sites",
+
+  sources:
+    "sources",
+
+  links:
+    "site_sources",
+
+  corrosion:
+    "corrosion_observations",
+
+  environmental:
+    "environmental_observations",
+};
+
+
+async function handleManageRecordsDelete(
+  request,
+  env
+) {
+  let payload;
+
+
+  try {
+    payload =
+      await request.json();
+  } catch {
+    return Response.json(
+      {
+        ok: false,
+        error:
+          "Invalid JSON body.",
+      },
+      {
+        status: 400,
+        headers: {
+          "cache-control":
+            "no-store",
+        },
+      }
+    );
+  }
+
+
+  const recordType =
+    String(
+      payload?.type || ""
+    ).trim();
+
+
+  const tableName =
+    MANAGE_DELETE_TABLES[
+      recordType
+    ];
+
+
+  if (!tableName) {
+    return Response.json(
+      {
+        ok: false,
+        error:
+          "Unknown record type.",
+      },
+      {
+        status: 400,
+        headers: {
+          "cache-control":
+            "no-store",
+        },
+      }
+    );
+  }
+
+
+  if (
+    payload?.confirmed !==
+    true
+  ) {
+    return Response.json(
+      {
+        ok: false,
+        error:
+          "Deletion was not confirmed.",
+      },
+      {
+        status: 400,
+        headers: {
+          "cache-control":
+            "no-store",
+        },
+      }
+    );
+  }
+
+
+  const ids =
+    cleanIdArray(
+      payload?.ids
+    );
+
+
+  if (!ids.length) {
+    return Response.json(
+      {
+        ok: false,
+        error:
+          "Select at least one record.",
+      },
+      {
+        status: 400,
+        headers: {
+          "cache-control":
+            "no-store",
+        },
+      }
+    );
+  }
+
+
+  /*
+   * Manage Records currently allows at most
+   * 200 visible records per page.
+   */
+  if (ids.length > 200) {
+    return Response.json(
+      {
+        ok: false,
+        error:
+          "A maximum of 200 records may be deleted at once.",
+      },
+      {
+        status: 400,
+        headers: {
+          "cache-control":
+            "no-store",
+        },
+      }
+    );
+  }
+
+
+  const endpoint =
+    new URL(
+      `/rest/v1/${tableName}`,
+      env.SUPABASE_URL
+    );
+
+
+  endpoint.searchParams.set(
+    "id",
+    `in.(${ids.join(",")})`
+  );
+
+
+  const response =
+    await fetch(endpoint, {
+      method:
+        "DELETE",
+
+      headers: {
+        apikey:
+          env.SUPABASE_SECRET_KEY,
+
+        authorization:
+          `Bearer ${env.SUPABASE_SECRET_KEY}`,
+
+        accept:
+          "application/json",
+
+        prefer:
+          "return=representation",
+      },
+    });
+
+
+  if (!response.ok) {
+    const detail =
+      await response.text();
+
+
+    console.error(
+      "Manage Records deletion failed.",
+      {
+        recordType,
+        tableName,
+        status:
+          response.status,
+        detail,
+      }
+    );
+
+
+    return Response.json(
+      {
+        ok: false,
+
+        error:
+          "Unable to delete the selected records. A database relationship may prevent deletion; no forced cleanup was attempted.",
+      },
+      {
+        status: 502,
+        headers: {
+          "cache-control":
+            "no-store",
+        },
+      }
+    );
+  }
+
+
+  const deletedRows =
+    await response.json();
+
+
+  return Response.json(
+    {
+      ok: true,
+
+      record_type:
+        recordType,
+
+      deleted_count:
+        deletedRows.length,
+    },
+    {
+      headers: {
+        "cache-control":
+          "no-store",
+      },
+    }
+  );
+}
+
+const MANAGE_BULK_EDIT_FIELDS = {
+  sites:
+    new Set([
+      "site_id",
+      "site_label",
+      "latitude",
+      "longitude",
+      "modern_country_location",
+      "administering_country",
+      "former_entity",
+      "region_category",
+      "exposure_period",
+      "metal",
+      "notes",
+    ]),
+
+  sources:
+    new Set([
+      "source_code",
+      "source_kind",
+      "source_type",
+      "source_title",
+      "authors_or_organization",
+      "publication_year",
+      "doi",
+      "public_url",
+      "display_citation",
+      "public_notes",
+      "programme",
+      "metals",
+      "exposure_periods",
+      "source_url",
+      "private_pdf_object_key",
+      "notes",
+    ]),
+};
+
+
+async function handleManageBulkUpdate(
+  request,
+  env
+) {
+  let payload;
+
+
+  try {
+    payload =
+      await request.json();
+  } catch {
+    return Response.json(
+      {
+        ok: false,
+        error:
+          "Invalid JSON body.",
+      },
+      {
+        status: 400,
+        headers: {
+          "cache-control":
+            "no-store",
+        },
+      }
+    );
+  }
+
+
+  const recordType =
+    String(
+      payload?.type || ""
+    ).trim();
+
+
+  const fields =
+    MANAGE_BULK_EDIT_FIELDS[
+      recordType
+    ];
+
+
+  if (!fields) {
+    return Response.json(
+      {
+        ok: false,
+        error:
+          "Bulk editing is available only for Sites and Sources.",
+      },
+      {
+        status: 400,
+        headers: {
+          "cache-control":
+            "no-store",
+        },
+      }
+    );
+  }
+
+
+  const ids =
+    cleanIdArray(
+      payload?.ids
+    );
+
+
+  if (
+    !ids.length ||
+    ids.length > 200
+  ) {
+    return Response.json(
+      {
+        ok: false,
+        error:
+          "Select between 1 and 200 records.",
+      },
+      {
+        status: 400,
+        headers: {
+          "cache-control":
+            "no-store",
+        },
+      }
+    );
+  }
+
+
+  const field =
+    String(
+      payload?.field || ""
+    ).trim();
+
+
+  if (
+    !fields.has(field)
+  ) {
+    return Response.json(
+      {
+        ok: false,
+        error:
+          "That field is not available for bulk editing.",
+      },
+      {
+        status: 400,
+        headers: {
+          "cache-control":
+            "no-store",
+        },
+      }
+    );
+  }
+
+
+  /*
+   * These identifiers must remain unique,
+   * so applying one value to several rows
+   * would inherently create duplicates.
+   */
+  if (
+    ids.length > 1 &&
+    (
+      field === "site_id" ||
+      field === "source_code"
+    )
+  ) {
+    return Response.json(
+      {
+        ok: false,
+        error:
+          `${field} is unique and can only be changed for one record at a time.`,
+      },
+      {
+        status: 400,
+        headers: {
+          "cache-control":
+            "no-store",
+        },
+      }
+    );
+  }
+
+
+  let value =
+    payload?.value;
+
+
+  if (
+    field === "latitude" ||
+    field === "longitude"
+  ) {
+    const number =
+      Number(value);
+
+
+    if (!Number.isFinite(number)) {
+      return Response.json(
+        {
+          ok: false,
+          error:
+            `${field} must be a valid number.`,
+        },
+        {
+          status: 400,
+          headers: {
+            "cache-control":
+              "no-store",
+          },
+        }
+      );
+    }
+
+
+    if (
+      field === "latitude" &&
+      (
+        number < -90 ||
+        number > 90
+      )
+    ) {
+      return Response.json(
+        {
+          ok: false,
+          error:
+            "Latitude must be between -90 and 90.",
+        },
+        {
+          status: 400,
+          headers: {
+            "cache-control":
+              "no-store",
+          },
+        }
+      );
+    }
+
+
+    if (
+      field === "longitude" &&
+      (
+        number < -180 ||
+        number > 180
+      )
+    ) {
+      return Response.json(
+        {
+          ok: false,
+          error:
+            "Longitude must be between -180 and 180.",
+        },
+        {
+          status: 400,
+          headers: {
+            "cache-control":
+              "no-store",
+          },
+        }
+      );
+    }
+
+
+    value =
+      number;
+  } else {
+    value =
+      String(
+        value ?? ""
+      ).trim();
+  }
+
+
+  if (
+    field === "site_id" &&
+    !value
+  ) {
+    return Response.json(
+      {
+        ok: false,
+        error:
+          "Site ID cannot be blank.",
+      },
+      {
+        status: 400,
+        headers: {
+          "cache-control":
+            "no-store",
+        },
+      }
+    );
+  }
+
+
+  if (
+    field === "site_label" &&
+    !value
+  ) {
+    return Response.json(
+      {
+        ok: false,
+        error:
+          "Site label cannot be blank.",
+      },
+      {
+        status: 400,
+        headers: {
+          "cache-control":
+            "no-store",
+        },
+      }
+    );
+  }
+
+
+  if (
+    field === "source_code"
+  ) {
+    value =
+      normaliseSourceCode(
+        value
+      );
+
+
+    if (
+      !isCanonicalSourceCode(
+        value
+      )
+    ) {
+      return Response.json(
+        {
+          ok: false,
+          error:
+            "Source code must resolve to canonical sNNN format.",
+        },
+        {
+          status: 400,
+          headers: {
+            "cache-control":
+              "no-store",
+          },
+        }
+      );
+    }
+  }
+
+
+  if (
+    field === "region_category"
+  ) {
+    value =
+      normaliseRegionTags(
+        splitRegionTags(
+          value
+        )
+      );
+  }
+
+
+  const tableName =
+    recordType === "sites"
+      ? "sites"
+      : "sources";
+
+
+  const endpoint =
+    new URL(
+      `/rest/v1/${tableName}`,
+      env.SUPABASE_URL
+    );
+
+
+  endpoint.searchParams.set(
+    "id",
+    `in.(${ids.join(",")})`
+  );
+
+
+  const response =
+    await fetch(endpoint, {
+      method:
+        "PATCH",
+
+      headers: {
+        apikey:
+          env.SUPABASE_SECRET_KEY,
+
+        authorization:
+          `Bearer ${env.SUPABASE_SECRET_KEY}`,
+
+        "content-type":
+          "application/json",
+
+        accept:
+          "application/json",
+
+        prefer:
+          "return=representation",
+      },
+
+      body:
+        JSON.stringify({
+          [field]:
+            value,
+        }),
+    });
+
+
+  if (!response.ok) {
+    const detail =
+      await response.text();
+
+
+    console.error(
+      "Manage bulk update failed.",
+      {
+        recordType,
+        field,
+        status:
+          response.status,
+        detail,
+      }
+    );
+
+
+    return Response.json(
+      {
+        ok: false,
+
+        error:
+          response.status === 409
+            ? "The new value conflicts with an existing unique record."
+            : "Unable to apply the bulk update.",
+      },
+      {
+        status:
+          response.status === 409
+            ? 409
+            : 502,
+
+        headers: {
+          "cache-control":
+            "no-store",
+        },
+      }
+    );
+  }
+
+
+  const rows =
+    await response.json();
+
+
+  if (
+    recordType === "sources" &&
+    (
+      field === "programme" ||
+      field === "metals"
+    )
+  ) {
+    await persistSourceMetadataOptions(
+      env,
+      {
+        programme:
+          field === "programme"
+            ? value
+            : "",
+
+        metals:
+          field === "metals"
+            ? value
+            : "",
+      }
+    );
+  }
+
+
+  return Response.json(
+    {
+      ok: true,
+
+      updated_count:
+        rows.length,
+    },
+    {
+      headers: {
+        "cache-control":
+          "no-store",
+      },
+    }
+  );
+}
+
+async function handleManageRegionApply(
+  request,
+  env
+) {
+  let payload;
+
+
+  try {
+    payload =
+      await request.json();
+  } catch {
+    return Response.json(
+      {
+        ok: false,
+        error:
+          "Invalid JSON body.",
+      },
+      {
+        status: 400,
+        headers: {
+          "cache-control":
+            "no-store",
+        },
+      }
+    );
+  }
+
+
+  const incoming =
+    Array.isArray(
+      payload?.updates
+    )
+      ? payload.updates
+      : [];
+
+
+  const byId =
+    new Map();
+
+
+  for (
+    const item
+    of incoming
+  ) {
+    const id =
+      Number(
+        item?.id
+      );
+
+
+    if (
+      !Number.isInteger(id) ||
+      id <= 0
+    ) {
+      continue;
+    }
+
+
+    const regionCategory =
+      normaliseRegionTags(
+        splitRegionTags(
+          item?.region_category
+        )
+      );
+
+
+    if (!regionCategory) {
+      continue;
+    }
+
+
+    byId.set(
+      id,
+      {
+        id,
+
+        region_category:
+          regionCategory,
+      }
+    );
+  }
+
+
+  const rows =
+    [
+      ...byId.values(),
+    ];
+
+
+  if (
+    !rows.length ||
+    rows.length > 200
+  ) {
+    return Response.json(
+      {
+        ok: false,
+        error:
+          "Provide between 1 and 200 valid Site classifications.",
+      },
+      {
+        status: 400,
+        headers: {
+          "cache-control":
+            "no-store",
+        },
+      }
+    );
+  }
+
+
+  const endpoint =
+    new URL(
+      "/rest/v1/sites",
+      env.SUPABASE_URL
+    );
+
+
+  endpoint.searchParams.set(
+    "on_conflict",
+    "id"
+  );
+
+
+  const response =
+    await fetch(endpoint, {
+      method:
+        "POST",
+
+      headers: {
+        apikey:
+          env.SUPABASE_SECRET_KEY,
+
+        authorization:
+          `Bearer ${env.SUPABASE_SECRET_KEY}`,
+
+        "content-type":
+          "application/json",
+
+        accept:
+          "application/json",
+
+        prefer:
+          "resolution=merge-duplicates,return=representation",
+      },
+
+      body:
+        JSON.stringify(
+          rows
+        ),
+    });
+
+
+  if (!response.ok) {
+    console.error(
+      "Bulk region application failed.",
+      response.status,
+      await response.text()
+    );
+
+
+    return Response.json(
+      {
+        ok: false,
+        error:
+          "Unable to apply Site region classifications.",
+      },
+      {
+        status: 502,
+        headers: {
+          "cache-control":
+            "no-store",
+        },
+      }
+    );
+  }
+
+
+  const updatedRows =
+    await response.json();
+
+
+  return Response.json(
+    {
+      ok: true,
+
+      updated_count:
+        updatedRows.length,
+    },
+    {
+      headers: {
+        "cache-control":
+          "no-store",
+      },
+    }
+  );
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -5272,6 +7667,58 @@ export default {
       request.method === "POST"
     ) {
       return handleBulkSiteSourceLinks(
+        request,
+        env
+      );
+    }
+
+    if (
+      path === "/api/manage-records" &&
+      request.method === "GET"
+    ) {
+      return handleManageRecords(
+        request,
+        env
+      );
+    }
+
+    if (
+      path === "/api/manage-delete-preview" &&
+      request.method === "POST"
+    ) {
+      return handleManageDeletePreview(
+        request,
+        env
+      );
+    }
+
+    if (
+      path === "/api/manage-bulk-update" &&
+      request.method === "POST"
+    ) {
+      return handleManageBulkUpdate(
+        request,
+        env
+      );
+    }
+
+
+    if (
+      path === "/api/manage-region-apply" &&
+      request.method === "POST"
+    ) {
+      return handleManageRegionApply(
+        request,
+        env
+      );
+    }
+
+
+    if (
+      path === "/api/manage-records" &&
+      request.method === "DELETE"
+    ) {
+      return handleManageRecordsDelete(
         request,
         env
       );
@@ -5393,6 +7840,24 @@ export default {
         return Response.redirect(
           new URL(
             "/links/",
+            url
+          ).toString(),
+          302
+        );
+      }
+
+      return env.ASSETS.fetch(
+        request
+      );
+    }
+
+    if (path === "/manage") {
+      if (
+        url.pathname === "/manage"
+      ) {
+        return Response.redirect(
+          new URL(
+            "/manage/",
             url
           ).toString(),
           302

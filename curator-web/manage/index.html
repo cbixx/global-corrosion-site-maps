@@ -1,0 +1,374 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <title>Manage Records · Corrosion Atlas Curator</title>
+
+  <link rel="stylesheet" href="/assets/curator.css">
+</head>
+
+<body>
+  <header class="app-header">
+    <div class="brand">
+      <div class="brand-title">Corrosion Atlas</div>
+      <div class="brand-subtitle">Curator</div>
+    </div>
+  </header>
+
+  <main class="page manage-page">
+
+    <div class="page-heading">
+      <div>
+        <h1>Manage Records</h1>
+
+        <p class="page-description">
+          Search and maintain records across the curator database.
+          Results are loaded in pages so large datasets remain responsive.
+        </p>
+      </div>
+
+      <div class="page-actions">
+        <a class="button" href="/">Dashboard</a>
+      </div>
+    </div>
+
+
+    <div
+      class="manage-tabs"
+      role="tablist"
+      aria-label="Record type"
+    >
+      <button
+        class="manage-tab"
+        type="button"
+        data-record-type="sites"
+      >
+        Sites
+      </button>
+
+      <button
+        class="manage-tab"
+        type="button"
+        data-record-type="sources"
+      >
+        Sources
+      </button>
+
+      <button
+        class="manage-tab"
+        type="button"
+        data-record-type="links"
+      >
+        Evidence Links
+      </button>
+
+      <button
+        class="manage-tab"
+        type="button"
+        data-record-type="corrosion"
+      >
+        Corrosion Observations
+      </button>
+
+      <button
+        class="manage-tab"
+        type="button"
+        data-record-type="environmental"
+      >
+        Environmental Observations
+      </button>
+    </div>
+
+
+    <section class="manage-toolbar">
+
+      <input
+        id="manage-search"
+        class="search-input"
+        type="search"
+        placeholder="Search records…"
+        autocomplete="off"
+      >
+
+      <label class="manage-page-size">
+        <span>Rows per page</span>
+
+        <select
+          id="manage-page-size"
+          class="detail-input"
+        >
+          <option value="25">25</option>
+          <option value="50" selected>50</option>
+          <option value="100">100</option>
+          <option value="200">200</option>
+        </select>
+      </label>
+
+    </section>
+
+
+    <div
+      id="manage-status"
+      class="status"
+    >
+      Loading records…
+    </div>
+
+
+    <section
+      id="manage-content"
+      hidden
+    >
+      <div
+        id="manage-summary"
+        class="manage-summary"
+      ></div>
+
+      <div class="manage-selection-toolbar">
+
+        <div class="manage-selection-actions">
+          <button
+            id="manage-select-visible"
+            class="button button-small"
+            type="button"
+          >
+            Select visible
+          </button>
+
+          <button
+            id="manage-deselect-all"
+            class="button button-small"
+            type="button"
+          >
+            Deselect all
+          </button>
+        </div>
+
+        <div
+          id="manage-selected-count"
+          class="manage-selected-count"
+        >
+          0 selected
+        </div>
+
+        <button
+          id="manage-review-delete"
+          class="button button-danger"
+          type="button"
+          disabled
+        >
+          Review deletion
+        </button>
+
+      </div>
+
+
+      <section
+        id="manage-delete-preview"
+        class="manage-delete-preview"
+        hidden
+      >
+        <div
+          id="manage-delete-preview-title"
+          class="manage-delete-preview-title"
+        ></div>
+
+        <div
+          id="manage-delete-preview-lines"
+          class="manage-delete-preview-lines"
+        ></div>
+
+        <div
+          id="manage-delete-preview-note"
+          class="manage-delete-preview-note"
+        ></div>
+
+        <label class="bulk-checkbox-row">
+          <input
+            id="manage-confirm-delete"
+            type="checkbox"
+          >
+
+          <span>
+            I understand that this deletion cannot be undone.
+          </span>
+        </label>
+
+        <button
+          id="manage-delete-confirmed"
+          class="button button-danger"
+          type="button"
+          disabled
+        >
+          Delete selected records
+        </button>
+      </section>
+
+
+      <div
+        id="manage-action-message"
+        class="save-message"
+        hidden
+      ></div>
+
+      <section
+        id="manage-bulk-tools"
+        class="manage-bulk-tools"
+        hidden
+      >
+        <div class="manage-tool-heading">
+          <div>
+            <h2>Bulk update</h2>
+
+            <p class="related-description">
+              Replace one field for all currently selected records.
+            </p>
+          </div>
+        </div>
+
+        <div class="manage-bulk-grid">
+
+          <label class="manage-form-field">
+            <span>Field to update</span>
+
+            <select
+              id="manage-bulk-field"
+              class="detail-input"
+            ></select>
+          </label>
+
+          <label class="manage-form-field">
+            <span>New value</span>
+
+            <input
+              id="manage-bulk-value"
+              class="detail-input"
+              type="text"
+              autocomplete="off"
+            >
+          </label>
+
+          <button
+            id="manage-apply-bulk-update"
+            class="button button-primary"
+            type="button"
+            disabled
+          >
+            Apply bulk update
+          </button>
+
+        </div>
+
+        <div
+          id="manage-bulk-message"
+          class="save-message"
+          hidden
+        ></div>
+
+
+        <section
+          id="manage-region-tools"
+          class="manage-region-tools"
+          hidden
+        >
+          <div class="manage-tool-heading">
+            <div>
+              <h2>Automatic region classification</h2>
+
+              <p class="related-description">
+                Classify selected Sites using the same geographic and
+                semantic rules used when creating a Site.
+              </p>
+            </div>
+
+            <button
+              id="manage-preview-regions"
+              class="button"
+              type="button"
+              disabled
+            >
+              Preview classifications
+            </button>
+          </div>
+
+
+          <div
+            id="manage-region-preview"
+            class="manage-region-preview"
+            hidden
+          >
+            <div
+              id="manage-region-preview-list"
+              class="manage-region-preview-list"
+            ></div>
+
+            <div class="manage-region-preview-actions">
+
+              <button
+                id="manage-apply-regions"
+                class="button button-primary"
+                type="button"
+              >
+                Apply selected classifications
+              </button>
+
+              <button
+                id="manage-clear-regions"
+                class="button"
+                type="button"
+              >
+                Clear preview
+              </button>
+
+            </div>
+          </div>
+
+          <div
+            id="manage-region-message"
+            class="save-message"
+            hidden
+          ></div>
+
+        </section>
+
+      </section>
+
+      <div
+        id="manage-record-list"
+        class="manage-record-list"
+      ></div>
+
+
+      <div class="manage-pagination">
+
+        <button
+          id="manage-previous"
+          class="button"
+          type="button"
+        >
+          ← Previous
+        </button>
+
+        <div
+          id="manage-page-label"
+          class="manage-page-label"
+        ></div>
+
+        <button
+          id="manage-next"
+          class="button"
+          type="button"
+        >
+          Next →
+        </button>
+
+      </div>
+    </section>
+
+  </main>
+
+  <script src="/assets/manage.js"></script>
+</body>
+</html>
