@@ -51,6 +51,32 @@ const CURATOR_NAV_ITEMS = [
       "/manage/",
     ],
   },
+
+  {
+    label:
+      "Export / Publish",
+
+    href:
+      "/publish/",
+
+    match: [
+      "/publish",
+      "/publish/",
+    ],
+  },
+
+  {
+    label:
+      "Settings",
+
+    href:
+      "/settings/",
+
+    match: [
+      "/settings",
+      "/settings/",
+    ],
+  },
 ];
 
 

@@ -4,7 +4,19 @@ import {
   validateCorrosionWorkbookRows,
 } from "./corrosion-workbook-import.js";
 
-const CURATOR_BUILD_ID = "corrosion-xlsm-import-001";
+import {
+  buildPublishPreview,
+  buildWebsitePackage,
+  buildWebsitePackageZip,
+} from "./publish-export.js";
+
+
+import {
+  getGitHubPublishStatus,
+  publishWebsiteFilesToGitHub,
+} from "./github-publish.js";
+
+const CURATOR_BUILD_ID = "settings-001";
 
 function htmlResponse(html, status = 200) {
   return new Response(html, {
@@ -12329,6 +12341,1274 @@ async function handleCorrosionWorkbookImport(
   }
 }
 
+async function handlePublishPreview(
+  env
+) {
+  try {
+    const result =
+      await buildPublishPreview(
+        env
+      );
+
+    return Response.json(
+      {
+        ok: true,
+        ...result,
+      },
+      {
+        headers: {
+          "cache-control":
+            "no-store",
+        },
+      }
+    );
+
+  } catch (error) {
+    console.error(
+      "Unable to build publish preview.",
+      error
+    );
+
+    return Response.json(
+      {
+        ok: false,
+
+        error:
+          error?.message ||
+          "Unable to build website publish preview.",
+      },
+      {
+        status: 500,
+
+        headers: {
+          "cache-control":
+            "no-store",
+        },
+      }
+    );
+  }
+}
+
+
+async function handlePublishPackageDownload(
+  request,
+  env
+) {
+  let payload;
+
+  try {
+    payload =
+      await request.json();
+
+  } catch {
+    return Response.json(
+      {
+        ok: false,
+        error:
+          "Invalid export request.",
+      },
+      {
+        status: 400,
+      }
+    );
+  }
+
+  try {
+    const result =
+      await buildWebsitePackageZip(
+        env,
+        {
+          siteIds:
+            payload.site_ids,
+
+          includeCorrosion:
+            payload.include_corrosion !==
+            false,
+
+          includeEnvironment:
+            payload.include_environment !==
+            false,
+        }
+      );
+
+    const timestamp =
+      new Date()
+        .toISOString()
+        .replace(
+          /[-:]/g,
+          ""
+        )
+        .replace(
+          /\.\d{3}Z$/,
+          "Z"
+        );
+
+    return new Response(
+      result.bytes,
+      {
+        headers: {
+          "content-type":
+            "application/zip",
+
+          "content-disposition":
+            `attachment; filename="corrosion-atlas-website-data-${timestamp}.zip"`,
+
+          "cache-control":
+            "no-store",
+
+          "x-publish-sites":
+            String(
+              result.counts.sites
+            ),
+
+          "x-publish-sources":
+            String(
+              result.counts.sources
+            ),
+
+          "x-publish-corrosion":
+            String(
+              result.counts.corrosion
+            ),
+
+          "x-publish-environment":
+            String(
+              result.counts.environment
+            ),
+        },
+      }
+    );
+
+  } catch (error) {
+    console.error(
+      "Website package export failed.",
+      error
+    );
+
+    return Response.json(
+      {
+        ok: false,
+
+        error:
+          error?.message ||
+          "Unable to generate website data package.",
+      },
+      {
+        status: 400,
+
+        headers: {
+          "cache-control":
+            "no-store",
+        },
+      }
+    );
+  }
+}
+
+async function handlePublishGithubStatus(
+  env
+) {
+  const status =
+    getGitHubPublishStatus(
+      env
+    );
+
+  return Response.json(
+    {
+      ok: true,
+      ...status,
+    },
+    {
+      headers: {
+        "cache-control":
+          "no-store",
+      },
+    }
+  );
+}
+
+
+async function handlePublishGithub(
+  request,
+  env
+) {
+  let payload;
+
+  try {
+    payload =
+      await request.json();
+
+  } catch {
+    return Response.json(
+      {
+        ok: false,
+        error:
+          "Invalid GitHub publish request.",
+      },
+      {
+        status: 400,
+      }
+    );
+  }
+
+
+  if (
+    payload.confirmed !==
+    true
+  ) {
+    return Response.json(
+      {
+        ok: false,
+
+        error:
+          "Confirm that you reviewed the selected Sites before publishing.",
+      },
+      {
+        status: 400,
+      }
+    );
+  }
+
+
+  try {
+    /*
+     * Re-read current database state and rebuild
+     * everything server-side. Browser-generated
+     * CSV content is never accepted.
+     */
+    const preview =
+      await buildPublishPreview(
+        env
+      );
+
+
+    if (
+      preview
+        .duplicate_site_ids
+        ?.length
+    ) {
+      return Response.json(
+        {
+          ok: false,
+
+          error:
+            "Duplicate site_id values must be fixed before publishing: " +
+            preview
+              .duplicate_site_ids
+              .join(", "),
+        },
+        {
+          status: 409,
+        }
+      );
+    }
+
+
+    const packageResult =
+      await buildWebsitePackage(
+        env,
+        {
+          siteIds:
+            payload.site_ids,
+
+          includeCorrosion:
+            payload
+              .include_corrosion !==
+            false,
+
+          includeEnvironment:
+            payload
+              .include_environment !==
+            false,
+        }
+      );
+
+
+    const githubResult =
+      await publishWebsiteFilesToGitHub(
+        env,
+        {
+          files:
+            packageResult.files,
+
+          commitMessage:
+            payload
+              .commit_message,
+        }
+      );
+
+
+    if (
+      !githubResult.ok
+    ) {
+      return Response.json(
+        {
+          ok: false,
+
+          partial:
+            githubResult.partial,
+
+          error:
+            githubResult.partial
+              ? (
+                  "GitHub publishing stopped after some files had already been updated. " +
+                  `Failed at ${githubResult.failed_path}. ` +
+                  githubResult.error
+                )
+              : githubResult.error,
+
+          github:
+            githubResult,
+
+          counts:
+            packageResult.counts,
+        },
+        {
+          status: 502,
+
+          headers: {
+            "cache-control":
+              "no-store",
+          },
+        }
+      );
+    }
+
+
+    return Response.json(
+      {
+        ok: true,
+
+        counts:
+          packageResult.counts,
+
+        github:
+          githubResult,
+      },
+      {
+        headers: {
+          "cache-control":
+            "no-store",
+        },
+      }
+    );
+
+  } catch (error) {
+    console.error(
+      "GitHub website publish failed.",
+      error
+    );
+
+
+    return Response.json(
+      {
+        ok: false,
+
+        error:
+          error?.message ||
+          "Unable to publish website datasets to GitHub.",
+      },
+      {
+        status: 500,
+
+        headers: {
+          "cache-control":
+            "no-store",
+        },
+      }
+    );
+  }
+}
+
+function settingsCleanList(
+  value
+) {
+  const values =
+    Array.isArray(value)
+      ? value
+      : String(
+          value ?? ""
+        ).split(/\r?\n/);
+
+  return [
+    ...new Set(
+      values
+        .map(
+          (item) =>
+            String(
+              item ?? ""
+            ).trim()
+        )
+        .filter(Boolean)
+    ),
+  ];
+}
+
+
+function settingsNumber(
+  group,
+  key,
+  value
+) {
+  const number =
+    Number(value);
+
+  if (
+    !Number.isFinite(
+      number
+    )
+  ) {
+    throw new Error(
+      `${group}.${key} must be a valid number.`
+    );
+  }
+
+  return number;
+}
+
+
+function validateRegionSettingsPayload(
+  payload
+) {
+  const distance =
+    payload
+      ?.distance_to_coast ||
+    {};
+
+  const latitude =
+    payload
+      ?.latitude_rules ||
+    {};
+
+  const temperature =
+    payload
+      ?.temperature_rules ||
+    {};
+
+  const semantic =
+    payload
+      ?.semantic_rules ||
+    {};
+
+
+  const settings = {
+    distance_to_coast: {
+      marine_km:
+        settingsNumber(
+          "distance_to_coast",
+          "marine_km",
+          distance.marine_km
+        ),
+
+      coastal_km:
+        settingsNumber(
+          "distance_to_coast",
+          "coastal_km",
+          distance.coastal_km
+        ),
+
+      near_coastal_km:
+        settingsNumber(
+          "distance_to_coast",
+          "near_coastal_km",
+          distance.near_coastal_km
+        ),
+    },
+
+
+    latitude_rules: {
+      antarctic_latitude_max:
+        settingsNumber(
+          "latitude_rules",
+          "antarctic_latitude_max",
+          latitude
+            .antarctic_latitude_max
+        ),
+
+      sub_antarctic_latitude_min:
+        settingsNumber(
+          "latitude_rules",
+          "sub_antarctic_latitude_min",
+          latitude
+            .sub_antarctic_latitude_min
+        ),
+
+      sub_antarctic_latitude_max:
+        settingsNumber(
+          "latitude_rules",
+          "sub_antarctic_latitude_max",
+          latitude
+            .sub_antarctic_latitude_max
+        ),
+
+      sub_arctic_latitude_min:
+        settingsNumber(
+          "latitude_rules",
+          "sub_arctic_latitude_min",
+          latitude
+            .sub_arctic_latitude_min
+        ),
+
+      sub_arctic_latitude_max:
+        settingsNumber(
+          "latitude_rules",
+          "sub_arctic_latitude_max",
+          latitude
+            .sub_arctic_latitude_max
+        ),
+
+      tropical_abs_latitude_max:
+        settingsNumber(
+          "latitude_rules",
+          "tropical_abs_latitude_max",
+          latitude
+            .tropical_abs_latitude_max
+        ),
+
+      cold_abs_latitude_min:
+        settingsNumber(
+          "latitude_rules",
+          "cold_abs_latitude_min",
+          latitude
+            .cold_abs_latitude_min
+        ),
+
+      extreme_cold_abs_latitude_min:
+        settingsNumber(
+          "latitude_rules",
+          "extreme_cold_abs_latitude_min",
+          latitude
+            .extreme_cold_abs_latitude_min
+        ),
+    },
+
+
+    temperature_rules: {
+      use_temperature_when_available:
+        temperature
+          .use_temperature_when_available ===
+        true,
+
+      tropical_mean_temperature_min:
+        settingsNumber(
+          "temperature_rules",
+          "tropical_mean_temperature_min",
+          temperature
+            .tropical_mean_temperature_min
+        ),
+
+      temperate_mean_temperature_min:
+        settingsNumber(
+          "temperature_rules",
+          "temperate_mean_temperature_min",
+          temperature
+            .temperate_mean_temperature_min
+        ),
+
+      cold_mean_temperature_max:
+        settingsNumber(
+          "temperature_rules",
+          "cold_mean_temperature_max",
+          temperature
+            .cold_mean_temperature_max
+        ),
+
+      extreme_cold_mean_temperature_max:
+        settingsNumber(
+          "temperature_rules",
+          "extreme_cold_mean_temperature_max",
+          temperature
+            .extreme_cold_mean_temperature_max
+        ),
+    },
+
+
+    semantic_rules: {
+      island_country_hints:
+        settingsCleanList(
+          semantic
+            .island_country_hints
+        ),
+
+      island_text_patterns:
+        settingsCleanList(
+          semantic
+            .island_text_patterns
+        ),
+
+      urban_patterns:
+        settingsCleanList(
+          semantic
+            .urban_patterns
+        ),
+
+      rural_patterns:
+        settingsCleanList(
+          semantic
+            .rural_patterns
+        ),
+
+      industrial_patterns:
+        settingsCleanList(
+          semantic
+            .industrial_patterns
+        ),
+
+      hot_arid_patterns:
+        settingsCleanList(
+          semantic
+            .hot_arid_patterns
+        ),
+    },
+  };
+
+
+  const {
+    marine_km:
+      marineKm,
+
+    coastal_km:
+      coastalKm,
+
+    near_coastal_km:
+      nearCoastalKm,
+  } =
+    settings
+      .distance_to_coast;
+
+
+  if (
+    marineKm < 0 ||
+    coastalKm < 0 ||
+    nearCoastalKm < 0
+  ) {
+    throw new Error(
+      "Distance-to-coast thresholds cannot be negative."
+    );
+  }
+
+
+  if (
+    !(
+      marineKm <=
+        coastalKm &&
+      coastalKm <=
+        nearCoastalKm
+    )
+  ) {
+    throw new Error(
+      "Coast thresholds must satisfy Marine ≤ Coastal ≤ Near-coastal."
+    );
+  }
+
+
+  const lat =
+    settings
+      .latitude_rules;
+
+
+  for (
+    const [
+      key,
+      value,
+    ]
+    of Object.entries(lat)
+  ) {
+    if (
+      value < -90 ||
+      value > 90
+    ) {
+      throw new Error(
+        `${key} must be between -90 and 90 degrees.`
+      );
+    }
+  }
+
+
+  if (
+    lat
+      .sub_antarctic_latitude_min >
+    lat
+      .sub_antarctic_latitude_max
+  ) {
+    throw new Error(
+      "Sub-Antarctic minimum latitude cannot exceed its maximum."
+    );
+  }
+
+
+  if (
+    lat
+      .sub_arctic_latitude_min >
+    lat
+      .sub_arctic_latitude_max
+  ) {
+    throw new Error(
+      "Sub-arctic minimum latitude cannot exceed its maximum."
+    );
+  }
+
+
+  if (
+    lat
+      .cold_abs_latitude_min >
+    lat
+      .extreme_cold_abs_latitude_min
+  ) {
+    throw new Error(
+      "Cold latitude threshold cannot exceed the Extreme cold threshold."
+    );
+  }
+
+
+  const temp =
+    settings
+      .temperature_rules;
+
+
+  if (
+    !(
+      temp
+        .extreme_cold_mean_temperature_max <=
+        temp
+          .cold_mean_temperature_max &&
+      temp
+        .cold_mean_temperature_max <=
+        temp
+          .temperate_mean_temperature_min &&
+      temp
+        .temperate_mean_temperature_min <=
+        temp
+          .tropical_mean_temperature_min
+    )
+  ) {
+    throw new Error(
+      "Temperature thresholds must remain ordered from Extreme cold through Tropical."
+    );
+  }
+
+
+  const regexGroups = [
+    "island_text_patterns",
+    "urban_patterns",
+    "rural_patterns",
+    "industrial_patterns",
+    "hot_arid_patterns",
+  ];
+
+
+  for (
+    const group
+    of regexGroups
+  ) {
+    for (
+      const pattern
+      of settings
+        .semantic_rules[
+          group
+        ]
+    ) {
+      try {
+        new RegExp(
+          pattern,
+          "i"
+        );
+      } catch {
+        throw new Error(
+          `Invalid regular expression in ${group}: ${pattern}`
+        );
+      }
+    }
+  }
+
+
+  return settings;
+}
+
+
+async function checkSettingsSupabase(
+  env
+) {
+  if (
+    !env.SUPABASE_URL ||
+    !env.SUPABASE_SECRET_KEY
+  ) {
+    return {
+      ok: false,
+      detail:
+        "Not configured",
+    };
+  }
+
+
+  try {
+    const endpoint =
+      new URL(
+        "/rest/v1/sites",
+        env.SUPABASE_URL
+      );
+
+    endpoint.searchParams.set(
+      "select",
+      "id"
+    );
+
+    endpoint.searchParams.set(
+      "limit",
+      "1"
+    );
+
+
+    const response =
+      await fetch(
+        endpoint,
+        {
+          headers: {
+            apikey:
+              env.SUPABASE_SECRET_KEY,
+
+            authorization:
+              `Bearer ${env.SUPABASE_SECRET_KEY}`,
+
+            accept:
+              "application/json",
+          },
+        }
+      );
+
+
+    return {
+      ok:
+        response.ok,
+
+      detail:
+        response.ok
+          ? "Connected"
+          : `HTTP ${response.status}`,
+    };
+
+  } catch {
+    return {
+      ok: false,
+      detail:
+        "Unavailable",
+    };
+  }
+}
+
+
+async function checkSettingsPostgis(
+  env
+) {
+  if (
+    !env.SUPABASE_URL ||
+    !env.SUPABASE_SECRET_KEY
+  ) {
+    return {
+      ok: false,
+      detail:
+        "Supabase unavailable",
+    };
+  }
+
+
+  try {
+    const endpoint =
+      new URL(
+        "/rest/v1/rpc/region_spatial_context",
+        env.SUPABASE_URL
+      );
+
+
+    const response =
+      await fetch(
+        endpoint,
+        {
+          method:
+            "POST",
+
+          headers: {
+            apikey:
+              env.SUPABASE_SECRET_KEY,
+
+            authorization:
+              `Bearer ${env.SUPABASE_SECRET_KEY}`,
+
+            "content-type":
+              "application/json",
+
+            accept:
+              "application/json",
+          },
+
+          body:
+            JSON.stringify({
+              p_latitude:
+                0,
+
+              p_longitude:
+                0,
+            }),
+        }
+      );
+
+
+    return {
+      ok:
+        response.ok,
+
+      detail:
+        response.ok
+          ? "Spatial RPC available"
+          : `HTTP ${response.status}`,
+    };
+
+  } catch {
+    return {
+      ok: false,
+      detail:
+        "Unavailable",
+    };
+  }
+}
+
+
+async function checkSettingsR2(
+  env
+) {
+  if (
+    !env.SOURCE_PDFS
+  ) {
+    return {
+      ok: false,
+      configured:
+        false,
+
+      detail:
+        "R2 binding missing",
+
+      object_count:
+        0,
+
+      total_bytes:
+        0,
+    };
+  }
+
+
+  try {
+    let cursor =
+      undefined;
+
+    let objectCount =
+      0;
+
+    let totalBytes =
+      0;
+
+
+    while (true) {
+      const result =
+        await env
+          .SOURCE_PDFS
+          .list({
+            prefix:
+              "source_pdfs/",
+
+            limit:
+              1000,
+
+            cursor,
+          });
+
+
+      for (
+        const object
+        of result.objects ||
+        []
+      ) {
+        objectCount +=
+          1;
+
+        totalBytes +=
+          Number(
+            object.size ||
+            0
+          );
+      }
+
+
+      if (
+        !result.truncated
+      ) {
+        break;
+      }
+
+
+      cursor =
+        result.cursor;
+
+
+      if (!cursor) {
+        break;
+      }
+    }
+
+
+    return {
+      ok: true,
+
+      configured:
+        true,
+
+      detail:
+        "Private R2 available",
+
+      object_count:
+        objectCount,
+
+      total_bytes:
+        totalBytes,
+    };
+
+  } catch (error) {
+    console.error(
+      "R2 settings status failed.",
+      error
+    );
+
+
+    return {
+      ok: false,
+
+      configured:
+        true,
+
+      detail:
+        "R2 status unavailable",
+
+      object_count:
+        0,
+
+      total_bytes:
+        0,
+    };
+  }
+}
+
+
+async function handleSettingsGet(
+  env
+) {
+  const [
+    regionSettings,
+    supabase,
+    postgis,
+    r2,
+  ] =
+    await Promise.all([
+      loadRegionClassificationSettings(
+        env
+      ),
+
+      checkSettingsSupabase(
+        env
+      ),
+
+      checkSettingsPostgis(
+        env
+      ),
+
+      checkSettingsR2(
+        env
+      ),
+    ]);
+
+
+  const github =
+    getGitHubPublishStatus(
+      env
+    );
+
+
+  return Response.json(
+    {
+      ok: true,
+
+      region_settings:
+        regionSettings,
+
+      region_defaults:
+        mergeRegionClassificationSettings(
+          null
+        ),
+
+      system: {
+        supabase,
+
+        postgis,
+
+        r2,
+
+        github: {
+          ok:
+            github.configured,
+
+          configured:
+            github.configured,
+
+          detail:
+            github.configured
+              ? `${github.owner}/${github.repo} · ${github.branch}`
+              : "Not configured",
+        },
+
+        build: {
+          ok: true,
+
+          detail:
+            CURATOR_BUILD_ID,
+        },
+      },
+    },
+    {
+      headers: {
+        "cache-control":
+          "no-store",
+      },
+    }
+  );
+}
+
+
+async function handleSettingsRegionSave(
+  request,
+  env
+) {
+  let payload;
+
+
+  try {
+    payload =
+      await request.json();
+
+  } catch {
+    return Response.json(
+      {
+        ok: false,
+
+        error:
+          "Invalid settings request.",
+      },
+      {
+        status: 400,
+      }
+    );
+  }
+
+
+  try {
+    const settings =
+      validateRegionSettingsPayload(
+        payload.settings
+      );
+
+
+    await saveAppSetting(
+      env,
+      REGION_CLASSIFICATION_SETTINGS_KEY,
+      settings
+    );
+
+
+    return Response.json(
+      {
+        ok: true,
+
+        settings,
+      },
+      {
+        headers: {
+          "cache-control":
+            "no-store",
+        },
+      }
+    );
+
+  } catch (error) {
+    return Response.json(
+      {
+        ok: false,
+
+        error:
+          error?.message ||
+          "Unable to save region classification settings.",
+      },
+      {
+        status: 400,
+
+        headers: {
+          "cache-control":
+            "no-store",
+        },
+      }
+    );
+  }
+}
+
+
+async function handleSettingsRegionReset(
+  env
+) {
+  try {
+    const settings =
+      mergeRegionClassificationSettings(
+        null
+      );
+
+
+    await saveAppSetting(
+      env,
+      REGION_CLASSIFICATION_SETTINGS_KEY,
+      settings
+    );
+
+
+    return Response.json(
+      {
+        ok: true,
+
+        settings,
+      },
+      {
+        headers: {
+          "cache-control":
+            "no-store",
+        },
+      }
+    );
+
+  } catch (error) {
+    return Response.json(
+      {
+        ok: false,
+
+        error:
+          error?.message ||
+          "Unable to reset region classification settings.",
+      },
+      {
+        status: 500,
+
+        headers: {
+          "cache-control":
+            "no-store",
+        },
+      }
+    );
+  }
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -12503,6 +13783,80 @@ export default {
     ) {
       return handleManageRecordsDelete(
         request,
+        env
+      );
+    }
+
+    if (
+      path ===
+        "/api/publish-preview" &&
+      request.method === "GET"
+    ) {
+      return handlePublishPreview(
+        env
+      );
+    }
+
+
+    if (
+      path ===
+        "/api/publish-package" &&
+      request.method === "POST"
+    ) {
+      return handlePublishPackageDownload(
+        request,
+        env
+      );
+    }
+
+    if (
+      path ===
+        "/api/publish-github-status" &&
+      request.method === "GET"
+    ) {
+      return handlePublishGithubStatus(
+        env
+      );
+    }
+
+
+    if (
+      path ===
+        "/api/publish-github" &&
+      request.method === "POST"
+    ) {
+      return handlePublishGithub(
+        request,
+        env
+      );
+    }
+
+    if (
+      path === "/api/settings" &&
+      request.method === "GET"
+    ) {
+      return handleSettingsGet(
+        env
+      );
+    }
+
+
+    if (
+      path === "/api/settings/region" &&
+      request.method === "PUT"
+    ) {
+      return handleSettingsRegionSave(
+        request,
+        env
+      );
+    }
+
+
+    if (
+      path === "/api/settings/region/reset" &&
+      request.method === "POST"
+    ) {
+      return handleSettingsRegionReset(
         env
       );
     }

@@ -1,0 +1,456 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8">
+
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1"
+  >
+
+  <title>
+    Settings — Corrosion Atlas Curator
+  </title>
+
+  <link
+    rel="stylesheet"
+    href="/assets/curator.css"
+  >
+</head>
+
+
+<body>
+
+  <header class="app-header">
+
+    <div class="brand">
+
+      <div class="brand-title">
+        Corrosion Atlas
+      </div>
+
+      <div class="brand-subtitle">
+        Curator
+      </div>
+
+    </div>
+
+  </header>
+
+
+  <main class="page settings-page">
+
+    <div class="page-heading">
+
+      <div>
+
+        <h1>
+          Settings
+        </h1>
+
+        <p class="page-description">
+          Region-classification rules and curator infrastructure
+          status.
+        </p>
+
+      </div>
+
+    </div>
+
+
+    <div
+      id="settings-status"
+      class="status"
+    >
+      Loading settings…
+    </div>
+
+
+    <div
+      id="settings-content"
+      hidden
+    >
+
+      <section class="settings-section">
+
+        <div class="settings-section-heading">
+
+          <h2>
+            System status
+          </h2>
+
+          <p>
+            Configuration presence and service availability.
+            Secret values are never displayed.
+          </p>
+
+        </div>
+
+
+        <div class="settings-status-grid">
+
+          <div class="settings-status-card">
+
+            <span>Supabase</span>
+
+            <strong
+              id="settings-supabase-status"
+            >
+              —
+            </strong>
+
+            <small
+              id="settings-supabase-detail"
+            ></small>
+
+          </div>
+
+
+          <div class="settings-status-card">
+
+            <span>PostGIS</span>
+
+            <strong
+              id="settings-postgis-status"
+            >
+              —
+            </strong>
+
+            <small
+              id="settings-postgis-detail"
+            ></small>
+
+          </div>
+
+
+          <div class="settings-status-card">
+
+            <span>Private R2 PDFs</span>
+
+            <strong
+              id="settings-r2-status"
+            >
+              —
+            </strong>
+
+            <small
+              id="settings-r2-detail"
+            ></small>
+
+          </div>
+
+
+          <div class="settings-status-card">
+
+            <span>GitHub publishing</span>
+
+            <strong
+              id="settings-github-status"
+            >
+              —
+            </strong>
+
+            <small
+              id="settings-github-detail"
+            ></small>
+
+          </div>
+
+
+          <div class="settings-status-card">
+
+            <span>Curator build</span>
+
+            <strong>
+              Active
+            </strong>
+
+            <small
+              id="settings-build-detail"
+            >
+              —
+            </small>
+
+          </div>
+
+        </div>
+
+      </section>
+
+
+      <section class="settings-section">
+
+        <div class="settings-section-heading">
+
+          <h2>
+            Automatic region classification
+          </h2>
+
+          <p>
+            These rules are used when automatically classifying
+            Sites. Saving them does not modify existing Sites.
+          </p>
+
+        </div>
+
+
+        <div class="settings-rule-panel">
+
+          <h3>
+            Distance to coast
+          </h3>
+
+
+          <div class="settings-number-grid settings-number-grid-three">
+
+            <label>
+              <span>Marine threshold, km</span>
+
+              <input
+                id="settings-marine-km"
+                class="detail-input"
+                type="number"
+                min="0"
+                step="0.1"
+              >
+            </label>
+
+
+            <label>
+              <span>Coastal threshold, km</span>
+
+              <input
+                id="settings-coastal-km"
+                class="detail-input"
+                type="number"
+                min="0"
+                step="0.5"
+              >
+            </label>
+
+
+            <label>
+              <span>Near-coastal threshold, km</span>
+
+              <input
+                id="settings-near-coastal-km"
+                class="detail-input"
+                type="number"
+                min="0"
+                step="1"
+              >
+            </label>
+
+          </div>
+
+
+          <h3>
+            Latitude rules
+          </h3>
+
+
+          <div class="settings-number-grid">
+
+            <label>
+              <span>Antarctic if latitude ≤</span>
+              <input id="settings-antarctic-max" class="detail-input" type="number" step="1">
+            </label>
+
+            <label>
+              <span>Sub-Antarctic lower latitude</span>
+              <input id="settings-sub-antarctic-min" class="detail-input" type="number" step="1">
+            </label>
+
+            <label>
+              <span>Sub-Antarctic upper latitude</span>
+              <input id="settings-sub-antarctic-max" class="detail-input" type="number" step="1">
+            </label>
+
+            <label>
+              <span>Sub-arctic lower latitude</span>
+              <input id="settings-sub-arctic-min" class="detail-input" type="number" step="0.5">
+            </label>
+
+            <label>
+              <span>Sub-arctic upper latitude</span>
+              <input id="settings-sub-arctic-max" class="detail-input" type="number" step="0.5">
+            </label>
+
+            <label>
+              <span>Tropical if |latitude| ≤</span>
+              <input id="settings-tropical-lat-max" class="detail-input" type="number" step="0.5">
+            </label>
+
+            <label>
+              <span>Cold if |latitude| ≥</span>
+              <input id="settings-cold-lat-min" class="detail-input" type="number" step="0.5">
+            </label>
+
+            <label>
+              <span>Extreme cold if |latitude| ≥</span>
+              <input id="settings-extreme-cold-lat-min" class="detail-input" type="number" step="0.5">
+            </label>
+
+          </div>
+
+
+          <h3>
+            Temperature rules
+          </h3>
+
+
+          <label class="settings-checkbox-row">
+
+            <input
+              id="settings-use-temperature"
+              type="checkbox"
+            >
+
+            <span>
+              Prefer annual mean temperature when available for
+              Tropical / Temperate / Cold / Extreme cold.
+            </span>
+
+          </label>
+
+
+          <div class="settings-number-grid">
+
+            <label>
+              <span>Tropical mean temperature ≥</span>
+              <input id="settings-tropical-temp-min" class="detail-input" type="number" step="0.5">
+            </label>
+
+            <label>
+              <span>Temperate mean temperature ≥</span>
+              <input id="settings-temperate-temp-min" class="detail-input" type="number" step="0.5">
+            </label>
+
+            <label>
+              <span>Cold mean temperature ≤</span>
+              <input id="settings-cold-temp-max" class="detail-input" type="number" step="0.5">
+            </label>
+
+            <label>
+              <span>Extreme cold mean temperature ≤</span>
+              <input id="settings-extreme-cold-temp-max" class="detail-input" type="number" step="0.5">
+            </label>
+
+          </div>
+
+
+          <h3>
+            Semantic rules
+          </h3>
+
+          <p class="related-description">
+            One country hint or regular-expression pattern per line.
+          </p>
+
+
+          <div class="settings-semantic-grid">
+
+            <label>
+              <span>Island country hints</span>
+              <textarea id="settings-island-countries" class="detail-input" rows="10"></textarea>
+            </label>
+
+            <label>
+              <span>Island text patterns</span>
+              <textarea id="settings-island-patterns" class="detail-input" rows="7"></textarea>
+            </label>
+
+            <label>
+              <span>Urban patterns</span>
+              <textarea id="settings-urban-patterns" class="detail-input" rows="7"></textarea>
+            </label>
+
+            <label>
+              <span>Rural patterns</span>
+              <textarea id="settings-rural-patterns" class="detail-input" rows="7"></textarea>
+            </label>
+
+            <label>
+              <span>Industrial patterns</span>
+              <textarea id="settings-industrial-patterns" class="detail-input" rows="7"></textarea>
+            </label>
+
+            <label>
+              <span>Hot-arid patterns</span>
+              <textarea id="settings-hot-arid-patterns" class="detail-input" rows="7"></textarea>
+            </label>
+
+          </div>
+
+
+          <div class="settings-actions">
+
+            <button
+              id="settings-save"
+              class="button button-primary"
+              type="button"
+            >
+              Save region rules
+            </button>
+
+
+            <button
+              id="settings-reset"
+              class="button"
+              type="button"
+            >
+              Reset to defaults
+            </button>
+
+          </div>
+
+
+          <div
+            id="settings-save-result"
+            class="save-message"
+            hidden
+          ></div>
+
+        </div>
+
+      </section>
+
+
+      <section class="settings-section settings-existing-sites">
+
+        <div>
+
+          <h2>
+            Existing Site classifications
+          </h2>
+
+          <p>
+            Changing these rules does not silently rewrite existing
+            records. Preview and apply bulk classification changes
+            through Manage Records.
+          </p>
+
+        </div>
+
+
+        <a
+          class="button"
+          href="/manage/"
+        >
+          Open Manage Records
+        </a>
+
+      </section>
+
+    </div>
+
+  </main>
+
+
+  <script src="/assets/curator-nav.js"></script>
+  <script src="/assets/settings.js"></script>
+
+</body>
+
+</html>

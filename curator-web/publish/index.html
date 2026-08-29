@@ -1,0 +1,405 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8">
+
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1"
+  >
+
+  <title>
+    Export / Publish — Corrosion Atlas Curator
+  </title>
+
+  <link
+    rel="stylesheet"
+    href="/assets/curator.css"
+  >
+</head>
+
+
+<body>
+
+  <header class="app-header">
+
+    <div class="brand">
+
+      <div class="brand-title">
+        Corrosion Atlas
+      </div>
+
+      <div class="brand-subtitle">
+        Curator
+      </div>
+
+    </div>
+
+  </header>
+
+
+  <main class="page publish-page">
+
+    <div class="page-heading">
+
+      <div>
+
+        <h1>
+          Export / Publish
+        </h1>
+
+        <p class="page-description">
+          Select the Sites that should appear in the public Atlas
+          and generate the public website datasets.
+        </p>
+
+      </div>
+
+    </div>
+
+
+    <div
+      id="publish-status"
+      class="status"
+    >
+      Loading publish state…
+    </div>
+
+
+    <section
+      id="publish-content"
+      hidden
+    >
+
+      <div class="publish-metrics">
+
+        <div class="publish-metric">
+          <span>Curated Sites</span>
+          <strong id="publish-curated-count">—</strong>
+        </div>
+
+        <div class="publish-metric">
+          <span>Currently published</span>
+          <strong id="publish-current-count">—</strong>
+        </div>
+
+        <div class="publish-metric">
+          <span>Selected next</span>
+          <strong id="publish-selected-count">—</strong>
+        </div>
+
+      </div>
+
+
+      <div
+        id="publish-duplicate-warning"
+        class="save-message save-message-error"
+        hidden
+      ></div>
+
+
+      <section class="publish-panel">
+
+        <div class="publish-toolbar">
+
+          <label class="publish-search-field">
+
+            <span class="field-label">
+              Search Sites
+            </span>
+
+            <input
+              id="publish-search"
+              class="search-input"
+              type="search"
+              placeholder="Site ID, label, country, region…"
+            >
+
+          </label>
+
+        </div>
+
+
+        <div class="publish-group">
+
+          <div class="publish-group-heading">
+
+            <div>
+
+              <h2>
+                Unpublished Sites
+              </h2>
+
+              <p>
+                Present in the curator database but not in the
+                current public sites.csv.
+              </p>
+
+            </div>
+
+
+            <div class="publish-group-actions">
+
+              <button
+                id="publish-select-unpublished"
+                class="button button-small"
+                type="button"
+              >
+                Select all
+              </button>
+
+              <button
+                id="publish-clear-unpublished"
+                class="button button-small"
+                type="button"
+              >
+                Clear
+              </button>
+
+            </div>
+
+          </div>
+
+
+          <div
+            id="publish-unpublished"
+            class="publish-site-list"
+          ></div>
+
+        </div>
+
+
+        <div class="publish-group">
+
+          <div class="publish-group-heading">
+
+            <div>
+
+              <h2>
+                Currently published Sites
+              </h2>
+
+              <p>
+                Selected by default. Clear a Site to remove it
+                from the next public dataset.
+              </p>
+
+            </div>
+
+
+            <div class="publish-group-actions">
+
+              <button
+                id="publish-select-published"
+                class="button button-small"
+                type="button"
+              >
+                Keep all
+              </button>
+
+              <button
+                id="publish-clear-published"
+                class="button button-small"
+                type="button"
+              >
+                Clear
+              </button>
+
+            </div>
+
+          </div>
+
+
+          <div
+            id="publish-published"
+            class="publish-site-list"
+          ></div>
+
+        </div>
+
+      </section>
+
+
+      <section class="publish-package-panel">
+
+        <div>
+
+          <h2>
+            Website data package
+          </h2>
+
+          <p class="related-description">
+            Sites and public Source metadata are always included.
+            Observation datasets can be included below.
+          </p>
+
+        </div>
+
+
+        <div class="publish-package-options">
+
+          <label class="publish-option">
+
+            <input
+              id="publish-include-corrosion"
+              type="checkbox"
+              checked
+            >
+
+            <span>
+              Include corrosion observations
+            </span>
+
+          </label>
+
+
+          <label class="publish-option">
+
+            <input
+              id="publish-include-environment"
+              type="checkbox"
+              checked
+            >
+
+            <span>
+              Include environmental observations
+            </span>
+
+          </label>
+
+        </div>
+
+
+        <div class="publish-package-actions">
+
+          <button
+            id="publish-download"
+            class="button button-primary"
+            type="button"
+          >
+            Download website package
+          </button>
+
+        </div>
+
+
+        <div
+          id="publish-result"
+          class="save-message"
+          hidden
+        ></div>
+
+
+        <p class="publish-safety-note">
+          Download only. This step does not modify GitHub or the
+          public Atlas.
+        </p>
+
+      </section>
+
+      <section class="publish-github-panel">
+
+        <div class="publish-github-heading">
+
+            <div>
+
+            <h2>
+                Publish to GitHub
+            </h2>
+
+            <p class="related-description">
+                Regenerate the selected public datasets and upload them
+                directly to the website repository.
+            </p>
+
+            </div>
+
+
+            <div
+            id="publish-github-config"
+            class="publish-github-config"
+            >
+            Checking GitHub configuration…
+            </div>
+
+        </div>
+
+
+        <label class="publish-commit-field">
+
+            <span class="field-label">
+            Commit message
+            </span>
+
+            <input
+            id="publish-commit-message"
+            class="detail-input"
+            type="text"
+            value="Update corrosion map website dataset"
+            >
+
+        </label>
+
+
+        <label class="publish-confirm-row">
+
+            <input
+            id="publish-github-confirm"
+            type="checkbox"
+            >
+
+            <span>
+            I reviewed the selected Sites and want to update
+            the public website datasets on GitHub.
+            </span>
+
+        </label>
+
+
+        <div class="publish-github-actions">
+
+            <button
+            id="publish-github-button"
+            class="button button-primary"
+            type="button"
+            disabled
+            >
+            Publish to GitHub
+            </button>
+
+        </div>
+
+
+        <div
+            id="publish-github-result"
+            class="save-message"
+            hidden
+        ></div>
+
+
+        <div
+            id="publish-github-files"
+            class="publish-github-files"
+            hidden
+        ></div>
+
+
+        <p class="publish-safety-note">
+            Publishing updates the repository immediately. The public Atlas
+            may take a short time to reflect the new files.
+        </p>
+
+        </section>
+
+    </section>
+
+  </main>
+
+
+  <script src="/assets/curator-nav.js"></script>
+  <script src="/assets/publish.js"></script>
+
+</body>
+
+</html>
