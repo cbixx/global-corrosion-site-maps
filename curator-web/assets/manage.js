@@ -236,6 +236,7 @@ const BULK_EDIT_FIELDS = {
   sites: [
     ["site_id", "Site ID"],
     ["site_label", "Site label"],
+    ["site_type", "Site type"],
     ["latitude", "Latitude"],
     ["longitude", "Longitude"],
     [
@@ -278,6 +279,166 @@ const BULK_EDIT_FIELDS = {
     ["notes", "Notes"],
   ],
 };
+
+const INLINE_EDIT_FIELDS = {
+  sites: [
+    {
+      name: "site_id",
+      label: "Site ID",
+    },
+    {
+      name: "site_label",
+      label: "Site label",
+    },
+    {
+      name: "site_type",
+      label: "Site type",
+    },
+    {
+      name: "latitude",
+      label: "Latitude",
+      type: "number",
+    },
+    {
+      name: "longitude",
+      label: "Longitude",
+      type: "number",
+    },
+    {
+      name: "modern_country_location",
+      label: "Modern country / location",
+    },
+    {
+      name: "administering_country",
+      label: "Administering country",
+    },
+    {
+      name: "former_entity",
+      label: "Former entity",
+    },
+    {
+      name: "region_category",
+      label: "Region category",
+      wide: true,
+      help:
+        "Comma-separated tags. Known region tags are normalized when saved.",
+    },
+    {
+      name: "exposure_period",
+      label: "Exposure period",
+      wide: true,
+      help:
+        "Multiple values may be separated by commas.",
+    },
+    {
+      name: "metal",
+      label: "Metal",
+      wide: true,
+      help:
+        "Multiple values may be separated by commas.",
+    },
+    {
+      name: "notes",
+      label: "Notes",
+      multiline: true,
+      wide: true,
+    },
+  ],
+
+  sources: [
+    {
+      name: "source_code",
+      label: "Source code",
+      help:
+        "Canonical format is sNNN, for example s021.",
+    },
+    {
+      name: "source_kind",
+      label: "Source kind",
+    },
+    {
+      name: "source_type",
+      label: "Source type",
+    },
+    {
+      name: "source_title",
+      label: "Source title",
+      wide: true,
+    },
+    {
+      name: "authors_or_organization",
+      label: "Authors / organization",
+      wide: true,
+    },
+    {
+      name: "publication_year",
+      label: "Publication year",
+    },
+    {
+      name: "doi",
+      label: "DOI",
+    },
+    {
+      name: "public_url",
+      label: "Public URL",
+      wide: true,
+    },
+    {
+      name: "display_citation",
+      label: "Suggested citation",
+      multiline: true,
+      wide: true,
+    },
+    {
+      name: "public_notes",
+      label: "Public notes",
+      multiline: true,
+      wide: true,
+    },
+    {
+      name: "programme",
+      label: "Programme",
+      wide: true,
+      help:
+        "Multiple programmes may be separated by commas.",
+    },
+    {
+      name: "metals",
+      label: "Metals",
+      wide: true,
+      help:
+        "Multiple metals may be separated by commas.",
+    },
+    {
+      name: "exposure_periods",
+      label: "Exposure periods",
+      wide: true,
+      help:
+        "Multiple periods may be separated by commas.",
+    },
+    {
+      name: "source_url",
+      label: "Source URL",
+      wide: true,
+    },
+    {
+      name: "private_pdf_object_key",
+      label: "Private PDF object key",
+      wide: true,
+      help:
+        "Internal Cloudflare R2 object key. Do not publish this value.",
+    },
+    {
+      name: "notes",
+      label: "Notes",
+      multiline: true,
+      wide: true,
+    },
+  ],
+};
+
+let activeInlineEditor =
+  null;
 
 function updateUrl() {
   const params =
@@ -489,6 +650,654 @@ function updateBulkTools() {
     selectedRecordIds.size === 0;
 }
 
+function closeInlineEditor() {
+  if (!activeInlineEditor) {
+    return;
+  }
+
+
+  if (
+    activeInlineEditor.element &&
+    activeInlineEditor.element.isConnected
+  ) {
+    activeInlineEditor.element.remove();
+  }
+
+
+  if (
+    activeInlineEditor.button &&
+    activeInlineEditor.button.isConnected
+  ) {
+    activeInlineEditor.button.textContent =
+      "Edit";
+
+    activeInlineEditor.button.disabled =
+      false;
+  }
+
+
+  activeInlineEditor =
+    null;
+}
+
+
+function createInlineEditorControl(
+  field,
+  value
+) {
+  let input;
+
+
+  if (field.multiline) {
+    input =
+      document.createElement(
+        "textarea"
+      );
+
+    input.rows =
+      4;
+  } else {
+    input =
+      document.createElement(
+        "input"
+      );
+
+    input.type =
+      field.type === "number"
+        ? "number"
+        : "text";
+
+
+    if (
+      field.type === "number"
+    ) {
+      input.step =
+        "any";
+    }
+  }
+
+
+  input.className =
+    "detail-input";
+
+  input.dataset.inlineField =
+    field.name;
+
+  input.autocomplete =
+    "off";
+
+
+  input.value =
+    value === null ||
+    value === undefined
+      ? ""
+      : String(value);
+
+
+  return input;
+}
+
+
+function buildInlineEditor(
+  recordType,
+  entity,
+  recordId,
+  editButton
+) {
+  const editor =
+    document.createElement(
+      "div"
+    );
+
+  editor.className =
+    "manage-inline-editor";
+
+
+  const heading =
+    document.createElement(
+      "div"
+    );
+
+  heading.className =
+    "manage-inline-editor-heading";
+
+
+  const title =
+    document.createElement(
+      "div"
+    );
+
+  title.className =
+    "manage-inline-editor-title";
+
+  title.textContent =
+    recordType === "sites"
+      ? `Edit Site ${entity.site_id || ""}`
+      : `Edit Source ${String(
+          entity.source_code || ""
+        ).toUpperCase()}`;
+
+
+  heading.append(
+    title
+  );
+
+
+  const form =
+    document.createElement(
+      "form"
+    );
+
+  form.className =
+    "manage-inline-editor-form";
+
+
+  const grid =
+    document.createElement(
+      "div"
+    );
+
+  grid.className =
+    "manage-inline-editor-grid";
+
+
+  const originalValues =
+    {};
+
+
+  for (
+    const field
+    of INLINE_EDIT_FIELDS[
+      recordType
+    ] || []
+  ) {
+    const wrapper =
+      document.createElement(
+        "label"
+      );
+
+    wrapper.className =
+      field.wide
+        ? "manage-inline-field manage-inline-field-wide"
+        : "manage-inline-field";
+
+
+    const label =
+      document.createElement(
+        "span"
+      );
+
+    label.textContent =
+      field.label;
+
+
+    const originalValue =
+      entity[field.name] === null ||
+      entity[field.name] === undefined
+        ? ""
+        : String(
+            entity[field.name]
+          );
+
+
+    originalValues[
+      field.name
+    ] =
+      originalValue;
+
+
+    const control =
+      createInlineEditorControl(
+        field,
+        originalValue
+      );
+
+
+    wrapper.append(
+      label,
+      control
+    );
+
+
+    if (field.help) {
+      const help =
+        document.createElement(
+          "div"
+        );
+
+      help.className =
+        "manage-inline-field-help";
+
+      help.textContent =
+        field.help;
+
+      wrapper.append(
+        help
+      );
+    }
+
+
+    grid.append(
+      wrapper
+    );
+  }
+
+
+  const message =
+    document.createElement(
+      "div"
+    );
+
+  message.className =
+    "save-message";
+
+  message.hidden =
+    true;
+
+
+  const actions =
+    document.createElement(
+      "div"
+    );
+
+  actions.className =
+    "manage-inline-editor-actions";
+
+
+  const saveButton =
+    document.createElement(
+      "button"
+    );
+
+  saveButton.type =
+    "submit";
+
+  saveButton.className =
+    "button button-primary";
+
+  saveButton.textContent =
+    "Save changes";
+
+
+  const cancelButton =
+    document.createElement(
+      "button"
+    );
+
+  cancelButton.type =
+    "button";
+
+  cancelButton.className =
+    "button";
+
+  cancelButton.textContent =
+    "Cancel";
+
+
+  cancelButton.addEventListener(
+    "click",
+    closeInlineEditor
+  );
+
+
+  actions.append(
+    saveButton,
+    cancelButton
+  );
+
+
+  form.append(
+    grid,
+    message,
+    actions
+  );
+
+
+  form.addEventListener(
+    "submit",
+    async (event) => {
+      event.preventDefault();
+
+
+      const updates =
+        {};
+
+
+      for (
+        const control
+        of form.querySelectorAll(
+          "[data-inline-field]"
+        )
+      ) {
+        const fieldName =
+          control.dataset.inlineField;
+
+        const newValue =
+          control.value;
+
+        const oldValue =
+          originalValues[
+            fieldName
+          ] ?? "";
+
+
+        if (
+          newValue !==
+          oldValue
+        ) {
+          updates[
+            fieldName
+          ] =
+            newValue;
+        }
+      }
+
+
+      if (
+        Object.keys(
+          updates
+        ).length === 0
+      ) {
+        message.textContent =
+          "No changes to save.";
+
+        message.className =
+          "save-message save-message-warning";
+
+        message.hidden =
+          false;
+
+        return;
+      }
+
+
+      saveButton.disabled =
+        true;
+
+      cancelButton.disabled =
+        true;
+
+      saveButton.textContent =
+        "Saving…";
+
+      message.hidden =
+        true;
+
+
+      const endpoint =
+        recordType === "sites"
+          ? `/api/sites/${recordId}`
+          : `/api/sources/${recordId}`;
+
+
+      try {
+        const response =
+          await fetch(
+            endpoint,
+            {
+              method:
+                "PATCH",
+
+              headers: {
+                "content-type":
+                  "application/json",
+
+                accept:
+                  "application/json",
+              },
+
+              body:
+                JSON.stringify(
+                  updates
+                ),
+            }
+          );
+
+
+        const payload =
+          await response.json();
+
+
+        if (
+          !response.ok ||
+          !payload.ok
+        ) {
+          throw new Error(
+            payload.error ||
+            `HTTP ${response.status}`
+          );
+        }
+
+
+        closeInlineEditor();
+
+        clearSelection();
+
+        await loadRecords();
+
+
+        actionMessage.textContent =
+          recordType === "sites"
+            ? "Site changes saved."
+            : "Source changes saved.";
+
+        actionMessage.className =
+          "save-message save-message-success";
+
+        actionMessage.hidden =
+          false;
+      } catch (error) {
+        console.error(
+          "Inline record update failed.",
+          error
+        );
+
+
+        message.textContent =
+          error.message ||
+          "Unable to save changes.";
+
+        message.className =
+          "save-message save-message-error";
+
+        message.hidden =
+          false;
+      } finally {
+        saveButton.disabled =
+          false;
+
+        cancelButton.disabled =
+          false;
+
+        saveButton.textContent =
+          "Save changes";
+      }
+    }
+  );
+
+
+  editor.append(
+    heading,
+    form
+  );
+
+
+  return editor;
+}
+
+
+async function openInlineEditor(
+  record,
+  outer,
+  editButton
+) {
+  if (
+    ![
+      "sites",
+      "sources",
+    ].includes(
+      currentType
+    )
+  ) {
+    return;
+  }
+
+
+  const recordType =
+    currentType;
+
+  const recordId =
+    Number(record.id);
+
+  const editorKey =
+    `${recordType}:${recordId}`;
+
+
+  if (
+    activeInlineEditor?.key ===
+    editorKey
+  ) {
+    closeInlineEditor();
+
+    return;
+  }
+
+
+  closeInlineEditor();
+
+
+  editButton.disabled =
+    true;
+
+  editButton.textContent =
+    "Loading…";
+
+  actionMessage.hidden =
+    true;
+
+
+  const endpoint =
+    recordType === "sites"
+      ? `/api/sites/${recordId}`
+      : `/api/sources/${recordId}`;
+
+
+  try {
+    const response =
+      await fetch(
+        endpoint,
+        {
+          headers: {
+            accept:
+              "application/json",
+          },
+        }
+      );
+
+
+    const payload =
+      await response.json();
+
+
+    if (
+      !response.ok ||
+      !payload.ok
+    ) {
+      throw new Error(
+        payload.error ||
+        `HTTP ${response.status}`
+      );
+    }
+
+
+    /*
+     * The user may have changed tabs while
+     * the record was loading.
+     */
+    if (
+      currentType !==
+      recordType
+    ) {
+      editButton.disabled =
+        false;
+
+      editButton.textContent =
+        "Edit";
+
+      return;
+    }
+
+
+    const entity =
+      recordType === "sites"
+        ? payload.site
+        : payload.source;
+
+
+    if (!entity) {
+      throw new Error(
+        "Record could not be loaded."
+      );
+    }
+
+
+    const editor =
+      buildInlineEditor(
+        recordType,
+        entity,
+        recordId,
+        editButton
+      );
+
+
+    outer.append(
+      editor
+    );
+
+
+    editButton.disabled =
+      false;
+
+    editButton.textContent =
+      "Close";
+
+
+    activeInlineEditor = {
+      key:
+        editorKey,
+
+      element:
+        editor,
+
+      button:
+        editButton,
+    };
+  } catch (error) {
+    console.error(
+      "Unable to open inline editor.",
+      error
+    );
+
+
+    editButton.disabled =
+      false;
+
+    editButton.textContent =
+      "Edit";
+
+
+    actionMessage.textContent =
+      error.message ||
+      "Unable to load record for editing.";
+
+    actionMessage.className =
+      "save-message save-message-error";
+
+    actionMessage.hidden =
+      false;
+  }
+}
+
 function renderRecord(
   record
 ) {
@@ -608,6 +1417,57 @@ function renderRecord(
     checkbox,
     body
   );
+
+
+  if (
+    currentType === "sites" ||
+    currentType === "sources"
+  ) {
+    const actions =
+      document.createElement(
+        "div"
+      );
+
+    actions.className =
+      "manage-record-actions";
+
+
+    const editButton =
+      document.createElement(
+      "button"
+      );
+
+    editButton.type =
+      "button";
+
+    editButton.className =
+      "button button-small";
+
+    editButton.textContent =
+      "Edit";
+
+
+    editButton.addEventListener(
+      "click",
+      () => {
+        openInlineEditor(
+          record,
+          outer,
+          editButton
+        );
+      }
+    );
+
+
+    actions.append(
+      editButton
+    );
+
+
+    outer.append(
+      actions
+    );
+    }
 
 
   recordListElement.append(
@@ -839,6 +1699,8 @@ function switchType(
   ) {
     return;
   }
+
+  closeInlineEditor();
 
   clearSelection();
 
@@ -1848,6 +2710,8 @@ searchInput.addEventListener(
     searchTimer =
         setTimeout(
             () => {
+                closeInlineEditor();
+
                 clearSelection();
 
                 currentPage =
@@ -1865,6 +2729,8 @@ pageSizeInput.addEventListener(
   "change",
   () => {
     
+    closeInlineEditor();
+
     clearSelection();
 
     currentPageSize =
@@ -1889,6 +2755,8 @@ previousButton.addEventListener(
       return;
     }
 
+    closeInlineEditor();
+
     clearSelection();
 
     currentPage -= 1;
@@ -1907,6 +2775,8 @@ nextButton.addEventListener(
     ) {
       return;
     }
+
+    closeInlineEditor();
 
     clearSelection();
 

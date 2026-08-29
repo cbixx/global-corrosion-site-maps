@@ -60,6 +60,87 @@
 
       <div id="source-fields" class="detail-fields"></div>
 
+      <section
+        id="source-pdf-section"
+        class="related-section"
+        hidden
+      >
+        <div class="related-heading">
+          <div>
+            <h2>Private PDF</h2>
+
+            <p class="related-description">
+              Source document stored privately in Cloudflare R2.
+            </p>
+          </div>
+        </div>
+
+        <div class="source-pdf-card">
+
+          <div class="source-pdf-main">
+            <div
+              id="source-pdf-title"
+              class="source-pdf-title"
+            >
+              No PDF attached
+            </div>
+
+            <div
+              id="source-pdf-meta"
+              class="source-pdf-meta"
+            >
+              Upload a PDF for this Source.
+            </div>
+          </div>
+
+          <div class="source-pdf-actions">
+
+            <a
+              id="open-source-pdf"
+              class="button"
+              target="_blank"
+              rel="noopener"
+              hidden
+            >
+              Open PDF
+            </a>
+
+            <button
+              id="upload-source-pdf"
+              class="button"
+              type="button"
+            >
+              Upload PDF
+            </button>
+
+            <button
+              id="remove-source-pdf"
+              class="button button-danger"
+              type="button"
+              hidden
+            >
+              Remove PDF
+            </button>
+
+          </div>
+
+        </div>
+
+        <input
+          id="source-pdf-input"
+          type="file"
+          accept=".pdf,application/pdf"
+          hidden
+        >
+
+        <div
+          id="source-pdf-message"
+          class="save-message"
+          hidden
+        ></div>
+
+      </section>
+
       <section id="site-links-section" class="related-section">
 
         <div class="related-heading">
@@ -162,6 +243,7 @@
     </div>
   </main>
 
+  <script src="/assets/curator-nav.js"></script>
   <script src="/assets/source-detail.js"></script>
 </body>
 </html>

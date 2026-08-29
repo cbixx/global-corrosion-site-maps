@@ -1,0 +1,257 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1"
+  >
+
+  <title>Corrosion Data · Corrosion Atlas Curator</title>
+
+  <link
+    rel="stylesheet"
+    href="/assets/curator.css"
+  >
+</head>
+
+<body>
+
+  <header class="app-header">
+    <div class="brand">
+      <div class="brand-title">
+        Corrosion Atlas
+      </div>
+
+      <div class="brand-subtitle">
+        Curator
+      </div>
+    </div>
+  </header>
+
+
+  <main class="page corrosion-page">
+
+    <div class="page-heading">
+      <div>
+        <h1>Corrosion Data</h1>
+
+        <p class="page-description">
+          Primary measurement-level corrosion data.
+          Each row represents one
+          site–source–material–exposure observation.
+        </p>
+      </div>
+    </div>
+
+
+    <div class="corrosion-structure-note">
+      Recommended structure: one corrosion value per observation.
+      Do not combine multiple materials or corrosion measurements
+      into one wide record.
+    </div>
+
+
+    <!-- ===================================================
+         Workbook workflow shell
+         =================================================== -->
+
+    <section class="corrosion-section">
+
+      <div class="corrosion-section-heading">
+        <div>
+          <h2>
+            Excel corrosion observation workbook
+          </h2>
+
+          <p class="related-description">
+            Select a Source with linked Sites. The completed workflow
+            will generate one source-first macro-enabled workbook
+            containing its linked Sites and existing observations.
+          </p>
+        </div>
+      </div>
+
+
+      <div
+        id="corrosion-workbook-status"
+        class="status"
+      >
+        Loading Sources…
+      </div>
+
+
+      <div
+        id="corrosion-workbook-content"
+        class="corrosion-workbook-panel"
+        hidden
+      >
+
+        <label class="corrosion-form-field">
+          <span>Source</span>
+
+          <select
+            id="corrosion-workbook-source"
+            class="detail-input"
+          ></select>
+        </label>
+
+
+        <div
+          id="corrosion-workbook-source-context"
+          class="corrosion-source-context"
+          hidden
+        ></div>
+
+
+        <div class="corrosion-workbook-actions">
+
+          <button
+            id="corrosion-generate-workbook"
+            class="button button-primary"
+            type="button"
+            disabled
+          >
+            Generate XLSM
+          </button>
+
+          <span
+            id="corrosion-workbook-message"
+            class="corrosion-workbook-pending"
+          >
+            The workbook includes existing observations and
+            one new-observation starter row per linked Site.
+          </span>
+
+        </div>
+
+      </div>
+
+    </section>
+
+
+    <!-- ===================================================
+         Existing observations
+         =================================================== -->
+
+    <section class="corrosion-section">
+
+      <div class="corrosion-section-heading">
+        <div>
+          <h2>
+            Existing corrosion observations
+          </h2>
+
+          <p class="related-description">
+            Browse the authoritative database records.
+          </p>
+        </div>
+      </div>
+
+
+      <div class="corrosion-toolbar">
+
+        <input
+          id="corrosion-search"
+          class="search-input"
+          type="search"
+          placeholder="Search Site, Source, material, exposure period, metric…"
+          autocomplete="off"
+        >
+
+
+        <label class="corrosion-page-size">
+          <span>Rows per page</span>
+
+          <select
+            id="corrosion-page-size"
+            class="detail-input"
+          >
+            <option value="25">
+              25
+            </option>
+
+            <option
+              value="50"
+              selected
+            >
+              50
+            </option>
+
+            <option value="100">
+              100
+            </option>
+
+            <option value="200">
+              200
+            </option>
+          </select>
+        </label>
+
+      </div>
+
+
+      <div
+        id="corrosion-status"
+        class="status"
+      >
+        Loading corrosion observations…
+      </div>
+
+
+      <div
+        id="corrosion-content"
+        hidden
+      >
+
+        <div
+          id="corrosion-summary"
+          class="corrosion-summary"
+        ></div>
+
+
+        <div
+          id="corrosion-list"
+          class="corrosion-list"
+        ></div>
+
+
+        <div class="corrosion-pagination">
+
+          <button
+            id="corrosion-previous"
+            class="button"
+            type="button"
+          >
+            ← Previous
+          </button>
+
+
+          <div
+            id="corrosion-page-label"
+            class="corrosion-page-label"
+          ></div>
+
+
+          <button
+            id="corrosion-next"
+            class="button"
+            type="button"
+          >
+            Next →
+          </button>
+
+        </div>
+
+      </div>
+
+    </section>
+
+  </main>
+
+
+  <script src="/assets/curator-nav.js"></script>
+  <script src="/assets/corrosion.js"></script>
+
+</body>
+</html>

@@ -70,15 +70,25 @@
           </div>
         </a>
 
-        <div class="dashboard-stat">
+        <a
+          class="dashboard-stat"
+          href="/corrosion/"
+        >
           <div class="dashboard-stat-label">
             Corrosion observations
           </div>
-          <div id="dashboard-corrosion" class="dashboard-stat-value">—</div>
+
+          <div
+            id="dashboard-corrosion"
+            class="dashboard-stat-value"
+          >
+            —
+          </div>
+
           <div class="dashboard-stat-hint">
             Measurement-level records
           </div>
-        </div>
+        </a>
 
         <div class="dashboard-stat">
           <div class="dashboard-stat-label">
@@ -137,15 +147,25 @@
           </div>
         </a>
 
-        <div class="dashboard-nav-card dashboard-nav-disabled">
-          <div class="dashboard-nav-title">Corrosion Data</div>
+        <a
+          class="dashboard-nav-card"
+          href="/corrosion/"
+        >
+          <div class="dashboard-nav-title">
+            Corrosion Data
+          </div>
+
           <div class="dashboard-nav-description">
-            Measurement-level corrosion observations and workbook workflow.
+            Browse measurement-level corrosion observations
+            and prepare source-first workbook entry.
           </div>
-          <div class="dashboard-nav-state">
-            Migration pending
+
+          <div
+            class="dashboard-nav-state dashboard-nav-ready"
+          >
+            Browser available
           </div>
-        </div>
+        </a>
 
         <div class="dashboard-nav-card dashboard-nav-disabled">
           <div class="dashboard-nav-title">Environmental Data</div>
@@ -212,6 +232,7 @@
 
   </main>
 
+  <script src="/assets/curator-nav.js"></script>
   <script src="/assets/dashboard.js"></script>
 </body>
 </html>

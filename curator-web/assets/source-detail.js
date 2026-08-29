@@ -21,6 +21,15 @@ const saveSiteLinkButton = document.getElementById("save-site-link-button");
 const siteLinkMessage = document.getElementById("site-link-message");
 const linkedSitesStatus = document.getElementById("linked-sites-status");
 const linkedSitesElement = document.getElementById("linked-sites");
+const sourcePdfSection = document.getElementById("source-pdf-section");
+const sourcePdfTitle = document.getElementById("source-pdf-title");
+const sourcePdfMeta = document.getElementById("source-pdf-meta");
+const openSourcePdf = document.getElementById("open-source-pdf");
+const uploadSourcePdfButton = document.getElementById("upload-source-pdf");
+const removeSourcePdfButton = document.getElementById("remove-source-pdf");
+const sourcePdfInput = document.getElementById("source-pdf-input");
+const sourcePdfMessage = document.getElementById("source-pdf-message");
+
 
 let siteOptions = [];
 let currentSiteLinks = [];
@@ -41,9 +50,7 @@ const FIELD_LABELS = {
   programme: "Programme",
   metals: "Metals",
   exposure_periods: "Exposure periods",
-  local_file_name: "Local file name",
   source_url: "Source URL",
-  private_pdf_object_key: "Private PDF object key",
   notes: "Internal notes",
 };
 
@@ -306,6 +313,86 @@ function addField(fieldName, label, value) {
   fieldsElement.append(row);
 }
 
+function renderSourcePdf() {
+  /*
+   * A Source must exist in the database
+   * before a PDF can be attached.
+   */
+  if (
+    !currentSource ||
+    !currentSource.id
+  ) {
+    sourcePdfSection.hidden =
+      true;
+
+    return;
+  }
+
+
+  sourcePdfSection.hidden =
+    false;
+
+
+  const objectKey =
+    String(
+      currentSource.private_pdf_object_key ||
+      ""
+    ).trim();
+
+
+  const localFileName =
+    String(
+      currentSource.local_file_name ||
+      ""
+    ).trim();
+
+
+  const hasPdf =
+    Boolean(objectKey);
+
+
+  if (hasPdf) {
+    sourcePdfTitle.textContent =
+      localFileName ||
+      `${String(
+        currentSource.source_code ||
+        ""
+      ).toLowerCase()}.pdf`;
+
+    sourcePdfMeta.textContent =
+      "Stored in the private Corrosion Atlas R2 bucket.";
+
+    openSourcePdf.href =
+      `/api/sources/${encodeURIComponent(
+        currentSource.id
+      )}/pdf`;
+
+    openSourcePdf.hidden =
+      false;
+
+    removeSourcePdfButton.hidden =
+      false;
+
+    uploadSourcePdfButton.textContent =
+      "Replace PDF";
+  } else {
+    sourcePdfTitle.textContent =
+      "No PDF attached";
+
+    sourcePdfMeta.textContent =
+      "Upload a private source document for this Source.";
+
+    openSourcePdf.hidden =
+      true;
+
+    removeSourcePdfButton.hidden =
+      true;
+
+    uploadSourcePdfButton.textContent =
+      "Upload PDF";
+  }
+}
+
 function renderSource() {
   if (!currentSource) {
     return;
@@ -340,6 +427,8 @@ function renderSource() {
   editButton.hidden = editing;
   cancelButton.hidden = !editing;
   saveButton.hidden = !editing;
+
+  renderSourcePdf();
 }
 
 async function loadSource() {
@@ -885,5 +974,259 @@ async function removeSiteLink(link) {
     siteLinkMessage.hidden = false;
   }
 }
+
+uploadSourcePdfButton.addEventListener(
+  "click",
+  () => {
+    sourcePdfInput.value =
+      "";
+
+    sourcePdfInput.click();
+  }
+);
+
+
+sourcePdfInput.addEventListener(
+  "change",
+  async () => {
+    const file =
+      sourcePdfInput.files?.[0];
+
+    if (!file) {
+      return;
+    }
+
+
+    if (
+      !file.name
+        .toLowerCase()
+        .endsWith(".pdf")
+    ) {
+      sourcePdfMessage.textContent =
+        "Select a PDF file.";
+
+      sourcePdfMessage.className =
+        "save-message save-message-error";
+
+      sourcePdfMessage.hidden =
+        false;
+
+      return;
+    }
+
+
+    uploadSourcePdfButton.disabled =
+      true;
+
+    removeSourcePdfButton.disabled =
+      true;
+
+    uploadSourcePdfButton.textContent =
+      currentSource
+        ?.private_pdf_object_key
+        ? "Replacing…"
+        : "Uploading…";
+
+    sourcePdfMessage.hidden =
+      true;
+
+
+    try {
+      const response =
+        await fetch(
+          `/api/sources/${encodeURIComponent(
+            currentSource.id
+          )}/pdf`,
+          {
+            method:
+              "POST",
+
+            headers: {
+              "content-type":
+                "application/pdf",
+
+              accept:
+                "application/json",
+            },
+
+            body:
+              file,
+          }
+        );
+
+
+      const payload =
+        await response.json();
+
+
+      if (
+        !response.ok ||
+        !payload.ok ||
+        !payload.source
+      ) {
+        throw new Error(
+          payload.error ||
+          `HTTP ${response.status}`
+        );
+      }
+
+
+      currentSource =
+        payload.source;
+
+      renderSourcePdf();
+
+
+      sourcePdfMessage.textContent =
+        "Private PDF uploaded.";
+
+      sourcePdfMessage.className =
+        "save-message save-message-success";
+
+      sourcePdfMessage.hidden =
+        false;
+    } catch (error) {
+      console.error(
+        "Unable to upload private PDF.",
+        error
+      );
+
+
+      sourcePdfMessage.textContent =
+        error.message ||
+        "Unable to upload private PDF.";
+
+      sourcePdfMessage.className =
+        "save-message save-message-error";
+
+      sourcePdfMessage.hidden =
+        false;
+    } finally {
+      uploadSourcePdfButton.disabled =
+        false;
+
+      removeSourcePdfButton.disabled =
+        false;
+
+      renderSourcePdf();
+    }
+  }
+);
+
+
+removeSourcePdfButton.addEventListener(
+  "click",
+  async () => {
+    if (
+      !currentSource ||
+      !currentSource.private_pdf_object_key
+    ) {
+      return;
+    }
+
+
+    if (
+      !window.confirm(
+        "Remove this private PDF from the Source?"
+      )
+    ) {
+      return;
+    }
+
+
+    uploadSourcePdfButton.disabled =
+      true;
+
+    removeSourcePdfButton.disabled =
+      true;
+
+    removeSourcePdfButton.textContent =
+      "Removing…";
+
+    sourcePdfMessage.hidden =
+      true;
+
+
+    try {
+      const response =
+        await fetch(
+          `/api/sources/${encodeURIComponent(
+            currentSource.id
+          )}/pdf`,
+          {
+            method:
+              "DELETE",
+
+            headers: {
+              accept:
+                "application/json",
+            },
+          }
+        );
+
+
+      const payload =
+        await response.json();
+
+
+      if (
+        !response.ok ||
+        !payload.ok ||
+        !payload.source
+      ) {
+        throw new Error(
+          payload.error ||
+          `HTTP ${response.status}`
+        );
+      }
+
+
+      currentSource =
+        payload.source;
+
+      renderSourcePdf();
+
+
+      sourcePdfMessage.textContent =
+        payload.warning ||
+        "Private PDF removed.";
+
+      sourcePdfMessage.className =
+        payload.warning
+          ? "save-message save-message-warning"
+          : "save-message save-message-success";
+
+      sourcePdfMessage.hidden =
+        false;
+    } catch (error) {
+      console.error(
+        "Unable to remove private PDF.",
+        error
+      );
+
+
+      sourcePdfMessage.textContent =
+        error.message ||
+        "Unable to remove private PDF.";
+
+      sourcePdfMessage.className =
+        "save-message save-message-error";
+
+      sourcePdfMessage.hidden =
+        false;
+    } finally {
+      uploadSourcePdfButton.disabled =
+        false;
+
+      removeSourcePdfButton.disabled =
+        false;
+
+      removeSourcePdfButton.textContent =
+        "Remove PDF";
+
+      renderSourcePdf();
+    }
+  }
+);
 
 loadSource();

@@ -1,4 +1,6 @@
-const CURATOR_BUILD_ID = "manage-records-bulk-edit-001";
+import JSZip from "jszip";
+
+const CURATOR_BUILD_ID = "corrosion-xlsm-generate-001";
 
 function htmlResponse(html, status = 200) {
   return new Response(html, {
@@ -277,6 +279,27 @@ async function handleSourceUpdate(request, env, sourceId) {
     );
   }
 
+  for (
+    const field
+    of [
+      "programme",
+      "metals",
+      "exposure_periods",
+    ]
+  ) {
+    if (
+      Object.hasOwn(
+        updates,
+        field
+      )
+    ) {
+      updates[field] =
+        mergeBulkMetadataValues(
+          updates[field]
+        );
+    }
+  }
+
   if (Object.hasOwn(updates, "source_code")) {
     updates.source_code =
       normaliseSourceCode(
@@ -397,6 +420,11 @@ async function handleSourceUpdate(request, env, sourceId) {
       }
     );
   }
+
+  await persistSourceMetadataOptions(
+    env,
+    source
+  );
 
   return Response.json(
     {
@@ -585,17 +613,72 @@ async function handleSiteUpdate(request, env, siteId) {
         : String(value).trim();
   }
 
-  if (!updates.site_id) {
+  if (
+    Object.keys(
+      updates
+    ).length === 0
+  ) {
     return Response.json(
-      { ok: false, error: "Site ID cannot be blank." },
-      { status: 400, headers: { "cache-control": "no-store" } }
+      {
+        ok: false,
+        error:
+          "No editable fields were supplied.",
+      },
+      {
+        status: 400,
+        headers: {
+          "cache-control":
+            "no-store",
+        },
+      }
     );
   }
 
-  if (!updates.site_label) {
+
+  if (
+    Object.hasOwn(
+      updates,
+      "site_id"
+    ) &&
+    !updates.site_id
+  ) {
     return Response.json(
-      { ok: false, error: "Site label cannot be blank." },
-      { status: 400, headers: { "cache-control": "no-store" } }
+      {
+        ok: false,
+        error:
+          "Site ID cannot be blank.",
+      },
+      {
+        status: 400,
+        headers: {
+          "cache-control":
+            "no-store",
+        },
+      }
+    );
+  }
+
+
+  if (
+    Object.hasOwn(
+      updates,
+      "site_label"
+    ) &&
+    !updates.site_label
+  ) {
+    return Response.json(
+      {
+        ok: false,
+        error:
+          "Site label cannot be blank.",
+      },
+      {
+        status: 400,
+        headers: {
+          "cache-control":
+            "no-store",
+        },
+      }
     );
   }
 
@@ -622,8 +705,25 @@ async function handleSiteUpdate(request, env, siteId) {
     });
 
     return Response.json(
-      { ok: false, error: "Unable to save site." },
-      { status: 502, headers: { "cache-control": "no-store" } }
+      {
+        ok: false,
+
+        error:
+          response.status === 409
+            ? "The Site update conflicts with an existing record."
+            : "Unable to save Site.",
+      },
+      {
+        status:
+          response.status === 409
+            ? 409
+            : 502,
+
+        headers: {
+          "cache-control":
+            "no-store",
+        },
+      }
     );
   }
 
@@ -6921,6 +7021,7 @@ const MANAGE_BULK_EDIT_FIELDS = {
     new Set([
       "site_id",
       "site_label",
+      "site_type",
       "latitude",
       "longitude",
       "modern_country_location",
@@ -7599,6 +7700,2887 @@ async function handleManageRegionApply(
   );
 }
 
+const SOURCE_PDF_MAX_BYTES =
+  50 * 1024 * 1024;
+
+
+function buildSourcePdfObjectKey(
+  sourceCode
+) {
+  const canonical =
+    normaliseSourceCode(
+      sourceCode
+    );
+
+
+  if (
+    !isCanonicalSourceCode(
+      canonical
+    )
+  ) {
+    throw new Error(
+      "Source code is not canonical."
+    );
+  }
+
+
+  return {
+    source_code:
+      canonical,
+
+    file_name:
+      `${canonical}.pdf`,
+
+    object_key:
+      `source_pdfs/${canonical}.pdf`,
+  };
+}
+
+
+async function loadSourcePdfRecord(
+  env,
+  sourceId
+) {
+  const id =
+    Number(sourceId);
+
+
+  if (
+    !Number.isInteger(id) ||
+    id <= 0
+  ) {
+    return null;
+  }
+
+
+  const endpoint =
+    new URL(
+      "/rest/v1/sources",
+      env.SUPABASE_URL
+    );
+
+
+  endpoint.searchParams.set(
+    "select",
+    [
+      "id",
+      "source_code",
+      "source_title",
+      "local_file_name",
+      "private_pdf_object_key",
+    ].join(",")
+  );
+
+  endpoint.searchParams.set(
+    "id",
+    `eq.${id}`
+  );
+
+  endpoint.searchParams.set(
+    "limit",
+    "1"
+  );
+
+
+  const response =
+    await fetch(
+      endpoint,
+      {
+        headers: {
+          apikey:
+            env.SUPABASE_SECRET_KEY,
+
+          authorization:
+            `Bearer ${env.SUPABASE_SECRET_KEY}`,
+
+          accept:
+            "application/json",
+        },
+      }
+    );
+
+
+  if (!response.ok) {
+    throw new Error(
+      "Unable to load Source PDF metadata."
+    );
+  }
+
+
+  const rows =
+    await response.json();
+
+
+  return rows[0] || null;
+}
+
+
+async function updateSourcePdfMetadata(
+  env,
+  sourceId,
+  {
+    local_file_name,
+    private_pdf_object_key,
+  }
+) {
+  const endpoint =
+    new URL(
+      "/rest/v1/sources",
+      env.SUPABASE_URL
+    );
+
+
+  endpoint.searchParams.set(
+    "id",
+    `eq.${Number(sourceId)}`
+  );
+
+
+  const response =
+    await fetch(
+      endpoint,
+      {
+        method:
+          "PATCH",
+
+        headers: {
+          apikey:
+            env.SUPABASE_SECRET_KEY,
+
+          authorization:
+            `Bearer ${env.SUPABASE_SECRET_KEY}`,
+
+          "content-type":
+            "application/json",
+
+          accept:
+            "application/json",
+
+          prefer:
+            "return=representation",
+        },
+
+        body:
+          JSON.stringify({
+            local_file_name:
+              String(
+                local_file_name || ""
+              ).trim(),
+
+            private_pdf_object_key:
+              String(
+                private_pdf_object_key ||
+                ""
+              ).trim(),
+          }),
+      }
+    );
+
+
+  if (!response.ok) {
+    console.error(
+      "Unable to update Source PDF metadata.",
+      response.status,
+      await response.text()
+    );
+
+
+    throw new Error(
+      "Unable to update Source PDF metadata."
+    );
+  }
+
+
+  const rows =
+    await response.json();
+
+
+  return rows[0] || null;
+}
+
+
+function sourcePdfError(
+  error,
+  status = 400
+) {
+  return Response.json(
+    {
+      ok: false,
+      error,
+    },
+    {
+      status,
+      headers: {
+        "cache-control":
+          "no-store",
+      },
+    }
+  );
+}
+
+
+async function handleSourcePdfGet(
+  request,
+  env,
+  sourceId
+) {
+  if (!env.SOURCE_PDFS) {
+    return sourcePdfError(
+      "Private PDF storage is not configured.",
+      500
+    );
+  }
+
+
+  let source;
+
+
+  try {
+    source =
+      await loadSourcePdfRecord(
+        env,
+        sourceId
+      );
+  } catch (error) {
+    console.error(
+      "Unable to load Source PDF record.",
+      error
+    );
+
+    return sourcePdfError(
+      "Unable to load Source PDF metadata.",
+      502
+    );
+  }
+
+
+  if (!source) {
+    return sourcePdfError(
+      "Source not found.",
+      404
+    );
+  }
+
+
+  const objectKey =
+    String(
+      source.private_pdf_object_key ||
+      ""
+    ).trim();
+
+
+  if (!objectKey) {
+    return sourcePdfError(
+      "No private PDF is attached to this Source.",
+      404
+    );
+  }
+
+
+  let object;
+
+
+  try {
+    object =
+      await env.SOURCE_PDFS.get(
+        objectKey
+      );
+  } catch (error) {
+    console.error(
+      "Unable to read PDF from R2.",
+      error
+    );
+
+    return sourcePdfError(
+      "Unable to read private PDF.",
+      502
+    );
+  }
+
+
+  if (!object) {
+    return sourcePdfError(
+      "The Source references a PDF that is not present in R2.",
+      404
+    );
+  }
+
+
+  const headers =
+    new Headers();
+
+
+  object.writeHttpMetadata(
+    headers
+  );
+
+
+  const fileName =
+    String(
+      source.local_file_name ||
+      ""
+    ).trim() ||
+    `${normaliseSourceCode(
+      source.source_code
+    )}.pdf`;
+
+
+  headers.set(
+    "content-type",
+    "application/pdf"
+  );
+
+  headers.set(
+    "content-disposition",
+    `inline; filename="${fileName.replaceAll(
+      '"',
+      ""
+    )}"`
+  );
+
+  headers.set(
+    "cache-control",
+    "private, no-store"
+  );
+
+  headers.set(
+    "etag",
+    object.httpEtag
+  );
+
+  headers.set(
+    "content-length",
+    String(
+      object.size
+    )
+  );
+
+
+  return new Response(
+    object.body,
+    {
+      status: 200,
+      headers,
+    }
+  );
+}
+
+
+async function handleSourcePdfUpload(
+  request,
+  env,
+  sourceId
+) {
+  if (!env.SOURCE_PDFS) {
+    return sourcePdfError(
+      "Private PDF storage is not configured.",
+      500
+    );
+  }
+
+
+  let source;
+
+
+  try {
+    source =
+      await loadSourcePdfRecord(
+        env,
+        sourceId
+      );
+  } catch (error) {
+    console.error(error);
+
+    return sourcePdfError(
+      "Unable to load Source PDF metadata.",
+      502
+    );
+  }
+
+
+  if (!source) {
+    return sourcePdfError(
+      "Source not found.",
+      404
+    );
+  }
+
+
+  let pdfInfo;
+
+
+  try {
+    pdfInfo =
+      buildSourcePdfObjectKey(
+        source.source_code
+      );
+  } catch {
+    return sourcePdfError(
+      "The Source must have a canonical sNNN Source code before a PDF can be uploaded.",
+      400
+    );
+  }
+
+
+  const declaredLength =
+    Number(
+      request.headers.get(
+        "content-length"
+      )
+    );
+
+
+  if (
+    Number.isFinite(
+      declaredLength
+    ) &&
+    declaredLength >
+      SOURCE_PDF_MAX_BYTES
+  ) {
+    return sourcePdfError(
+      "PDF exceeds the 50 MB upload limit.",
+      413
+    );
+  }
+
+
+  let bytes;
+
+
+  try {
+    bytes =
+      await request.arrayBuffer();
+  } catch {
+    return sourcePdfError(
+      "Unable to read uploaded PDF.",
+      400
+    );
+  }
+
+
+  if (!bytes.byteLength) {
+    return sourcePdfError(
+      "The uploaded PDF is empty.",
+      400
+    );
+  }
+
+
+  if (
+    bytes.byteLength >
+    SOURCE_PDF_MAX_BYTES
+  ) {
+    return sourcePdfError(
+      "PDF exceeds the 50 MB upload limit.",
+      413
+    );
+  }
+
+
+  /*
+   * Do not trust only the browser MIME type.
+   * PDF files begin with "%PDF-".
+   */
+  const signature =
+    new TextDecoder()
+      .decode(
+        bytes.slice(
+          0,
+          Math.min(
+            5,
+            bytes.byteLength
+          )
+        )
+      );
+
+
+  if (
+    signature !== "%PDF-"
+  ) {
+    return sourcePdfError(
+      "The uploaded file does not appear to be a valid PDF.",
+      400
+    );
+  }
+
+
+  const previousObjectKey =
+    String(
+      source.private_pdf_object_key ||
+      ""
+    ).trim();
+
+
+  try {
+    await env.SOURCE_PDFS.put(
+      pdfInfo.object_key,
+      bytes,
+      {
+        httpMetadata: {
+          contentType:
+            "application/pdf",
+
+          contentDisposition:
+            `inline; filename="${pdfInfo.file_name}"`,
+
+          cacheControl:
+            "private, no-store",
+        },
+
+        customMetadata: {
+          source_id:
+            String(
+              source.id
+            ),
+
+          source_code:
+            pdfInfo.source_code,
+        },
+      }
+    );
+  } catch (error) {
+    console.error(
+      "R2 PDF upload failed.",
+      error
+    );
+
+
+    return sourcePdfError(
+      "Unable to upload PDF to private storage.",
+      502
+    );
+  }
+
+
+  let updatedSource;
+
+
+  try {
+    updatedSource =
+      await updateSourcePdfMetadata(
+        env,
+        source.id,
+        {
+          local_file_name:
+            pdfInfo.file_name,
+
+          private_pdf_object_key:
+            pdfInfo.object_key,
+        }
+      );
+  } catch (error) {
+    console.error(
+      "PDF was uploaded but Source metadata could not be updated.",
+      error
+    );
+
+
+    return sourcePdfError(
+      "PDF reached R2, but the Source record could not be updated.",
+      502
+    );
+  }
+
+
+  /*
+   * If the Source code changed since an older
+   * upload, remove the now-obsolete old key only
+   * after the new object and DB metadata are safe.
+   */
+  if (
+    previousObjectKey &&
+    previousObjectKey !==
+      pdfInfo.object_key
+  ) {
+    try {
+      await env.SOURCE_PDFS.delete(
+        previousObjectKey
+      );
+    } catch (error) {
+      console.warn(
+        "New PDF saved but obsolete R2 object could not be removed.",
+        error
+      );
+    }
+  }
+
+
+  return Response.json(
+    {
+      ok: true,
+      source:
+        updatedSource,
+    },
+    {
+      headers: {
+        "cache-control":
+          "no-store",
+      },
+    }
+  );
+}
+
+
+async function handleSourcePdfDelete(
+  env,
+  sourceId
+) {
+  if (!env.SOURCE_PDFS) {
+    return sourcePdfError(
+      "Private PDF storage is not configured.",
+      500
+    );
+  }
+
+
+  let source;
+
+
+  try {
+    source =
+      await loadSourcePdfRecord(
+        env,
+        sourceId
+      );
+  } catch (error) {
+    console.error(error);
+
+    return sourcePdfError(
+      "Unable to load Source PDF metadata.",
+      502
+    );
+  }
+
+
+  if (!source) {
+    return sourcePdfError(
+      "Source not found.",
+      404
+    );
+  }
+
+
+  const objectKey =
+    String(
+      source.private_pdf_object_key ||
+      ""
+    ).trim();
+
+
+  if (!objectKey) {
+    return sourcePdfError(
+      "No private PDF is attached to this Source.",
+      404
+    );
+  }
+
+
+  let updatedSource;
+
+
+  /*
+   * Clear the database reference first.
+   * If R2 deletion subsequently fails, the worst
+   * outcome is an orphaned private object rather
+   * than a Source pointing at a missing file.
+   */
+  try {
+    updatedSource =
+      await updateSourcePdfMetadata(
+        env,
+        source.id,
+        {
+          local_file_name:
+            "",
+
+          private_pdf_object_key:
+            "",
+        }
+      );
+  } catch (error) {
+    console.error(error);
+
+    return sourcePdfError(
+      "Unable to clear Source PDF metadata.",
+      502
+    );
+  }
+
+
+  let warning = "";
+
+
+  try {
+    await env.SOURCE_PDFS.delete(
+      objectKey
+    );
+  } catch (error) {
+    console.error(
+      "Unable to remove R2 PDF after clearing database reference.",
+      error
+    );
+
+
+    warning =
+      "The Source no longer references the PDF, but the R2 object could not be removed automatically.";
+  }
+
+
+  return Response.json(
+    {
+      ok: true,
+
+      source:
+        updatedSource,
+
+      warning,
+    },
+    {
+      headers: {
+        "cache-control":
+          "no-store",
+      },
+    }
+  );
+}
+
+async function handleCorrosionObservations(
+  request,
+  env
+) {
+  if (
+    !env.SUPABASE_URL ||
+    !env.SUPABASE_SECRET_KEY
+  ) {
+    return Response.json(
+      {
+        ok: false,
+        error:
+          "Supabase configuration is missing.",
+      },
+      {
+        status: 500,
+        headers: {
+          "cache-control":
+            "no-store",
+        },
+      }
+    );
+  }
+
+
+  const url =
+    new URL(
+      request.url
+    );
+
+
+  const page =
+    parseManageInteger(
+      url.searchParams.get(
+        "page"
+      ),
+      1,
+      1,
+      1000000
+    );
+
+
+  const requestedPageSize =
+    parseManageInteger(
+      url.searchParams.get(
+        "page_size"
+      ),
+      50,
+      1,
+      200
+    );
+
+
+  const allowedPageSizes =
+    new Set([
+      25,
+      50,
+      100,
+      200,
+    ]);
+
+
+  const pageSize =
+    allowedPageSizes.has(
+      requestedPageSize
+    )
+      ? requestedPageSize
+      : 50;
+
+
+  const searchTerm =
+    cleanManageSearchTerm(
+      url.searchParams.get(
+        "q"
+      )
+    );
+
+
+  const endpoint =
+    new URL(
+      "/rest/v1/corrosion_observations",
+      env.SUPABASE_URL
+    );
+
+
+  endpoint.searchParams.set(
+    "select",
+    [
+      "id",
+      "site_fk",
+      "source_fk",
+      "site_source_fk",
+
+      "material",
+      "exposure_period",
+      "exposure_start",
+      "exposure_end",
+      "corrosion_metric",
+
+      "value",
+      "unit",
+
+      "canonical_thickness_loss_rate_um_year",
+      "canonical_mass_loss_rate_g_m2_year",
+
+      "normalized_value",
+      "normalized_unit",
+
+      "density_g_cm3",
+      "density_basis",
+
+      "normalization_note",
+
+      "measurement_method",
+      "specimen_condition",
+      "exposure_condition",
+      "notes",
+
+      "created_at",
+      "updated_at",
+
+      "sites(" +
+        "site_id," +
+        "site_label," +
+        "modern_country_location" +
+      ")",
+
+      "sources(" +
+        "source_code," +
+        "source_title" +
+      ")",
+    ].join(",")
+  );
+
+
+  endpoint.searchParams.set(
+    "order",
+    "id.desc"
+  );
+
+
+  if (searchTerm) {
+    const clauses =
+      buildManageIlikeClauses(
+        [
+          "material",
+          "exposure_period",
+          "exposure_start",
+          "exposure_end",
+          "corrosion_metric",
+          "unit",
+          "density_basis",
+          "normalization_note",
+          "measurement_method",
+          "specimen_condition",
+          "exposure_condition",
+          "notes",
+        ],
+        searchTerm
+      );
+
+
+    const {
+      siteIds,
+      sourceIds,
+    } =
+      await getManageSearchRelations(
+        env,
+        searchTerm
+      );
+
+
+    if (
+      siteIds.length
+    ) {
+      clauses.push(
+        `site_fk.in.(${siteIds.join(",")})`
+      );
+    }
+
+
+    if (
+      sourceIds.length
+    ) {
+      clauses.push(
+        `source_fk.in.(${sourceIds.join(",")})`
+      );
+    }
+
+
+    endpoint.searchParams.set(
+      "or",
+      `(${clauses.join(",")})`
+    );
+  }
+
+
+  const start =
+    (
+      page - 1
+    ) *
+    pageSize;
+
+  const end =
+    start +
+    pageSize -
+    1;
+
+
+  const response =
+    await fetch(
+      endpoint,
+      {
+        headers: {
+          apikey:
+            env.SUPABASE_SECRET_KEY,
+
+          authorization:
+            `Bearer ${env.SUPABASE_SECRET_KEY}`,
+
+          accept:
+            "application/json",
+
+          prefer:
+            "count=exact",
+
+          range:
+            `${start}-${end}`,
+        },
+      }
+    );
+
+
+  if (!response.ok) {
+    const detail =
+      await response.text();
+
+
+    console.error(
+      "Corrosion observation browser query failed.",
+      {
+        status:
+          response.status,
+
+        detail,
+      }
+    );
+
+
+    return Response.json(
+      {
+        ok: false,
+        error:
+          "Unable to load corrosion observations.",
+      },
+      {
+        status: 502,
+        headers: {
+          "cache-control":
+            "no-store",
+        },
+      }
+    );
+  }
+
+
+  const rows =
+    await response.json();
+
+
+  const total =
+    manageContentRangeTotal(
+      response
+    );
+
+
+  const totalPages =
+    Math.max(
+      1,
+      Math.ceil(
+        total /
+        pageSize
+      )
+    );
+
+
+  const observations =
+    rows.map(
+      (row) => ({
+        id:
+          row.id,
+
+        site_fk:
+          row.site_fk,
+
+        source_fk:
+          row.source_fk,
+
+        site_source_fk:
+          row.site_source_fk,
+
+        site_id:
+          row.sites?.site_id ||
+          "",
+
+        site_label:
+          row.sites?.site_label ||
+          "",
+
+        modern_country_location:
+          row.sites?.modern_country_location ||
+          "",
+
+        source_code:
+          row.sources?.source_code ||
+          "",
+
+        source_title:
+          row.sources?.source_title ||
+          "",
+
+        material:
+          row.material ||
+          "",
+
+        exposure_period:
+          row.exposure_period ||
+          "",
+
+        exposure_start:
+          row.exposure_start ||
+          "",
+
+        exposure_end:
+          row.exposure_end ||
+          "",
+
+        corrosion_metric:
+          row.corrosion_metric ||
+          "",
+
+        value:
+          row.value,
+
+        unit:
+          row.unit ||
+          "",
+
+        canonical_thickness_loss_rate_um_year:
+          row
+            .canonical_thickness_loss_rate_um_year,
+
+        canonical_mass_loss_rate_g_m2_year:
+          row
+            .canonical_mass_loss_rate_g_m2_year,
+
+        normalized_value:
+          row.normalized_value,
+
+        normalized_unit:
+          row.normalized_unit ||
+          "",
+
+        density_g_cm3:
+          row.density_g_cm3,
+
+        density_basis:
+          row.density_basis ||
+          "",
+
+        normalization_note:
+          row.normalization_note ||
+          "",
+
+        measurement_method:
+          row.measurement_method ||
+          "",
+
+        specimen_condition:
+          row.specimen_condition ||
+          "",
+
+        exposure_condition:
+          row.exposure_condition ||
+          "",
+
+        notes:
+          row.notes ||
+          "",
+
+        created_at:
+          row.created_at,
+
+        updated_at:
+          row.updated_at,
+      })
+    );
+
+
+  return Response.json(
+    {
+      ok: true,
+
+      observations,
+
+      total,
+
+      page,
+
+      page_size:
+        pageSize,
+
+      total_pages:
+        totalPages,
+    },
+    {
+      headers: {
+        "cache-control":
+          "no-store",
+      },
+    }
+  );
+}
+
+
+async function handleCorrosionWorkbookSources(
+  env
+) {
+  if (
+    !env.SUPABASE_URL ||
+    !env.SUPABASE_SECRET_KEY
+  ) {
+    return Response.json(
+      {
+        ok: false,
+        error:
+          "Supabase configuration is missing.",
+      },
+      {
+        status: 500,
+        headers: {
+          "cache-control":
+            "no-store",
+        },
+      }
+    );
+  }
+
+
+  /*
+   * The empty inner embed filters Sources to only
+   * those having at least one Site–Source relationship,
+   * without sending every link to the browser.
+   */
+  const endpoint =
+    new URL(
+      "/rest/v1/sources",
+      env.SUPABASE_URL
+    );
+
+
+  endpoint.searchParams.set(
+    "select",
+    [
+      "id",
+      "source_code",
+      "source_title",
+      "programme",
+      "private_pdf_object_key",
+      "site_sources!inner()",
+    ].join(",")
+  );
+
+
+  endpoint.searchParams.set(
+    "order",
+    "source_code.asc"
+  );
+
+
+  const response =
+    await fetch(
+      endpoint,
+      {
+        headers: {
+          apikey:
+            env.SUPABASE_SECRET_KEY,
+
+          authorization:
+            `Bearer ${env.SUPABASE_SECRET_KEY}`,
+
+          accept:
+            "application/json",
+        },
+      }
+    );
+
+
+  if (!response.ok) {
+    const detail =
+      await response.text();
+
+
+    console.error(
+      "Unable to load corrosion workbook Sources.",
+      {
+        status:
+          response.status,
+
+        detail,
+      }
+    );
+
+
+    return Response.json(
+      {
+        ok: false,
+
+        error:
+          "Unable to load Sources available for corrosion workbooks.",
+      },
+      {
+        status: 502,
+        headers: {
+          "cache-control":
+            "no-store",
+        },
+      }
+    );
+  }
+
+
+  const rows =
+    await response.json();
+
+
+  const sources =
+    rows.map(
+      (row) => ({
+        id:
+          row.id,
+
+        source_code:
+          row.source_code ||
+          "",
+
+        source_title:
+          row.source_title ||
+          "",
+
+        programme:
+          row.programme ||
+          "",
+
+        has_private_pdf:
+          Boolean(
+            String(
+              row.private_pdf_object_key ||
+              ""
+            ).trim()
+          ),
+      })
+    );
+
+
+  return Response.json(
+    {
+      ok: true,
+      sources,
+    },
+    {
+      headers: {
+        "cache-control":
+          "no-store",
+      },
+    }
+  );
+}
+
+function corrosionXmlEscape(
+  value
+) {
+  return String(
+    value ?? ""
+  )
+    .replaceAll(
+      "&",
+      "&amp;"
+    )
+    .replaceAll(
+      "<",
+      "&lt;"
+    )
+    .replaceAll(
+      ">",
+      "&gt;"
+    );
+}
+
+
+function corrosionCleanText(
+  value
+) {
+  if (
+    value === null ||
+    value === undefined
+  ) {
+    return "";
+  }
+
+  return String(value).trim();
+}
+
+
+function corrosionComparableText(
+  value
+) {
+  return corrosionCleanText(
+    value
+  ).toLocaleLowerCase();
+}
+
+
+function corrosionExtractRowXml(
+  sheetXml,
+  rowNumber
+) {
+  const expression =
+    new RegExp(
+      `<row\\s+r="${rowNumber}"[^>]*>` +
+      `[\\s\\S]*?<\\/row>`
+    );
+
+  const match =
+    sheetXml.match(
+      expression
+    );
+
+  return match
+    ? match[0]
+    : "";
+}
+
+
+function corrosionExtractFirstDataRow(
+  sheetXml
+) {
+  const expression =
+    /<row\s+r="(\d+)"[^>]*>[\s\S]*?<\/row>/g;
+
+  let match;
+
+  while (
+    (
+      match =
+        expression.exec(
+          sheetXml
+        )
+    )
+  ) {
+    const rowNumber =
+      Number(
+        match[1]
+      );
+
+    if (
+      Number.isInteger(
+        rowNumber
+      ) &&
+      rowNumber >= 2
+    ) {
+      return {
+        rowNumber,
+        xml:
+          match[0],
+      };
+    }
+  }
+
+  return null;
+}
+
+
+function corrosionExtractCellXml(
+  rowXml,
+  columnLetter,
+  rowNumber
+) {
+  const expression =
+    new RegExp(
+      `<c\\s+r="${columnLetter}${rowNumber}"` +
+      `[^>]*` +
+      `(?:\\/>|>[\\s\\S]*?<\\/c>)`
+    );
+
+  const match =
+    rowXml.match(
+      expression
+    );
+
+  return match
+    ? match[0]
+    : "";
+}
+
+
+function corrosionCellStyle(
+  rowXml,
+  columnLetter,
+  rowNumber
+) {
+  const cellXml =
+    corrosionExtractCellXml(
+      rowXml,
+      columnLetter,
+      rowNumber
+    );
+
+  if (!cellXml) {
+    return "";
+  }
+
+  const styleMatch =
+    cellXml.match(
+      /\ss="(\d+)"/
+    );
+
+  return styleMatch
+    ? styleMatch[1]
+    : "";
+}
+
+
+function corrosionStyleAttribute(
+  styleId
+) {
+  return styleId
+    ? ` s="${styleId}"`
+    : "";
+}
+
+
+function corrosionInlineCell(
+  columnLetter,
+  rowNumber,
+  styleId,
+  value
+) {
+  const text =
+    corrosionCleanText(
+      value
+    );
+
+  const style =
+    corrosionStyleAttribute(
+      styleId
+    );
+
+  if (!text) {
+    return (
+      `<c r="${columnLetter}${rowNumber}"` +
+      `${style} t="inlineStr"/>`
+    );
+  }
+
+  return (
+    `<c r="${columnLetter}${rowNumber}"` +
+    `${style} t="inlineStr">` +
+    `<is><t>${corrosionXmlEscape(text)}</t></is>` +
+    `</c>`
+  );
+}
+
+
+function corrosionNumberCell(
+  columnLetter,
+  rowNumber,
+  styleId,
+  value
+) {
+  const numeric =
+    Number(value);
+
+  if (
+    value === "" ||
+    value === null ||
+    value === undefined ||
+    !Number.isFinite(
+      numeric
+    )
+  ) {
+    return corrosionInlineCell(
+      columnLetter,
+      rowNumber,
+      styleId,
+      ""
+    );
+  }
+
+  return (
+    `<c r="${columnLetter}${rowNumber}"` +
+    `${corrosionStyleAttribute(styleId)} t="n">` +
+    `<v>${numeric}</v>` +
+    `</c>`
+  );
+}
+
+
+function corrosionShiftTemplateCell(
+  cellXml,
+  columnLetter,
+  sourceRowNumber,
+  targetRowNumber
+) {
+  if (!cellXml) {
+    return "";
+  }
+
+  let shifted =
+    cellXml.replace(
+      new RegExp(
+        `r="${columnLetter}${sourceRowNumber}"`,
+        "g"
+      ),
+      `r="${columnLetter}${targetRowNumber}"`
+    );
+
+  /*
+   * Shift ordinary/row-relative cell references such as:
+   *
+   * G2
+   * $G2
+   * K2
+   *
+   * Absolute references such as $E$2 remain unchanged
+   * because the row number is preceded by "$".
+   */
+  shifted =
+    shifted.replace(
+      new RegExp(
+        `([A-Z]{1,3})${sourceRowNumber}\\b`,
+        "g"
+      ),
+      `$1${targetRowNumber}`
+    );
+
+  return shifted;
+}
+
+
+function corrosionBuildWorkbookRow(
+  record,
+  rowNumber,
+  seedRowXml,
+  seedRowNumber
+) {
+  const styles = {};
+
+  for (
+    const column
+    of [
+      "A",
+      "B",
+      "C",
+      "D",
+      "E",
+      "F",
+      "G",
+      "H",
+      "I",
+      "J",
+      "K",
+      "L",
+      "M",
+      "N",
+      "O",
+      "P",
+      "Q",
+      "R",
+      "S",
+      "T",
+      "V",
+      "W",
+    ]
+  ) {
+    styles[column] =
+      corrosionCellStyle(
+        seedRowXml,
+        column,
+        seedRowNumber
+      );
+  }
+
+
+  const cells = [];
+
+
+  cells.push(
+    corrosionInlineCell(
+      "A",
+      rowNumber,
+      styles.A,
+      record.source_code
+    )
+  );
+
+  cells.push(
+    corrosionInlineCell(
+      "B",
+      rowNumber,
+      styles.B,
+      record.source_title
+    )
+  );
+
+  cells.push(
+    corrosionInlineCell(
+      "C",
+      rowNumber,
+      styles.C,
+      record.site_id
+    )
+  );
+
+  cells.push(
+    corrosionInlineCell(
+      "D",
+      rowNumber,
+      styles.D,
+      record.site_label
+    )
+  );
+
+  cells.push(
+    corrosionInlineCell(
+      "E",
+      rowNumber,
+      styles.E,
+      record.country
+    )
+  );
+
+
+  if (
+    record.observation_id !== "" &&
+    record.observation_id !== null &&
+    record.observation_id !== undefined &&
+    Number.isFinite(
+      Number(
+        record.observation_id
+      )
+    )
+  ) {
+    cells.push(
+      corrosionNumberCell(
+        "F",
+        rowNumber,
+        styles.F,
+        record.observation_id
+      )
+    );
+  } else {
+    cells.push(
+      corrosionInlineCell(
+        "F",
+        rowNumber,
+        styles.F,
+        ""
+      )
+    );
+  }
+
+
+  cells.push(
+    corrosionInlineCell(
+      "G",
+      rowNumber,
+      styles.G,
+      record.material
+    )
+  );
+
+  cells.push(
+    corrosionInlineCell(
+      "H",
+      rowNumber,
+      styles.H,
+      record.exposure_period
+    )
+  );
+
+  cells.push(
+    corrosionInlineCell(
+      "I",
+      rowNumber,
+      styles.I,
+      record.exposure_start
+    )
+  );
+
+  cells.push(
+    corrosionInlineCell(
+      "J",
+      rowNumber,
+      styles.J,
+      record.exposure_end
+    )
+  );
+
+  cells.push(
+    corrosionInlineCell(
+      "K",
+      rowNumber,
+      styles.K,
+      record.corrosion_metric
+    )
+  );
+
+  cells.push(
+    corrosionNumberCell(
+      "L",
+      rowNumber,
+      styles.L,
+      record.reported_value
+    )
+  );
+
+  cells.push(
+    corrosionInlineCell(
+      "M",
+      rowNumber,
+      styles.M,
+      record.reported_unit
+    )
+  );
+
+
+  /*
+   * N/P/Q/R/S/V/W retain the formulas from the
+   * legacy-generated runtime scaffold.
+   */
+  for (
+    const column
+    of [
+      "N",
+      "P",
+      "Q",
+      "R",
+      "S",
+    ]
+  ) {
+    const templateCell =
+      corrosionExtractCellXml(
+        seedRowXml,
+        column,
+        seedRowNumber
+      );
+
+    const shifted =
+      corrosionShiftTemplateCell(
+        templateCell,
+        column,
+        seedRowNumber,
+        rowNumber
+      );
+
+    if (!shifted) {
+      throw new Error(
+        `Runtime workbook template is missing formula cell ${column}${seedRowNumber}.`
+      );
+    }
+
+    cells.push(
+      shifted
+    );
+  }
+
+
+  cells.push(
+    corrosionInlineCell(
+      "O",
+      rowNumber,
+      styles.O,
+      record.density_override_g_cm3
+    )
+  );
+
+
+  /*
+   * O belongs between N and P in worksheet order.
+   *
+   * Move it into the correct position after N.
+   */
+  const oCell =
+    cells.pop();
+
+  cells.splice(
+    14,
+    0,
+    oCell
+  );
+
+
+  cells.push(
+    corrosionInlineCell(
+      "T",
+      rowNumber,
+      styles.T,
+      record.notes
+    )
+  );
+
+
+  for (
+    const column
+    of [
+      "V",
+      "W",
+    ]
+  ) {
+    const templateCell =
+      corrosionExtractCellXml(
+        seedRowXml,
+        column,
+        seedRowNumber
+      );
+
+    const shifted =
+      corrosionShiftTemplateCell(
+        templateCell,
+        column,
+        seedRowNumber,
+        rowNumber
+      );
+
+    if (!shifted) {
+      throw new Error(
+        `Runtime workbook template is missing helper formula cell ${column}${seedRowNumber}.`
+      );
+    }
+
+    cells.push(
+      shifted
+    );
+  }
+
+
+  return (
+    `<row r="${rowNumber}">` +
+    cells.join("") +
+    `</row>`
+  );
+}
+
+
+function corrosionUpdateSqref(
+  sheetXml,
+  columnLetter,
+  lastDataRow
+) {
+  const expression =
+    new RegExp(
+      `sqref="${columnLetter}2` +
+      `(?::${columnLetter}\\d+)?"`,
+      "g"
+    );
+
+  return sheetXml.replace(
+    expression,
+    `sqref="${columnLetter}2:${columnLetter}${lastDataRow}"`
+  );
+}
+
+
+function corrosionMutateObservationSheet(
+  sheetXml,
+  records
+) {
+  if (
+    !Array.isArray(
+      records
+    ) ||
+    records.length === 0
+  ) {
+    throw new Error(
+      "No workbook rows were generated."
+    );
+  }
+
+
+  const headerRow =
+    corrosionExtractRowXml(
+      sheetXml,
+      1
+    );
+
+  if (!headerRow) {
+    throw new Error(
+      "Runtime workbook template has no header row."
+    );
+  }
+
+
+  const seed =
+    corrosionExtractFirstDataRow(
+      sheetXml
+    );
+
+  if (!seed) {
+    throw new Error(
+      "Runtime workbook template has no starter data row."
+    );
+  }
+
+
+  const generatedRows = [];
+
+  for (
+    let index = 0;
+    index < records.length;
+    index += 1
+  ) {
+    const rowNumber =
+      index + 2;
+
+    generatedRows.push(
+      corrosionBuildWorkbookRow(
+        records[index],
+        rowNumber,
+        seed.xml,
+        seed.rowNumber
+      )
+    );
+  }
+
+
+  const lastDataRow =
+    records.length + 1;
+
+
+  const sheetData =
+    `<sheetData>` +
+    headerRow +
+    generatedRows.join("") +
+    `</sheetData>`;
+
+
+  let output =
+    sheetXml.replace(
+      /<sheetData>[\s\S]*?<\/sheetData>/,
+      sheetData
+    );
+
+
+  output =
+    output.replace(
+      /<dimension ref="[^"]*"\/>/,
+      `<dimension ref="A1:W${lastDataRow}"/>`
+    );
+
+
+  output =
+    output.replace(
+      /<autoFilter ref="[^"]*"\/>/,
+      `<autoFilter ref="A1:T${lastDataRow}"/>`
+    );
+
+
+  /*
+   * Conditional formatting.
+   */
+  output =
+    output.replace(
+      /sqref="G2:M\d+"/g,
+      `sqref="G2:M${lastDataRow}"`
+    );
+
+  output =
+    output.replace(
+      /sqref="S2(?::S\d+)?"/g,
+      `sqref="S2:S${lastDataRow}"`
+    );
+
+
+  /*
+   * Validation ranges.
+   */
+  for (
+    const column
+    of [
+      "G",
+      "H",
+      "K",
+      "L",
+      "M",
+      "O",
+    ]
+  ) {
+    output =
+      corrosionUpdateSqref(
+        output,
+        column,
+        lastDataRow
+      );
+  }
+
+
+  return {
+    xml:
+      output,
+
+    lastDataRow,
+  };
+}
+
+
+function corrosionMutateWorkbookXml(
+  workbookXml,
+  lastDataRow
+) {
+  let output =
+    workbookXml;
+
+
+  /*
+   * Update Excel's hidden AutoFilter defined name.
+   */
+  output =
+    output.replace(
+      /'Corrosion Observations'!\$A\$1:\$T\$\d+/g,
+      `'Corrosion Observations'!$A$1:$T$${lastDataRow}`
+    );
+
+
+  /*
+   * Ensure formulas recalculate when Excel opens.
+   */
+  if (
+    output.includes(
+      "<calcPr "
+    )
+  ) {
+    output =
+      output.replace(
+        /<calcPr\b[^>]*\/>/,
+        '<calcPr calcMode="auto" fullCalcOnLoad="1" calcOnSave="1" forceFullCalc="1"/>'
+      );
+  }
+
+
+  return output;
+}
+
+async function loadCorrosionWorkbookRecords(
+  env,
+  sourceId
+) {
+  const id =
+    Number(
+      sourceId
+    );
+
+
+  if (
+    !Number.isInteger(id) ||
+    id <= 0
+  ) {
+    throw new Error(
+      "Invalid Source ID."
+    );
+  }
+
+
+  const commonHeaders = {
+    apikey:
+      env.SUPABASE_SECRET_KEY,
+
+    authorization:
+      `Bearer ${env.SUPABASE_SECRET_KEY}`,
+
+    accept:
+      "application/json",
+  };
+
+
+  /*
+   * ------------------------------------------------------
+   * Source
+   * ------------------------------------------------------
+   */
+
+  const sourceEndpoint =
+    new URL(
+      "/rest/v1/sources",
+      env.SUPABASE_URL
+    );
+
+
+  sourceEndpoint.searchParams.set(
+    "select",
+    [
+      "id",
+      "source_code",
+      "source_title",
+    ].join(",")
+  );
+
+  sourceEndpoint.searchParams.set(
+    "id",
+    `eq.${id}`
+  );
+
+  sourceEndpoint.searchParams.set(
+    "limit",
+    "1"
+  );
+
+
+  const sourceResponse =
+    await fetch(
+      sourceEndpoint,
+      {
+        headers:
+          commonHeaders,
+      }
+    );
+
+
+  if (!sourceResponse.ok) {
+    throw new Error(
+      "Unable to load Source for workbook generation."
+    );
+  }
+
+
+  const sourceRows =
+    await sourceResponse.json();
+
+
+  const source =
+    sourceRows[0] ||
+    null;
+
+
+  if (!source) {
+    throw new Error(
+      "Source not found."
+    );
+  }
+
+
+  /*
+   * ------------------------------------------------------
+   * Linked Sites
+   * ------------------------------------------------------
+   */
+
+  const linkEndpoint =
+    new URL(
+      "/rest/v1/site_sources",
+      env.SUPABASE_URL
+    );
+
+
+  linkEndpoint.searchParams.set(
+    "select",
+    [
+      "site_fk",
+      "sites(" +
+        "site_id," +
+        "site_label," +
+        "modern_country_location" +
+      ")",
+    ].join(",")
+  );
+
+  linkEndpoint.searchParams.set(
+    "source_fk",
+    `eq.${id}`
+  );
+
+
+  const linkResponse =
+    await fetch(
+      linkEndpoint,
+      {
+        headers:
+          commonHeaders,
+      }
+    );
+
+
+  if (!linkResponse.ok) {
+    throw new Error(
+      "Unable to load linked Sites for workbook generation."
+    );
+  }
+
+
+  const linkRows =
+    await linkResponse.json();
+
+
+  const sites = [];
+
+
+  for (
+    const link
+    of linkRows
+  ) {
+    if (
+      !link.sites ||
+      !corrosionCleanText(
+        link.sites.site_id
+      )
+    ) {
+      continue;
+    }
+
+
+    sites.push({
+      site_fk:
+        Number(
+          link.site_fk
+        ),
+
+      site_id:
+        corrosionCleanText(
+          link.sites.site_id
+        ),
+
+      site_label:
+        corrosionCleanText(
+          link.sites.site_label
+        ),
+
+      country:
+        corrosionCleanText(
+          link
+            .sites
+            .modern_country_location
+        ),
+    });
+  }
+
+
+  if (
+    sites.length === 0
+  ) {
+    throw new Error(
+      `Source ${source.source_code || id} has no linked Sites.`
+    );
+  }
+
+
+  sites.sort(
+    (a, b) => {
+      const labelCompare =
+        corrosionComparableText(
+          a.site_label
+        ).localeCompare(
+          corrosionComparableText(
+            b.site_label
+          )
+        );
+
+      if (
+        labelCompare !== 0
+      ) {
+        return labelCompare;
+      }
+
+      return corrosionComparableText(
+        a.site_id
+      ).localeCompare(
+        corrosionComparableText(
+          b.site_id
+        )
+      );
+    }
+  );
+
+
+  /*
+   * ------------------------------------------------------
+   * Existing observations
+   * ------------------------------------------------------
+   */
+
+  const observationEndpoint =
+    new URL(
+      "/rest/v1/corrosion_observations",
+      env.SUPABASE_URL
+    );
+
+
+  observationEndpoint.searchParams.set(
+    "select",
+    [
+      "id",
+      "site_fk",
+      "material",
+      "exposure_period",
+      "exposure_start",
+      "exposure_end",
+      "corrosion_metric",
+      "value",
+      "unit",
+      "notes",
+    ].join(",")
+  );
+
+
+  observationEndpoint.searchParams.set(
+    "source_fk",
+    `eq.${id}`
+  );
+
+
+  const observationResponse =
+    await fetch(
+      observationEndpoint,
+      {
+        headers:
+          commonHeaders,
+      }
+    );
+
+
+  if (
+    !observationResponse.ok
+  ) {
+    throw new Error(
+      "Unable to load existing corrosion observations."
+    );
+  }
+
+
+  const observations =
+    await observationResponse.json();
+
+
+  const observationsBySite =
+    new Map();
+
+
+  for (
+    const observation
+    of observations
+  ) {
+    const siteFk =
+      Number(
+        observation.site_fk
+      );
+
+
+    if (
+      !observationsBySite.has(
+        siteFk
+      )
+    ) {
+      observationsBySite.set(
+        siteFk,
+        []
+      );
+    }
+
+
+    observationsBySite
+      .get(siteFk)
+      .push(
+        observation
+      );
+  }
+
+
+  for (
+    const siteObservations
+    of observationsBySite.values()
+  ) {
+    siteObservations.sort(
+      (a, b) => {
+        const keys = [
+          "material",
+          "exposure_period",
+          "exposure_start",
+          "exposure_end",
+          "corrosion_metric",
+        ];
+
+
+        for (
+          const key
+          of keys
+        ) {
+          const comparison =
+            corrosionComparableText(
+              a[key]
+            ).localeCompare(
+              corrosionComparableText(
+                b[key]
+              )
+            );
+
+          if (
+            comparison !== 0
+          ) {
+            return comparison;
+          }
+        }
+
+
+        return (
+          Number(a.id || 0) -
+          Number(b.id || 0)
+        );
+      }
+    );
+  }
+
+
+  /*
+   * ------------------------------------------------------
+   * Source -> Sites -> existing observations -> one starter
+   * row per linked Site.
+   * ------------------------------------------------------
+   */
+
+  const records = [];
+
+
+  for (
+    const site
+    of sites
+  ) {
+    const existing =
+      observationsBySite.get(
+        site.site_fk
+      ) ||
+      [];
+
+
+    for (
+      const observation
+      of existing
+    ) {
+      records.push({
+        source_code:
+          corrosionCleanText(
+            source.source_code
+          ),
+
+        source_title:
+          corrosionCleanText(
+            source.source_title
+          ),
+
+        site_id:
+          site.site_id,
+
+        site_label:
+          site.site_label,
+
+        country:
+          site.country,
+
+        observation_id:
+          observation.id,
+
+        material:
+          corrosionCleanText(
+            observation.material
+          ),
+
+        exposure_period:
+          corrosionCleanText(
+            observation.exposure_period
+          ),
+
+        exposure_start:
+          corrosionCleanText(
+            observation.exposure_start
+          ),
+
+        exposure_end:
+          corrosionCleanText(
+            observation.exposure_end
+          ),
+
+        corrosion_metric:
+          corrosionCleanText(
+            observation.corrosion_metric
+          ),
+
+        reported_value:
+          observation.value,
+
+        reported_unit:
+          corrosionCleanText(
+            observation.unit
+          ),
+
+        density_override_g_cm3:
+          "",
+
+        notes:
+          corrosionCleanText(
+            observation.notes
+          ),
+      });
+    }
+
+
+    /*
+     * Exactly one new-observation starter row,
+     * matching the current macro-enabled legacy workflow.
+     */
+    records.push({
+      source_code:
+        corrosionCleanText(
+          source.source_code
+        ),
+
+      source_title:
+        corrosionCleanText(
+          source.source_title
+        ),
+
+      site_id:
+        site.site_id,
+
+      site_label:
+        site.site_label,
+
+      country:
+        site.country,
+
+      observation_id:
+        "",
+
+      material:
+        "",
+
+      exposure_period:
+        "",
+
+      exposure_start:
+        "",
+
+      exposure_end:
+        "",
+
+      corrosion_metric:
+        "",
+
+      reported_value:
+        "",
+
+      reported_unit:
+        "",
+
+      density_override_g_cm3:
+        "",
+
+      notes:
+        "",
+    });
+  }
+
+
+  return {
+    source,
+    sites,
+    observations,
+    records,
+  };
+}
+
+async function handleCorrosionWorkbookGenerate(
+  request,
+  env
+) {
+  if (
+    !env.SUPABASE_URL ||
+    !env.SUPABASE_SECRET_KEY
+  ) {
+    return Response.json(
+      {
+        ok: false,
+        error:
+          "Supabase configuration is missing.",
+      },
+      {
+        status: 500,
+        headers: {
+          "cache-control":
+            "no-store",
+        },
+      }
+    );
+  }
+
+
+  const url =
+    new URL(
+      request.url
+    );
+
+
+  const sourceId =
+    Number(
+      url.searchParams.get(
+        "source_id"
+      )
+    );
+
+
+  if (
+    !Number.isInteger(
+      sourceId
+    ) ||
+    sourceId <= 0
+  ) {
+    return Response.json(
+      {
+        ok: false,
+        error:
+          "A valid Source ID is required.",
+      },
+      {
+        status: 400,
+        headers: {
+          "cache-control":
+            "no-store",
+        },
+      }
+    );
+  }
+
+
+  try {
+    const workbookData =
+      await loadCorrosionWorkbookRecords(
+        env,
+        sourceId
+      );
+
+
+    /*
+     * Fetch the protected static XLSM scaffold.
+     */
+    const templateUrl =
+      new URL(
+        "/templates/corrosion_entry_runtime_template.xlsm",
+        request.url
+      );
+
+
+    const templateResponse =
+      await env.ASSETS.fetch(
+        new Request(
+          templateUrl.toString(),
+          {
+            method:
+              "GET",
+          }
+        )
+      );
+
+
+    if (
+      !templateResponse.ok
+    ) {
+      throw new Error(
+        "Native corrosion workbook runtime template was not found."
+      );
+    }
+
+
+    const templateBytes =
+      await templateResponse.arrayBuffer();
+
+
+    const zip =
+      await JSZip.loadAsync(
+        templateBytes
+      );
+
+
+    const sheetFile =
+      zip.file(
+        "xl/worksheets/sheet1.xml"
+      );
+
+
+    const workbookFile =
+      zip.file(
+        "xl/workbook.xml"
+      );
+
+
+    if (
+      !sheetFile ||
+      !workbookFile
+    ) {
+      throw new Error(
+        "Runtime XLSM template has an invalid workbook structure."
+      );
+    }
+
+
+    const sheetXml =
+      await sheetFile.async(
+        "string"
+      );
+
+
+    const workbookXml =
+      await workbookFile.async(
+        "string"
+      );
+
+
+    const mutatedSheet =
+      corrosionMutateObservationSheet(
+        sheetXml,
+        workbookData.records
+      );
+
+
+    const mutatedWorkbookXml =
+      corrosionMutateWorkbookXml(
+        workbookXml,
+        mutatedSheet.lastDataRow
+      );
+
+
+    /*
+     * Replace ONLY the workbook XML parts we intentionally
+     * modify. VBA, ActiveX, VML, comments, styles and other
+     * package parts remain untouched.
+     */
+    zip.file(
+      "xl/worksheets/sheet1.xml",
+      mutatedSheet.xml
+    );
+
+
+    zip.file(
+      "xl/workbook.xml",
+      mutatedWorkbookXml
+    );
+
+
+    const output =
+      await zip.generateAsync({
+        type:
+          "uint8array",
+
+        compression:
+          "DEFLATE",
+
+        compressionOptions: {
+          level:
+            6,
+        },
+      });
+
+
+    const sourceCode =
+      corrosionCleanText(
+        workbookData
+          .source
+          .source_code
+      ) ||
+      `source_${sourceId}`;
+
+
+    return new Response(
+      output,
+      {
+        status:
+          200,
+
+        headers: {
+          "content-type":
+            "application/vnd.ms-excel.sheet.macroEnabled.12",
+
+          "content-disposition":
+            `attachment; filename="${sourceCode}_corrosion_observations.xlsm"`,
+
+          "cache-control":
+            "private, no-store",
+
+          "x-corrosion-linked-sites":
+            String(
+              workbookData
+                .sites
+                .length
+            ),
+
+          "x-corrosion-existing-observations":
+            String(
+              workbookData
+                .observations
+                .length
+            ),
+        },
+      }
+    );
+  } catch (error) {
+    console.error(
+      "Corrosion XLSM generation failed.",
+      error
+    );
+
+
+    return Response.json(
+      {
+        ok: false,
+
+        error:
+          error?.message ||
+          "Unable to generate corrosion workbook.",
+      },
+      {
+        status: 500,
+
+        headers: {
+          "cache-control":
+            "no-store",
+        },
+      }
+    );
+  }
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -7625,7 +10607,7 @@ export default {
     ) {
       return handleDashboardSummary(env);
     }
-    
+
     if (
       path === "/api/location-search" &&
       request.method === "GET"
@@ -7693,6 +10675,37 @@ export default {
     }
 
     if (
+      path === "/api/corrosion-observations" &&
+      request.method === "GET"
+    ) {
+      return handleCorrosionObservations(
+        request,
+        env
+      );
+    }
+
+
+    if (
+      path === "/api/corrosion-workbook-sources" &&
+      request.method === "GET"
+    ) {
+      return handleCorrosionWorkbookSources(
+        env
+      );
+    }
+
+    if (
+      path ===
+        "/api/corrosion-workbook" &&
+      request.method === "GET"
+    ) {
+      return handleCorrosionWorkbookGenerate(
+        request,
+        env
+      );
+    }
+
+    if (
       path === "/api/manage-bulk-update" &&
       request.method === "POST"
     ) {
@@ -7727,7 +10740,7 @@ export default {
     if (path === "/api/source-form-options" && request.method === "GET") {
       return handleSourceFormOptions(env);
     }
-    
+
     if (path === "/api/sources" && request.method === "GET") {
       return handleSourcesList(env);
     }
@@ -7743,6 +10756,46 @@ export default {
       return handleRegionClassification(
         request,
         env
+      );
+    }
+
+    const sourcePdfMatch =
+      path.match(
+        /^\/api\/sources\/(\d+)\/pdf$/
+      );
+
+
+    if (
+      sourcePdfMatch &&
+      request.method === "GET"
+    ) {
+      return handleSourcePdfGet(
+        request,
+        env,
+        sourcePdfMatch[1]
+      );
+    }
+
+
+    if (
+      sourcePdfMatch &&
+      request.method === "POST"
+    ) {
+      return handleSourcePdfUpload(
+        request,
+        env,
+        sourcePdfMatch[1]
+      );
+    }
+
+
+    if (
+      sourcePdfMatch &&
+      request.method === "DELETE"
+    ) {
+      return handleSourcePdfDelete(
+        env,
+        sourcePdfMatch[1]
       );
     }
 
@@ -7863,6 +10916,27 @@ export default {
           302
         );
       }
+
+      return env.ASSETS.fetch(
+        request
+      );
+    }
+
+    if (
+      path === "/corrosion"
+    ) {
+      if (
+        url.pathname === "/corrosion"
+      ) {
+        return Response.redirect(
+          new URL(
+            "/corrosion/",
+            url
+          ).toString(),
+          302
+        );
+      }
+
 
       return env.ASSETS.fetch(
         request
