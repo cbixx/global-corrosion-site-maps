@@ -1,0 +1,438 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8">
+
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1"
+  >
+
+  <title>
+    Environmental Data · Corrosion Atlas Curator
+  </title>
+
+  <link
+    rel="stylesheet"
+    href="/assets/curator.css"
+  >
+</head>
+
+
+<body>
+
+  <header class="app-header">
+    <div class="brand">
+      <div class="brand-title">
+        Corrosion Atlas
+      </div>
+
+      <div class="brand-subtitle">
+        Curator
+      </div>
+    </div>
+  </header>
+
+
+  <main class="page environment-page">
+
+    <div class="page-heading">
+
+      <div>
+        <h1>
+          Environmental Data
+        </h1>
+
+        <p class="page-description">
+          Environmental and climatic observations associated
+          with Corrosion Atlas Sites.
+        </p>
+      </div>
+
+
+      <div class="page-actions">
+
+        <a
+          class="button"
+          href="/manage/?type=environmental"
+        >
+          Manage / delete records
+        </a>
+
+        <button
+          id="environment-new"
+          class="button button-primary"
+          type="button"
+        >
+          + New observation
+        </button>
+
+      </div>
+
+    </div>
+
+
+    <div class="environment-structure-note">
+      Each record represents one environmental variable for one Site.
+      A Curator Source is optional; the Data source field can also
+      identify an external dataset or provider such as NASA POWER.
+    </div>
+
+
+    <!-- ===================================================
+         Create / edit observation
+         =================================================== -->
+
+    <section
+      id="environment-form-panel"
+      class="environment-form-panel"
+      hidden
+    >
+
+      <div class="environment-form-heading">
+
+        <div>
+          <h2 id="environment-form-title">
+            New environmental observation
+          </h2>
+
+          <p class="related-description">
+            Required fields are Site, variable, value, and unit.
+          </p>
+        </div>
+
+      </div>
+
+
+      <div class="environment-form-grid">
+
+        <label class="environment-form-field">
+          <span>
+            Site *
+          </span>
+
+          <select
+            id="environment-site"
+            class="detail-input"
+          >
+            <option value="">
+              Select a Site…
+            </option>
+          </select>
+        </label>
+
+
+        <label class="environment-form-field">
+          <span>
+            Curator Source
+          </span>
+
+          <select
+            id="environment-source"
+            class="detail-input"
+          >
+            <option value="">
+              No Curator Source
+            </option>
+          </select>
+
+          <small>
+            Optional literature, report, or dataset record
+            already registered under Sources.
+          </small>
+        </label>
+
+
+        <label class="environment-form-field">
+          <span>
+            Environmental variable *
+          </span>
+
+          <input
+            id="environment-variable"
+            class="detail-input"
+            type="text"
+            placeholder="e.g. Air temperature"
+            autocomplete="off"
+          >
+        </label>
+
+
+        <label class="environment-form-field">
+          <span>
+            Value *
+          </span>
+
+          <input
+            id="environment-value"
+            class="detail-input"
+            type="number"
+            step="any"
+            autocomplete="off"
+          >
+        </label>
+
+
+        <label class="environment-form-field">
+          <span>
+            Unit *
+          </span>
+
+          <input
+            id="environment-unit"
+            class="detail-input"
+            type="text"
+            placeholder="e.g. °C, %, mm/year"
+            autocomplete="off"
+          >
+        </label>
+
+
+        <label class="environment-form-field">
+          <span>
+            Aggregation
+          </span>
+
+          <input
+            id="environment-aggregation"
+            class="detail-input"
+            type="text"
+            placeholder="e.g. annual_mean"
+            autocomplete="off"
+          >
+        </label>
+
+
+        <label class="environment-form-field">
+          <span>
+            Period start
+          </span>
+
+          <input
+            id="environment-period-start"
+            class="detail-input"
+            type="text"
+            placeholder="YYYY-MM-DD"
+            autocomplete="off"
+          >
+        </label>
+
+
+        <label class="environment-form-field">
+          <span>
+            Period end
+          </span>
+
+          <input
+            id="environment-period-end"
+            class="detail-input"
+            type="text"
+            placeholder="YYYY-MM-DD"
+            autocomplete="off"
+          >
+        </label>
+
+
+        <label class="environment-form-field environment-form-field-wide">
+          <span>
+            Data source / provider
+          </span>
+
+          <input
+            id="environment-data-source"
+            class="detail-input"
+            type="text"
+            placeholder="e.g. NASA POWER, local station, source table"
+            autocomplete="off"
+          >
+
+          <small>
+            Free-text provenance. This is separate from the optional
+            Curator Source above.
+          </small>
+        </label>
+
+
+        <label class="environment-form-field environment-form-field-wide">
+          <span>
+            Notes
+          </span>
+
+          <textarea
+            id="environment-notes"
+            class="detail-input"
+            rows="4"
+            placeholder="Optional observation notes"
+          ></textarea>
+        </label>
+
+      </div>
+
+
+      <div
+        id="environment-form-message"
+        class="save-message"
+        hidden
+      ></div>
+
+
+      <div class="environment-form-actions">
+
+        <button
+          id="environment-cancel"
+          class="button"
+          type="button"
+        >
+          Cancel
+        </button>
+
+        <button
+          id="environment-save"
+          class="button button-primary"
+          type="button"
+        >
+          Save observation
+        </button>
+
+      </div>
+
+    </section>
+
+
+    <div
+      id="environment-action-message"
+      class="save-message"
+      hidden
+    ></div>
+
+
+    <!-- ===================================================
+         Existing observations
+         =================================================== -->
+
+    <section class="environment-section">
+
+      <div class="environment-section-heading">
+        <div>
+          <h2>
+            Existing environmental observations
+          </h2>
+
+          <p class="related-description">
+            Browse and edit environmental records already stored
+            in the curator database.
+          </p>
+        </div>
+      </div>
+
+
+      <div class="environment-toolbar">
+
+        <input
+          id="environment-search"
+          class="search-input"
+          type="search"
+          placeholder="Search Site, Source, variable, unit, period, or data source…"
+          autocomplete="off"
+        >
+
+
+        <label class="environment-page-size">
+          <span>
+            Rows per page
+          </span>
+
+          <select
+            id="environment-page-size"
+            class="detail-input"
+          >
+            <option value="25">
+              25
+            </option>
+
+            <option
+              value="50"
+              selected
+            >
+              50
+            </option>
+
+            <option value="100">
+              100
+            </option>
+
+            <option value="200">
+              200
+            </option>
+          </select>
+        </label>
+
+      </div>
+
+
+      <div
+        id="environment-status"
+        class="status"
+      >
+        Loading environmental observations…
+      </div>
+
+
+      <div
+        id="environment-content"
+        hidden
+      >
+
+        <div
+          id="environment-summary"
+          class="environment-summary"
+        ></div>
+
+
+        <div
+          id="environment-list"
+          class="environment-list"
+        ></div>
+
+
+        <div class="environment-pagination">
+
+          <button
+            id="environment-previous"
+            class="button"
+            type="button"
+          >
+            ← Previous
+          </button>
+
+
+          <div
+            id="environment-page-label"
+            class="environment-page-label"
+          ></div>
+
+
+          <button
+            id="environment-next"
+            class="button"
+            type="button"
+          >
+            Next →
+          </button>
+
+        </div>
+
+      </div>
+
+    </section>
+
+  </main>
+
+
+  <script src="/assets/curator-nav.js"></script>
+  <script src="/assets/environment.js"></script>
+
+</body>
+
+</html>

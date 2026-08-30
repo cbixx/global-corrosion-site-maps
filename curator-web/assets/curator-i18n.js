@@ -40,7 +40,7 @@
       "环境数据",
 
     "Manage Records":
-      "记录管理",
+      "数据管理",
 
     "Export / Publish":
       "导出 / 发布",
@@ -1215,10 +1215,10 @@
       "已有站点分类",
 
     "Changing these rules does not silently rewrite existing records. Preview and apply bulk classification changes through Manage Records.":
-      "修改这些规则不会自动重写已有记录。请通过“记录管理”预览并应用批量分类修改。",
+      "修改这些规则不会自动重写已有记录。请通过“数据管理”预览并应用批量分类修改。",
 
     "Open Manage Records":
-      "打开记录管理",
+      "打开数据管理",
   };
 
 /*
@@ -1788,10 +1788,153 @@ const ZH_POLISH = {
     "现有站点分类",
 
   "Changing these rules does not silently rewrite existing records. Preview and apply bulk classification changes through Manage Records.":
-    "修改规则不会自动改写已有记录。可在“记录管理”中预览并批量应用新的分类结果。",
+    "修改规则不会自动改写已有记录。可在“数据管理”中预览并批量应用新的分类结果。",
 
   "Open Manage Records":
     "打开记录管理",
+
+
+  /* =====================================================
+     Environmental Data
+     ===================================================== */
+
+  "Environment":
+    "环境数据",
+
+  "Environmental Data":
+    "环境数据",
+
+  "Environmental and climatic observations associated with Corrosion Atlas Sites.":
+    "管理与 Corrosion Atlas 站点相关的环境与气候观测数据。",
+
+  "Manage / delete records":
+    "管理 / 删除记录",
+
+  "+ New observation":
+    "+ 新建观测",
+
+  "Each record represents one environmental variable for one Site. A Curator Source is optional; the Data source field can also identify an external dataset or provider such as NASA POWER.":
+    "每条记录对应一个站点的一项环境变量。可选择关联管理端来源，也可在“数据来源”中记录 NASA POWER 等外部数据集或提供方。",
+
+  "New environmental observation":
+    "新建环境观测",
+
+  "Required fields are Site, variable, value, and unit.":
+    "站点、环境变量、数值和单位为必填项。",
+
+  "Site *":
+    "站点 *",
+
+  "Select a Site…":
+    "选择站点…",
+
+  "Curator Source":
+    "关联来源",
+
+  "No Curator Source":
+    "不关联来源",
+
+  "Optional literature, report, or dataset record already registered under Sources.":
+    "可选：关联已登记的文献、报告或数据集来源。",
+
+  "Environmental variable *":
+    "环境变量 *",
+
+  "e.g. Air temperature":
+    "例如：Air temperature",
+
+  "Value *":
+    "数值 *",
+
+  "Unit *":
+    "单位 *",
+
+  "e.g. °C, %, mm/year":
+    "例如：°C、%、mm/year",
+
+  "Aggregation":
+    "统计方式",
+
+  "e.g. annual_mean":
+    "例如：annual_mean",
+
+  "Period start":
+    "统计期开始",
+
+  "Period end":
+    "统计期结束",
+
+  "Data source / provider":
+    "数据来源 / 提供方",
+
+  "e.g. NASA POWER, local station, source table":
+    "例如：NASA POWER、当地监测站、文献表格",
+
+  "Free-text provenance. This is separate from the optional Curator Source above.":
+    "用于记录数据来源信息，与上方可选的关联来源相互独立。",
+
+  "Optional observation notes":
+    "可选观测备注",
+
+  "Save observation":
+    "保存观测",
+
+  "Existing environmental observations":
+    "已有环境观测",
+
+  "Browse and edit environmental records already stored in the curator database.":
+    "浏览和编辑管理端数据库中已有的环境观测记录。",
+
+  "Search Site, Source, variable, unit, period, or data source…":
+    "搜索站点、来源、环境变量、单位、统计期或数据来源…",
+
+  "Loading environmental observations…":
+    "正在加载环境观测…",
+
+  "No environmental observations match the current search.":
+    "没有符合当前搜索条件的环境观测。",
+
+  "No environmental observations have been added yet.":
+    "尚未添加环境观测。",
+
+  "Environmental observation":
+    "环境观测",
+
+  "Period":
+    "统计期",
+
+  "Data source":
+    "数据来源",
+
+  "Environmental observation created.":
+    "环境观测已创建。",
+
+  "Environmental observation updated.":
+    "环境观测已更新。",
+
+  "Select a Site.":
+    "请选择站点。",
+
+  "Enter an environmental variable.":
+    "请输入环境变量。",
+
+  "Enter a valid numeric value.":
+    "请输入有效数值。",
+
+  "Enter a unit.":
+    "请输入单位。",
+
+  "Unable to save environmental observation.":
+    "无法保存环境观测。",
+
+  "Unable to load environmental observations.":
+    "无法加载环境观测。",
+
+  "Unable to load Site and Source options.":
+    "无法加载站点和来源选项。",
+
+  "A matching environmental observation already exists. Edit the existing record instead.":
+    "已存在相同标识的环境观测，请编辑已有记录。",
 };
 
 /*
@@ -2639,6 +2782,30 @@ function contextTranslation(
       );
     }
 
+    m =
+      source.match(
+        /^Environmental observation · DB #(\d+)$/
+      );
+
+
+    if (m) {
+      return (
+        `环境观测 · DB #${m[1]}`
+      );
+    }
+
+
+    m =
+      source.match(
+        /^Edit environmental observation #(\d+)$/
+      );
+
+
+    if (m) {
+      return (
+        `编辑环境观测 #${m[1]}`
+      );
+    }
 
     return null;
   }

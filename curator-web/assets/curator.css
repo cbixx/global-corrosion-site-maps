@@ -2902,3 +2902,230 @@ a.manage-record:hover {
     margin-left: auto;
   }
 }
+
+/* =========================================================
+   Environmental Data
+   ========================================================= */
+
+.environment-page {
+  max-width: 1180px;
+}
+
+.environment-structure-note {
+  margin-bottom: 24px;
+  padding: 14px 16px;
+  background: #f8f9fa;
+  border: 1px solid #dde1e5;
+  border-radius: 8px;
+  color: #505b64;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.environment-form-panel,
+.environment-section {
+  margin-bottom: 26px;
+  padding: 22px;
+  background: #ffffff;
+  border: 1px solid #dde1e5;
+  border-radius: 10px;
+}
+
+.environment-form-heading,
+.environment-section-heading {
+  margin-bottom: 20px;
+}
+
+.environment-form-heading h2,
+.environment-section-heading h2 {
+  margin: 0;
+  font-size: 21px;
+}
+
+.environment-form-grid {
+  display: grid;
+  grid-template-columns:
+    repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.environment-form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  min-width: 0;
+}
+
+.environment-form-field > span {
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.environment-form-field > small {
+  color: #66717b;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.environment-form-field-wide {
+  grid-column: 1 / -1;
+}
+
+.environment-form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 20px;
+}
+
+#environment-form-message {
+  margin-top: 18px;
+}
+
+#environment-action-message {
+  margin-bottom: 20px;
+}
+
+.environment-toolbar {
+  display: grid;
+  grid-template-columns:
+    minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 14px;
+  margin-bottom: 16px;
+}
+
+.environment-page-size {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 120px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.environment-list {
+  overflow: hidden;
+  border: 1px solid #dde1e5;
+  border-radius: 9px;
+  background: #ffffff;
+}
+
+.environment-record {
+  padding: 18px 20px;
+  border-bottom: 1px solid #e8ebee;
+}
+
+.environment-record:last-child {
+  border-bottom: 0;
+}
+
+.environment-record-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.environment-record-eyebrow {
+  margin-bottom: 4px;
+  color: #7a848c;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.environment-record-site {
+  color: inherit;
+  font-size: 15px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.environment-record-site:hover {
+  text-decoration: underline;
+}
+
+.environment-record-variable {
+  margin-top: 14px;
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.environment-record-value {
+  margin-top: 4px;
+  font-size: 23px;
+  font-weight: 700;
+}
+
+.environment-record-metadata {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  margin-top: 13px;
+  color: #505b64;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.environment-record-meta-item {
+  display: flex;
+  gap: 5px;
+}
+
+.environment-record-meta-item strong {
+  color: #66717b;
+}
+
+.environment-record-notes {
+  width: 100%;
+}
+
+.environment-summary {
+  margin-bottom: 12px;
+  color: #66717b;
+  font-size: 13px;
+}
+
+.environment-empty {
+  padding: 30px;
+  text-align: center;
+  color: #66717b;
+}
+
+.environment-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  margin-top: 18px;
+}
+
+.environment-page-label {
+  min-width: 130px;
+  text-align: center;
+  color: #66717b;
+  font-size: 13px;
+}
+
+
+@media (max-width: 700px) {
+  .environment-form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .environment-form-field-wide {
+    grid-column: auto;
+  }
+
+  .environment-toolbar {
+    grid-template-columns: 1fr;
+  }
+
+  .environment-record-heading {
+    flex-direction: column;
+  }
+
+  .environment-form-actions {
+    flex-direction: column;
+  }
+}

@@ -16,7 +16,7 @@ import {
   publishWebsiteFilesToGitHub,
 } from "./github-publish.js";
 
-const CURATOR_BUILD_ID = "sites-bulk-create-001";
+const CURATOR_BUILD_ID = "environment-native-001";
 
 function htmlResponse(html, status = 200) {
   return new Response(html, {
@@ -12720,6 +12720,829 @@ async function handlePublishGithub(
   }
 }
 
+function environmentalError(
+  error,
+  status = 400
+) {
+  return Response.json(
+    {
+      ok: false,
+      error,
+    },
+    {
+      status,
+      headers: {
+        "cache-control":
+          "no-store",
+      },
+    }
+  );
+}
+
+
+function environmentalCleanText(
+  value
+) {
+  return String(
+    value ?? ""
+  ).trim();
+}
+
+
+async function environmentalEntityExists(
+  env,
+  tableName,
+  id
+) {
+  const endpoint =
+    new URL(
+      `/rest/v1/${tableName}`,
+      env.SUPABASE_URL
+    );
+
+
+  endpoint.searchParams.set(
+    "select",
+    "id"
+  );
+
+  endpoint.searchParams.set(
+    "id",
+    `eq.${id}`
+  );
+
+  endpoint.searchParams.set(
+    "limit",
+    "1"
+  );
+
+
+  const response =
+    await fetch(
+      endpoint,
+      {
+        headers: {
+          apikey:
+            env.SUPABASE_SECRET_KEY,
+
+          authorization:
+            `Bearer ${env.SUPABASE_SECRET_KEY}`,
+
+          accept:
+            "application/json",
+        },
+      }
+    );
+
+
+  if (!response.ok) {
+    throw new Error(
+      `Unable to verify ${tableName} reference.`
+    );
+  }
+
+
+  const rows =
+    await response.json();
+
+
+  return rows.length >
+    0;
+}
+
+
+async function resolveEnvironmentalReferences(
+  env,
+  siteFk,
+  sourceFk
+) {
+  const siteExists =
+    await environmentalEntityExists(
+      env,
+      "sites",
+      siteFk
+    );
+
+
+  if (!siteExists) {
+    throw new Error(
+      "Selected Site was not found."
+    );
+  }
+
+
+  if (
+    sourceFk === null
+  ) {
+    return {
+      site_source_fk:
+        null,
+    };
+  }
+
+
+  const sourceExists =
+    await environmentalEntityExists(
+      env,
+      "sources",
+      sourceFk
+    );
+
+
+  if (!sourceExists) {
+    throw new Error(
+      "Selected Source was not found."
+    );
+  }
+
+
+  const endpoint =
+    new URL(
+      "/rest/v1/site_sources",
+      env.SUPABASE_URL
+    );
+
+
+  endpoint.searchParams.set(
+    "select",
+    "id"
+  );
+
+  endpoint.searchParams.set(
+    "site_fk",
+    `eq.${siteFk}`
+  );
+
+  endpoint.searchParams.set(
+    "source_fk",
+    `eq.${sourceFk}`
+  );
+
+  endpoint.searchParams.set(
+    "limit",
+    "1"
+  );
+
+
+  const response =
+    await fetch(
+      endpoint,
+      {
+        headers: {
+          apikey:
+            env.SUPABASE_SECRET_KEY,
+
+          authorization:
+            `Bearer ${env.SUPABASE_SECRET_KEY}`,
+
+          accept:
+            "application/json",
+        },
+      }
+    );
+
+
+  if (!response.ok) {
+    throw new Error(
+      "Unable to resolve Site–Source relationship."
+    );
+  }
+
+
+  const rows =
+    await response.json();
+
+
+  return {
+    site_source_fk:
+      rows.length
+        ? Number(
+            rows[0].id
+          )
+        : null,
+  };
+}
+
+
+function parseEnvironmentalPayload(
+  payload
+) {
+  const siteFk =
+    Number(
+      payload?.site_fk
+    );
+
+
+  if (
+    !Number.isInteger(
+      siteFk
+    ) ||
+    siteFk <= 0
+  ) {
+    throw new Error(
+      "Select a valid Site."
+    );
+  }
+
+
+  const rawSourceFk =
+    environmentalCleanText(
+      payload?.source_fk
+    );
+
+
+  let sourceFk =
+    null;
+
+
+  if (rawSourceFk) {
+    sourceFk =
+      Number(
+        rawSourceFk
+      );
+
+
+    if (
+      !Number.isInteger(
+        sourceFk
+      ) ||
+      sourceFk <= 0
+    ) {
+      throw new Error(
+        "Select a valid Source."
+      );
+    }
+  }
+
+
+  const variableName =
+    environmentalCleanText(
+      payload?.variable_name
+    );
+
+
+  if (!variableName) {
+    throw new Error(
+      "Environmental variable is required."
+    );
+  }
+
+
+  const rawValue =
+    environmentalCleanText(
+      payload?.value
+    );
+
+
+  if (!rawValue) {
+    throw new Error(
+      "Environmental value is required."
+    );
+  }
+
+
+  const value =
+    Number(
+      rawValue
+    );
+
+
+  if (
+    !Number.isFinite(
+      value
+    )
+  ) {
+    throw new Error(
+      "Environmental value must be numeric."
+    );
+  }
+
+
+  const unit =
+    environmentalCleanText(
+      payload?.unit
+    );
+
+
+  if (!unit) {
+    throw new Error(
+      "Environmental unit is required."
+    );
+  }
+
+
+  return {
+    site_fk:
+      siteFk,
+
+    source_fk:
+      sourceFk,
+
+    variable_name:
+      variableName,
+
+    value,
+
+    unit,
+
+    aggregation:
+      environmentalCleanText(
+        payload?.aggregation
+      ),
+
+    period_start:
+      environmentalCleanText(
+        payload?.period_start
+      ),
+
+    period_end:
+      environmentalCleanText(
+        payload?.period_end
+      ),
+
+    data_source:
+      environmentalCleanText(
+        payload?.data_source
+      ),
+
+    notes:
+      environmentalCleanText(
+        payload?.notes
+      ),
+  };
+}
+
+
+async function handleEnvironmentalObservations(
+  request,
+  env
+) {
+  if (
+    !env.SUPABASE_URL ||
+    !env.SUPABASE_SECRET_KEY
+  ) {
+    return environmentalError(
+      "Supabase configuration is missing.",
+      500
+    );
+  }
+
+
+  const url =
+    new URL(
+      request.url
+    );
+
+
+  const page =
+    parseManageInteger(
+      url.searchParams.get(
+        "page"
+      ),
+      1,
+      1,
+      1000000
+    );
+
+
+  const requestedPageSize =
+    parseManageInteger(
+      url.searchParams.get(
+        "page_size"
+      ),
+      50,
+      1,
+      200
+    );
+
+
+  const allowedPageSizes =
+    new Set([
+      25,
+      50,
+      100,
+      200,
+    ]);
+
+
+  const pageSize =
+    allowedPageSizes.has(
+      requestedPageSize
+    )
+      ? requestedPageSize
+      : 50;
+
+
+  const searchTerm =
+    cleanManageSearchTerm(
+      url.searchParams.get(
+        "q"
+      )
+    );
+
+
+  const endpoint =
+    new URL(
+      "/rest/v1/environmental_observations",
+      env.SUPABASE_URL
+    );
+
+
+  endpoint.searchParams.set(
+    "select",
+    [
+      "id",
+      "site_fk",
+      "source_fk",
+      "site_source_fk",
+      "variable_name",
+      "value",
+      "unit",
+      "aggregation",
+      "period_start",
+      "period_end",
+      "data_source",
+      "notes",
+      "created_at",
+      "updated_at",
+      "sites(site_id,site_label,modern_country_location)",
+      "sources(source_code,source_title)",
+    ].join(",")
+  );
+
+
+  endpoint.searchParams.set(
+    "order",
+    "id.desc"
+  );
+
+
+  if (searchTerm) {
+    const clauses =
+      buildManageIlikeClauses(
+        [
+          "variable_name",
+          "unit",
+          "aggregation",
+          "period_start",
+          "period_end",
+          "data_source",
+          "notes",
+        ],
+        searchTerm
+      );
+
+
+    const {
+      siteIds,
+      sourceIds,
+    } =
+      await getManageSearchRelations(
+        env,
+        searchTerm
+      );
+
+
+    if (
+      siteIds.length
+    ) {
+      clauses.push(
+        `site_fk.in.(${siteIds.join(",")})`
+      );
+    }
+
+
+    if (
+      sourceIds.length
+    ) {
+      clauses.push(
+        `source_fk.in.(${sourceIds.join(",")})`
+      );
+    }
+
+
+    endpoint.searchParams.set(
+      "or",
+      `(${clauses.join(",")})`
+    );
+  }
+
+
+  const start =
+    (
+      page - 1
+    ) *
+    pageSize;
+
+
+  const end =
+    start +
+    pageSize -
+    1;
+
+
+  const response =
+    await fetch(
+      endpoint,
+      {
+        headers: {
+          apikey:
+            env.SUPABASE_SECRET_KEY,
+
+          authorization:
+            `Bearer ${env.SUPABASE_SECRET_KEY}`,
+
+          accept:
+            "application/json",
+
+          prefer:
+            "count=exact",
+
+          range:
+            `${start}-${end}`,
+        },
+      }
+    );
+
+
+  if (!response.ok) {
+    const detail =
+      await response.text();
+
+
+    console.error(
+      "Environmental observation query failed.",
+      {
+        status:
+          response.status,
+
+        detail,
+      }
+    );
+
+
+    return environmentalError(
+      "Unable to load environmental observations.",
+      502
+    );
+  }
+
+
+  const observations =
+    await response.json();
+
+
+  const total =
+    manageContentRangeTotal(
+      response
+    );
+
+
+  const totalPages =
+    Math.max(
+      1,
+      Math.ceil(
+        total /
+        pageSize
+      )
+    );
+
+
+  return Response.json(
+    {
+      ok: true,
+
+      observations,
+
+      total,
+
+      page,
+
+      page_size:
+        pageSize,
+
+      total_pages:
+        totalPages,
+    },
+    {
+      headers: {
+        "cache-control":
+          "no-store",
+      },
+    }
+  );
+}
+
+
+async function handleEnvironmentalObservationWrite(
+  request,
+  env,
+  observationId = null
+) {
+  if (
+    !env.SUPABASE_URL ||
+    !env.SUPABASE_SECRET_KEY
+  ) {
+    return environmentalError(
+      "Supabase configuration is missing.",
+      500
+    );
+  }
+
+
+  let id =
+    null;
+
+
+  if (
+    observationId !== null
+  ) {
+    id =
+      Number(
+        observationId
+      );
+
+
+    if (
+      !Number.isInteger(
+        id
+      ) ||
+      id <= 0
+    ) {
+      return environmentalError(
+        "Invalid environmental observation ID."
+      );
+    }
+  }
+
+
+  let incoming;
+
+
+  try {
+    incoming =
+      await request.json();
+
+  } catch {
+    return environmentalError(
+      "Invalid JSON body."
+    );
+  }
+
+
+  let record;
+
+
+  try {
+    record =
+      parseEnvironmentalPayload(
+        incoming
+      );
+
+
+    const references =
+      await resolveEnvironmentalReferences(
+        env,
+        record.site_fk,
+        record.source_fk
+      );
+
+
+    record.site_source_fk =
+      references.site_source_fk;
+
+
+    record.updated_at =
+      new Date()
+        .toISOString();
+
+  } catch (error) {
+    return environmentalError(
+      error?.message ||
+      "Invalid environmental observation."
+    );
+  }
+
+
+  const endpoint =
+    new URL(
+      "/rest/v1/environmental_observations",
+      env.SUPABASE_URL
+    );
+
+
+  if (
+    id !== null
+  ) {
+    endpoint.searchParams.set(
+      "id",
+      `eq.${id}`
+    );
+  }
+
+
+  const response =
+    await fetch(
+      endpoint,
+      {
+        method:
+          id === null
+            ? "POST"
+            : "PATCH",
+
+        headers: {
+          apikey:
+            env.SUPABASE_SECRET_KEY,
+
+          authorization:
+            `Bearer ${env.SUPABASE_SECRET_KEY}`,
+
+          "content-type":
+            "application/json",
+
+          accept:
+            "application/json",
+
+          prefer:
+            "return=representation",
+        },
+
+        body:
+          JSON.stringify(
+            record
+          ),
+      }
+    );
+
+
+  if (!response.ok) {
+    const detail =
+      await response.text();
+
+
+    console.error(
+      "Environmental observation write failed.",
+      {
+        id,
+        status:
+          response.status,
+        detail,
+      }
+    );
+
+
+    if (
+      response.status ===
+      409
+    ) {
+      return environmentalError(
+        "A matching environmental observation already exists. Edit the existing record instead.",
+        409
+      );
+    }
+
+
+    return environmentalError(
+      id === null
+        ? "Unable to create environmental observation."
+        : "Unable to update environmental observation.",
+      502
+    );
+  }
+
+
+  const rows =
+    await response.json();
+
+
+  if (
+    id !== null &&
+    rows.length === 0
+  ) {
+    return environmentalError(
+      "Environmental observation not found.",
+      404
+    );
+  }
+
+
+  return Response.json(
+    {
+      ok: true,
+
+      observation:
+        rows[0] ||
+        null,
+    },
+    {
+      headers: {
+        "cache-control":
+          "no-store",
+      },
+    }
+  );
+}
+
 function settingsCleanList(
   value
 ) {
@@ -13714,6 +14537,46 @@ export default {
 
 
     if (
+      path === "/api/environmental-observations" &&
+      request.method === "GET"
+    ) {
+      return handleEnvironmentalObservations(
+        request,
+        env
+      );
+    }
+
+
+    if (
+      path === "/api/environmental-observations" &&
+      request.method === "POST"
+    ) {
+      return handleEnvironmentalObservationWrite(
+        request,
+        env
+      );
+    }
+
+
+    const environmentalObservationMatch =
+      path.match(
+        /^\/api\/environmental-observations\/(\d+)$/
+      );
+
+
+    if (
+      environmentalObservationMatch &&
+      request.method === "PATCH"
+    ) {
+      return handleEnvironmentalObservationWrite(
+        request,
+        env,
+        environmentalObservationMatch[1]
+      );
+    }
+
+
+    if (
       path === "/api/corrosion-workbook-sources" &&
       request.method === "GET"
     ) {
@@ -14045,6 +14908,30 @@ export default {
         request
       );
     }
+
+    if (
+      path === "/environment"
+    ) {
+      if (
+        url.pathname ===
+        "/environment"
+      ) {
+        return Response.redirect(
+          new URL(
+            "/environment/",
+            url
+          ).toString(),
+          302
+        );
+      }
+
+
+      return env.ASSETS.fetch(
+        request
+      );
+    }
+
+
 
     if (
       path === "/corrosion"

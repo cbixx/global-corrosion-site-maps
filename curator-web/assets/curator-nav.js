@@ -75,6 +75,15 @@ const CURATOR_NAV_ITEMS = [
   },
 
   {
+    label: "Environment",
+    href: "/environment/",
+    match: [
+      "/environment",
+      "/environment/",
+    ],
+  },
+
+  {
     label: "Manage Records",
     href: "/manage/",
     match: [
