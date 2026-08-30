@@ -84,12 +84,8 @@ const CURATOR_NAV_ITEMS = [
   },
 
   {
-    label:
-      "Export / Publish",
-
-    href:
-      "/publish/",
-
+    label: "Export / Publish",
+    href: "/publish/",
     match: [
       "/publish",
       "/publish/",
@@ -97,18 +93,93 @@ const CURATOR_NAV_ITEMS = [
   },
 
   {
-    label:
-      "Settings",
-
-    href:
-      "/settings/",
-
+    label: "Settings",
+    href: "/settings/",
     match: [
       "/settings",
       "/settings/",
     ],
   },
 ];
+
+
+let curatorI18nPromise =
+  null;
+
+
+function ensureCuratorI18n() {
+  if (
+    window.CuratorI18n
+  ) {
+    return Promise.resolve(
+      window.CuratorI18n
+    );
+  }
+
+
+  if (
+    curatorI18nPromise
+  ) {
+    return curatorI18nPromise;
+  }
+
+
+  curatorI18nPromise =
+    new Promise(
+      (
+        resolve,
+        reject
+      ) => {
+        const script =
+          document.createElement(
+            "script"
+          );
+
+
+        script.src =
+          "/assets/curator-i18n.js?v=1";
+
+        script.async =
+          true;
+
+
+        script.onload =
+          () => {
+            if (
+              window.CuratorI18n
+            ) {
+              resolve(
+                window.CuratorI18n
+              );
+            } else {
+              reject(
+                new Error(
+                  "Curator i18n runtime did not initialise."
+                )
+              );
+            }
+          };
+
+
+        script.onerror =
+          () => {
+            reject(
+              new Error(
+                "Unable to load curator i18n runtime."
+              )
+            );
+          };
+
+
+        document.head.append(
+          script
+        );
+      }
+    );
+
+
+  return curatorI18nPromise;
+}
 
 
 function curatorNavMatches(
@@ -125,7 +196,9 @@ function curatorNavMatches(
   return item.match.some(
     (prefix) =>
       pathname === prefix ||
-      pathname.startsWith(prefix)
+      pathname.startsWith(
+        prefix
+      )
   );
 }
 
@@ -152,8 +225,10 @@ function buildCuratorNavigation() {
       "nav"
     );
 
+
   nav.className =
     "curator-nav";
+
 
   nav.setAttribute(
     "aria-label",
@@ -173,6 +248,7 @@ function buildCuratorNavigation() {
       document.createElement(
         "a"
       );
+
 
     link.className =
       "curator-nav-link";
@@ -213,4 +289,178 @@ function buildCuratorNavigation() {
 }
 
 
-buildCuratorNavigation();
+function buildLanguageSwitcher() {
+  const header =
+    document.querySelector(
+      ".app-header"
+    );
+
+
+  const i18n =
+    window.CuratorI18n;
+
+
+  if (
+    !header ||
+    !i18n ||
+    header.querySelector(
+      ".curator-language-switcher"
+    )
+  ) {
+    return;
+  }
+
+
+  const switcher =
+    document.createElement(
+      "div"
+    );
+
+
+  switcher.className =
+    "curator-language-switcher";
+
+
+  switcher.setAttribute(
+    "aria-label",
+    "Interface language"
+  );
+
+
+  switcher.title =
+    "Switch language";
+
+
+  const buttons =
+    [];
+
+
+  for (
+    const option
+    of [
+      {
+        language: "en",
+        label: "EN",
+      },
+
+      {
+        language: "zh",
+        label: "中文",
+      },
+    ]
+  ) {
+    const button =
+      document.createElement(
+        "button"
+      );
+
+
+    button.type =
+      "button";
+
+    button.className =
+      "curator-language-button";
+
+    button.dataset.language =
+      option.language;
+
+    button.textContent =
+      option.label;
+
+
+    button.addEventListener(
+      "click",
+      () => {
+        i18n.setLanguage(
+          option.language
+        );
+      }
+    );
+
+
+    buttons.push(
+      button
+    );
+
+
+    switcher.append(
+      button
+    );
+  }
+
+
+  function updateActiveLanguage() {
+    const current =
+      i18n.getLanguage();
+
+
+    for (
+      const button
+      of buttons
+    ) {
+      const active =
+        button.dataset.language ===
+        current;
+
+
+      button.classList.toggle(
+        "curator-language-button-active",
+        active
+      );
+
+
+      button.setAttribute(
+        "aria-pressed",
+        String(active)
+      );
+    }
+  }
+
+
+  updateActiveLanguage();
+
+
+  window.addEventListener(
+    "curator-language-change",
+    updateActiveLanguage
+  );
+
+
+  header.append(
+    switcher
+  );
+
+
+  i18n.apply(
+    switcher
+  );
+}
+
+
+async function initialiseCuratorShell() {
+  try {
+    await ensureCuratorI18n();
+  } catch (error) {
+    console.error(
+      "Unable to initialise curator translations.",
+      error
+    );
+  }
+
+
+  buildCuratorNavigation();
+
+  buildLanguageSwitcher();
+
+
+  if (
+    window.CuratorI18n
+  ) {
+    window.CuratorI18n.apply(
+      document
+    );
+  }
+}
+
+
+initialiseCuratorShell();
