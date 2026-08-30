@@ -2,30 +2,67 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Sites · Corrosion Atlas Curator</title>
-  <link rel="stylesheet" href="/assets/curator.css">
+
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1"
+  >
+
+  <title>
+    Sites · Corrosion Atlas Curator
+  </title>
+
+  <link
+    rel="stylesheet"
+    href="/assets/curator.css"
+  >
 </head>
 
-<body>
-  <header class="app-header">
-    <div class="brand">
-      <div class="brand-title">Corrosion Atlas</div>
-      <div class="brand-subtitle">Curator</div>
-    </div>
-  </header>
 
-  <main class="page">
-    <div class="page-heading">
-      <div>
-        <h1>Sites</h1>
-        <p class="page-description">
-          Browse and search exposure sites in the Corrosion Atlas database.
-        </p>
+<body>
+
+  <header class="app-header">
+
+    <div class="brand">
+
+      <div class="brand-title">
+        Corrosion Atlas
       </div>
 
+      <div class="brand-subtitle">
+        Curator
+      </div>
+
+    </div>
+
+  </header>
+
+
+  <main class="page">
+
+    <div class="page-heading">
+
+      <div>
+
+        <h1>
+          Sites
+        </h1>
+
+        <p class="page-description">
+          Browse existing exposure sites or create new Sites
+          individually or in bulk.
+        </p>
+
+      </div>
+
+
       <div class="page-actions">
-        <div id="site-count" class="source-count"></div>
+
+        <div
+          id="site-count"
+          class="source-count"
+        ></div>
+
 
         <a
           class="button"
@@ -34,30 +71,291 @@
           Evidence links
         </a>
 
-        <a
-          class="button button-primary"
-          href="/sites/detail/?new=1"
-        >
-          + New site
-        </a>
       </div>
+
     </div>
 
-    <div class="search-panel">
-      <input
-        id="site-search"
-        class="search-input"
-        type="search"
-        placeholder="Search ID, site name, country, region, or type…"
-        autocomplete="off"
+
+    <nav
+      class="sites-mode-tabs"
+      aria-label="Site workflows"
+    >
+
+      <a
+        id="sites-tab-browse"
+        class="sites-mode-tab"
+        href="/sites/"
       >
-    </div>
+        Browse
+      </a>
 
-    <div id="status" class="status">Loading sites…</div>
-    <div id="site-list" class="source-list" hidden></div>
+
+      <a
+        class="sites-mode-tab"
+        href="/sites/detail/?new=1"
+      >
+        Create one
+      </a>
+
+
+      <a
+        id="sites-tab-multiple"
+        class="sites-mode-tab"
+        href="/sites/?mode=multiple"
+      >
+        Create multiple
+      </a>
+
+    </nav>
+
+
+    <section id="sites-browse-panel">
+
+      <div class="search-panel">
+
+        <input
+          id="site-search"
+          class="search-input"
+          type="search"
+          placeholder="Search ID, site name, country, region, or type…"
+          autocomplete="off"
+        >
+
+      </div>
+
+
+      <div
+        id="status"
+        class="status"
+      >
+        Loading sites…
+      </div>
+
+
+      <div
+        id="site-list"
+        class="source-list"
+        hidden
+      ></div>
+
+    </section>
+
+
+    <section
+      id="sites-multiple-panel"
+      hidden
+    >
+
+      <div class="sites-bulk-intro">
+
+        <div>
+
+          <h2>
+            Create multiple Sites
+          </h2>
+
+          <p>
+            Enter one geographic search per line. Add a country,
+            province, region, or other context when a place name
+            could be ambiguous.
+          </p>
+
+        </div>
+
+      </div>
+
+
+      <div class="sites-bulk-input-panel">
+
+        <label
+          for="sites-bulk-input"
+          class="sites-bulk-input-label"
+        >
+          Geographic searches
+        </label>
+
+
+        <textarea
+          id="sites-bulk-input"
+          class="detail-input sites-bulk-textarea"
+          rows="10"
+          placeholder="Yakutsk Russia&#10;Norilsk Russia&#10;Cambridge UK&#10;Kure Hiroshima Japan"
+        ></textarea>
+
+
+        <div class="sites-bulk-input-help">
+          One non-empty line = one independent geographic search.
+          Maximum 50 searches per batch.
+        </div>
+
+
+        <div class="sites-bulk-actions">
+
+          <button
+            id="sites-bulk-analyse"
+            class="button button-primary"
+            type="button"
+          >
+            Analyse Sites
+          </button>
+
+
+          <button
+            id="sites-bulk-clear"
+            class="button button-secondary"
+            type="button"
+          >
+            Clear
+          </button>
+
+        </div>
+
+      </div>
+
+
+      <div
+        id="sites-bulk-progress"
+        class="helper-message"
+        hidden
+      ></div>
+
+
+      <section
+        id="sites-bulk-results-section"
+        class="sites-bulk-results-section"
+        hidden
+      >
+
+        <div class="sites-bulk-summary">
+
+          <div>
+
+            <h2>
+              Review
+            </h2>
+
+            <div
+              id="sites-bulk-summary-text"
+              class="related-description"
+            ></div>
+
+          </div>
+
+
+          <div class="sites-bulk-filters">
+
+            <button
+              class="sites-bulk-filter sites-bulk-filter-active"
+              type="button"
+              data-bulk-filter="all"
+            >
+              All
+            </button>
+
+            <button
+              class="sites-bulk-filter"
+              type="button"
+              data-bulk-filter="ready"
+            >
+              Ready
+            </button>
+
+            <button
+              class="sites-bulk-filter"
+              type="button"
+              data-bulk-filter="review"
+            >
+              Needs review
+            </button>
+
+            <button
+              class="sites-bulk-filter"
+              type="button"
+              data-bulk-filter="existing"
+            >
+              Existing
+            </button>
+
+          </div>
+
+        </div>
+
+
+        <div class="sites-bulk-selection-bar">
+
+          <div
+            id="sites-bulk-selection-text"
+            class="sites-bulk-selection-text"
+          >
+            0 selected
+          </div>
+
+
+          <div class="sites-bulk-selection-actions">
+
+            <button
+              id="sites-bulk-select-ready"
+              class="button button-secondary"
+              type="button"
+            >
+              Select ready
+            </button>
+
+
+            <button
+              id="sites-bulk-clear-selection"
+              class="button button-secondary"
+              type="button"
+            >
+              Clear selection
+            </button>
+
+
+            <button
+              id="sites-bulk-create"
+              class="button button-primary"
+              type="button"
+              disabled
+            >
+              Create selected Sites
+            </button>
+
+          </div>
+
+        </div>
+
+
+        <div
+          id="sites-bulk-create-message"
+          class="save-message"
+          hidden
+        ></div>
+
+
+        <div
+          id="sites-bulk-results"
+          class="sites-bulk-results"
+        ></div>
+
+
+        <div class="sites-bulk-preview-note">
+
+          Ready Sites are selected by default. Existing Sites are
+          excluded. Each selected Site is revalidated through the
+          normal Site-creation workflow before it is saved.
+
+        </div>
+
+      </section>
+
+    </section>
+
   </main>
+
 
   <script src="/assets/curator-nav.js"></script>
   <script src="/assets/sites.js"></script>
+  <script src="/assets/sites-bulk.js"></script>
+
 </body>
 </html>

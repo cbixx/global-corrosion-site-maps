@@ -60,8 +60,51 @@ const FIELD_LABELS = {
 };
 
 function isNewSite() {
-  const params = new URLSearchParams(window.location.search);
-  return params.get("new") === "1";
+  const params =
+    new URLSearchParams(
+      window.location.search
+    );
+
+  return params.get("new") ===
+    "1";
+}
+
+
+function updateSiteModeTabs() {
+  const activeMode =
+    isNewSite()
+      ? "single"
+      : "browse";
+
+
+  for (
+    const tab
+    of document.querySelectorAll(
+      "[data-sites-mode]"
+    )
+  ) {
+    const active =
+      tab.dataset.sitesMode ===
+      activeMode;
+
+
+    tab.classList.toggle(
+      "sites-mode-tab-active",
+      active
+    );
+
+
+    if (active) {
+      tab.setAttribute(
+        "aria-current",
+        "page"
+      );
+    } else {
+      tab.removeAttribute(
+        "aria-current"
+      );
+    }
+  }
 }
 
 function getSiteId() {
@@ -640,6 +683,8 @@ function renderSite() {
 }
 
 async function loadSite() {
+  updateSiteModeTabs();
+
   if (isNewSite()) {
     currentSite = {
       id: null,

@@ -2037,20 +2037,77 @@
       return fallbackLabel;
     }
 
-    function sourceButtonTitle(resource, fallbackLabel = "Open source details") {
-      const details = findSourceDetails(resource);
+    function sourceButtonTitle(
+      resource,
+      fallbackLabel = "Open source details"
+    ) {
+      const details =
+        findSourceDetails(resource);
 
-      const stableLabel = sourceButtonLabel(resource, fallbackLabel);
+      const stableLabel =
+        sourceButtonLabel(
+          resource,
+          fallbackLabel
+        );
 
-      if (details && details.source_title) {
-        return `${stableLabel}: ${details.source_title}`;
+
+      if (!details) {
+        return resource &&
+          resource.sourceCode
+          ? `Open metadata for ${stableLabel}`
+          : fallbackLabel;
       }
 
-      if (resource && resource.sourceCode) {
-        return `Open metadata for ${stableLabel}`;
+
+      const lines = [
+        stableLabel,
+      ];
+
+
+      if (
+        details.source_title
+      ) {
+        lines.push(
+          details.source_title
+        );
       }
 
-      return fallbackLabel;
+
+      const metadata = [];
+
+
+      if (
+        details.publication_year
+      ) {
+        metadata.push(
+          String(
+            details.publication_year
+          )
+        );
+      }
+
+
+      if (
+        details.source_type
+      ) {
+        metadata.push(
+          formatSourceType(
+            details.source_type
+          )
+        );
+      }
+
+
+      if (
+        metadata.length > 0
+      ) {
+        lines.push(
+          metadata.join(" · ")
+        );
+      }
+
+
+      return lines.join("\n");
     }
 
     function formatSourceType(value) {

@@ -1,3 +1,34 @@
+function installCuratorFavicon() {
+  let favicon =
+    document.querySelector(
+      'link[rel~="icon"]'
+    );
+
+
+  if (!favicon) {
+    favicon =
+      document.createElement(
+        "link"
+      );
+
+    favicon.rel =
+      "icon";
+
+    document.head.append(
+      favicon
+    );
+  }
+
+
+  favicon.type =
+    "image/svg+xml";
+
+  favicon.href =
+    "/assets/icons/curator-favicon.svg";
+}
+
+installCuratorFavicon();
+
 const CURATOR_NAV_ITEMS = [
   {
     label: "Dashboard",

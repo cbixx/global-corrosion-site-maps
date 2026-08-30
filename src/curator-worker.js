@@ -16,7 +16,7 @@ import {
   publishWebsiteFilesToGitHub,
 } from "./github-publish.js";
 
-const CURATOR_BUILD_ID = "settings-001";
+const CURATOR_BUILD_ID = "sites-bulk-create-001";
 
 function htmlResponse(html, status = 200) {
   return new Response(html, {
