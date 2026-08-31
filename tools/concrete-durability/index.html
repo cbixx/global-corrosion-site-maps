@@ -1,886 +1,55 @@
 <!DOCTYPE html>
-<!-- saved from url=(0032)https://xxy11221221.github.io/1/ -->
-<html lang="en"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-    
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Concrete Durability Assessment | Corrosion Atlas</title>
-    <style>
-        * {
-            box-sizing: border-box;
-        }
-        
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: #f0f2f5;
-            margin: 0;
-            padding: 20px;
-        }
-        
-        .container {
-            max-width: 1600px;
-            margin: 0 auto;
-        }
-        
-        .three-columns {
-            display: flex;
-            gap: 20px;
-            flex-wrap: wrap;
-            margin-bottom: 20px;
-        }
-        
-        .panel {
-            flex: 1;
-            min-width: 380px;
-            background: white;
-            border-radius: 8px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-            padding: 20px;
-        }
-        
-        .panel h2 {
-            margin-top: 0;
-            padding-bottom: 10px;
-            border-bottom: 2px solid #1890ff;
-            color: #333;
-            font-size: 1.3rem;
-        }
-        
-        .form-group {
-            margin-bottom: 12px;
-            display: flex;
-            flex-wrap: wrap;
-            align-items: center;
-        }
-        
-        .form-group label {
-            width: 170px;
-            font-size: 13px;
-            color: #555;
-        }
-        
-        .form-group input, .form-group select {
-            flex: 1;
-            min-width: 120px;
-            padding: 6px 10px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            font-size: 13px;
-        }
-        
-        .form-group input:focus, .form-group select:focus {
-            outline: none;
-            border-color: #1890ff;
-            box-shadow: 0 0 0 2px rgba(24,144,255,0.2);
-        }
-        
-        .section-title {
-            font-weight: 600;
-            margin: 12px 0 8px 0;
-            padding-left: 8px;
-            border-left: 3px solid #1890ff;
-            color: #1890ff;
-            font-size: 14px;
-        }
-        
-        .btn-calculate {
-            display: block;
-            width: 200px;
-            margin: 20px auto;
-            padding: 12px 24px;
-            background: #1890ff;
-            color: white;
-            border: none;
-            border-radius: 6px;
-            font-size: 16px;
-            cursor: pointer;
-            transition: all 0.3s;
-        }
-        
-        .btn-calculate:hover {
-            background: #40a9ff;
-            transform: translateY(-1px);
-        }
-        
-        .result-area {
-            background: white;
-            border-radius: 8px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-            padding: 20px;
-            margin-top: 20px;
-        }
-        
-        .result-area h3 {
-            margin-top: 0;
-            color: #333;
-        }
-        
-        .result-content {
-            background: #1e1e1e;
-            color: #d4d4d4;
-            font-family: 'Consolas', 'Courier New', monospace;
-            font-size: 12px;
-            padding: 15px;
-            border-radius: 6px;
-            overflow-x: auto;
-            white-space: pre-wrap;
-            word-wrap: break-word;
-            max-height: 600px;
-            overflow-y: auto;
-        }
-        
-        .note {
-            background: #f6ffed;
-            border: 1px solid #b7eb8f;
-            border-radius: 4px;
-            padding: 10px;
-            margin-top: 12px;
-            font-size: 11px;
-            color: #389e0d;
-        }
-        
-        @media (max-width: 1300px) {
-            .panel {
-                min-width: 100%;
-            }
-            .form-group label {
-                width: 150px;
-            }
-        }
-    </style>
-<style type="text/css">@font-face {
-  font-family: "xm-iconfont";
-  src: url('//at.alicdn.com/t/font_792691_ptvyboo0bno.eot?t=1574048839056');
-  /* IE9 */
-  src: url('//at.alicdn.com/t/font_792691_ptvyboo0bno.eot?t=1574048839056#iefix') format('embedded-opentype'), /* IE6-IE8 */ url('data:application/x-font-woff2;charset=utf-8;base64,d09GMgABAAAAAAksAAsAAAAAEYAAAAjeAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHEIGVgCEUgqTXI8lATYCJAM0CxwABCAFhG0HgTwbZQ4jEbaCkVIj+4sD3sS6BFAp9ka91ulVG4leTC/+h+3V+zyRYCTyREKkcZ+D5/u137lPdveLGJBMunoiNPOQPBMq0/FQtEKIkMRDZng69d+hOiQumAr7bJdBOEzMTU77s78mhbI58aCg7ebCs4LBTgCk+cD/4ZqWUHebipp7al3tyKOjwCV/hVyw9PdzaktxI7IMQs26/1N8gV4DI0bVut3UhCaflGGgwM3oTXg1IfRMbCsmrEnriJVeYM2eXHII4KdMMzL4OoACHgZBCTasITcReDUBE8kWPLMTCGoQaDV+eKpUPQI49r8vP6BTPIDCaiBSml3oOQX0voNPebv/u2P0AUfP1w0s5EADzYBZsNdByylo2eVq/NtRdgFpovQR5x2CIwmIZeik6/u0T/m/A7RJP00sCmmyksj/kwc+LC5BFBqDEMDDjwPiANDB9MpJTXwHmsO3YyBwWDA4OFwwJLRcRgAOBUYMDg0mHRwGTAYozsV0AgWYruDwwExDHfzwKWf4OurQ9jzQDtoF+wpistfBfluQ5bQiiJa4ZQoKhShLiMayBbyg05AIkYBoIBJEEApQy/FwYv4HchADIUBXl61dW6mpwIgyp7p8PrHddieSjhY9oqTxyPB/FGNYDklpfYh8VtaoqSgb0bKoGB17CuVUp9Ll2nS2UpNGMSw9hyirA7C6+QLyByIQS0sSSmxvArC5odZmYZMxZSiBR5OkQl0uiufxMH5eL8t3u0d4XKyuq6EMdcpNe2+oXA8p9yPa+4T1PM7+A54tc7tpl2vcAHAftnhZj2chy1CyaCRFsyMqQ5nkNnskEt2yxxZinPsOZjFm4+XWvKqLkfCGS1k4MNP82isxSMf7ZsGYvQVCNAeSSVtzWCxRdXGxyZlA2CvCEevuO7y9M2z2NWH8icydzq/qAJSp1lGvDWFp6Nw3xChJowPD+76nU+upQk6Kw9jI0Rgym9Ct8VlxMI3CSIaDCZja5tDYt0/EYra4tn0Kp3v8Rdezk8svcy1mKhoSvNcZz3LKlUe777Gmval0s7bzAc0k13LGk896V9DuvNn34N0ebKgItkQgOomuJtgQPChNI4cwa7CEWCvfk5QjJFlem6i3SfVShWi5LTFRG+JwdCNpSqbpRFwrtb1TbcRkJi/AbJJQOmfCdnswLNGVM7qqSRO1zO0Q0j5Vr3cYQ07HB0MX6KoIZhx+D9Djs2C5bXtVwvbgJHtSCIL7hjFJme4sZDdS5IlJdKUO1Qt8opn0trBafz3AX933kmCRgyMEWGZjMAkRKhwmIHJGR4ruwFCdWKYzrap2R/mvd2UKajzRAZu88pGAD90Y+02kTFCKrBSXwGGJ3wRcPCdIppTxSmHOfESRwIli0S5J/8AYDCxTGh4XZua4xvfvGx320rDK2qA8g5FlS7pWNLx71+BwgA/KZ5I0aeKmNeCNoNPl8qNHu8uHHzqaKc86fHi4vPuRI4ny+I/vjxw+clh4HXVCFvVnVFx07EHZwVhSRliTTMWSEi0h6YuS6DxCRmiin0B3L4ry6cvR0ijYexFdBL3wGQM0YOrUAZCBkLOBBtQ+xdk7omfgUv+u++admyUeXduyxLM+r/+49rPfhgEZor6GymToNYksNsZyC7ntwAH0928UpgMpxpF0ydNlsMMBw7QsxTCmu0Hf3F+/+vb99Yumhb+e9R0LBNm+4O+hu7lQ5bGjI9j5G88qQ5SLFyuEC7cwd25xoYo2j4eA4bhpM7TZhPtmc+uhVEVSMYXLWh0bfjI8dvUpvDUocPZmU4kwwOfc83wB5wPehrpD3waApbwW+fgRrZXcxw+mB/3woZT+8JFMYwRMIy2k/18qhqcKpjYeYSnIACaUoRDu0e3kQFh98R5fiI8oJqwwGZSJDSbehLzZs7zIeWTQ4UGOIs2c4j2/Q/tn7n7j9juO33On6WhURCT/wO6Y3QdmWFY0Ef6JUeGRggO7ZbtaZlh5RYKWXbLPBLc3l/5h4A0mu3ZXTZ+u6t6VHMAzZhxak50T+24NnRuaOmehRkXlqVR5lIpuwezUUDUdCuJysv8Z/0/8uNE1s7jIJIubFWnI/x7g4nAZx79yYpFoAOU3a9iwT1O/GxUxPY0ljVPv9EukI3qNrl/So2YfzasqHCroNjS0+w0tlPlsYfC6v/01ixquizJH1Kd/VK+OS3iS3rTJWmqsMPdU3B3oFyC9RSumWE/0gG36IjTysfH51IJ/5oOgNYu6p4yb5Fdufhr/Kjtu0oSyYP/WJQrz35aNFnMhtFcwb55NlNnH8Wdu1b+XZA9zqlZrhdPo/V3uBhiUlQ66h0LhbAmFYIncdFOpVMh6Fl7peqy5Z2ZdQBITO2x1Asj1dRFjIBMC3hbuUh8Ooc4W03EjAdo8UL/t0oUfyU8630bmMcw/vqDNAsC9BQD4OqCgH+ljy0UhJB8AAJA+8EmArxk5gnRLik90AElf8rBm+IMvBTWnucb3+0o0ARk+r0ZBv8sU01nnSmP45/H8Dp8C8X+iE9e+ZvXymK/sQJ5/DuqhYKebPnKmPqLYuDcIMWS2/Rjxp2s8Do821LVn6A/xMK1RKvBLK5gyDsZ5uQ6bYusmx2yqLFe4lECHDPcFhojmckuAbnCI6Cn308RI6AAJdtCICQLQyBHKhSgX5YowN6BBPIEB8VxuSfNncpAuutzPnCSiDHDEo+DsKQBPoJi4MpRktepIs2zjO5h84IEMM3ffECKSZU1ZHxfewEI4h494MuuUNNOBjuw18QKHAzEXaAcylS3m3baq9MpnKenYmfEUgCdbXTHEtTVKsvruNGv9/DuYfOAhcuKu9TeEiA9nNJTUDOUbbVkn3sv2eDJrEnVrpvcHOjJeqRsOcpYYLuxoBzKVtCOm3ZaKbtJcurw+e/zN6c7Pd6r4gqUo0WLEiiOueOITvwQkKCEJM9nO3F60y5HkqLhdqUyXZtK3lqwReQ+G40O92UhOt0x/KmKM+u7LTPMzoEBOCYtiUPfSjODiuFXjSDm2idzAoc4Tj9bs2eJYDOU7HQA=') format('woff2'), url('//at.alicdn.com/t/font_792691_ptvyboo0bno.woff?t=1574048839056') format('woff'), url('//at.alicdn.com/t/font_792691_ptvyboo0bno.ttf?t=1574048839056') format('truetype'), /* chrome, firefox, opera, Safari, Android, iOS 4.2+ */ url('//at.alicdn.com/t/font_792691_ptvyboo0bno.svg?t=1574048839056#iconfont') format('svg');
-  /* iOS 4.1- */
-}
-.xm-iconfont {
-  font-family: "xm-iconfont" !important;
-  font-size: 16px;
-  font-style: normal;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
-.xm-icon-quanxuan:before {
-  content: "\e62c";
-}
-.xm-icon-caidan:before {
-  content: "\e610";
-}
-.xm-icon-fanxuan:before {
-  content: "\e837";
-}
-.xm-icon-pifu:before {
-  content: "\e668";
-}
-.xm-icon-qingkong:before {
-  content: "\e63e";
-}
-.xm-icon-sousuo:before {
-  content: "\e600";
-}
-.xm-icon-danx:before {
-  content: "\e62b";
-}
-.xm-icon-duox:before {
-  content: "\e613";
-}
-.xm-icon-close:before {
-  content: "\e601";
-}
-.xm-icon-expand:before {
-  content: "\e641";
-}
-.xm-icon-banxuan:before {
-  content: "\e60d";
-}
-</style><style type="text/css">@-webkit-keyframes xm-upbit {
-  from {
-    -webkit-transform: translate3d(0, 30px, 0);
-    opacity: 0.3;
-  }
-  to {
-    -webkit-transform: translate3d(0, 0, 0);
-    opacity: 1;
-  }
-}
-@keyframes xm-upbit {
-  from {
-    transform: translate3d(0, 30px, 0);
-    opacity: 0.3;
-  }
-  to {
-    transform: translate3d(0, 0, 0);
-    opacity: 1;
-  }
-}
-@-webkit-keyframes loader {
-  0% {
-    -webkit-transform: rotate(0deg);
-    transform: rotate(0deg);
-  }
-  100% {
-    -webkit-transform: rotate(360deg);
-    transform: rotate(360deg);
-  }
-}
-@keyframes loader {
-  0% {
-    -webkit-transform: rotate(0deg);
-    transform: rotate(0deg);
-  }
-  100% {
-    -webkit-transform: rotate(360deg);
-    transform: rotate(360deg);
-  }
-}
-xm-select {
-  background-color: #FFF;
-  position: relative;
-  border: 1px solid #E6E6E6;
-  border-radius: 2px;
-  display: block;
-  width: 100%;
-  cursor: pointer;
-  outline: none;
-}
-xm-select * {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-  font-size: 14px;
-  font-weight: 400;
-  text-overflow: ellipsis;
-  user-select: none;
-  -ms-user-select: none;
-  -moz-user-select: none;
-  -webkit-user-select: none;
-}
-xm-select:hover,
-xm-select:focus {
-  border-color: #C0C4CC;
-}
-xm-select > .xm-tips {
-  color: #999999;
-  padding: 0 10px;
-  position: absolute;
-  display: flex;
-  height: 100%;
-  align-items: center;
-}
-xm-select > .xm-icon {
-  display: inline-block;
-  overflow: hidden;
-  position: absolute;
-  width: 0;
-  height: 0;
-  right: 10px;
-  top: 50%;
-  margin-top: -3px;
-  cursor: pointer;
-  border: 6px dashed transparent;
-  border-top-color: #C2C2C2;
-  border-top-style: solid;
-  transition: all 0.3s;
-  -webkit-transition: all 0.3s;
-}
-xm-select > .xm-icon-expand {
-  margin-top: -9px;
-  transform: rotate(180deg);
-}
-xm-select > .xm-label.single-row {
-  position: absolute;
-  top: 0;
-  bottom: 0px;
-  left: 0px;
-  right: 30px;
-  overflow: auto hidden;
-}
-xm-select > .xm-label.single-row .scroll {
-  overflow-y: hidden;
-}
-xm-select > .xm-label.single-row .label-content {
-  flex-wrap: nowrap;
-  white-space: nowrap;
-}
-xm-select > .xm-label.auto-row .label-content {
-  flex-wrap: wrap;
-  padding-right: 30px !important;
-}
-xm-select > .xm-label.auto-row .xm-label-block > span {
-  white-space: unset;
-  height: 100%;
-}
-xm-select > .xm-label .scroll .label-content {
-  display: flex;
-  padding: 3px 10px;
-}
-xm-select > .xm-label .xm-label-block {
-  display: flex;
-  position: relative;
-  padding: 0px 5px;
-  margin: 2px 5px 2px 0;
-  border-radius: 3px;
-  align-items: baseline;
-  color: #FFF;
-}
-xm-select > .xm-label .xm-label-block > span {
-  display: flex;
-  color: #FFF;
-  white-space: nowrap;
-}
-xm-select > .xm-label .xm-label-block > i {
-  color: #FFF;
-  margin-left: 8px;
-  font-size: 12px;
-  cursor: pointer;
-  display: flex;
-}
-xm-select > .xm-label .xm-label-block.disabled {
-  background-color: #C2C2C2 !important;
-  cursor: no-drop !important;
-}
-xm-select > .xm-label .xm-label-block.disabled > i {
-  cursor: no-drop !important;
-}
-xm-select > .xm-body {
-  position: absolute;
-  left: 0;
-  top: 42px;
-  padding: 5px 0;
-  z-index: 999;
-  width: 100%;
-  min-width: fit-content;
-  border: 1px solid #E6E6E6;
-  background-color: #fff;
-  border-radius: 2px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.12);
-  animation-name: xm-upbit;
-  animation-duration: 0.3s;
-  animation-fill-mode: both;
-}
-xm-select > .xm-body .scroll-body {
-  overflow-x: hidden;
-  overflow-y: auto;
-}
-xm-select > .xm-body .scroll-body::-webkit-scrollbar {
-  width: 8px;
-}
-xm-select > .xm-body .scroll-body::-webkit-scrollbar-track {
-  -webkit-border-radius: 2em;
-  -moz-border-radius: 2em;
-  -ms-border-radius: 2em;
-  border-radius: 2em;
-  background-color: #FFF;
-}
-xm-select > .xm-body .scroll-body::-webkit-scrollbar-thumb {
-  -webkit-border-radius: 2em;
-  -moz-border-radius: 2em;
-  -ms-border-radius: 2em;
-  border-radius: 2em;
-  background-color: #C2C2C2;
-}
-xm-select > .xm-body.up {
-  top: auto;
-  bottom: 42px;
-}
-xm-select > .xm-body.relative {
-  position: relative;
-  display: block !important;
-  top: 0;
-  box-shadow: none;
-  border: none;
-  animation-name: none;
-  animation-duration: 0;
-  min-width: 100%;
-}
-xm-select > .xm-body .xm-group {
-  cursor: default;
-}
-xm-select > .xm-body .xm-group-item {
-  display: inline-block;
-  cursor: pointer;
-  padding: 0 10px;
-  color: #999;
-  font-size: 12px;
-}
-xm-select > .xm-body .xm-option {
-  display: flex;
-  align-items: center;
-  position: relative;
-  padding: 0 10px;
-  cursor: pointer;
-}
-xm-select > .xm-body .xm-option-icon {
-  color: transparent;
-  display: flex;
-  border: 1px solid #E6E6E6;
-  border-radius: 3px;
-  justify-content: center;
-  align-items: center;
-}
-xm-select > .xm-body .xm-option-icon.xm-custom-icon {
-  color: unset;
-  border: unset;
-}
-xm-select > .xm-body .xm-option-icon-hidden {
-  margin-right: -10px;
-}
-xm-select > .xm-body .xm-option-icon.xm-icon-danx {
-  border-radius: 100%;
-}
-xm-select > .xm-body .xm-option-content {
-  display: flex;
-  position: relative;
-  padding-left: 15px;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-  width: calc(100% - 20px);
-}
-xm-select > .xm-body .xm-option.hide-icon .xm-option-content {
-  padding-left: 0;
-}
-xm-select > .xm-body .xm-option.selected.hide-icon .xm-option-content {
-  color: #FFF !important;
-}
-xm-select > .xm-body .xm-option .loader {
-  width: 0.8em;
-  height: 0.8em;
-  margin-right: 6px;
-  color: #C2C2C2;
-}
-xm-select > .xm-body .xm-select-empty {
-  text-align: center;
-  color: #999;
-}
-xm-select > .xm-body .disabled {
-  cursor: no-drop;
-}
-xm-select > .xm-body .disabled:hover {
-  background-color: #FFF;
-}
-xm-select > .xm-body .disabled .xm-option-icon {
-  border-color: #C2C2C2 !important;
-}
-xm-select > .xm-body .disabled .xm-option-content {
-  color: #C2C2C2 !important;
-}
-xm-select > .xm-body .disabled.selected > .xm-option-icon {
-  color: #C2C2C2 !important;
-}
-xm-select > .xm-body .xm-search {
-  background-color: #FFF !important;
-  position: relative;
-  padding: 0 10px;
-  margin-bottom: 5px;
-  cursor: pointer;
-}
-xm-select > .xm-body .xm-search > i {
-  position: absolute;
-}
-xm-select > .xm-body .xm-search-input {
-  border: none;
-  border-bottom: 1px solid #E6E6E6;
-  padding-left: 27px;
-  cursor: text;
-}
-xm-select > .xm-body .xm-paging {
-  padding: 0 10px;
-  display: flex;
-  margin-top: 5px;
-}
-xm-select > .xm-body .xm-paging > span:first-child {
-  border-radius: 2px 0 0 2px;
-}
-xm-select > .xm-body .xm-paging > span:last-child {
-  border-radius: 0 2px 2px 0;
-}
-xm-select > .xm-body .xm-paging > span {
-  display: flex;
-  flex: auto;
-  justify-content: center;
-  vertical-align: middle;
-  margin: 0 -1px 0 0;
-  background-color: #fff;
-  color: #333;
-  font-size: 12px;
-  border: 1px solid #e2e2e2;
-  flex-wrap: nowrap;
-  width: 100%;
-  overflow: hidden;
-  min-width: 50px;
-}
-xm-select > .xm-body .xm-toolbar {
-  padding: 0 10px;
-  display: flex;
-  margin: -3px 0;
-  cursor: default;
-}
-xm-select > .xm-body .xm-toolbar .toolbar-tag {
-  cursor: pointer;
-  display: flex;
-  margin-right: 20px;
-  align-items: baseline;
-}
-xm-select > .xm-body .xm-toolbar .toolbar-tag:hover {
-  opacity: 0.8;
-}
-xm-select > .xm-body .xm-toolbar .toolbar-tag:active {
-  opacity: 1;
-}
-xm-select > .xm-body .xm-toolbar .toolbar-tag > i {
-  margin-right: 2px;
-  font-size: 14px;
-}
-xm-select > .xm-body .xm-toolbar .toolbar-tag:last-child {
-  margin-right: 0;
-}
-xm-select > .xm-body .xm-body-custom {
-  line-height: initial;
-  cursor: default;
-}
-xm-select > .xm-body .xm-body-custom * {
-  box-sizing: initial;
-}
-xm-select > .xm-body .xm-tree {
-  position: relative;
-}
-xm-select > .xm-body .xm-tree-icon {
-  display: inline-block;
-  margin-right: 3px;
-  cursor: pointer;
-  border: 6px dashed transparent;
-  border-left-color: #C2C2C2;
-  border-left-style: solid;
-  transition: all 0.3s;
-  -webkit-transition: all 0.3s;
-  z-index: 2;
-  visibility: hidden;
-}
-xm-select > .xm-body .xm-tree-icon.expand {
-  margin-top: 3px;
-  margin-right: 5px;
-  margin-left: -2px;
-  transform: rotate(90deg);
-}
-xm-select > .xm-body .xm-tree-icon.xm-visible {
-  visibility: visible;
-}
-xm-select > .xm-body .xm-tree .left-line {
-  position: absolute;
-  left: 13px;
-  width: 0;
-  z-index: 1;
-  border-left: 1px dotted #c0c4cc !important;
-}
-xm-select > .xm-body .xm-tree .top-line {
-  position: absolute;
-  left: 13px;
-  height: 0;
-  z-index: 1;
-  border-top: 1px dotted #c0c4cc !important;
-}
-xm-select > .xm-body .xm-tree .xm-tree-icon + .top-line {
-  margin-left: 1px;
-}
-xm-select > .xm-body .scroll-body > .xm-tree > .xm-option > .top-line,
-xm-select > .xm-body .scroll-body > .xm-option > .top-line {
-  width: 0 !important;
-}
-xm-select > .xm-body .xm-cascader-box {
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: 0;
-  bottom: 0;
-  padding: 5px 0;
-  border: 1px solid #E6E6E6;
-  background-color: #fff;
-  border-radius: 2px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.12);
-  margin: -1px;
-}
-xm-select > .xm-body .xm-cascader-box::before {
-  content: ' ';
-  position: absolute;
-  width: 0;
-  height: 0;
-  border: 6px solid transparent;
-  border-right-color: #E6E6E6;
-  top: 10px;
-  left: -12px;
-}
-xm-select > .xm-body .xm-cascader-box::after {
-  content: ' ';
-  position: absolute;
-  width: 0;
-  height: 0;
-  border: 6px solid transparent;
-  border-right-color: #fff;
-  top: 10px;
-  left: -11px;
-}
-xm-select > .xm-body .xm-cascader-scroll {
-  height: 100%;
-  overflow-x: hidden;
-  overflow-y: auto;
-}
-xm-select > .xm-body.cascader {
-  width: unset;
-  min-width: unset;
-}
-xm-select > .xm-body.cascader .xm-option-content {
-  padding-left: 8px;
-}
-xm-select > .xm-body.cascader .disabled .xm-right-arrow {
-  color: #C2C2C2 !important;
-}
-xm-select > .xm-body.cascader .hide-icon.disabled .xm-right-arrow {
-  color: #999 !important;
-}
-xm-select .xm-input {
-  cursor: pointer;
-  border-radius: 2px;
-  border-width: 1px;
-  border-style: solid;
-  border-color: #E6E6E6;
-  display: block;
-  width: 100%;
-  box-sizing: border-box;
-  background-color: #FFF;
-  line-height: 1.3;
-  padding-left: 10px;
-  outline: 0;
-  user-select: text;
-  -ms-user-select: text;
-  -moz-user-select: text;
-  -webkit-user-select: text;
-}
-xm-select .dis {
-  display: none;
-}
-xm-select .loading {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: rgba(255, 255, 255, 0.6);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-xm-select .loader {
-  border: 0.2em dotted currentcolor;
-  border-radius: 50%;
-  -webkit-animation: 1s loader linear infinite;
-  animation: 1s loader linear infinite;
-  display: inline-block;
-  width: 1em;
-  height: 1em;
-  color: inherit;
-  vertical-align: middle;
-  pointer-events: none;
-}
-xm-select .xm-select-default {
-  position: absolute;
-  width: 100%;
-  height: 100%;
-  border: none;
-  visibility: hidden;
-}
-xm-select .xm-select-disabled {
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: 0;
-  bottom: 0;
-  cursor: no-drop;
-  z-index: 2;
-  opacity: 0.3;
-  background-color: #FFF;
-}
-xm-select .item--divided {
-  border-top: 1px solid #ebeef5;
-  width: calc(100% - 20px);
-  cursor: initial;
-}
-xm-select .xm-right-arrow {
-  position: absolute;
-  right: 5px;
-  top: -1px;
-  font-weight: 700;
-  transform: scale(0.6, 1);
-}
-xm-select .xm-right-arrow::after {
-  content: '>';
-}
-xm-select[size='large'] {
-  min-height: 40px;
-  line-height: 40px;
-}
-xm-select[size='large'] .xm-input {
-  height: 40px;
-}
-xm-select[size='large'] .xm-label .scroll .label-content {
-  line-height: 34px;
-}
-xm-select[size='large'] .xm-label .xm-label-block {
-  height: 30px;
-  line-height: 30px;
-}
-xm-select[size='large'] .xm-body .xm-option .xm-option-icon {
-  height: 20px;
-  width: 20px;
-  font-size: 20px;
-}
-xm-select[size='large'] .xm-paging > span {
-  height: 34px;
-  line-height: 34px;
-}
-xm-select[size='large'] .xm-tree .left-line {
-  height: 100%;
-  bottom: 20px;
-}
-xm-select[size='large'] .xm-tree .left-line-group {
-  height: calc(100% - 40px);
-}
-xm-select[size='large'] .xm-tree .xm-tree-icon.xm-hidden + .top-line {
-  top: 19px;
-}
-xm-select[size='large'] .item--divided {
-  margin: 10px;
-}
-xm-select {
-  min-height: 36px;
-  line-height: 36px;
-}
-xm-select .xm-input {
-  height: 36px;
-}
-xm-select .xm-label .scroll .label-content {
-  line-height: 30px;
-}
-xm-select .xm-label .xm-label-block {
-  height: 26px;
-  line-height: 26px;
-}
-xm-select .xm-body .xm-option .xm-option-icon {
-  height: 18px;
-  width: 18px;
-  font-size: 18px;
-}
-xm-select .xm-paging > span {
-  height: 30px;
-  line-height: 30px;
-}
-xm-select .xm-tree .left-line {
-  height: 100%;
-  bottom: 18px;
-}
-xm-select .xm-tree .left-line-group {
-  height: calc(100% - 36px);
-}
-xm-select .xm-tree .xm-tree-icon.xm-hidden + .top-line {
-  top: 17px;
-}
-xm-select .item--divided {
-  margin: 9px;
-}
-xm-select[size='small'] {
-  min-height: 32px;
-  line-height: 32px;
-}
-xm-select[size='small'] .xm-input {
-  height: 32px;
-}
-xm-select[size='small'] .xm-label .scroll .label-content {
-  line-height: 26px;
-}
-xm-select[size='small'] .xm-label .xm-label-block {
-  height: 22px;
-  line-height: 22px;
-}
-xm-select[size='small'] .xm-body .xm-option .xm-option-icon {
-  height: 16px;
-  width: 16px;
-  font-size: 16px;
-}
-xm-select[size='small'] .xm-paging > span {
-  height: 26px;
-  line-height: 26px;
-}
-xm-select[size='small'] .xm-tree .left-line {
-  height: 100%;
-  bottom: 16px;
-}
-xm-select[size='small'] .xm-tree .left-line-group {
-  height: calc(100% - 32px);
-}
-xm-select[size='small'] .xm-tree .xm-tree-icon.xm-hidden + .top-line {
-  top: 15px;
-}
-xm-select[size='small'] .item--divided {
-  margin: 8px;
-}
-xm-select[size='mini'] {
-  min-height: 28px;
-  line-height: 28px;
-}
-xm-select[size='mini'] .xm-input {
-  height: 28px;
-}
-xm-select[size='mini'] .xm-label .scroll .label-content {
-  line-height: 22px;
-}
-xm-select[size='mini'] .xm-label .xm-label-block {
-  height: 18px;
-  line-height: 18px;
-}
-xm-select[size='mini'] .xm-body .xm-option .xm-option-icon {
-  height: 14px;
-  width: 14px;
-  font-size: 14px;
-}
-xm-select[size='mini'] .xm-paging > span {
-  height: 22px;
-  line-height: 22px;
-}
-xm-select[size='mini'] .xm-tree .left-line {
-  height: 100%;
-  bottom: 14px;
-}
-xm-select[size='mini'] .xm-tree .left-line-group {
-  height: calc(100% - 28px);
-}
-xm-select[size='mini'] .xm-tree .xm-tree-icon.xm-hidden + .top-line {
-  top: 13px;
-}
-xm-select[size='mini'] .item--divided {
-  margin: 7px;
-}
-.layui-form-pane xm-select {
-  margin: -1px -1px -1px 0;
-}
-</style>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<link rel="icon" href="/assets/icons/favicon.ico?v=3" sizes="any">
-<link rel="icon" href="/assets/icons/favicon.svg?v=3" type="image/svg+xml">
-<link rel="apple-touch-icon" href="/assets/icons/apple-touch-icon.png?v=3">
-<meta name="theme-color" content="#10293A">
+  <title>Durability Assessment of Existing Concrete Structures | Corrosion Atlas</title>
 
-<link rel="stylesheet" href="/css/styles.css">
-<link
-  rel="stylesheet"
-  href="/assets/tools/concrete-durability/concrete-durability.css"
->
+  <meta
+    name="description"
+    content="Durability assessment of existing concrete structures based on GB/T 51355-2019."
+  >
 
+  <link
+    rel="canonical"
+    href="https://corrosionatlas.org/tools/concrete-durability/"
+  >
+
+  <link
+    rel="alternate"
+    hreflang="en"
+    href="https://corrosionatlas.org/tools/concrete-durability/"
+  >
+
+  <link
+    rel="alternate"
+    hreflang="zh-CN"
+    href="https://corrosionatlas.org/zh/tools/concrete-durability/"
+  >
+
+  <link rel="icon" href="/assets/icons/favicon.ico?v=3" sizes="any">
+  <link rel="icon" href="/assets/icons/favicon.svg?v=3" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/assets/icons/apple-touch-icon.png?v=3">
+
+  <meta name="theme-color" content="#10293A">
+
+  <link rel="stylesheet" href="/css/styles.css">
+
+  <link
+    rel="stylesheet"
+    href="/assets/tools/concrete-durability/concrete-durability.css"
+  >
 </head>
-<body class="durability-tool-page">
+
+<body class="durability-page">
 
 <header class="site-header">
-  <a class="site-brand" href="/">
+  <a
+    id="toolBrand"
+    class="site-brand"
+    href="/zh/"
+  >
     <img
       class="site-brand-mark"
       src="/assets/icons/corrosion-atlas-mark.svg"
@@ -889,830 +58,751 @@ xm-select[size='mini'] .item--divided {
     <span class="site-brand-text">Corrosion Atlas</span>
   </a>
 
-  <nav class="site-nav" aria-label="Site navigation">
-    <a id="durabilityNavHome" class="site-nav-link" href="/">Home</a>
-    <a id="durabilityNavMap" class="site-nav-link" href="/map/">Map</a>
-    <a
-      id="durabilityNavTools"
-      class="site-nav-link is-active"
-      href="/tools/"
-      aria-current="page"
-    >Tools</a>
-    <a id="durabilityNavReports" class="site-nav-link" href="/reports/">Reports</a>
-    <a
-      id="durabilityNavMethodology"
-      class="site-nav-link"
-      href="/methodology/"
-    >Methodology</a>
-    <a id="durabilityNavPolicy" class="site-nav-link" href="/policy/">Data policy</a>
-    <a id="durabilityNavAbout" class="site-nav-link" href="/about/">About</a>
-    <a id="durabilityNavTeam" class="site-nav-link" href="/api/team/map">Team</a>
+  <nav class="site-nav" aria-label="网站导航">
+    <a id="toolNavHome" class="site-nav-link" href="/zh/">首页</a>
+    <a id="toolNavMap" class="site-nav-link" href="/zh/map/">地图</a>
 
     <a
-      id="durabilityLanguageSwitch"
+      id="toolNavTools"
+      class="site-nav-link is-active"
+      href="/zh/tools/"
+      aria-current="page"
+    >工具</a>
+
+    <a id="toolNavReports" class="site-nav-link" href="/zh/reports/">报告</a>
+
+    <a
+      id="toolNavMethodology"
+      class="site-nav-link"
+      href="/zh/methodology/"
+    >方法学</a>
+
+    <a
+      id="toolNavPolicy"
+      class="site-nav-link"
+      href="/zh/policy/"
+    >数据政策</a>
+
+    <a id="toolNavAbout" class="site-nav-link" href="/zh/about/">关于</a>
+
+    <a
+      id="toolNavTeam"
+      class="site-nav-link"
+      href="/api/team/map"
+    >团队</a>
+
+    <a
+      id="toolLangSwitch"
       class="site-lang-switch"
-      href="/zh/tools/concrete-durability/"
-    >中文</a>
+      href="/tools/concrete-durability/"
+    >English</a>
   </nav>
 </header>
 
-<div class="container">
-    <h1 style="text-align:center; color:#333;">混凝土结构耐久性评定系统</h1>
-    <p style="text-align:center; color:#666; margin-bottom:30px;">依据 GB/T 51355-2019</p>
-    
-    <div class="three-columns">
-        <!-- 一般环境面板 -->
-        <div class="panel">
-            <h2>🏢 一般环境</h2>
-            <div class="form-group">
-                <label>环境作用等级：</label>
-                <select id="envLevel">
-                    <option value="I-A">I-A</option>
-                    <option value="I-B" selected="">I-B</option>
-                    <option value="I-C">I-C</option>
-                    <option value="I-D">I-D</option>
-                </select>
-            </div>
-            <div class="section-title">碳化系数确定</div>
-            <div class="form-group">
-                <label>碳化系数 k (mm/√a)：</label>
-                <input type="number" id="kValue" step="0.1" value="2.53" placeholder="直接输入">
-            </div>
-            <div class="form-group">
-                <label>实测碳化深度 (mm)：</label>
-                <input type="number" id="carbonDepth" step="0.1" value="8" placeholder="用于计算k">
-            </div>
-            <div class="form-group">
-                <label>建成至检测时间 (a)：</label>
-                <input type="number" id="usedYears" step="0.5" value="10" placeholder="用于计算k">
-            </div>
-            <div class="section-title">构件参数</div>
-            <div class="form-group">
-                <label>混凝土保护层深度c(mm)：</label>
-                <input type="number" id="coverStart" value="25" step="1">
-            </div>
-            <div class="form-group">
-                <label>构件类型：</label>
-                <select id="memberType">
-                    <option value="室外梁、柱" selected="">室外梁、柱</option>
-                    <option value="室外墙、板">室外墙、板</option>
-                    <option value="室内梁、柱">室内梁、柱</option>
-                    <option value="室内墙、板">室内墙、板</option>
-                </select>
-            </div>
-            <div class="form-group">
-                <label>抗压强度 fcu,e (MPa)：</label>
-                <input type="number" id="fcuCr" value="30" step="1">
-            </div>
-            <div class="form-group">
-                <label>钢筋直径 (mm)：</label>
-                <input type="number" id="diaCr" value="20" step="1">
-            </div>
-            <div class="form-group">
-                <label>环境温度 (℃)：</label>
-                <input type="number" id="tempCr" value="20" step="1">
-            </div>
-            <div class="form-group">
-                <label>环境湿度 (%)：</label>
-                <input type="number" id="rhCr" value="70" step="1">
-            </div>
-        </div>
-        
-        <!-- 氯盐侵蚀面板 -->
-        <div class="panel">
-            <h2>🧂 氯盐侵蚀</h2>
-            <div class="form-group">
-                <label>保护层厚度 c (mm)：</label>
-                <input type="number" id="cCl" value="40" step="1">
-            </div>
-            <div class="form-group">
-                <label>氯离子扩散系数 D (m²/a)：</label>
-                <input type="number" id="DCl" value="0.0001" step="0.0001">
-            </div>
-            <div class="form-group">
-                <label>临界浓度 Ccr (kg/m³)：</label>
-                <input type="number" id="Ccr" value="2.10" step="0.1">
-            </div>
-            <div class="form-group">
-                <label>表面浓度 Cs (kg/m³)：</label>
-                <input type="number" id="CsInp" step="0.1" placeholder="直接输入">
-            </div>
-            <div class="form-group">
-                <label>环境等级：</label>
-                <select id="envLvl2">
-                    <option value="近海大气环境-0.5km≤d&lt;1.0km" selected="">近海大气-0.5~1.0km</option>
-                    <option value="近海大气环境-0.25km≤d&lt;0.5km">近海大气-0.25~0.5km</option>
-                    <option value="近海大气环境-0.1km≤d&lt;0.25km">近海大气-0.1~0.25km</option>
-                    <option value="近海大气环境-d&lt;0.1km">近海大气-d&lt;0.1km</option>
-                    <option value="海洋环境-大气盐雾区">海洋环境-大气盐雾区</option>
-                    <option value="海洋环境-水位变动区、浪溅区">海洋环境-水位变动区/浪溅区</option>
-                </select>
-            </div>
-            <div class="form-group">
-                <label>实测表面浓度 Cse(kg/m³)：</label>
-                <input type="number" id="Cse" step="0.1" placeholder="优先使用">
-            </div>
-            <div class="form-group">
-                <label>制备掺入 C0 (kg/m³)：</label>
-                <input type="number" id="C0" value="0" step="0.1">
-            </div>
-            <div class="form-group">
-                <label>抗压强度 fcu (MPa)：</label>
-                <input type="number" id="fcuCl" value="40" step="1">
-            </div>
-            <div class="form-group">
-                <label>地区：</label>
-                <select id="region">
-                    <option value="南方" selected="">南方</option>
-                    <option value="北方">北方</option>
-                </select>
-            </div>
-            <div class="form-group">
-                <label>建成至检测时间 t0 (a)：</label>
-                <input type="number" id="t0Cl" value="0" step="1">
-            </div>
-            <div class="form-group">
-                <label>侵蚀环境类型：</label>
-                <select id="clEnvType">
-                    <option value="近海大气" selected="">近海大气环境</option>
-                    <option value="海洋环境">海洋环境(含浪溅区)</option>
-                    <option value="除冰盐">除冰盐环境</option>
-                </select>
-            </div>
-            <div class="form-group">
-                <label>构件类型：</label>
-                <select id="clMember">
-                    <option value="梁、柱" selected="">梁、柱</option>
-                    <option value="墙、板">墙、板</option>
-                </select>
-            </div>
-            <div class="form-group">
-                <label>钢筋位置：</label>
-                <select id="clCorner">
-                    <option value="非角部" selected="">非角部</option>
-                    <option value="角部">角部</option>
-                </select>
-            </div>
-        </div>
-        
-        <!-- 冻融环境面板 -->
-        <div class="panel">
-            <h2>❄️ 冻融环境</h2>
-            <div class="form-group">
-                <label>构件类型：</label>
-                <select id="ftMember">
-                    <option value="一般构件" selected="">一般构件</option>
-                    <option value="薄壁构件">薄壁构件</option>
-                </select>
-            </div>
-            <div class="form-group">
-                <label>冻融类型：</label>
-                <select id="ftType">
-                    <option value="一般冻融环境" selected="">一般冻融环境</option>
-                    <option value="寒冷地区海洋环境">寒冷地区海洋环境</option>
-                    <option value="除冰盐环境">除冰盐环境</option>
-                </select>
-            </div>
-            <div class="form-group">
-                <label>表面剥落率 αFT (%)：</label>
-                <input type="number" id="alphaFT" value="0" step="0.1">
-            </div>
-            <div class="form-group">
-                <label>平均剥落深度 dFT (mm)：</label>
-                <input type="number" id="dFTAvg" value="0" step="0.1">
-            </div>
-            <div class="form-group">
-                <label>最大剥落深度 dFT,max (mm)：</label>
-                <input type="number" id="dFTMax" value="0" step="0.1">
-            </div>
-            <div class="form-group">
-                <label>混凝土保护层厚度 c (mm)：</label>
-                <input type="number" id="cFT" value="25" step="1">
-            </div>
-            <div class="note">
-                <strong>📌 冻融钢筋锈蚀评定说明：</strong><br>
-                • 一般冻融环境 → 按左侧一般环境碳化评定<br>
-                • 寒冷海洋/除冰盐 → 按中间氯盐侵蚀评定<br>
-                • 表面剥落等级由上方三个参数判定
-            </div>
-        </div>
+<main class="durability-app">
+
+  <div class="durability-hero">
+
+    <div class="durability-hero-copy">
+
+      <div class="durability-kicker">
+        工程计算工具
+      </div>
+
+      <h1>
+        既有混凝土结构耐久性评定
+      </h1>
+
+      <p>
+        基于 GB/T 51355-2019，对既有混凝土结构在一般环境、
+        氯盐环境及冻融环境下的耐久性状态进行评定。
+        连续型表格参数采用线性插值，计算在浏览器本地完成。
+      </p>
+
     </div>
-    
-    <button class="btn-calculate" id="calculateBtn">🔍 开始评定</button>
-    
-    <div class="result-area">
-        <h3>评定结果</h3>
-        <div class="result-content" id="resultText">==================== 一般环境耐久性评定结果 ====================<br><br>【钢筋开始锈蚀极限状态】<br>  耐久年限 ti = 25.3 年  剩余使用年限 = 0.0 年<br>  耐久性裕度系数 xid = 0.460  等级: c级 (不满足)<br><br>【保护层锈胀开裂极限状态】<br>  开裂阶段时间 tc = 19.0 年<br>  耐久年限 tcr = 44.3 年  剩余使用年限 = 6.3 年<br>  耐久性裕度系数 xid = 0.806  等级: c级 (不满足)<br><br>【锈胀裂缝宽度限值极限状态】<br>  裂缝发展阶段时间 tcl = 46.9 年<br>  耐久年限 td = 91.2 年  剩余使用年限 = 53.2 年<br>  耐久性裕度系数 xid = 1.659  等级: b级 (基本满足)<br>  目标使用年限: 50 年  已使用年限: 38.0 年<br><br>==================== 氯盐侵蚀耐久性评定结果 ====================<br><br>【钢筋开始锈蚀极限状态】<br>  Cs=1.280 kg/m³  K=0.1800(×10⁻² m/√a)  t1=25.0 a<br>  耐久年限 ti = 498.8 年  剩余使用年限 = 498.8 年<br>  耐久性裕度系数 xid = 9.070  等级: a级 (满足)<br><br>【保护层锈胀开裂极限状态】<br>  tc0=9.50 a  β1=1.05  β2=1.30  tc=12.97 a<br>  耐久年限 tcr = 511.8 年  剩余使用年限 = 511.8 年<br>  耐久性裕度系数 xid = 9.305  等级: a级 (满足)<br>  建成至检测时间: 0.0 年  目标使用年限: 50 年<br><br>==================== 冻融环境耐久性评定结果 ====================<br><br>【混凝土表面剥落耐久性】<br>  剥落率 αFT = 0.0%<br>  dFT/c = 0.0%  dFT,max/c = 0.0%<br>  构件类型: 一般构件<br>  表面剥落耐久性等级: a级 (满足)<br><br>【钢筋锈蚀耐久性】<br>  钢筋开始锈蚀 xid = 0.460  等级: c级 (不满足)<br>  保护层锈胀开裂 xid = 0.806  等级: c级 (不满足)<br></div>
+
+    <div class="durability-standard-badge">
+      GB/T 51355-2019 · 第5章 / 第6章 / 第7章 / 附录B / 附录D
     </div>
-</div>
+
+  </div>
+
+  <div class="tabs">
+    <button class="tab-btn active" data-tab="basic">基本信息</button>
+    <button class="tab-btn" data-tab="general">一般环境</button>
+    <button class="tab-btn" data-tab="chloride">氯盐环境</button>
+    <button class="tab-btn" data-tab="freeze">冻融环境</button>
+    <button class="tab-btn" data-tab="result">结果</button>
+  </div>
+
+  <section class="panel active" id="tab-basic">
+
+    <h2>基本信息与公共参数</h2>
+
+    <div class="grid">
+
+      <div class="field">
+        <label>工程名称</label>
+        <input id="projectName" type="text" value="测试工程">
+      </div>
+
+      <div class="field">
+        <label>构件名称</label>
+        <input id="memberName" type="text" value="一般构件">
+      </div>
+
+      <div class="field">
+        <label>建成年份</label>
+        <input id="builtYear" type="number" value="2010">
+      </div>
+
+      <div class="field">
+        <label>检测年份</label>
+        <input id="detectYear" type="number" value="2026">
+      </div>
+
+      <div class="field">
+        <label>整体使用年限 T<sub>total</sub> (a)</label>
+        <input id="targetLife" type="number" value="50">
+      </div>
+
+      <div class="field">
+        <label>
+          剩余目标使用年限 t<sub>e</sub> (a)（自动计算）
+        </label>
+        <input
+          id="remainingLifeDisplay"
+          type="text"
+          value=""
+          readonly
+        >
+      </div>
+
+      <div class="field">
+        <label>耐久重要性系数 γ<sub>0</sub></label>
+        <select id="gamma0">
+          <option value="0.9">0.9</option>
+          <option value="1.0" selected>1.0</option>
+          <option value="1.1">1.1</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label>地区</label>
+        <select id="region">
+          <option value="南方" selected>南方</option>
+          <option value="北方">北方</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label>保护层厚度 c (mm)</label>
+        <input id="cover" type="number" step="any" value="30">
+      </div>
+
+      <div class="field">
+        <label>
+          混凝土抗压强度推定值 f<sub>cu,e</sub> (MPa)
+        </label>
+        <input id="fcu" type="number" step="any" value="30">
+      </div>
+
+      <div class="field">
+        <label>钢筋直径 d (mm)</label>
+        <input id="diameter" type="number" step="any" value="16">
+      </div>
+
+      <div class="field">
+        <label>环境温度 T (℃)</label>
+        <input id="temperature" type="number" step="any" value="20">
+      </div>
+
+      <div class="field">
+        <label>环境湿度 RH (%)</label>
+        <input id="humidity" type="number" step="any" value="75">
+      </div>
+
+    </div>
+
+    <div class="hint">
+      <strong>说明：</strong>
+      本页只保留公共参数。整体使用年限
+      T<sub>total</sub> 由用户输入；剩余目标使用年限
+      t<sub>e</sub> 自动计算：
+      t<sub>e</sub> =
+      T<sub>total</sub> - (检测年份 - 建成年份)。
+      一般环境、氯盐环境、冻融环境的专用检测参数分别填写在对应标签页。
+    </div>
+
+  </section>
+
+  <section class="panel" id="tab-general">
+
+    <h2>一般环境参数</h2>
+
+    <div class="grid">
+
+      <div class="field">
+        <label>实测碳化深度 x<sub>c</sub> (mm)</label>
+        <input id="xc" type="number" step="any" value="0">
+      </div>
+
+      <div class="field">
+        <label>碳化测区不在角部，需按 1.4 倍折算角部</label>
+
+        <div class="check-wrap">
+          <input id="carbonNeedCornerCorrection" type="checkbox">
+          <span>是，计算时 x<sub>c</sub> × 1.4</span>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>构件环境分类</label>
+
+        <select id="generalMemberEnv">
+          <option value="室外-梁柱" selected>室外-梁柱</option>
+          <option value="室外-墙板">室外-墙板</option>
+          <option value="室内-梁柱">室内-梁柱</option>
+          <option value="室内-墙板">室内-墙板</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label>局部环境系数 m</label>
+        <input id="general_m" type="number" step="any" value="2.0">
+      </div>
+
+      <div class="field">
+        <label>直接输入碳化系数 k (mm/√a)</label>
+        <input id="k_manual" type="number" step="any" value="0">
+      </div>
+
+      <div class="field">
+        <label>无实测 k 时，按附录B计算</label>
+
+        <div class="check-wrap">
+          <input id="useAppendixB" type="checkbox">
+          <span>启用附录B</span>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>
+          二氧化碳浓度 C<sub>CO2</sub> (%)
+        </label>
+
+        <input
+          id="CO2_percent"
+          type="number"
+          step="any"
+          value="0.03"
+        >
+      </div>
+
+      <div class="field">
+        <label>
+          直接输入 K<sub>CO2</sub>（若 &gt;0 优先）
+        </label>
+
+        <input
+          id="KCO2_manual"
+          type="number"
+          step="any"
+          value="0"
+        >
+      </div>
+
+      <div class="field">
+        <label>
+          不直接输入 K<sub>CO2</sub> 时，按表B.0.3取中值
+        </label>
+
+        <select id="KCO2_autoType">
+          <option
+            value="工业建筑室外-城镇"
+            selected
+          >工业建筑室外-城镇</option>
+
+          <option
+            value="工业建筑室外-大中城市市区"
+          >工业建筑室外-大中城市市区</option>
+
+          <option
+            value="民用建筑室内-人群稀少"
+          >民用建筑室内-人群稀少</option>
+
+          <option
+            value="民用建筑室内-一般"
+          >民用建筑室内-一般</option>
+
+          <option
+            value="民用建筑室内-较密集"
+          >民用建筑室内-较密集</option>
+
+          <option
+            value="民用建筑室内-密集"
+          >民用建筑室内-密集</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label>钢筋处于角部</label>
+
+        <div class="check-wrap">
+          <input id="isCornerZone" type="checkbox">
+          <span>是</span>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>为浇筑面</label>
+
+        <div class="check-wrap">
+          <input id="isCastingFace" type="checkbox">
+          <span>是</span>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>受力状态</label>
+
+        <select id="stressState">
+          <option value="受压" selected>受压</option>
+          <option value="受拉">受拉</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label>粉煤灰掺量 (%)</label>
+        <input id="flyAshPercent" type="number" step="any" value="0">
+      </div>
+
+      <div class="field">
+        <label>附录B环境乘子（酸雨/冻融修正）</label>
+
+        <input
+          id="appendixB_envMultiplier"
+          type="number"
+          step="any"
+          value="1.0"
+        >
+      </div>
+
+    </div>
+
+    <div class="hint">
+      <strong>计算内容：</strong>
+      钢筋开始锈蚀、保护层锈胀开裂、裂缝宽度限值。
+      碳化系数 k 优先采用直接输入，其次采用实测碳化深度反算，
+      最后采用附录B计算。
+    </div>
+
+  </section>
+
+  <section class="panel" id="tab-chloride">
+
+    <h2>氯盐环境参数</h2>
+
+    <div class="grid">
+
+      <div class="field">
+        <label>
+          实测表面氯离子浓度
+          C<sub>se</sub> 或 C<sub>s</sub> (kg/m³)
+        </label>
+
+        <input id="Cs_meas" type="number" step="any" value="0">
+      </div>
+
+      <div class="field">
+        <label>
+          实测深度处氯离子浓度
+          C(x,t<sub>0</sub>) (kg/m³)
+        </label>
+
+        <input id="Cx_meas" type="number" step="any" value="0">
+      </div>
+
+      <div class="field">
+        <label>氯离子扩散深度 x (mm)</label>
+        <input id="x_depth" type="number" step="any" value="0">
+      </div>
+
+      <div class="field">
+        <label>
+          拌制时掺入氯离子浓度 C<sub>0</sub> (kg/m³)
+        </label>
+
+        <input id="C0" type="number" step="any" value="0">
+      </div>
+
+      <div class="field">
+        <label>环境作用等级</label>
+
+        <select id="ch_grade">
+          <option value="III-A">III-A</option>
+          <option value="III-B">III-B</option>
+          <option value="III-C" selected>III-C</option>
+          <option value="III-D">III-D</option>
+          <option value="III-E">III-E</option>
+          <option value="III-F">III-F</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label>环境类别</label>
+
+        <select id="ch_zoneType">
+          <option value="近海大气环境" selected>
+            近海大气环境
+          </option>
+
+          <option value="海洋环境">
+            海洋环境
+          </option>
+
+          <option value="除冰盐环境">
+            除冰盐环境
+          </option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label>构件类型</label>
+
+        <select id="ch_memberType">
+          <option value="梁柱" selected>梁柱</option>
+          <option value="墙板">墙板</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label>角部钢筋</label>
+
+        <div class="check-wrap">
+          <input id="ch_isCornerBar" type="checkbox">
+          <span>是（β₂=1.2）</span>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>直接输入 D (m²/a)</label>
+
+        <input
+          id="ch_D_manual"
+          type="number"
+          step="any"
+          value="0"
+        >
+      </div>
+
+      <div class="field">
+        <label>忽略时间依赖（D=D₀）</label>
+
+        <div class="check-wrap">
+          <input id="ch_ignoreTimeDependence" type="checkbox">
+          <span>是</span>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>由实测氯离子分布反推 D₀</label>
+
+        <div class="check-wrap">
+          <input id="ch_D0_fromMeasured" type="checkbox">
+          <span>启用</span>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>由经验式计算 D₀</label>
+
+        <div class="check-wrap">
+          <input id="ch_D0_fromWC" type="checkbox">
+          <span>启用</span>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>水胶比 w/c</label>
+
+        <input
+          id="ch_wb"
+          type="number"
+          step="any"
+          value="0.45"
+        >
+      </div>
+
+      <div class="field">
+        <label>
+          粉煤灰占胶凝材料百分比 F<sub>b</sub> (%)
+        </label>
+
+        <input
+          id="ch_Fb"
+          type="number"
+          step="any"
+          value="0"
+        >
+      </div>
+
+      <div class="field">
+        <label>
+          矿渣占胶凝材料百分比 S<sub>b</sub> (%)
+        </label>
+
+        <input
+          id="ch_Sb"
+          type="number"
+          step="any"
+          value="0"
+        >
+      </div>
+
+      <div class="field">
+        <label>冻融放大系数</label>
+
+        <input
+          id="ch_freezeAmp"
+          type="number"
+          step="any"
+          value="1.0"
+        >
+      </div>
+
+      <div class="field">
+        <label>直接输入 t₁（若=0则自动）</label>
+
+        <input
+          id="ch_t1_manual"
+          type="number"
+          step="any"
+          value="0"
+        >
+      </div>
+
+      <div class="field">
+        <label>
+          直接输入 C<sub>s</sub>（若=0则自动）
+        </label>
+
+        <input
+          id="ch_Cs_manual"
+          type="number"
+          step="any"
+          value="0"
+        >
+      </div>
+
+      <div class="field">
+        <label>
+          直接输入 C<sub>cr</sub>（若=0则自动）
+        </label>
+
+        <input
+          id="ch_Ccr_manual"
+          type="number"
+          step="any"
+          value="0"
+        >
+      </div>
+
+      <div class="field">
+        <label>β₁ 环境类别</label>
+
+        <select id="ch_beta1_env">
+          <option value="近海大气环境" selected>
+            近海大气环境
+          </option>
+
+          <option value="海洋环境、除冰盐环境">
+            海洋环境、除冰盐环境
+          </option>
+        </select>
+      </div>
+
+    </div>
+
+    <div class="hint">
+      <strong>计算内容：</strong>
+      钢筋开始锈蚀和保护层锈胀开裂。
+      若已实测 D、C<sub>s</sub>、C<sub>cr</sub>，
+      建议直接输入，结果更稳定。
+    </div>
+
+  </section>
+
+  <section class="panel" id="tab-freeze">
+
+    <h2>冻融环境参数</h2>
+
+    <div class="grid">
+
+      <div class="field">
+        <label>
+          冻融表面剥落率 α<sub>FT</sub> (%)
+        </label>
+
+        <input
+          id="alphaFT"
+          type="number"
+          step="any"
+          value="0"
+        >
+      </div>
+
+      <div class="field">
+        <label>
+          平均剥落深度 d<sub>FT</sub> (mm)
+        </label>
+
+        <input
+          id="dFT"
+          type="number"
+          step="any"
+          value="0"
+        >
+      </div>
+
+      <div class="field">
+        <label>
+          最大剥落深度 d<sub>FT,max</sub> (mm)
+        </label>
+
+        <input
+          id="dFTmax"
+          type="number"
+          step="any"
+          value="0"
+        >
+      </div>
+
+      <div class="field">
+        <label>冻融构件类别</label>
+
+        <select id="freeze_memberClass">
+          <option value="一般构件" selected>
+            一般构件
+          </option>
+
+          <option value="薄壁构件">
+            薄壁构件
+          </option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label>钢筋锈蚀评定路径</label>
+
+        <select id="freeze_corrosionRoute">
+          <option value="一般冻融环境" selected>
+            一般冻融环境
+          </option>
+
+          <option value="寒冷地区海洋环境">
+            寒冷地区海洋环境
+          </option>
+
+          <option value="除冰盐环境">
+            除冰盐环境
+          </option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label>
+          一般冻融环境下局部环境系数 m
+        </label>
+
+        <input
+          id="freeze_m_general"
+          type="number"
+          step="any"
+          value="3.0"
+        >
+      </div>
+
+      <div class="field">
+        <label>冻融对碳化系数乘子</label>
+
+        <input
+          id="freeze_k_mult"
+          type="number"
+          step="any"
+          value="1.0"
+        >
+      </div>
+
+    </div>
+
+    <div class="hint">
+      <strong>计算内容：</strong>
+      表面剥落按表7.2.1判级；
+      钢筋锈蚀根据路径调用第5章或第6章进行评定。
+    </div>
+
+  </section>
+
+  <section class="panel" id="tab-result">
+
+    <h2>计算结果</h2>
+
+    <div id="status"></div>
+
+    <div id="resultBox" class="small">
+      点击底部“开始计算”生成结果。
+    </div>
+
+  </section>
+
+  <div class="actions">
+
+    <button
+      class="action secondary"
+      id="saveBtn"
+    >
+      保存当前输入
+    </button>
+
+    <button
+      class="action primary"
+      id="calcBtn"
+    >
+      开始计算
+    </button>
+
+    <button
+      class="action secondary"
+      id="exportBtn"
+    >
+      导出 TXT
+    </button>
+
+    <button
+      class="action secondary"
+      id="resetBtn"
+    >
+      恢复默认值
+    </button>
+
+  </div>
+
+</main>
 
 <footer class="site-footer">
   <div class="site-footer-inner">
-    <p id="durabilityFooterText">
-      Corrosion Atlas · Concrete durability assessment tool
+    <p id="toolFooterText">
+      Corrosion Atlas · 既有混凝土结构耐久性评定工具
     </p>
   </div>
 </footer>
 
-<script>
-    // ======================== 辅助函数 ========================
-    function interpS(x, xA, yA) {
-        x = Number(x);
-        if (isNaN(x)) return yA[0];
-        if (x <= xA[0]) return yA[0];
-        if (x >= xA[xA.length-1]) return yA[yA.length-1];
-        for (let i = 0; i < xA.length - 1; i++) {
-            if (x >= xA[i] && x <= xA[i+1]) {
-                let t = (x - xA[i]) / (xA[i+1] - xA[i]);
-                return yA[i] + t * (yA[i+1] - yA[i]);
-            }
-        }
-        return yA[0];
-    }
-    
-    function getGrade(xi) {
-        if (xi >= 1.8) return 'a级 (满足)';
-        if (xi >= 1.0) return 'b级 (基本满足)';
-        return 'c级 (不满足)';
-    }
-    
-    // 耐久性裕度系数使用总耐久年限 tDur
-    function calcXi(tDur, t0, gamma0, te) {
-        let tre = Math.max(0, tDur - t0);   // 剩余使用年限（仅用于展示）
-        let xi = tDur / (gamma0 * te);       // 耐久性裕度系数 = 总耐久年限 / (γ₀ × 目标年限)
-        return { xi, tre };
-    }
-    
-    // ======================== 第5章 一般环境 ========================
-    function getMFromEnv(envLevel) {
-        switch(envLevel) {
-            case 'I-A': return 1.0;
-            case 'I-B': return 1.5;
-            case 'I-C': return 2.5;
-            case 'I-D': return 4.0;
-            default: return 1.0;
-        }
-    }
-    
-    // 表5.2.2-1 Kk
-    function getKkFromK(k) {
-        const x = [1, 2, 3, 4.5, 6, 7.5, 9];
-        const y = [2.27, 1.54, 1.20, 0.94, 0.80, 0.71, 0.64];
-        return interpS(k, x, y);
-    }
-    
-    // 表5.2.2-2 Kc
-    function getKcFromCover(c) {
-        const x = [5, 10, 15, 20, 25, 30, 40];
-        const y = [0.54, 0.75, 1.00, 1.29, 1.62, 1.96, 2.67];
-        return interpS(c, x, y);
-    }
-    
-    // 表5.2.2-3 Km
-    function getKmFromM(mv) {
-        const x = [1, 1.5, 2, 2.5, 3, 3.5, 4.5];
-        const y = [1.51, 1.24, 1.06, 0.94, 0.85, 0.78, 0.68];
-        return interpS(mv, x, y);
-    }
-    
-    // 钢筋开始锈蚀时间 ti
-    function calcTi(k, c, mv) {
-        return 15.2 * getKkFromK(k) * getKcFromCover(c) * getKmFromM(mv);
-    }
-    
-    // 表5.3.1-1 基准值tr (锈胀开裂阶段)
-    function getBaseTr(mt) {
-        const map = {'室外梁、柱':1.9, '室外墙、板':4.9, '室内梁、柱':3.8, '室内墙、板':11.0};
-        return map[mt] || 1.9;
-    }
-    
-    // 表5.3.1-2 Hc
-    function getHc(c, mt) {
-        const x = [5, 10, 15, 20, 25, 30, 40];
-        const maps = {
-            '室外梁、柱': [0.38, 0.68, 1.00, 1.34, 1.70, 2.09, 2.93],
-            '室外墙、板': [0.33, 0.62, 1.00, 1.48, 2.07, 2.79, 4.62],
-            '室内梁、柱': [0.37, 0.68, 1.00, 1.35, 1.73, 2.13, 3.02],
-            '室内墙、板': [0.31, 0.61, 1.00, 1.51, 2.14, 2.92, 4.91]
-        };
-        return interpS(c, x, maps[mt] || maps['室外梁、柱']);
-    }
-    
-    // 表5.3.1-3 Hf
-    function getHf(f, mt) {
-        const x = [10, 15, 20, 25, 30, 35, 40];
-        const maps = {
-            '室外梁、柱': [0.21, 0.47, 0.86, 1.39, 2.08, 2.94, 3.99],
-            '室外墙、板': [0.17, 0.41, 0.76, 1.26, 1.92, 2.76, 3.79],
-            '室内梁、柱': [0.21, 0.48, 0.89, 1.44, 2.15, 3.04, 4.13],
-            '室内墙、板': [0.17, 0.41, 0.77, 1.27, 1.94, 2.79, 3.83]
-        };
-        return interpS(f, x, maps[mt] || maps['室外梁、柱']);
-    }
-    
-    // 表5.3.1-4 Hd
-    function getHd(d, mt) {
-        const x = [4, 8, 12, 16, 20, 25, 28, 32];
-        const maps = {
-            '室外梁、柱': [2.43, 1.66, 1.40, 1.27, 1.19, 1.13, 1.10, 1.05],
-            '室外墙、板': [4.65, 2.11, 1.50, 1.25, 1.12, 1.02, 0.99, 0.97],
-            '室内梁、柱': [2.23, 1.52, 1.29, 1.17, 1.10, 1.04, 1.02, 0.99],
-            '室内墙、板': [4.10, 1.87, 1.34, 1.11, 1.00, 0.92, 0.88, 0.85]
-        };
-        return interpS(d, x, maps[mt] || maps['室外梁、柱']);
-    }
-    
-    // 表5.3.1-5 Ht
-    function getHt(t, mt) {
-        const x = [4, 8, 12, 16, 20, 24, 28];
-        const maps = {
-            '室外梁、柱': [1.50, 1.42, 1.34, 1.27, 1.20, 1.15, 1.09],
-            '室外墙、板': [1.39, 1.31, 1.24, 1.17, 1.11, 1.06, 1.01],
-            '室内梁、柱': [1.39, 1.31, 1.24, 1.17, 1.11, 1.06, 1.01],
-            '室内墙、板': [1.25, 1.19, 1.11, 1.05, 1.00, 0.95, 0.91]
-        };
-        return interpS(t, x, maps[mt] || maps['室外梁、柱']);
-    }
-    
-    // 表5.3.1-6 Hrh
-    function getHrh(r, mt) {
-        const x = [55, 60, 65, 70, 75, 80, 85];
-        const maps = {
-            '室外梁、柱': [2.40, 1.83, 1.51, 1.30, 1.15, 1.04, 1.04],
-            '室外墙、板': [2.23, 1.70, 1.40, 1.21, 1.07, 0.97, 0.97],
-            '室内梁、柱': [3.04, 1.91, 1.46, 1.21, 1.04, 0.92, 0.92],
-            '室内墙、板': [2.75, 1.73, 1.32, 1.09, 0.94, 0.83, 0.83]
-        };
-        return interpS(r, x, maps[mt] || maps['室外梁、柱']);
-    }
-    
-    // 表5.3.1-7 Hm
-    function getHm(mv, mt) {
-        const x = [1, 1.5, 2, 2.5, 3, 3.5, 4.5];
-        const maps = {
-            '室外梁、柱': [3.74, 2.49, 1.87, 1.50, 1.25, 1.07, 0.83],
-            '室外墙、板': [3.50, 2.33, 1.75, 1.40, 1.17, 1.00, 0.78],
-            '室内梁、柱': [3.40, 2.27, 1.70, 1.36, 1.13, 0.97, 0.76],
-            '室内墙、板': [3.09, 2.06, 1.55, 1.24, 1.03, 0.88, 0.69]
-        };
-        return interpS(mv, x, maps[mt] || maps['室外梁、柱']);
-    }
-    
-    // 锈胀开裂阶段时间 tc (从开始锈蚀到开裂)
-    function calcTc(c, f, d, t, r, mv, mt) {
-        let tc = getBaseTr(mt) * getHc(c, mt) * getHf(f, mt) * getHd(d, mt) *
-                 getHt(t, mt) * getHrh(r, mt) * getHm(mv, mt);
-        return Math.max(0.1, tc);
-    }
-    
-    // ======================== 裂缝发展阶段（表5.4.1） ========================
-    // 表5.4.1-1 td0
-    function getTd0Base(mt) {
-        const map = {'室外梁、柱':7.04, '室外墙、板':8.09, '室内梁、柱':8.84, '室内墙、板':14.48};
-        return map[mt] || 7.04;
-    }
-    
-    // 表5.4.1-2 Fc - 保护层厚度修正
-    function getFc(c, mt) {
-        const x = [5, 10, 15, 20, 25, 30, 40];
-        const maps = {
-            '室外梁、柱': [0.57, 0.87, 1.00, 1.17, 1.36, 1.54, 1.91],
-            '室外墙、板': [0.58, 0.77, 1.00, 1.24, 1.49, 1.76, 2.35],
-            '室内梁、柱': [0.59, 0.78, 1.00, 1.23, 1.48, 1.69, 2.13],
-            '室内墙、板': [0.47, 0.74, 1.00, 1.26, 1.53, 1.82, 2.45]
-        };
-        return interpS(c, x, maps[mt] || maps['室外梁、柱']);
-    }
-    
-    // 表5.4.1-3 Ff - 混凝土强度修正
-    function getFf(f, mt) {
-        const x = [10, 15, 20, 25, 30, 35, 40];
-        const maps = {
-            '室外梁、柱': [0.29, 0.60, 0.92, 1.25, 1.64, 2.16, 2.78],
-            '室外墙、板': [0.31, 0.59, 0.89, 1.29, 1.81, 2.46, 3.24],
-            '室内梁、柱': [0.34, 0.62, 0.93, 1.33, 1.85, 2.49, 3.24],
-            '室内墙、板': [0.31, 0.56, 0.89, 1.35, 1.94, 2.66, 3.52]
-        };
-        return interpS(f, x, maps[mt] || maps['室外梁、柱']);
-    }
-    
-    // 表5.4.1-4 Fd - 钢筋直径修正
-    function getFd(d, mt) {
-        const x = [4, 8, 12, 16, 20, 25, 28, 32];
-        const maps = {
-            '室外梁、柱': [1.11, 1.33, 1.29, 1.26, 1.23, 1.22, 1.21, 0.86],
-            '室外墙、板': [1.44, 1.47, 1.36, 1.30, 1.26, 1.24, 1.22, 0.91],
-            '室内梁、柱': [1.14, 1.32, 1.27, 1.24, 1.21, 1.20, 1.19, 0.94],
-            '室内墙、板': [1.40, 1.41, 1.29, 1.23, 1.19, 1.17, 1.15, 0.92]
-        };
-        return interpS(d, x, maps[mt] || maps['室外梁、柱']);
-    }
-    
-    // 表5.4.1-5 Ft - 温度修正
-    function getFt(t, mt) {
-        const x = [4, 8, 12, 16, 20, 24, 28];
-        const maps = {
-            '室外梁、柱': [1.39, 1.33, 1.27, 1.22, 1.18, 1.13, 1.10],
-            '室外墙、板': [1.48, 1.41, 1.34, 1.27, 1.22, 1.16, 1.12],
-            '室内梁、柱': [1.42, 1.34, 1.28, 1.22, 1.16, 1.12, 1.07],
-            '室内墙、板': [1.43, 1.35, 1.28, 1.22, 1.16, 1.11, 1.06]
-        };
-        return interpS(t, x, maps[mt] || maps['室外梁、柱']);
-    }
-    
-    // 表5.4.1-6 Frh - 湿度修正
-    function getFrh(r, mt) {
-        const x = [55, 60, 65, 70, 75, 80, 85];
-        const maps = {
-            '室外梁、柱': [2.07, 1.64, 1.40, 1.24, 1.13, 1.06, 1.06],
-            '室外墙、板': [2.30, 1.79, 1.50, 1.31, 1.18, 1.08, 1.08],
-            '室内梁、柱': [2.95, 1.91, 1.49, 1.26, 1.11, 1.00, 1.00],
-            '室内墙、板': [3.08, 1.96, 1.51, 1.26, 1.10, 0.98, 0.98]
-        };
-        return interpS(r, x, maps[mt] || maps['室外梁、柱']);
-    }
-    
-    // 表5.4.1-7 Fm - 环境作用等级修正
-    function getFm(mv, mt) {
-        const x = [1, 1.5, 2, 2.5, 3, 3.5, 4.5];
-        const maps = {
-            '室外梁、柱': [3.10, 2.14, 1.67, 1.38, 1.20, 1.06, 0.88],
-            '室外墙、板': [3.53, 2.39, 1.82, 1.49, 1.26, 1.10, 0.89],
-            '室内梁、柱': [3.27, 2.23, 1.71, 1.40, 1.19, 1.05, 0.85],
-            '室内墙、板': [3.43, 2.30, 1.75, 1.41, 1.19, 1.03, 0.82]
-        };
-        return interpS(mv, x, maps[mt] || maps['室外梁、柱']);
-    }
-    
-    // 裂缝发展阶段时间 tcl (从开裂到裂缝宽度达限值)
-    function calcTcl(c, f, d, t, r, mv, mt) {
-        let tcl = getTd0Base(mt) * getFc(c, mt) * getFf(f, mt) * getFd(d, mt) *
-                  getFt(t, mt) * getFrh(r, mt) * getFm(mv, mt);
-        return Math.max(0.1, tcl);
-    }
-    
-    // ======================== 第6章 氯盐侵蚀 ========================
-    function getT1FromEnvLevel(lv) {
-        const map = {
-            '近海大气环境-0.5km≤d<1.0km': 25,
-            '近海大气环境-0.25km≤d<0.5km': 17.5,
-            '近海大气环境-0.1km≤d<0.25km': 12.5,
-            '近海大气环境-d<0.1km': 10,
-            '海洋环境-大气盐雾区': 5,
-            '海洋环境-水位变动区、浪溅区': 0
-        };
-        return map[lv] || 10;
-    }
-    
-    function getCsFromTable(lv) {
-        const map = {
-            '近海大气环境-0.5km≤d<1.0km': 1.28,
-            '近海大气环境-0.25km≤d<0.5km': 2.57,
-            '近海大气环境-0.1km≤d<0.25km': 3.83,
-            '近海大气环境-d<0.1km': 5.87,
-            '海洋环境-大气盐雾区': 11.5,
-            '海洋环境-水位变动区、浪溅区': 17.0
-        };
-        return map[lv] || 3.0;
-    }
-    
-    function getKFromTable621(ratio, D_e4) {
-        const rA = [0.05,0.06,0.07,0.08,0.09,0.10,0.12,0.15,0.18,0.20,
-                    0.25,0.30,0.35,0.40,0.45,0.50,0.55,0.60,0.65,0.70,
-                    0.75,0.80,0.85,0.90];
-        const dA = [0.60,1.00,1.40,1.80,2.20,2.60,3.00,3.40,3.80];
-        const Km = [
-            [2.15,2.77,3.28,3.72,4.11,4.47,4.80,7.01,5.40],
-            [2.06,2.66,3.15,3.57,3.95,4.29,4.61,6.73,5.19],
-            [1.98,2.56,3.03,3.44,3.80,4.13,4.44,6.48,5.00],
-            [1.92,2.48,2.93,3.32,3.67,3.99,4.29,6.26,4.83],
-            [1.86,2.40,2.84,3.22,3.56,3.87,4.15,6.07,4.67],
-            [1.80,2.33,2.75,3.12,3.45,3.75,4.03,4.27,4.53],
-            [1.70,2.20,2.60,2.95,3.26,3.55,3.81,5.56,4.29],
-            [1.57,2.04,2.41,2.73,3.02,3.28,3.52,3.75,3.97],
-            [1.47,1.90,2.24,2.54,2.81,3.06,3.28,4.80,3.70],
-            [1.40,1.81,2.14,2.43,2.69,2.92,3.14,3.34,3.54],
-            [1.26,1.63,1.92,2.18,2.41,2.62,2.82,3.00,3.17],
-            [1.14,1.47,1.73,1.97,2.17,2.36,2.54,2.70,2.86],
-            [1.02,1.32,1.56,1.77,1.96,2.13,2.29,2.44,2.58],
-            [0.92,1.19,1.41,1.60,1.77,1.92,2.06,2.19,2.32],
-            [0.83,1.07,1.26,1.43,1.58,1.72,1.85,1.97,2.08],
-            [0.74,0.95,1.13,1.28,1.41,1.54,1.65,1.76,1.86],
-            [0.66,0.85,1.00,1.13,1.25,1.36,1.46,1.56,1.65],
-            [0.57,0.74,0.88,1.00,1.10,1.20,1.28,1.37,1.45],
-            [0.50,0.64,0.75,0.86,0.95,1.04,1.11,1.18,1.25],
-            [0.42,0.55,0.65,0.73,0.81,0.88,0.94,1.01,1.06],
-            [0.35,0.45,0.53,0.61,0.67,0.73,0.78,0.83,0.88],
-            [0.28,0.36,0.42,0.48,0.53,0.58,0.62,0.66,0.70],
-            [0.21,0.27,0.36,0.36,0.40,0.43,0.46,0.49,0.52],
-            [0.14,0.18,0.21,0.24,0.26,0.27,0.31,0.33,0.35]
-        ];
-        
-        let r = Math.max(0.05, Math.min(0.90, ratio));
-        let d = Math.max(0.60, Math.min(3.80, D_e4));
-        
-        let ri1 = 0, ri2 = 0;
-        for (let i = 0; i < rA.length; i++) {
-            if (rA[i] <= r) ri1 = i;
-            if (ri2 === 0 && rA[i] >= r) ri2 = i;
-        }
-        if (ri2 === 0) ri2 = rA.length - 1;
-        if (ri1 === ri2 && ri1 > 0) ri1 = ri2 - 1;
-        if (ri1 === ri2 && ri1 === 0) ri2 = 1;
-        
-        let di1 = 0, di2 = 0;
-        for (let i = 0; i < dA.length; i++) {
-            if (dA[i] <= d) di1 = i;
-            if (di2 === 0 && dA[i] >= d) di2 = i;
-        }
-        if (di2 === 0) di2 = dA.length - 1;
-        if (di1 === di2 && di1 > 0) di1 = di2 - 1;
-        if (di1 === di2 && di1 === 0) di2 = 1;
-        
-        let rw2 = (r - rA[ri1]) / (rA[ri2] - rA[ri1]);
-        let rw1 = 1 - rw2;
-        let dw2 = (d - dA[di1]) / (dA[di2] - dA[di1]);
-        let dw1 = 1 - dw2;
-        
-        let K = rw1 * dw1 * Km[ri1][di1] + rw1 * dw2 * Km[ri1][di2] +
-                rw2 * dw1 * Km[ri2][di1] + rw2 * dw2 * Km[ri2][di2];
-        
-        return K;
-    }
-    
-    function getBeta1(fcu, envType) {
-        const fA = [25,30,35,40];
-        let bA;
-        if (envType.includes('近海大气')) {
-            bA = [1.25,1.15,1.10,1.05];
-        } else {
-            bA = [1.35,1.25,1.15,1.10];
-        }
-        return interpS(fcu, fA, bA);
-    }
-    
-    function getTc0Splash(fcu, c, region, memberType) {
-        const cA = [20,30,40,50,60,70];
-        const fA = [25,30,35,40];
-        
-        const data_sl = [[1.6,2.1,2.5,3.1,3.5,3.9], [1.8,2.4,2.9,3.4,3.9,4.4],
-                         [2.0,2.6,3.1,3.5,4.1,4.6], [2.3,2.9,3.4,4.0,4.4,4.9]];
-        const data_sq = [[2.0,2.7,3.6,4.5,5.5,6.6], [2.3,3.1,4.0,5.0,6.1,7.2],
-                         [2.6,3.4,4.3,5.4,6.5,7.7], [2.9,3.8,4.9,5.9,7.1,8.2]];
-        const data_nl = [[2.8,3.6,4.4,5.2,6.0,6.8], [3.1,4.0,4.9,5.8,6.6,7.4],
-                         [3.4,4.4,5.3,6.2,7.0,7.7], [3.9,4.9,5.8,6.7,7.5,8.4]];
-        const data_nq = [[3.4,4.7,6.1,7.7,9.5,11.0], [3.9,5.3,6.8,8.5,10.4,12.3],
-                         [4.4,5.8,7.4,9.2,11.1,13.1], [5.0,6.6,8.3,10.1,12.1,14.3]];
-        
-        let rows;
-        if (region === '南方') {
-            rows = memberType.includes('梁') ? data_sl : data_sq;
-        } else {
-            rows = memberType.includes('梁') ? data_nl : data_nq;
-        }
-        
-        let fi1 = 0, fi2 = 0;
-        for (let i = 0; i < fA.length; i++) {
-            if (fA[i] <= fcu) fi1 = i;
-            if (fi2 === 0 && fA[i] >= fcu) fi2 = i;
-        }
-        if (fi2 === 0) fi2 = fA.length - 1;
-        if (fi1 === fi2 && fi1 > 0) fi1 = fi2 - 1;
-        if (fi1 === fi2 && fi1 === 0) fi2 = 1;
-        
-        let row;
-        if (fi1 === fi2) {
-            row = rows[fi1];
-        } else {
-            let fw = (fcu - fA[fi1]) / (fA[fi2] - fA[fi1]);
-            row = rows[fi1].map((v, idx) => (1 - fw) * v + fw * rows[fi2][idx]);
-        }
-        
-        return interpS(c, cA, row);
-    }
-    
-    // ======================== 主计算函数 ========================
-    function calculate() {
-        try {
-            let resultMsg = '';
-            const targetYear = 50;
-            const gamma0 = 1.1;
-            
-            // 获取一般环境输入值
-            const envLevel = document.getElementById('envLevel').value;
-            let k = parseFloat(document.getElementById('kValue').value) || 0;
-            const carbonDepth = parseFloat(document.getElementById('carbonDepth').value) || 0;
-            const usedYears = parseFloat(document.getElementById('usedYears').value) || 0;
-            const coverStart = parseFloat(document.getElementById('coverStart').value) || 25;
-            const memberTypeCr = document.getElementById('memberType').value;
-            const fcuCr = parseFloat(document.getElementById('fcuCr').value) || 30;
-            const diaCr = parseFloat(document.getElementById('diaCr').value) || 20;
-            const tempCr = parseFloat(document.getElementById('tempCr').value) || 20;
-            const rhCr = parseFloat(document.getElementById('rhCr').value) || 70;
-            
-            // 获取氯盐参数
-            const c_cl = parseFloat(document.getElementById('cCl').value) || 40;
-            const D_cl = parseFloat(document.getElementById('DCl').value) || 0.0001;
-            const Ccr = parseFloat(document.getElementById('Ccr').value) || 2.10;
-            const Cs_inp = parseFloat(document.getElementById('CsInp').value) || 0;
-            const Cse = parseFloat(document.getElementById('Cse').value) || 0;
-            const C0 = parseFloat(document.getElementById('C0').value) || 0;
-            const fcu_cl = parseFloat(document.getElementById('fcuCl').value) || 40;
-            const region = document.getElementById('region').value;
-            const envLvl2 = document.getElementById('envLvl2').value;
-            const memberCl = document.getElementById('clMember').value;
-            const cornerStr = document.getElementById('clCorner').value;
-            const envTypeCl = document.getElementById('clEnvType').value;
-            const t0_cl = parseFloat(document.getElementById('t0Cl').value) || 0;
-            
-            // 获取冻融参数
-            const memberFT = document.getElementById('ftMember').value;
-            const ftType = document.getElementById('ftType').value;
-            const alpha_FT = parseFloat(document.getElementById('alphaFT').value) || 0;
-            const dFT_avg = parseFloat(document.getElementById('dFTAvg').value) || 0;
-            const dFT_max = parseFloat(document.getElementById('dFTMax').value) || 0;
-            const c_FT = parseFloat(document.getElementById('cFT').value) || 25;
-            
-            // ========== 一般环境计算 ==========
-            const m = getMFromEnv(envLevel);
-            
-            if ((k <= 0 || isNaN(k)) && carbonDepth > 0 && usedYears > 0) {
-                k = carbonDepth / Math.sqrt(usedYears);
-            }
-            if (isNaN(k) || k <= 0) k = 3.0;
-            
-            const ti = calcTi(k, coverStart, m);
-            const tc = calcTc(coverStart, fcuCr, diaCr, tempCr, rhCr, m, memberTypeCr);
-            const tclStage = calcTcl(coverStart, fcuCr, diaCr, tempCr, rhCr, m, memberTypeCr);
-            
-            const tcr = ti + tc;
-            const td = ti + tc + tclStage;
-            
-            const xi_i = calcXi(ti, usedYears, gamma0, targetYear);
-            const xi_cr = calcXi(tcr, usedYears, gamma0, targetYear);
-            const xi_d = calcXi(td, usedYears, gamma0, targetYear);
-            
-            resultMsg += `==================== 一般环境耐久性评定结果 ====================\n\n`;
-            resultMsg += `【钢筋开始锈蚀极限状态】\n`;
-            resultMsg += `  耐久年限 ti = ${ti.toFixed(1)} 年  剩余使用年限 = ${xi_i.tre.toFixed(1)} 年\n`;
-            resultMsg += `  耐久性裕度系数 xid = ${xi_i.xi.toFixed(3)}  等级: ${getGrade(xi_i.xi)}\n\n`;
-            resultMsg += `【保护层锈胀开裂极限状态】\n`;
-            resultMsg += `  开裂阶段时间 tc = ${tc.toFixed(1)} 年\n`;
-            resultMsg += `  耐久年限 tcr = ${tcr.toFixed(1)} 年  剩余使用年限 = ${xi_cr.tre.toFixed(1)} 年\n`;
-            resultMsg += `  耐久性裕度系数 xid = ${xi_cr.xi.toFixed(3)}  等级: ${getGrade(xi_cr.xi)}\n\n`;
-            resultMsg += `【锈胀裂缝宽度限值极限状态】\n`;
-            resultMsg += `  裂缝发展阶段时间 tcl = ${tclStage.toFixed(1)} 年\n`;
-            resultMsg += `  耐久年限 td = ${td.toFixed(1)} 年  剩余使用年限 = ${xi_d.tre.toFixed(1)} 年\n`;
-            resultMsg += `  耐久性裕度系数 xid = ${xi_d.xi.toFixed(3)}  等级: ${getGrade(xi_d.xi)}\n`;
-            resultMsg += `  目标使用年限: ${targetYear} 年  已使用年限: ${usedYears.toFixed(1)} 年\n`;
-            
-            // ========== 氯盐侵蚀计算 ==========
-            resultMsg += `\n==================== 氯盐侵蚀耐久性评定结果 ====================\n\n`;
-            
-            const t1 = getT1FromEnvLevel(envLvl2);
-            let Cs, xi_i_cl = {xi:0, tre:0}, xi_cr_cl = {xi:0, tre:0}, xi_cl_doped = 0;
-            let clMsg = '';
-            
-            if (!isNaN(Cse) && Cse > 0) {
-                let t0eff = t0_cl;
-                if (t0eff < t1) t0eff = t1;
-                if (t0eff <= 0) t0eff = t1;
-                let ks = Cse / Math.sqrt(t0eff);
-                Cs = ks * Math.sqrt(t1);
-            } else if (!isNaN(Cs_inp) && Cs_inp > 0) {
-                Cs = Cs_inp;
-            } else {
-                Cs = getCsFromTable(envLvl2);
-            }
-            if (Cs <= 0) Cs = 3.0;
-            
-            if (C0 >= Ccr) {
-                xi_cl_doped = Ccr / (gamma0 * C0);
-                clMsg = `【掺入型氯盐侵蚀（C0 >= Ccr）】\n`;
-                clMsg += `  耐久性裕度系数 xid = ${xi_cl_doped.toFixed(3)}  等级: ${getGrade(xi_cl_doped)}\n`;
-                clMsg += `  说明：C0已超过临界氯离子浓度，保护层锈胀开裂耐久性等级评定为c级。\n`;
-            } else {
-                let Ccr_eff = Ccr - C0;
-                let Cs_eff = Cs - C0;
-                if (Cs_eff <= 0) Cs_eff = 0.01;
-                let ratio = Ccr_eff / Cs_eff;
-                ratio = Math.max(0.05, Math.min(0.90, ratio));
-                
-                let D_e4 = D_cl * 1e4;
-                let K_val = getKFromTable621(ratio, D_e4);
-                let K_mm = K_val * 10;
-                let ti_cl = Math.pow(c_cl / K_mm, 2) + 0.2 * t1;
-                
-                let beta1 = getBeta1(fcu_cl, envTypeCl);
-                let beta2 = (cornerStr === '角部') ? 1.2 : 1.3;
-                
-                let tc0_splash = getTc0Splash(fcu_cl, c_cl, region, memberCl);
-                let tc0;
-                if (envTypeCl.includes('近海大气')) {
-                    tc0 = tc0_splash * Math.sqrt(10 / Cs);
-                } else {
-                    tc0 = tc0_splash;
-                }
-                let tc_cl = beta1 * beta2 * tc0;
-                let tcr_cl = ti_cl + tc_cl;
-                
-                xi_i_cl = calcXi(ti_cl, t0_cl, gamma0, targetYear);
-                xi_cr_cl = calcXi(tcr_cl, t0_cl, gamma0, targetYear);
-                
-                clMsg = `【钢筋开始锈蚀极限状态】\n`;
-                clMsg += `  Cs=${Cs.toFixed(3)} kg/m³  K=${K_val.toFixed(4)}(×10⁻² m/√a)  t1=${t1.toFixed(1)} a\n`;
-                clMsg += `  耐久年限 ti = ${ti_cl.toFixed(1)} 年  剩余使用年限 = ${xi_i_cl.tre.toFixed(1)} 年\n`;
-                clMsg += `  耐久性裕度系数 xid = ${xi_i_cl.xi.toFixed(3)}  等级: ${getGrade(xi_i_cl.xi)}\n\n`;
-                clMsg += `【保护层锈胀开裂极限状态】\n`;
-                clMsg += `  tc0=${tc0.toFixed(2)} a  β1=${beta1.toFixed(2)}  β2=${beta2.toFixed(2)}  tc=${tc_cl.toFixed(2)} a\n`;
-                clMsg += `  耐久年限 tcr = ${tcr_cl.toFixed(1)} 年  剩余使用年限 = ${xi_cr_cl.tre.toFixed(1)} 年\n`;
-                clMsg += `  耐久性裕度系数 xid = ${xi_cr_cl.xi.toFixed(3)}  等级: ${getGrade(xi_cr_cl.xi)}\n`;
-                clMsg += `  建成至检测时间: ${t0_cl.toFixed(1)} 年  目标使用年限: ${targetYear} 年\n`;
-            }
-            
-            resultMsg += clMsg;
-            
-            // ========== 冻融环境计算 ==========
-            resultMsg += `\n==================== 冻融环境耐久性评定结果 ====================\n\n`;
-            
-            const d_ratio = c_FT > 0 ? (dFT_avg / c_FT) * 100 : 0;
-            const dmax_ratio = c_FT > 0 ? (dFT_max / c_FT) * 100 : 0;
-            let grade_spall;
-            
-            if (memberFT === '一般构件') {
-                if (alpha_FT > 5 || d_ratio > 50 || dmax_ratio > 75) {
-                    grade_spall = 'c级 (不满足)';
-                } else if (alpha_FT < 1 && d_ratio < 10 && dmax_ratio < 15) {
-                    grade_spall = 'a级 (满足)';
-                } else {
-                    grade_spall = 'b级 (基本满足)';
-                }
-            } else {
-                if (alpha_FT >= 5 || d_ratio >= 10 || dmax_ratio >= 10) {
-                    grade_spall = 'c级 (不满足)';
-                } else if (alpha_FT < 1 && d_ratio < 10 && dmax_ratio < 10) {
-                    grade_spall = 'a级 (满足)';
-                } else {
-                    grade_spall = 'b级 (基本满足)';
-                }
-            }
-            
-            resultMsg += `【混凝土表面剥落耐久性】\n`;
-            resultMsg += `  剥落率 αFT = ${alpha_FT.toFixed(1)}%\n`;
-            resultMsg += `  dFT/c = ${d_ratio.toFixed(1)}%  dFT,max/c = ${dmax_ratio.toFixed(1)}%\n`;
-            resultMsg += `  构件类型: ${memberFT}\n`;
-            resultMsg += `  表面剥落耐久性等级: ${grade_spall}\n\n`;
-            
-            let ft_rebar = '';
-            if (ftType === '一般冻融环境') {
-                ft_rebar = `【钢筋锈蚀耐久性】\n`;
-                ft_rebar += `  钢筋开始锈蚀 xid = ${xi_i.xi.toFixed(3)}  等级: ${getGrade(xi_i.xi)}\n`;
-                ft_rebar += `  保护层锈胀开裂 xid = ${xi_cr.xi.toFixed(3)}  等级: ${getGrade(xi_cr.xi)}\n`;
-            } else if (ftType === '寒冷地区海洋环境' || ftType === '除冰盐环境') {
-                if (C0 >= Ccr) {
-                    ft_rebar = `【钢筋锈蚀耐久性】\n`;
-                    ft_rebar += `  掺入型氯盐 xid = ${xi_cl_doped.toFixed(3)}  等级: ${getGrade(xi_cl_doped)}\n`;
-                } else {
-                    ft_rebar = `【钢筋锈蚀耐久性】\n`;
-                    ft_rebar += `  钢筋开始锈蚀 xid = ${xi_i_cl.xi.toFixed(3)}  等级: ${getGrade(xi_i_cl.xi)}\n`;
-                    ft_rebar += `  保护层锈胀开裂 xid = ${xi_cr_cl.xi.toFixed(3)}  等级: ${getGrade(xi_cr_cl.xi)}\n`;
-                }
-            }
-            
-            resultMsg += ft_rebar;
-            
-            document.getElementById('resultText').innerText = resultMsg;
-            
-        } catch (error) {
-            document.getElementById('resultText').innerText = `计算错误: ${error.message}\n\n请检查输入参数是否完整。\n${error.stack}`;
-            console.error(error);
-        }
-    }
-    
-    // 绑定计算按钮事件
-    document.getElementById('calculateBtn').addEventListener('click', calculate);
-    
-    // 自动计算k值的逻辑
-    function autoCalculateK() {
-        const depth = parseFloat(document.getElementById('carbonDepth').value) || 0;
-        const years = parseFloat(document.getElementById('usedYears').value) || 0;
-        if (depth > 0 && years > 0) {
-            const k = depth / Math.sqrt(years);
-            document.getElementById('kValue').value = k.toFixed(3);
-        }
-    }
-    
-    document.getElementById('carbonDepth').addEventListener('input', autoCalculateK);
-    document.getElementById('usedYears').addEventListener('input', autoCalculateK);
-    
-    // 页面加载时自动计算
-    window.addEventListener('load', function() {
-        calculate();
-    });
-</script>
+<script src="/assets/tools/concrete-durability/concrete-durability.js"></script>
 
-<script src="/assets/tools/concrete-durability/concrete-durability-i18n.js"></script>
+<script
+  src="/assets/tools/concrete-durability/concrete-durability-i18n.js"
+></script>
 
 </body>
-
 </html>
