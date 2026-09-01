@@ -191,6 +191,19 @@ const SITE_FIELD_OPTIONS = {
     "USSR",
   ],
 
+  exposure_period: [
+    "1 month",
+    "3 months",
+    "6 months",
+    "1 year",
+    "2 years",
+    "3 years",
+    "4 years",
+    "5 years",
+    "8 years",
+    "10 years",
+  ],
+
   metal: [
     "Carbon steel",
     "Weathering steel",
@@ -205,6 +218,32 @@ const SITE_FIELD_OPTIONS = {
     "Bronze",
   ],
 };
+
+const linkMetalsControl =
+  createMultiValueInput(
+    linkMetals,
+    {
+      options:
+        CURATOR_MULTI_VALUE_OPTIONS
+          .metals,
+
+      placeholder:
+        "Add material…",
+    }
+  );
+
+const linkExposurePeriodsControl =
+  createMultiValueInput(
+    linkExposurePeriods,
+    {
+      options:
+        CURATOR_MULTI_VALUE_OPTIONS
+          .exposurePeriods,
+
+      placeholder:
+        "Add exposure period…",
+    }
+  );
 
 function hideRegionSuggestion() {
   currentRegionSuggestion = null;
@@ -545,6 +584,24 @@ function addField(
       ] || [];
 
     if (
+      fieldName === "metal" ||
+      fieldName ===
+        "exposure_period"
+    ) {
+      valueElement.append(input);
+
+      createMultiValueInput(
+        input,
+        {
+          options,
+
+          placeholder:
+            fieldName === "metal"
+              ? "Add material…"
+              : "Add exposure period…",
+        }
+      );
+    } else if (
       input.tagName === "INPUT" &&
       options.length > 0
     ) {
@@ -1124,8 +1181,10 @@ function resetLinkForm() {
   linkSource.value = "";
 
   linkOrder.value = "1";
-  linkMetals.value = "";
-  linkExposurePeriods.value = "";
+
+  linkMetalsControl.setValue("");
+  linkExposurePeriodsControl.setValue("");
+
   linkNotes.value = "";
 
   linkMessage.hidden = true;
@@ -1143,11 +1202,13 @@ function openLinkForm(link = null) {
     linkOrder.value =
       String(link.source_order || 1);
 
-    linkMetals.value =
-      link.metals || "";
+    linkMetalsControl.setValue(
+      link.metals || ""
+    );
 
-    linkExposurePeriods.value =
-      link.exposure_periods || "";
+    linkExposurePeriodsControl.setValue(
+      link.exposure_periods || ""
+    );
 
     linkNotes.value =
       link.notes || "";

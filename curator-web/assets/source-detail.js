@@ -103,6 +103,32 @@ const FIELD_PLACEHOLDERS = {
 
 let sourceFormOptions = null;
 
+const siteLinkMetalsControl =
+  createMultiValueInput(
+    siteLinkMetals,
+    {
+      options:
+        CURATOR_MULTI_VALUE_OPTIONS
+          .metals,
+
+      placeholder:
+        "Add material…",
+    }
+  );
+
+const siteLinkExposurePeriodsControl =
+  createMultiValueInput(
+    siteLinkExposurePeriods,
+    {
+      options:
+        CURATOR_MULTI_VALUE_OPTIONS
+          .exposurePeriods,
+
+      placeholder:
+        "Add exposure period…",
+    }
+  );
+
 function isNewSource() {
   const params = new URLSearchParams(window.location.search);
   return params.get("new") === "1";
@@ -265,20 +291,48 @@ function addField(fieldName, label, value) {
       getSourceFieldOptions(fieldName);
 
     if (
+      fieldName === "metals" ||
+      fieldName ===
+        "exposure_periods"
+    ) {
+      valueElement.append(input);
+
+      createMultiValueInput(
+        input,
+        {
+          options:
+            fieldOptions,
+
+          placeholder:
+            fieldName === "metals"
+              ? "Add material…"
+              : "Add exposure period…",
+        }
+      );
+    } else if (
       input.tagName === "INPUT" &&
       fieldOptions.length > 0
     ) {
       const datalist =
-        document.createElement("datalist");
+        document.createElement(
+          "datalist"
+        );
 
       datalist.id =
         `options-${fieldName}`;
 
-      for (const optionValue of fieldOptions) {
+      for (
+        const optionValue
+        of fieldOptions
+      ) {
         const option =
-          document.createElement("option");
+          document.createElement(
+            "option"
+          );
 
-        option.value = optionValue;
+        option.value =
+          optionValue;
+
         datalist.append(option);
       }
 
@@ -294,6 +348,7 @@ function addField(fieldName, label, value) {
     } else {
       valueElement.append(input);
     }
+
   } else if (
     value === null ||
     value === undefined ||
@@ -836,8 +891,10 @@ function resetSiteLinkForm() {
   linkSite.disabled = false;
   linkSite.value = "";
   siteLinkOrder.value = "1";
-  siteLinkMetals.value = "";
-  siteLinkExposurePeriods.value = "";
+
+  siteLinkMetalsControl.setValue("");
+  siteLinkExposurePeriodsControl.setValue("");
+
   siteLinkNotes.value = "";
   siteLinkMessage.hidden = true;
 }
@@ -849,9 +906,13 @@ function openSiteLinkForm(link = null) {
     linkSite.value = String(link.site_fk);
     linkSite.disabled = true;
     siteLinkOrder.value = String(link.source_order || 1);
-    siteLinkMetals.value = link.metals || "";
-    siteLinkExposurePeriods.value =
-      link.exposure_periods || "";
+    siteLinkMetalsControl.setValue(
+      link.metals || ""
+    );
+
+    siteLinkExposurePeriodsControl.setValue(
+      link.exposure_periods || ""
+    );
     siteLinkNotes.value = link.notes || "";
   }
 
