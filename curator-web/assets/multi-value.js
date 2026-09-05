@@ -37,9 +37,12 @@
     const seen = new Set();
 
     return values.filter((value) => {
-      const key = value.toLowerCase();
+      const key =
+        String(value)
+          .trim()
+          .toLowerCase();
 
-      if (seen.has(key)) {
+      if (!key || seen.has(key)) {
         return false;
       }
 
@@ -52,7 +55,8 @@
     input,
     {
       options = [],
-      placeholder = "Type a value and press Enter",
+      placeholder =
+        "Type a value and press Enter",
     } = {}
   ) {
     if (!input) {
@@ -79,10 +83,22 @@
       document.createElement("input");
 
     editor.type = "text";
+
     editor.className =
       "multi-value-editor";
-    editor.placeholder = placeholder;
+
+    editor.placeholder =
+      placeholder;
+
     editor.autocomplete = "off";
+
+    const menu =
+      document.createElement("div");
+
+    menu.className =
+      "multi-value-menu";
+
+    menu.hidden = true;
 
     const optionValues =
       uniqueValues(
@@ -91,34 +107,6 @@
         )
       );
 
-    let datalist = null;
-
-    if (optionValues.length > 0) {
-      datalist =
-        document.createElement(
-          "datalist"
-        );
-
-      datalist.id =
-        `multi-value-options-${input.id}`;
-
-      for (const value of optionValues) {
-        const option =
-          document.createElement(
-            "option"
-          );
-
-        option.value = value;
-
-        datalist.append(option);
-      }
-
-      editor.setAttribute(
-        "list",
-        datalist.id
-      );
-    }
-
     input.hidden = true;
 
     input.insertAdjacentElement(
@@ -126,11 +114,11 @@
       wrapper
     );
 
-    wrapper.append(chips, editor);
-
-    if (datalist) {
-      wrapper.append(datalist);
-    }
+    wrapper.append(
+      chips,
+      editor,
+      menu
+    );
 
     function getValues() {
       return uniqueValues(
@@ -140,7 +128,8 @@
 
     function writeValues(values) {
       input.value =
-        uniqueValues(values).join(", ");
+        uniqueValues(values)
+          .join(", ");
 
       render();
 
@@ -171,6 +160,8 @@
       ]);
 
       editor.value = "";
+
+      renderMenu();
     }
 
     function removeValue(value) {
@@ -181,6 +172,8 @@
             value.toLowerCase()
         )
       );
+
+      renderMenu();
     }
 
     function render() {
@@ -188,20 +181,28 @@
 
       for (const value of getValues()) {
         const chip =
-          document.createElement("span");
+          document.createElement(
+            "span"
+          );
 
         chip.className =
           "multi-value-chip";
 
         const text =
-          document.createElement("span");
+          document.createElement(
+            "span"
+          );
 
-        text.textContent = value;
+        text.textContent =
+          value;
 
         const remove =
-          document.createElement("button");
+          document.createElement(
+            "button"
+          );
 
         remove.type = "button";
+
         remove.className =
           "multi-value-remove";
 
@@ -214,8 +215,12 @@
 
         remove.addEventListener(
           "click",
-          () => {
+          (event) => {
+            event.stopPropagation();
+
             removeValue(value);
+
+            editor.focus();
           }
         );
 
@@ -227,6 +232,127 @@
         chips.append(chip);
       }
     }
+
+    function getAvailableOptions() {
+      const selected =
+        new Set(
+          getValues().map(
+            (value) =>
+              value.toLowerCase()
+          )
+        );
+
+      const query =
+        editor.value
+          .trim()
+          .toLowerCase();
+
+      return optionValues.filter(
+        (value) => {
+          if (
+            selected.has(
+              value.toLowerCase()
+            )
+          ) {
+            return false;
+          }
+
+          if (
+            query &&
+            !value
+              .toLowerCase()
+              .includes(query)
+          ) {
+            return false;
+          }
+
+          return true;
+        }
+      );
+    }
+
+    function renderMenu() {
+      menu.replaceChildren();
+
+      if (
+        document.activeElement !==
+        editor
+      ) {
+        menu.hidden = true;
+        return;
+      }
+
+      const availableOptions =
+        getAvailableOptions();
+
+      if (
+        availableOptions.length === 0
+      ) {
+        menu.hidden = true;
+        return;
+      }
+
+      for (
+        const value
+        of availableOptions
+      ) {
+        const option =
+          document.createElement(
+            "button"
+          );
+
+        option.type = "button";
+
+        option.className =
+          "multi-value-option";
+
+        option.textContent =
+          value;
+
+        /*
+         * Prevent the editor from
+         * losing focus when an option
+         * is selected. This keeps the
+         * dropdown open for the next
+         * selection.
+         */
+        option.addEventListener(
+          "mousedown",
+          (event) => {
+            event.preventDefault();
+          }
+        );
+
+        option.addEventListener(
+          "click",
+          () => {
+            addValues(value);
+
+            editor.focus();
+
+            renderMenu();
+          }
+        );
+
+        menu.append(option);
+      }
+
+      menu.hidden = false;
+    }
+
+    editor.addEventListener(
+      "focus",
+      () => {
+        renderMenu();
+      }
+    );
+
+    editor.addEventListener(
+      "input",
+      () => {
+        renderMenu();
+      }
+    );
 
     editor.addEventListener(
       "keydown",
@@ -242,6 +368,10 @@
             editor.value
           );
 
+          editor.focus();
+
+          renderMenu();
+
           return;
         }
 
@@ -253,25 +383,44 @@
           const values =
             getValues();
 
-          if (values.length > 0) {
+          if (
+            values.length > 0
+          ) {
             values.pop();
+
             writeValues(values);
+
+            renderMenu();
           }
         }
-      }
-    );
 
-    editor.addEventListener(
-      "change",
-      () => {
-        addValues(editor.value);
+        if (
+          event.key === "Escape"
+        ) {
+          menu.hidden = true;
+        }
       }
     );
 
     editor.addEventListener(
       "blur",
       () => {
-        addValues(editor.value);
+        /*
+         * Delay closing slightly so
+         * option clicks can complete.
+         */
+        window.setTimeout(
+          () => {
+            if (
+              !wrapper.contains(
+                document.activeElement
+              )
+            ) {
+              menu.hidden = true;
+            }
+          },
+          0
+        );
       }
     );
 
@@ -283,6 +432,7 @@
           event.target === chips
         ) {
           editor.focus();
+          renderMenu();
         }
       }
     );
@@ -299,6 +449,7 @@
         "click",
         () => {
           editor.focus();
+          renderMenu();
         }
       );
     }
@@ -311,6 +462,7 @@
           ).join(", ");
 
         render();
+        renderMenu();
       },
 
       getValue() {
@@ -319,6 +471,7 @@
 
       focus() {
         editor.focus();
+        renderMenu();
       },
     };
 
@@ -334,7 +487,8 @@
     createMultiValueInput;
 
   window.CURATOR_MULTI_VALUE_OPTIONS = {
-    metals: DEFAULT_METALS,
+    metals:
+      DEFAULT_METALS,
 
     exposurePeriods:
       DEFAULT_EXPOSURE_PERIODS,

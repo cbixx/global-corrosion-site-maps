@@ -928,6 +928,28 @@ addSiteLinkButton.addEventListener("click", () => {
   openSiteLinkForm();
 });
 
+linkSite.addEventListener(
+  "change",
+  () => {
+    /*
+     * When creating a new Site–Source link,
+     * inherit the Source-level materials
+     * and exposure periods automatically.
+     */
+    if (!linkSite.value || !currentSource) {
+      return;
+    }
+
+    siteLinkMetalsControl.setValue(
+      currentSource.metals || ""
+    );
+
+    siteLinkExposurePeriodsControl.setValue(
+      currentSource.exposure_periods || ""
+    );
+  }
+);
+
 cancelSiteLinkButton.addEventListener("click", () => {
   closeSiteLinkForm();
 });
