@@ -2744,111 +2744,313 @@
     );
   }
 
-
   function modelView() {
-    const deck = state.deck;
+
+    const deck =
+      state.deck;
+
+
+    const graph =
+      Array.isArray(
+        deck?.modelGraph
+      )
+        ? deck.modelGraph
+        : [];
+
 
     const incomplete =
-      deck.modelGraph.filter((item) => {
-        return (
-          !item.sectionResolved ||
-          !item.materialResolved
-        );
-      }).length;
+      graph.filter(
+        (item) => {
 
-    const rows = deck.modelGraph.map((item) => {
-      return `
-        <tr>
-          <td>${escapeHtml(formatNumber(item.partId))}</td>
+          return (
+            !item?.sectionResolved ||
+            !item?.materialResolved
+          );
 
-          <td>
-            <strong>${escapeHtml(item.title)}</strong>
-          </td>
+        }
+      ).length;
 
-          <td>
-            ${escapeHtml(
-              item.elementTypes.length
-                ? item.elementTypes.join(", ")
-                : "—"
-            )}
-          </td>
 
-          <td>
-            ${escapeHtml(formatNumber(item.sectionId))}
-          </td>
+    const rows =
+      graph.map(
+        (item) => {
 
-          <td>
-            ${
-              item.section
-                ? escapeHtml(item.section.type)
-                : '<span class="lsdyna-missing">Missing</span>'
-            }
-          </td>
+          const elementTypes =
+            Array.isArray(
+              item?.elementTypes
+            )
+              ? item.elementTypes
+              : [];
 
-          <td>
-            ${escapeHtml(formatNumber(item.materialId))}
-          </td>
 
-          <td>
-            ${
-              item.material
-                ? `<code>${escapeHtml(item.material.baseKeyword || item.material.keyword)}</code>`
-                : '<span class="lsdyna-missing">Missing</span>'
-            }
-          </td>
+          const totalElements =
+            Number.isFinite(
+              Number(
+                item?.totalElements
+              )
+            )
+              ? Number(
+                  item.totalElements
+                )
+              : 0;
 
-          <td>
-            ${escapeHtml(
-              item.totalElements.toLocaleString()
-            )}
-          </td>
 
-          <td>
-            ${linkStatusHtml(item)}
-          </td>
-        </tr>
-      `;
-    });
+          const sectionType =
+            item?.section?.type ||
+            "Missing";
+
+
+          const materialKeyword =
+            item?.material?.baseKeyword ||
+            item?.material?.keyword ||
+            "Missing";
+
+
+          const complete =
+            Boolean(
+              item?.sectionResolved &&
+              item?.materialResolved
+            );
+
+
+          return `
+
+            <tr>
+
+              <td>
+                ${escapeHtml(
+                  formatNumber(
+                    item?.partId
+                  )
+                )}
+              </td>
+
+
+              <td>
+                <strong>
+                  ${escapeHtml(
+                    item?.title ||
+                    `Part ${item?.partId ?? "—"}`
+                  )}
+                </strong>
+              </td>
+
+
+              <td>
+                ${escapeHtml(
+                  elementTypes.length
+                    ? elementTypes.join(", ")
+                    : "—"
+                )}
+              </td>
+
+
+              <td>
+                ${escapeHtml(
+                  formatNumber(
+                    item?.sectionId
+                  )
+                )}
+              </td>
+
+
+              <td>
+                ${
+                  item?.section
+                    ? escapeHtml(
+                        sectionType
+                      )
+                    : `
+                        <span class="lsdyna-missing">
+                          Missing
+                        </span>
+                      `
+                }
+              </td>
+
+
+              <td>
+                ${escapeHtml(
+                  formatNumber(
+                    item?.materialId
+                  )
+                )}
+              </td>
+
+
+              <td>
+                ${
+                  item?.material
+                    ? `
+                        <code>
+                          ${escapeHtml(
+                            materialKeyword
+                          )}
+                        </code>
+                      `
+                    : `
+                        <span class="lsdyna-missing">
+                          Missing
+                        </span>
+                      `
+                }
+              </td>
+
+
+              <td>
+                ${escapeHtml(
+                  totalElements
+                    .toLocaleString()
+                )}
+              </td>
+
+
+              <td>
+
+                <span
+                  class="
+                    lsdyna-link-status
+                    ${
+                      complete
+                        ? "lsdyna-link-status-good"
+                        : "lsdyna-link-status-warning"
+                    }
+                  "
+                >
+
+                  ${
+                    complete
+                      ? "Linked"
+                      : "Incomplete"
+                  }
+
+                </span>
+
+              </td>
+
+            </tr>
+
+          `;
+
+        }
+      );
+
+
+    const shellCount =
+      Number(
+        deck?.elements?.shell ||
+        0
+      );
+
+
+    const solidCount =
+      Number(
+        deck?.elements?.solid ||
+        0
+      );
+
+
+    const beamCount =
+      Number(
+        deck?.elements?.beam ||
+        0
+      );
+
+
+    const families = [
+
+      shellCount > 0
+        ? "Shell"
+        : "",
+
+      solidCount > 0
+        ? "Solid"
+        : "",
+
+      beamCount > 0
+        ? "Beam"
+        : ""
+
+    ]
+      .filter(Boolean)
+      .join(" / ") || "—";
+
 
     return `
-      <div class="lsdyna-note">
-        <strong>Core LS-DYNA relationship:</strong>
 
-        geometry is carried by nodes and elements;
-        every element belongs to a Part; the Part points to
-        a Section and a Material.
+      <div class="lsdyna-note">
+
+        <strong>
+          Core LS-DYNA relationship:
+        </strong>
+
+        geometry is defined by nodes and elements;
+        each element belongs to a Part, and each Part
+        references a Section and a Material.
+
       </div>
+
 
       <div class="lsdyna-model-chain">
-        <span class="lsdyna-model-chain-item">NODE</span>
-        <span class="lsdyna-model-chain-arrow">→</span>
 
-        <span class="lsdyna-model-chain-item">ELEMENT</span>
-        <span class="lsdyna-model-chain-arrow">→</span>
+        <span class="lsdyna-model-chain-item">
+          NODE
+        </span>
 
-        <span class="lsdyna-model-chain-item">PART</span>
-        <span class="lsdyna-model-chain-arrow">→</span>
+        <span class="lsdyna-model-chain-arrow">
+          →
+        </span>
 
-        <span class="lsdyna-model-chain-item">SECTION</span>
+        <span class="lsdyna-model-chain-item">
+          ELEMENT
+        </span>
 
-        <span class="lsdyna-model-chain-arrow">+</span>
+        <span class="lsdyna-model-chain-arrow">
+          →
+        </span>
 
-        <span class="lsdyna-model-chain-item">MATERIAL</span>
+        <span class="lsdyna-model-chain-item">
+          PART
+        </span>
+
+        <span class="lsdyna-model-chain-arrow">
+          →
+        </span>
+
+        <span class="lsdyna-model-chain-item">
+          SECTION
+        </span>
+
+        <span class="lsdyna-model-chain-arrow">
+          +
+        </span>
+
+        <span class="lsdyna-model-chain-item">
+          MATERIAL
+        </span>
+
       </div>
+
 
       <div class="lsdyna-stat-grid">
 
         ${statCard(
           "Parts",
-          deck.modelGraph.length,
+          graph.length,
           "Model components"
         )}
 
+
         ${statCard(
           "Fully linked",
-          deck.modelGraph.length - incomplete,
+          Math.max(
+            0,
+            graph.length -
+            incomplete
+          ),
           "Section + material resolved"
         )}
+
 
         ${statCard(
           "Incomplete",
@@ -2856,24 +3058,25 @@
           "Missing relationship"
         )}
 
+
         ${statCard(
           "Element families",
-          [
-            deck.elements.shell ? "Shell" : "",
-            deck.elements.solid ? "Solid" : "",
-            deck.elements.beam ? "Beam" : ""
-          ].filter(Boolean).join(" / ") || "—",
+          families,
           "Recognised"
         )}
 
       </div>
 
+
       <h3 class="lsdyna-panel-heading">
         Part → Section → Material map
       </h3>
 
+
       <div class="lsdyna-study-table">
+
         ${standardTable(
+
           [
             "PID",
             "Part",
@@ -2885,10 +3088,15 @@
             "Elements",
             "Status"
           ],
+
           rows,
+
           "No model relationships were built."
+
         )}
+
       </div>
+
     `;
   }
 
