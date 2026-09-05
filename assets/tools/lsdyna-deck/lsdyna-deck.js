@@ -20,6 +20,54 @@
   const fileStatus = document.getElementById("lsdyna-file-status");
 
   /* ============================================================
+     APPLICATION STATE
+     ============================================================ */
+
+  const state = {
+    /*
+     * Original loaded deck.
+     */
+    originalText: "",
+
+    /*
+     * Currently parsed working deck.
+     */
+    deck: null,
+
+    /*
+     * Active workspace tab.
+     */
+    activeView: "overview",
+
+    /*
+     * Selected raw keyword block.
+     */
+    rawIndex: 0,
+
+    /*
+     * Whether the working deck differs from the loaded original.
+     */
+    dirty: false,
+
+    /*
+     * Batch 4 — selected PID in the 3D viewer/model tree.
+     */
+    selectedPartId: null,
+
+    /*
+     * Batch 4 — current 3D colouring scheme.
+     *
+     * Supported:
+     * part
+     * material
+     * section
+     * element
+     */
+    viewerColorMode: "part"
+  };
+
+
+  /* ============================================================
      MODEL EXPLORER STUDY VIEWS
      ============================================================ */
 
@@ -829,7 +877,61 @@
           part.materialId === null ? false : Boolean(material)
       };
     });
-  }  
+  }
+
+  /* ============================================================
+     VIEWER PART METADATA
+     ============================================================ */
+
+  function createViewerPartMetadata(deck) {
+
+    const metadata = new Map();
+
+    deck.modelGraph.forEach((item) => {
+
+      metadata.set(
+        String(item.partId),
+        {
+          partId: item.partId,
+
+          title:
+            item.title ||
+            `Part ${item.partId}`,
+
+          sectionId:
+            item.sectionId,
+
+          materialId:
+            item.materialId,
+
+          sectionType:
+            item.section?.type || "",
+
+          materialType:
+            item.material?.type || "",
+
+          materialKeyword:
+            item.material?.baseKeyword ||
+            item.material?.keyword ||
+            "",
+
+          elementTypes:
+            [...item.elementTypes],
+
+          elementCounts:
+            {
+              ...item.elementCounts
+            },
+
+          totalElements:
+            item.totalElements
+        }
+      );
+
+    });
+
+    return metadata;
+  }
 
   function parseDeck(text, filename) {
     const lines = String(text)
@@ -1803,16 +1905,11 @@
 
       <div class="lsdyna-note">
 
-        <strong>Undeformed model:</strong>
+        <strong>Interactive model study:</strong>
 
-        this preview is reconstructed directly from
-        <code>*NODE</code>,
-        <code>*ELEMENT_SHELL</code>,
-        <code>*ELEMENT_SOLID</code>, and
-        <code>*ELEMENT_BEAM</code>.
-
-        It does not display LS-DYNA result files such as
-        <code>d3plot</code>.
+        click a component in the viewer or choose a Part from
+        the model tree. The selected geometry is linked to its
+        LS-DYNA Part, Section, Material and element composition.
 
       </div>
 
@@ -1875,6 +1972,51 @@
         <div class="lsdyna-viewer-toolbar-group">
 
           <span class="lsdyna-viewer-toolbar-label">
+            Colour by
+          </span>
+
+          <select
+            class="lsdyna-viewer-select"
+            id="lsdyna-viewer-color-mode"
+            data-action="viewer-color-mode"
+          >
+
+            <option
+              value="part"
+              ${state.viewerColorMode === "part" ? "selected" : ""}
+            >
+              Part
+            </option>
+
+            <option
+              value="material"
+              ${state.viewerColorMode === "material" ? "selected" : ""}
+            >
+              Material
+            </option>
+
+            <option
+              value="section"
+              ${state.viewerColorMode === "section" ? "selected" : ""}
+            >
+              Section
+            </option>
+
+            <option
+              value="element"
+              ${state.viewerColorMode === "element" ? "selected" : ""}
+            >
+              Element type
+            </option>
+
+          </select>
+
+        </div>
+
+
+        <div class="lsdyna-viewer-toolbar-group">
+
+          <span class="lsdyna-viewer-toolbar-label">
             Display
           </span>
 
@@ -1913,31 +2055,80 @@
             Beams
           </button>
 
+          <button
+            class="lsdyna-button lsdyna-button-secondary"
+            type="button"
+            data-action="viewer-show-all"
+          >
+            Show all
+          </button>
+
         </div>
 
       </div>
 
 
-      <div class="lsdyna-viewer-frame">
-
-        <div
-          class="lsdyna-viewer-stage"
-          id="lsdyna-3d-host"
-          aria-label="Interactive LS-DYNA finite-element model preview"
-        ></div>
+      <div class="lsdyna-preview-layout">
 
 
-        <div class="lsdyna-viewer-statusbar">
+        <!-- ===================================================
+             LEFT — MODEL TREE
+             =================================================== -->
 
-          <span id="lsdyna-viewer-status">
-            Preparing model preview…
-          </span>
+        <aside class="lsdyna-preview-tree">
 
-          <span>
-            Orbit: left drag · Pan: right drag · Zoom: wheel
-          </span>
+          ${previewModelTreeHtml()}
 
-        </div>
+        </aside>
+
+
+        <!-- ===================================================
+             CENTER — VIEWER
+             =================================================== -->
+
+        <section class="lsdyna-preview-center">
+
+          <div class="lsdyna-viewer-frame">
+
+            <div
+              class="lsdyna-viewer-stage"
+              id="lsdyna-3d-host"
+              aria-label="Interactive LS-DYNA finite-element model preview"
+            ></div>
+
+
+            <div class="lsdyna-viewer-statusbar">
+
+              <span id="lsdyna-viewer-status">
+                Preparing model preview…
+              </span>
+
+              <span>
+                Click: select · Left drag: orbit · Right drag: pan · Wheel: zoom
+              </span>
+
+            </div>
+
+          </div>
+
+        </section>
+
+
+        <!-- ===================================================
+             RIGHT — INSPECTOR
+             =================================================== -->
+
+        <aside
+          class="lsdyna-preview-inspector"
+          id="lsdyna-preview-inspector"
+        >
+
+          ${previewPartInspectorHtml(
+            state.selectedPartId
+          )}
+
+        </aside>
+
 
       </div>
 
@@ -1973,20 +2164,76 @@
     `;
   }
 
-  function linkStatusHtml(graph) {
-    const complete =
-      graph.sectionResolved &&
-      graph.materialResolved;
+  function updatePreviewSelection(partId) {
 
-    return `
-      <span class="lsdyna-link-status ${
-        complete
-          ? "lsdyna-link-status-good"
-          : "lsdyna-link-status-warning"
-      }">
-        ${complete ? "Linked" : "Incomplete"}
-      </span>
-    `;
+    state.selectedPartId =
+      partId === null ||
+      partId === undefined
+        ? null
+        : String(partId);
+
+
+    /*
+     * Update inspector without rebuilding the WebGL viewer.
+     */
+
+    const inspector =
+      workspace.querySelector(
+        "#lsdyna-preview-inspector"
+      );
+
+
+    if (inspector) {
+
+      inspector.innerHTML =
+        previewPartInspectorHtml(
+          state.selectedPartId
+        );
+
+    }
+
+
+    /*
+     * Update selected row in model tree.
+     */
+
+    workspace
+      .querySelectorAll(
+        "[data-tree-part]"
+      )
+      .forEach((row) => {
+
+        row.classList.toggle(
+          "is-selected",
+
+          String(
+            row.dataset.treePart
+          ) ===
+          String(
+            state.selectedPartId
+          )
+        );
+
+      });
+  }
+
+
+  function selectPreviewPart(partId) {
+
+    state.selectedPartId =
+      String(partId);
+
+
+    window
+      .CorrosionAtlasLsdynaViewer
+      ?.selectPart(
+        state.selectedPartId
+      );
+
+
+    updatePreviewSelection(
+      state.selectedPartId
+    );
   }
 
 
@@ -2137,6 +2384,412 @@
     `;
   }
 
+  function modelGraphItem(partId) {
+
+    if (
+      partId === null ||
+      partId === undefined
+    ) {
+      return null;
+    }
+
+    return (
+      state.deck.modelGraph.find(
+        (item) =>
+          String(item.partId) ===
+          String(partId)
+      ) || null
+    );
+  }
+
+  function previewPartInspectorHtml(partId) {
+
+    const item =
+      modelGraphItem(partId);
+
+
+    if (!item) {
+
+      return `
+        <div class="lsdyna-preview-empty">
+
+          <strong>No Part selected</strong>
+
+          <p>
+            Click a component in the 3D model or choose a Part
+            from the model tree.
+          </p>
+
+        </div>
+      `;
+    }
+
+
+    const section =
+      item.section;
+
+    const material =
+      item.material;
+
+
+    const shellThickness =
+      section?.thickness?.length
+        ? section.thickness
+            .map((value) => formatNumber(value))
+            .join(" / ")
+        : "—";
+
+
+    return `
+
+      <div class="lsdyna-inspector-heading">
+
+        <span class="lsdyna-inspector-pid">
+          PID ${escapeHtml(formatNumber(item.partId))}
+        </span>
+
+        <h3>
+          ${escapeHtml(item.title)}
+        </h3>
+
+      </div>
+
+
+      <div class="lsdyna-inspector-section">
+
+        <h4>Finite-element composition</h4>
+
+        <dl class="lsdyna-inspector-list">
+
+          <div>
+            <dt>Total elements</dt>
+            <dd>
+              ${escapeHtml(
+                item.totalElements.toLocaleString()
+              )}
+            </dd>
+          </div>
+
+          <div>
+            <dt>Element types</dt>
+            <dd>
+              ${escapeHtml(
+                item.elementTypes.length
+                  ? item.elementTypes.join(", ")
+                  : "—"
+              )}
+            </dd>
+          </div>
+
+          <div>
+            <dt>Breakdown</dt>
+            <dd>
+              ${escapeHtml(
+                elementBreakdown(
+                  item.elementCounts
+                )
+              )}
+            </dd>
+          </div>
+
+        </dl>
+
+      </div>
+
+
+      <div class="lsdyna-inspector-section">
+
+        <h4>Section</h4>
+
+        <dl class="lsdyna-inspector-list">
+
+          <div>
+            <dt>SID</dt>
+            <dd>
+              ${escapeHtml(
+                formatNumber(item.sectionId)
+              )}
+            </dd>
+          </div>
+
+          <div>
+            <dt>Type</dt>
+            <dd>
+              ${escapeHtml(
+                section?.type || "Unresolved"
+              )}
+            </dd>
+          </div>
+
+          <div>
+            <dt>ELFORM</dt>
+            <dd>
+              ${escapeHtml(
+                formatNumber(
+                  section?.elform
+                )
+              )}
+            </dd>
+          </div>
+
+          <div>
+            <dt>NIP</dt>
+            <dd>
+              ${escapeHtml(
+                formatNumber(
+                  section?.nip
+                )
+              )}
+            </dd>
+          </div>
+
+          <div>
+            <dt>Shell thickness</dt>
+            <dd>
+              ${escapeHtml(
+                shellThickness
+              )}
+            </dd>
+          </div>
+
+        </dl>
+
+      </div>
+
+
+      <div class="lsdyna-inspector-section">
+
+        <h4>Material</h4>
+
+        <dl class="lsdyna-inspector-list">
+
+          <div>
+            <dt>MID</dt>
+            <dd>
+              ${escapeHtml(
+                formatNumber(item.materialId)
+              )}
+            </dd>
+          </div>
+
+          <div>
+            <dt>Keyword</dt>
+            <dd>
+              <code>
+                ${escapeHtml(
+                  material?.baseKeyword ||
+                  material?.keyword ||
+                  "Unresolved"
+                )}
+              </code>
+            </dd>
+          </div>
+
+          <div>
+            <dt>Behaviour</dt>
+            <dd>
+              ${escapeHtml(
+                material?.type ||
+                "Unresolved"
+              )}
+            </dd>
+          </div>
+
+        </dl>
+
+
+        ${
+          material
+            ? `
+              <div class="lsdyna-inspector-properties">
+
+                ${Object.entries(
+                  material.properties || {}
+                )
+                  .filter(([, value]) =>
+                    value !== null &&
+                    value !== undefined &&
+                    value !== ""
+                  )
+                  .map(([key, value]) => `
+
+                    <span class="lsdyna-tech-tag">
+                      ${escapeHtml(key)}
+                      =
+                      ${escapeHtml(
+                        formatNumber(value)
+                      )}
+                    </span>
+
+                  `)
+                  .join("")}
+
+              </div>
+            `
+            : ""
+        }
+
+      </div>
+
+
+      <div class="lsdyna-inspector-section">
+
+        <h4>Display</h4>
+
+        <label class="lsdyna-viewer-opacity-control">
+
+          <span>
+            Selected-Part opacity
+          </span>
+
+          <input
+            id="lsdyna-viewer-opacity"
+            type="range"
+            min="0.1"
+            max="1"
+            step="0.05"
+            value="1"
+            data-action="viewer-part-opacity"
+            data-part-id="${escapeHtml(item.partId)}"
+          >
+
+        </label>
+
+
+        <div class="lsdyna-inspector-actions">
+
+          <button
+            class="lsdyna-button"
+            type="button"
+            data-action="viewer-isolate-part"
+            data-part-id="${escapeHtml(item.partId)}"
+          >
+            Isolate Part
+          </button>
+
+          <button
+            class="lsdyna-button lsdyna-button-secondary"
+            type="button"
+            data-action="viewer-toggle-part"
+            data-part-id="${escapeHtml(item.partId)}"
+          >
+            Hide / Show
+          </button>
+
+        </div>
+
+      </div>
+
+    `;
+  }
+
+  function previewModelTreeHtml() {
+
+    const rows =
+      [...state.deck.modelGraph]
+        .sort(
+          (a, b) =>
+            Number(a.partId) -
+            Number(b.partId)
+        )
+        .map((item) => {
+
+          const selected =
+            String(item.partId) ===
+            String(state.selectedPartId);
+
+          return `
+
+            <div
+              class="
+                lsdyna-model-tree-row
+                ${selected ? "is-selected" : ""}
+              "
+              data-tree-part="${escapeHtml(item.partId)}"
+            >
+
+              <button
+                class="lsdyna-model-tree-main"
+                type="button"
+                data-action="viewer-select-part"
+                data-part-id="${escapeHtml(item.partId)}"
+              >
+
+                <span class="lsdyna-model-tree-pid">
+                  ${escapeHtml(formatNumber(item.partId))}
+                </span>
+
+                <span class="lsdyna-model-tree-name">
+                  ${escapeHtml(item.title)}
+                </span>
+
+              </button>
+
+
+              <button
+                class="lsdyna-model-tree-eye"
+                type="button"
+                data-action="viewer-toggle-part"
+                data-part-id="${escapeHtml(item.partId)}"
+                title="Hide or show this Part"
+                aria-label="Hide or show PID ${escapeHtml(item.partId)}"
+              >
+                ◉
+              </button>
+
+            </div>
+
+          `;
+        })
+        .join("");
+
+
+    return `
+
+      <div class="lsdyna-model-tree-header">
+
+        <div>
+          <strong>Model tree</strong>
+
+          <span>
+            ${state.deck.modelGraph.length} Parts
+          </span>
+        </div>
+
+
+        <button
+          class="lsdyna-model-tree-small-button"
+          type="button"
+          data-action="viewer-show-all"
+        >
+          Show all
+        </button>
+
+      </div>
+
+
+      <div class="lsdyna-model-tree-search-wrap">
+
+        <input
+          id="lsdyna-model-tree-search"
+          class="lsdyna-model-tree-search"
+          type="search"
+          placeholder="Filter PID or Part name…"
+          autocomplete="off"
+        >
+
+      </div>
+
+
+      <div
+        class="lsdyna-model-tree-list"
+        id="lsdyna-model-tree-list"
+      >
+        ${rows}
+      </div>
+
+    `;
+  }
 
   function partsStudyView() {
     const rows = state.deck.modelGraph.map((item) => `
@@ -3180,7 +3833,27 @@
               state.deck.geometry,
 
               {
-                statusElement
+                statusElement,
+
+                partMetadata:
+                  createViewerPartMetadata(
+                    state.deck
+                  ),
+
+                colorMode:
+                  state.viewerColorMode,
+
+                selectedPartId:
+                  state.selectedPartId,
+
+                onSelect:
+                  (partId) => {
+
+                    updatePreviewSelection(
+                      partId
+                    );
+
+                  }
               }
 
             );
@@ -3537,6 +4210,66 @@
           visible === false
         );
 
+      }
+      
+      if (
+        action ===
+        "viewer-select-part"
+      ) {
+
+        selectPreviewPart(
+          control.dataset.partId
+        );
+
+      }
+
+
+      if (
+        action ===
+        "viewer-toggle-part"
+      ) {
+
+        window
+          .CorrosionAtlasLsdynaViewer
+          ?.togglePart(
+            control.dataset.partId
+          );
+
+      }
+
+
+      if (
+        action ===
+        "viewer-isolate-part"
+      ) {
+
+        const partId =
+          control.dataset.partId;
+
+
+        window
+          .CorrosionAtlasLsdynaViewer
+          ?.isolatePart(
+            partId
+          );
+
+
+        selectPreviewPart(
+          partId
+        );
+
+      }
+
+
+      if (
+        action ===
+        "viewer-show-all"
+      ) {
+
+        window
+          .CorrosionAtlasLsdynaViewer
+          ?.showAllParts();
+
       }      
 
       if (action === "select-raw") {
@@ -3574,8 +4307,107 @@
 
       if (action === "open-deck") {
         openAnotherDeck();
-      }
+      } 
     });
+
+    workspace.addEventListener(
+      "change",
+      (event) => {
+
+        if (
+          event.target.dataset.action !==
+          "viewer-color-mode"
+        ) {
+          return;
+        }
+
+
+        const mode =
+          event.target.value;
+
+
+        state.viewerColorMode =
+          mode;
+
+
+        window
+          .CorrosionAtlasLsdynaViewer
+          ?.setColorMode(
+            mode
+          );
+
+      }
+    );
+
+    workspace.addEventListener(
+      "input",
+      (event) => {
+
+        /* -----------------------------------------------
+           Model tree filtering
+           ----------------------------------------------- */
+
+        if (
+          event.target.id ===
+          "lsdyna-model-tree-search"
+        ) {
+
+          const query =
+            event.target.value
+              .trim()
+              .toLowerCase();
+
+
+          workspace
+            .querySelectorAll(
+              "[data-tree-part]"
+            )
+            .forEach((row) => {
+
+              const text =
+                row.textContent
+                  .toLowerCase();
+
+
+              row.hidden =
+                query &&
+                !text.includes(query);
+
+            });
+
+        }
+
+
+        /* -----------------------------------------------
+           Selected-Part opacity
+           ----------------------------------------------- */
+
+        if (
+          event.target.dataset.action ===
+          "viewer-part-opacity"
+        ) {
+
+          const partId =
+            event.target.dataset.partId;
+
+          const opacity =
+            Number(
+              event.target.value
+            );
+
+
+          window
+            .CorrosionAtlasLsdynaViewer
+            ?.setPartOpacity(
+              partId,
+              opacity
+            );
+
+        }
+
+      }
+    );
+  
   }
 
   setupEvents();

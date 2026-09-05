@@ -9,22 +9,84 @@ let currentViewer = null;
    BASIC HELPERS
    ============================================================ */
 
-function partColor(partId) {
-  const numericId = Number(partId) || 1;
+function categoricalColor(value) {
 
-  const hue =
-    (numericId * 0.61803398875) % 1;
+  const text =
+    String(
+      value ??
+      "undefined"
+    );
 
-  const color = new THREE.Color();
+
+  let hash = 0;
+
+
+  for (
+    let i = 0;
+    i < text.length;
+    i += 1
+  ) {
+
+    hash =
+      (
+        (hash << 5) -
+        hash +
+        text.charCodeAt(i)
+      ) | 0;
+
+  }
+
+
+  const normalized =
+    (
+      Math.abs(hash) *
+      0.61803398875
+    ) % 1;
+
+
+  const color =
+    new THREE.Color();
+
 
   color.setHSL(
-    hue,
-    0.42,
+    normalized,
+    0.46,
     0.58
   );
 
+
   return color;
 }
+
+const ELEMENT_COLORS = {
+
+  shell:
+    new THREE.Color(
+      "#477b9d"
+    ),
+
+  solid:
+    new THREE.Color(
+      "#8a7255"
+    ),
+
+  beam:
+    new THREE.Color(
+      "#577a64"
+    ),
+
+  other:
+    new THREE.Color(
+      "#777777"
+    )
+
+};
+
+
+const SELECTION_COLOR =
+  new THREE.Color(
+    "#c55f2a"
+  );
 
 
 function nodeIndex(nodeMap, nodeId) {
@@ -338,6 +400,50 @@ class LsdynaViewer {
 
     this.meshes = [];
 
+    this.partObjects =
+      new Map();
+
+
+    this.partMetadata =
+      options.partMetadata ||
+      new Map();
+
+
+    this.colorMode =
+      options.colorMode ||
+      "part";
+
+
+    this.selectedPartId =
+      options.selectedPartId !== null &&
+      options.selectedPartId !== undefined
+        ? String(
+            options.selectedPartId
+          )
+        : null;
+
+
+    this.onSelect =
+      typeof options.onSelect ===
+      "function"
+        ? options.onSelect
+        : null;
+
+
+    this.partOpacity =
+      new Map();
+
+
+    this.raycaster =
+      new THREE.Raycaster();
+
+
+    this.pointer =
+      new THREE.Vector2();
+
+
+    this.pointerStart = null;
+
     this.kindVisibility = {
       shell: true,
       solid: true,
@@ -484,6 +590,34 @@ class LsdynaViewer {
     this.setView("iso");
 
 
+    /*
+     * Batch 4:
+     * enable clicking Parts in the 3D model.
+     */
+    this.setupPicking();
+
+
+    /*
+     * Make beam picking easier.
+     */
+    if (this.bounds) {
+
+      this.raycaster.params.Line.threshold =
+        Math.max(
+          this.bounds.sphere.radius *
+          0.003,
+          1e-6
+        );
+
+    }
+
+
+    /*
+     * Apply initial Part/material/section colours.
+     */
+    this.applyAppearance();
+
+
     /* --------------------------------------------------------
        Resize monitoring
        -------------------------------------------------------- */
@@ -513,6 +647,62 @@ class LsdynaViewer {
         );
 
       }
+    );
+  }
+
+  colorForObject(
+    partId,
+    kind
+  ) {
+
+    const id =
+      String(partId);
+
+
+    const metadata =
+      this.partMetadata.get(id) ||
+      {};
+
+
+    if (
+      this.colorMode ===
+      "material"
+    ) {
+
+      return categoricalColor(
+        `material-${metadata.materialId}`
+      );
+
+    }
+
+
+    if (
+      this.colorMode ===
+      "section"
+    ) {
+
+      return categoricalColor(
+        `section-${metadata.sectionId}`
+      );
+
+    }
+
+
+    if (
+      this.colorMode ===
+      "element"
+    ) {
+
+      return (
+        ELEMENT_COLORS[kind] ||
+        ELEMENT_COLORS.other
+      ).clone();
+
+    }
+
+
+    return categoricalColor(
+      `part-${id}`
     );
   }
 
@@ -551,11 +741,7 @@ class LsdynaViewer {
     geometryStore.parts.forEach(
       (partData, partId) => {
 
-        const color =
-          partColor(partId);
-
         let partRendered = false;
-
 
         /* --------------------------------------------------
            Shells
@@ -592,9 +778,16 @@ class LsdynaViewer {
             geometry.computeVertexNormals();
 
 
+            const shellColor =
+              this.colorForObject(
+                partId,
+                "shell"
+              );
+
+
             const material =
               new THREE.MeshStandardMaterial({
-                color,
+                color: shellColor,
                 roughness: 0.74,
                 metalness: 0.04,
                 side: THREE.DoubleSide
@@ -617,6 +810,11 @@ class LsdynaViewer {
             );
 
             this.meshes.push(
+              mesh
+            );
+
+            this.registerPartObject(
+              partId,
               mesh
             );
 
@@ -660,9 +858,16 @@ class LsdynaViewer {
             geometry.computeVertexNormals();
 
 
+            const solidColor =
+              this.colorForObject(
+                partId,
+                "solid"
+              );
+
+
             const material =
               new THREE.MeshStandardMaterial({
-                color,
+                color: solidColor,
                 roughness: 0.82,
                 metalness: 0,
                 side: THREE.DoubleSide
@@ -685,6 +890,11 @@ class LsdynaViewer {
             );
 
             this.meshes.push(
+              mesh
+            );
+
+            this.registerPartObject(
+              partId,
               mesh
             );
 
@@ -726,9 +936,16 @@ class LsdynaViewer {
             );
 
 
+            const beamColor =
+              this.colorForObject(
+                partId,
+                "beam"
+              );
+
+
             const material =
               new THREE.LineBasicMaterial({
-                color
+                color: beamColor
               });
 
 
@@ -748,6 +965,11 @@ class LsdynaViewer {
             );
 
             this.meshes.push(
+              lines
+            );
+
+            this.registerPartObject(
+              partId,
               lines
             );
 
@@ -772,6 +994,424 @@ class LsdynaViewer {
 
     }
   }
+
+  /* ========================================================
+     BATCH 4 — PART REGISTRATION
+     ======================================================== */
+
+  registerPartObject(
+    partId,
+    object
+  ) {
+
+    const id =
+      String(partId);
+
+
+    if (
+      !this.partObjects.has(id)
+    ) {
+
+      this.partObjects.set(
+        id,
+        []
+      );
+
+    }
+
+
+    this.partObjects
+      .get(id)
+      .push(object);
+
+
+    object.userData.partId =
+      id;
+  }
+
+
+  /* ========================================================
+     BATCH 4 — APPEARANCE
+     ======================================================== */
+
+  applyAppearance() {
+
+    this.meshes.forEach(
+      (object) => {
+
+        const partId =
+          String(
+            object.userData.partId
+          );
+
+
+        const kind =
+          object.userData.kind;
+
+
+        const selected =
+          partId ===
+          String(
+            this.selectedPartId
+          );
+
+
+        const baseColor =
+          this.colorForObject(
+            partId,
+            kind
+          );
+
+
+        if (
+          object.material?.color
+        ) {
+
+          object.material.color.copy(
+            selected
+              ? SELECTION_COLOR
+              : baseColor
+          );
+
+        }
+
+
+        const opacity =
+          this.partOpacity.has(partId)
+            ? this.partOpacity.get(partId)
+            : 1;
+
+
+        object.material.opacity =
+          opacity;
+
+
+        object.material.transparent =
+          opacity < 1;
+
+
+        object.material.depthWrite =
+          opacity >= 0.98;
+
+
+        object.material.needsUpdate =
+          true;
+
+      }
+    );
+  }
+
+
+  setColorMode(mode) {
+
+    if (
+      ![
+        "part",
+        "material",
+        "section",
+        "element"
+      ].includes(mode)
+    ) {
+      return;
+    }
+
+
+    this.colorMode =
+      mode;
+
+
+    this.applyAppearance();
+  }
+
+
+  setPartOpacity(
+    partId,
+    opacity
+  ) {
+
+    const id =
+      String(partId);
+
+
+    const safeOpacity =
+      THREE.MathUtils.clamp(
+        Number(opacity),
+        0.1,
+        1
+      );
+
+
+    this.partOpacity.set(
+      id,
+      safeOpacity
+    );
+
+
+    this.applyAppearance();
+  }
+
+
+  /* ========================================================
+     BATCH 4 — PART SELECTION
+     ======================================================== */
+
+  selectPart(
+    partId,
+    notify = false
+  ) {
+
+    this.selectedPartId =
+      partId === null ||
+      partId === undefined
+        ? null
+        : String(partId);
+
+
+    this.applyAppearance();
+
+
+    if (
+      notify &&
+      this.onSelect
+    ) {
+
+      this.onSelect(
+        this.selectedPartId
+      );
+
+    }
+  }
+
+
+  /* ========================================================
+     BATCH 4 — PART VISIBILITY
+     ======================================================== */
+
+  togglePart(partId) {
+
+    const id =
+      String(partId);
+
+
+    const objects =
+      this.partObjects.get(id);
+
+
+    if (
+      !objects ||
+      !objects.length
+    ) {
+
+      return false;
+    }
+
+
+    const newVisibility =
+      !objects.some(
+        (object) =>
+          object.visible
+      );
+
+
+    objects.forEach(
+      (object) => {
+
+        object.visible =
+          newVisibility;
+
+      }
+    );
+
+
+    return newVisibility;
+  }
+
+
+  isolatePart(partId) {
+
+    const id =
+      String(partId);
+
+
+    this.meshes.forEach(
+      (object) => {
+
+        object.visible =
+          String(
+            object.userData.partId
+          ) === id;
+
+      }
+    );
+
+
+    this.selectPart(
+      id
+    );
+  }
+
+
+  showAllParts() {
+
+    this.meshes.forEach(
+      (object) => {
+
+        const kind =
+          object.userData.kind;
+
+
+        object.visible =
+          this.kindVisibility[kind] !==
+          false;
+
+      }
+    );
+  }
+
+
+  /* ========================================================
+     BATCH 4 — 3D CLICK SELECTION
+     ======================================================== */
+
+  setupPicking() {
+
+    const canvas =
+      this.renderer.domElement;
+
+
+    canvas.addEventListener(
+      "pointerdown",
+      (event) => {
+
+        this.pointerStart = {
+          x: event.clientX,
+          y: event.clientY
+        };
+
+      }
+    );
+
+
+    canvas.addEventListener(
+      "pointerup",
+      (event) => {
+
+        if (!this.pointerStart) {
+          return;
+        }
+
+
+        const dx =
+          event.clientX -
+          this.pointerStart.x;
+
+        const dy =
+          event.clientY -
+          this.pointerStart.y;
+
+
+        this.pointerStart =
+          null;
+
+
+        /*
+         * If the mouse moved more than 5 px,
+         * it was probably orbit/pan instead of a click.
+         */
+        if (
+          Math.sqrt(
+            dx * dx +
+            dy * dy
+          ) > 5
+        ) {
+
+          return;
+        }
+
+
+        /*
+         * Only left mouse button selects.
+         */
+        if (
+          event.button !== 0
+        ) {
+          return;
+        }
+
+
+        const rect =
+          canvas.getBoundingClientRect();
+
+
+        this.pointer.x =
+          (
+            (
+              event.clientX -
+              rect.left
+            ) /
+            rect.width
+          ) * 2 - 1;
+
+
+        this.pointer.y =
+          -(
+            (
+              event.clientY -
+              rect.top
+            ) /
+            rect.height
+          ) * 2 + 1;
+
+
+        this.raycaster.setFromCamera(
+          this.pointer,
+          this.camera
+        );
+
+
+        const candidates =
+          this.meshes.filter(
+            (object) =>
+              object.visible
+          );
+
+
+        const intersections =
+          this.raycaster.intersectObjects(
+            candidates,
+            false
+          );
+
+
+        if (
+          !intersections.length
+        ) {
+
+          this.selectPart(
+            null,
+            true
+          );
+
+          return;
+        }
+
+
+        const object =
+          intersections[0].object;
+
+
+        const partId =
+          object.userData.partId;
+
+
+        this.selectPart(
+          partId,
+          true
+        );
+
+      }
+    );
+  }  
 
 
   /* ========================================================
@@ -1244,6 +1884,65 @@ window.CorrosionAtlasLsdynaViewer = {
     return (
       currentViewer?.toggleKind(kind) ??
       true
+    );
+
+  },
+
+
+  selectPart(partId) {
+
+    currentViewer?.selectPart(
+      partId
+    );
+
+  },
+
+
+  togglePart(partId) {
+
+    return (
+      currentViewer?.togglePart(
+        partId
+      ) ??
+      false
+    );
+
+  },
+
+
+  isolatePart(partId) {
+
+    currentViewer?.isolatePart(
+      partId
+    );
+
+  },
+
+
+  showAllParts() {
+
+    currentViewer?.showAllParts();
+
+  },
+
+
+  setPartOpacity(
+    partId,
+    opacity
+  ) {
+
+    currentViewer?.setPartOpacity(
+      partId,
+      opacity
+    );
+
+  },
+
+
+  setColorMode(mode) {
+
+    currentViewer?.setColorMode(
+      mode
     );
 
   }
