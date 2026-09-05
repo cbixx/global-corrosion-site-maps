@@ -63,8 +63,104 @@
      * section
      * element
      */
-    viewerColorMode: "part"
+    viewerColorMode: "part",
+
+    /*
+     * Batch 5 — reconstruction notebook.
+     */
+    studyProgress: {},
+
+    /*
+     * Batch 5 — questions to discuss with the specialist.
+     */
+    questions: [],
+
+    /*
+     * Optional source automatically filled when a question
+     * originates from a selected Part.
+     */
+    questionDraftSource: "",
+
+    /*
+     * Batch 5 — second deck used for semantic comparison.
+     */
+    comparisonDeck: null,
+    comparisonFilename: ""
   };
+
+  const RECONSTRUCTION_STAGES = [
+
+    {
+      id: "geometry",
+      label: "Geometry",
+      hint:
+        "Understand dimensions, pile arrangement, vessel position and major physical components."
+    },
+
+    {
+      id: "mesh",
+      label: "Mesh & elements",
+      hint:
+        "Identify shell, solid and beam formulations, mesh density and connectivity."
+    },
+
+    {
+      id: "parts",
+      label: "Parts & sections",
+      hint:
+        "Reproduce PID → SID relationships, element formulations and shell thicknesses."
+    },
+
+    {
+      id: "materials",
+      label: "Materials",
+      hint:
+        "Reproduce MID assignments and understand each constitutive model."
+    },
+
+    {
+      id: "contacts",
+      label: "Contacts",
+      hint:
+        "Reproduce self-contact and ship–pile interaction definitions."
+    },
+
+    {
+      id: "boundaries",
+      label: "Boundary conditions",
+      hint:
+        "Understand restrained nodes, constrained DOFs and foundation simplifications."
+    },
+
+    {
+      id: "motion",
+      label: "Initial motion",
+      hint:
+        "Reproduce vessel initial velocity and impact direction."
+    },
+
+    {
+      id: "controls",
+      label: "Analysis controls",
+      hint:
+        "Understand termination, timestep, mass scaling, hourglass and other control cards."
+    },
+
+    {
+      id: "outputs",
+      label: "Outputs",
+      hint:
+        "Understand d3plot, GLSTAT, MATSUM, RCFORC and other requested outputs."
+    },
+
+    {
+      id: "comparison",
+      label: "Reference comparison",
+      hint:
+        "Compare the reconstructed deck against the supplied reference model."
+    }
+
+  ];
 
 
   /* ============================================================
@@ -74,6 +170,7 @@
   const studyViews = [
     "overview",
     "preview",
+    "reconstruction",
     "model",
     "parts",
     "sections",
@@ -82,6 +179,8 @@
     "motion",
     "controls",
     "outputs",
+    "compare",
+    "questions",
     "parameters",
     "raw",
     "validation"
@@ -91,6 +190,9 @@
     en: {
       nav: {
         preview: "3D Preview",
+        reconstruction: "Reconstruction",
+        compare: "Compare decks",
+        questions: "Questions",
         model: "Model graph",
         parts: "Parts",
         sections: "Sections",
@@ -106,6 +208,23 @@
           title: "3D model preview",
           subtitle:
             "Inspect the parsed undeformed finite-element model directly in the browser."
+        },
+        reconstruction: {
+          title: "Model reconstruction",
+          subtitle:
+            "Track your progress reproducing the reference model from geometry through analysis outputs."
+        },
+
+        compare: {
+          title: "Semantic deck comparison",
+          subtitle:
+            "Compare modelling definitions rather than raw text lines."
+        },
+
+        questions: {
+          title: "Questions for specialist",
+          subtitle:
+            "Record modelling decisions and uncertainties to discuss during the specialist review."
         },
         model: {
           title: "Model graph",
@@ -145,6 +264,9 @@
     zh: {
       nav: {
         preview: "三维预览",
+        reconstruction: "模型复现",
+        compare: "模型对比",
+        questions: "专家问题",
         model: "模型关系",
         parts: "部件",
         sections: "截面",
@@ -160,7 +282,24 @@
           title: "三维模型预览",
           subtitle:
             "直接在浏览器中查看已解析的未变形有限元模型。"
-        },        
+        }, 
+        reconstruction: {
+          title: "模型复现进度",
+          subtitle:
+            "从几何到分析输出，逐步记录参考模型的复现进度。"
+        },
+
+        compare: {
+          title: "模型语义对比",
+          subtitle:
+            "比较建模定义的差异，而不是简单比较文本行。"
+        },
+
+        questions: {
+          title: "专家问题清单",
+          subtitle:
+            "记录建模过程中的疑问、当前理解及需要向专家确认的问题。"
+        },       
         model: {
           title: "模型关系",
           subtitle: "追踪 Part → Section → Material 关系以及各部件的单元组成。"
@@ -211,6 +350,353 @@
 
   function viewMeta(view) {
     return studyValue("view", view) || valueAt(`view.${view}`);
+  }
+
+  /* ============================================================
+     BATCH 5 — STUDY NOTEBOOK STORAGE
+     ============================================================ */
+
+  function ensureStudyProgress() {
+
+    RECONSTRUCTION_STAGES.forEach(
+      (stage) => {
+
+        if (
+          !state.studyProgress[stage.id]
+        ) {
+
+          state.studyProgress[stage.id] = {
+            status: "todo",
+            note: ""
+          };
+
+        }
+
+      }
+    );
+  }
+
+
+  function studyStorageKey() {
+
+    const filename =
+      state.deck?.filename ||
+      "untitled";
+
+    return (
+      "corrosion-atlas:lsdyna-study:" +
+      filename
+    );
+  }
+
+
+  function loadStudyState() {
+
+    state.studyProgress = {};
+    state.questions = [];
+    state.questionDraftSource = "";
+
+
+    try {
+
+      const saved =
+        window.localStorage.getItem(
+          studyStorageKey()
+        );
+
+
+      if (saved) {
+
+        const parsed =
+          JSON.parse(saved);
+
+
+        if (
+          parsed.studyProgress &&
+          typeof parsed.studyProgress ===
+          "object"
+        ) {
+
+          state.studyProgress =
+            parsed.studyProgress;
+
+        }
+
+
+        if (
+          Array.isArray(
+            parsed.questions
+          )
+        ) {
+
+          state.questions =
+            parsed.questions;
+
+        }
+
+      }
+
+    } catch (error) {
+
+      console.warn(
+        "Could not load LS-DYNA study notes:",
+        error
+      );
+
+    }
+
+
+    ensureStudyProgress();
+  }
+
+
+  function saveStudyState() {
+
+    if (!state.deck) {
+      return;
+    }
+
+
+    ensureStudyProgress();
+
+
+    try {
+
+      window.localStorage.setItem(
+
+        studyStorageKey(),
+
+        JSON.stringify({
+          studyProgress:
+            state.studyProgress,
+
+          questions:
+            state.questions
+        })
+
+      );
+
+    } catch (error) {
+
+      console.warn(
+        "Could not save LS-DYNA study notes:",
+        error
+      );
+
+    }
+  }
+
+
+  function createStudyNotebookText() {
+
+    ensureStudyProgress();
+
+
+    const lines = [
+
+      "LS-DYNA MODEL RECONSTRUCTION NOTEBOOK",
+
+      "",
+
+      `File: ${state.deck?.filename || "—"}`,
+      `Title: ${state.deck?.title || "—"}`,
+
+      "",
+
+      "RECONSTRUCTION PROGRESS",
+      "=======================",
+      ""
+
+    ];
+
+
+    RECONSTRUCTION_STAGES.forEach(
+      (stage, index) => {
+
+        const progress =
+          state.studyProgress[stage.id];
+
+
+        lines.push(
+          `${index + 1}. ${stage.label}`,
+          `Status: ${progress.status}`,
+          `Note: ${progress.note || "—"}`,
+          ""
+        );
+
+      }
+    );
+
+
+    lines.push(
+      "",
+      "QUESTIONS FOR SPECIALIST",
+      "========================",
+      ""
+    );
+
+
+    if (!state.questions.length) {
+
+      lines.push(
+        "No questions recorded."
+      );
+
+    } else {
+
+      state.questions.forEach(
+        (item, index) => {
+
+          lines.push(
+            `Q${String(index + 1).padStart(2, "0")}`,
+            `Source: ${item.source || "—"}`,
+            `Issue: ${item.issue || "—"}`,
+            `Current interpretation: ${item.interpretation || "—"}`,
+            `Question: ${item.question || "—"}`,
+            ""
+          );
+
+        }
+      );
+
+    }
+
+
+    return lines.join("\n");
+  }
+
+
+  function exportStudyNotebook() {
+
+    const basename =
+      state.deck.filename
+        .replace(/\.[^.]+$/, "");
+
+
+    downloadFile(
+      `${basename}_reconstruction_notebook.txt`,
+      createStudyNotebookText()
+    );
+  }
+
+
+  function csvCell(value) {
+
+    return (
+      '"' +
+      String(value ?? "")
+        .replaceAll('"', '""') +
+      '"'
+    );
+  }
+
+
+  function exportQuestionsCsv() {
+
+    const rows = [
+
+      [
+        "No.",
+        "Source",
+        "Issue encountered",
+        "Current interpretation",
+        "Question for specialist"
+      ],
+
+      ...state.questions.map(
+        (item, index) => [
+
+          index + 1,
+          item.source,
+          item.issue,
+          item.interpretation,
+          item.question
+
+        ]
+      )
+
+    ];
+
+
+    const csv =
+      rows
+        .map(
+          (row) =>
+            row.map(csvCell).join(",")
+        )
+        .join("\n");
+
+
+    const basename =
+      state.deck.filename
+        .replace(/\.[^.]+$/, "");
+
+
+    downloadFile(
+      `${basename}_specialist_questions.csv`,
+      csv,
+      "text/csv;charset=utf-8"
+    );
+  }
+
+
+  function addQuestionFromForm() {
+
+    const source =
+      workspace.querySelector(
+        "#lsdyna-question-source"
+      )?.value.trim() || "";
+
+
+    const issue =
+      workspace.querySelector(
+        "#lsdyna-question-issue"
+      )?.value.trim() || "";
+
+
+    const interpretation =
+      workspace.querySelector(
+        "#lsdyna-question-interpretation"
+      )?.value.trim() || "";
+
+
+    const question =
+      workspace.querySelector(
+        "#lsdyna-question-text"
+      )?.value.trim() || "";
+
+
+    if (!question) {
+
+      window.alert(
+        "Please enter the question you want to ask the specialist."
+      );
+
+      return;
+    }
+
+
+    state.questions.push({
+
+      id:
+        `${Date.now()}-${Math.random()
+          .toString(36)
+          .slice(2, 8)}`,
+
+      source,
+      issue,
+      interpretation,
+      question
+
+    });
+
+
+    state.questionDraftSource = "";
+
+
+    saveStudyState();
+
+    render();
   }
 
   const help = {
@@ -933,7 +1419,14 @@
     return metadata;
   }
 
-  function parseDeck(text, filename) {
+  function parseDeck(
+    text,
+    filename,
+    options = {}
+  ) {
+
+    const includeGeometry =
+      options.includeGeometry !== false;
     const lines = String(text)
       .replace(/^\uFEFF/, "")
       .replace(/\r\n/g, "\n")
@@ -1007,7 +1500,10 @@
 
 
       /* Actual geometry retained for browser preview. */
-      geometry: createGeometryStore(),
+      geometry:
+        includeGeometry
+          ? createGeometryStore()
+          : null,
 
 
       diagnostics: []
@@ -1177,13 +1673,17 @@
               deck.nodes += 1;
 
 
-              addGeometryNode(
-                deck.geometry,
-                id,
-                x,
-                y,
-                z
-              );
+              if (includeGeometry) {
+
+                addGeometryNode(
+                  deck.geometry,
+                  id,
+                  x,
+                  y,
+                  z
+                );
+
+              }
             }
 
           }
@@ -1229,12 +1729,16 @@
               typeCounts
             );
 
-            addGeometryElement(
-              deck.geometry,
-              kind,
-              numericPartId,
-              entry.fields
-            );            
+            if (includeGeometry) {
+
+              addGeometryElement(
+                deck.geometry,
+                kind,
+                numericPartId,
+                entry.fields
+              );
+
+            }           
           }
         });
       }
@@ -1562,9 +2066,13 @@
       deck.title = filename.replace(/\.[^.]+$/, "");
     }
 
-    finalizeGeometry(
-      deck.geometry
-    );
+    if (includeGeometry) {
+
+      finalizeGeometry(
+        deck.geometry
+      );
+
+    }
 
     /*
      * Convert the independently parsed cards into an
@@ -2676,6 +3184,15 @@
             Hide / Show
           </button>
 
+          <button
+            class="lsdyna-button lsdyna-button-secondary"
+            type="button"
+            data-action="question-from-part"
+            data-part-id="${escapeHtml(item.partId)}"
+          >
+            Add specialist question
+          </button>
+
         </div>
 
       </div>
@@ -2787,6 +3304,1128 @@
       >
         ${rows}
       </div>
+
+    `;
+  }
+
+  /* ============================================================
+     BATCH 5 — RECONSTRUCTION VIEW
+     ============================================================ */
+
+  function reconstructionView() {
+
+    ensureStudyProgress();
+
+
+    const completed =
+      RECONSTRUCTION_STAGES.filter(
+        (stage) =>
+          state.studyProgress[stage.id]
+            ?.status === "done"
+      ).length;
+
+
+    const cards =
+      RECONSTRUCTION_STAGES
+        .map(
+          (stage, index) => {
+
+            const progress =
+              state.studyProgress[stage.id];
+
+
+            return `
+
+              <article
+                class="lsdyna-reconstruction-card"
+                data-study-status="${escapeHtml(
+                  progress.status
+                )}"
+              >
+
+                <div class="lsdyna-reconstruction-card-header">
+
+                  <div>
+
+                    <span class="lsdyna-reconstruction-number">
+                      ${String(index + 1).padStart(2, "0")}
+                    </span>
+
+                    <h3>
+                      ${escapeHtml(stage.label)}
+                    </h3>
+
+                  </div>
+
+
+                  <select
+                    class="lsdyna-reconstruction-status"
+                    data-action="study-stage-status"
+                    data-stage-id="${escapeHtml(stage.id)}"
+                  >
+
+                    <option
+                      value="todo"
+                      ${progress.status === "todo" ? "selected" : ""}
+                    >
+                      Not started
+                    </option>
+
+                    <option
+                      value="working"
+                      ${progress.status === "working" ? "selected" : ""}
+                    >
+                      In progress
+                    </option>
+
+                    <option
+                      value="done"
+                      ${progress.status === "done" ? "selected" : ""}
+                    >
+                      Completed
+                    </option>
+
+                  </select>
+
+                </div>
+
+
+                <p class="lsdyna-reconstruction-hint">
+                  ${escapeHtml(stage.hint)}
+                </p>
+
+
+                <label class="lsdyna-reconstruction-note">
+
+                  <span>
+                    Modelling notes / uncertainties
+                  </span>
+
+                  <textarea
+                    data-action="study-stage-note"
+                    data-stage-id="${escapeHtml(stage.id)}"
+                    placeholder="Record what you reproduced, what you think the original modeller did, and anything that still needs confirmation."
+                  >${escapeHtml(progress.note)}</textarea>
+
+                </label>
+
+              </article>
+
+            `;
+
+          }
+        )
+        .join("");
+
+
+    return `
+
+      <div class="lsdyna-stat-grid">
+
+        ${statCard(
+          "Completed",
+          `${completed} / ${RECONSTRUCTION_STAGES.length}`,
+          "Reconstruction stages"
+        )}
+
+        ${statCard(
+          "Questions",
+          state.questions.length,
+          "Recorded for specialist"
+        )}
+
+      </div>
+
+
+      <div class="lsdyna-reconstruction-toolbar">
+
+        <div>
+
+          <strong>
+            Reproduce first, explain second
+          </strong>
+
+          <span>
+            Keep factual observations separate from assumptions that need specialist confirmation.
+          </span>
+
+        </div>
+
+
+        <button
+          class="lsdyna-button"
+          type="button"
+          data-action="export-study-notebook"
+        >
+          Export study notebook
+        </button>
+
+      </div>
+
+
+      <div class="lsdyna-reconstruction-grid">
+        ${cards}
+      </div>
+
+    `;
+  }
+
+
+  /* ============================================================
+     BATCH 5 — QUESTIONS VIEW
+     ============================================================ */
+
+  function questionsView() {
+
+    const questionCards =
+      state.questions.length
+        ? state.questions
+            .map(
+              (item, index) => `
+
+                <article class="lsdyna-question-card">
+
+                  <div class="lsdyna-question-card-header">
+
+                    <strong>
+                      Q${String(index + 1).padStart(2, "0")}
+                    </strong>
+
+                    <button
+                      class="lsdyna-question-delete"
+                      type="button"
+                      data-action="question-delete"
+                      data-question-id="${escapeHtml(item.id)}"
+                    >
+                      Delete
+                    </button>
+
+                  </div>
+
+
+                  <dl class="lsdyna-question-details">
+
+                    <div>
+                      <dt>Source</dt>
+                      <dd>${escapeHtml(item.source || "—")}</dd>
+                    </div>
+
+                    <div>
+                      <dt>Issue encountered</dt>
+                      <dd>${escapeHtml(item.issue || "—")}</dd>
+                    </div>
+
+                    <div>
+                      <dt>Current interpretation</dt>
+                      <dd>${escapeHtml(item.interpretation || "—")}</dd>
+                    </div>
+
+                    <div>
+                      <dt>Question for specialist</dt>
+                      <dd>
+                        <strong>
+                          ${escapeHtml(item.question)}
+                        </strong>
+                      </dd>
+                    </div>
+
+                  </dl>
+
+                </article>
+
+              `
+            )
+            .join("")
+        : `
+            <div class="lsdyna-preview-empty">
+              No specialist questions recorded yet.
+            </div>
+          `;
+
+
+    return `
+
+      <div class="lsdyna-question-layout">
+
+
+        <section class="lsdyna-question-form">
+
+          <h3>
+            Add a modelling question
+          </h3>
+
+
+          <label>
+
+            <span>
+              Source
+            </span>
+
+            <input
+              id="lsdyna-question-source"
+              type="text"
+              value="${escapeHtml(
+                state.questionDraftSource
+              )}"
+              placeholder="Example: *CONTROL_TIMESTEP / DT2MS or PID 3"
+            >
+
+          </label>
+
+
+          <label>
+
+            <span>
+              Issue encountered
+            </span>
+
+            <textarea
+              id="lsdyna-question-issue"
+              placeholder="What did you encounter while reproducing the model?"
+            ></textarea>
+
+          </label>
+
+
+          <label>
+
+            <span>
+              Current interpretation
+            </span>
+
+            <textarea
+              id="lsdyna-question-interpretation"
+              placeholder="What do you currently think the modeller intended?"
+            ></textarea>
+
+          </label>
+
+
+          <label>
+
+            <span>
+              Question for specialist
+            </span>
+
+            <textarea
+              id="lsdyna-question-text"
+              placeholder="Write the precise technical question you want to ask."
+            ></textarea>
+
+          </label>
+
+
+          <div class="lsdyna-editor-actions">
+
+            <button
+              class="lsdyna-button"
+              type="button"
+              data-action="question-add"
+            >
+              Add question
+            </button>
+
+            <button
+              class="lsdyna-button lsdyna-button-secondary"
+              type="button"
+              data-action="export-questions"
+            >
+              Export questions CSV
+            </button>
+
+          </div>
+
+        </section>
+
+
+        <section class="lsdyna-question-list">
+
+          <div class="lsdyna-section-heading">
+
+            <div>
+
+              <h3>
+                Specialist question list
+              </h3>
+
+              <p>
+                ${state.questions.length} recorded question(s)
+              </p>
+
+            </div>
+
+          </div>
+
+          ${questionCards}
+
+        </section>
+
+
+      </div>
+
+    `;
+  }
+
+
+  /* ============================================================
+     BATCH 5 — SEMANTIC COMPARISON
+     ============================================================ */
+
+  function totalElementCount(deck) {
+
+    return (
+      deck.elements.shell +
+      deck.elements.solid +
+      deck.elements.beam +
+      deck.elements.other
+    );
+  }
+
+
+  function diffByKey(
+    primaryItems,
+    comparisonItems,
+    keyFunction,
+    valueFunction
+  ) {
+
+    const primary =
+      new Map(
+        primaryItems.map(
+          (item) => [
+            String(keyFunction(item)),
+            JSON.stringify(
+              valueFunction(item)
+            )
+          ]
+        )
+      );
+
+
+    const comparison =
+      new Map(
+        comparisonItems.map(
+          (item) => [
+            String(keyFunction(item)),
+            JSON.stringify(
+              valueFunction(item)
+            )
+          ]
+        )
+      );
+
+
+    const added = [];
+    const removed = [];
+    const changed = [];
+
+
+    comparison.forEach(
+      (_, key) => {
+
+        if (!primary.has(key)) {
+          added.push(key);
+        }
+
+      }
+    );
+
+
+    primary.forEach(
+      (value, key) => {
+
+        if (!comparison.has(key)) {
+
+          removed.push(key);
+
+          return;
+        }
+
+
+        if (
+          comparison.get(key) !== value
+        ) {
+
+          changed.push(key);
+
+        }
+
+      }
+    );
+
+
+    return {
+
+      same:
+        !added.length &&
+        !removed.length &&
+        !changed.length,
+
+      added,
+      removed,
+      changed
+
+    };
+  }
+
+
+  function differenceText(diff) {
+
+    if (diff.same) {
+      return "No recognised differences";
+    }
+
+
+    const parts = [];
+
+
+    if (diff.changed.length) {
+
+      parts.push(
+        `${diff.changed.length} changed`
+      );
+
+    }
+
+
+    if (diff.added.length) {
+
+      parts.push(
+        `${diff.added.length} added`
+      );
+
+    }
+
+
+    if (diff.removed.length) {
+
+      parts.push(
+        `${diff.removed.length} removed`
+      );
+
+    }
+
+
+    return parts.join(" · ");
+  }
+
+
+  function motionComparable(motion) {
+
+    return {
+
+      kind:
+        motion.kind,
+
+      target:
+        motion.target ?? null,
+
+      targetType:
+        motion.targetType ?? null,
+
+      count:
+        motion.count ?? null,
+
+      uniform:
+        motion.uniform ?? null,
+
+      vx:
+        motion.vx ?? null,
+
+      vy:
+        motion.vy ?? null,
+
+      vz:
+        motion.vz ?? null
+
+    };
+  }
+
+
+  function boundaryComparable(boundary) {
+
+    return {
+
+      keyword:
+        boundary.keyword,
+
+      type:
+        boundary.type,
+
+      target:
+        boundary.target ?? null,
+
+      count:
+        boundary.count ?? null,
+
+      dofs:
+        boundary.dofs ?? null,
+
+      patterns:
+        boundary.patterns ?? null,
+
+      data:
+        boundary.data ?? null
+
+    };
+  }
+
+
+  function contactComparable(contact) {
+
+    return {
+
+      id:
+        contact.id,
+
+      keyword:
+        contact.keyword,
+
+      ssid:
+        contact.ssid,
+
+      msid:
+        contact.msid,
+
+      sstyp:
+        contact.sstyp,
+
+      mstyp:
+        contact.mstyp,
+
+      fs:
+        contact.fs,
+
+      fd:
+        contact.fd
+
+    };
+  }
+
+
+  function arraysEqual(
+    primary,
+    comparison,
+    normalizer
+  ) {
+
+    return (
+      JSON.stringify(
+        primary.map(normalizer)
+      ) ===
+      JSON.stringify(
+        comparison.map(normalizer)
+      )
+    );
+  }
+
+
+  function motionSummary(deck) {
+
+    if (!deck.motions.length) {
+      return "No recognised initial motion";
+    }
+
+
+    return deck.motions
+      .map(
+        (motion) => {
+
+          return (
+            `${motionDescription(motion)}: ` +
+            `V=(${formatNumber(motion.vx)}, ` +
+            `${formatNumber(motion.vy)}, ` +
+            `${formatNumber(motion.vz)})`
+          );
+
+        }
+      )
+      .join(" | ");
+  }
+
+
+  function semanticComparison(
+    primary,
+    comparison
+  ) {
+
+    const parts =
+      diffByKey(
+
+        primary.modelGraph,
+        comparison.modelGraph,
+
+        (item) =>
+          item.partId,
+
+        (item) => ({
+          sectionId:
+            item.sectionId,
+
+          materialId:
+            item.materialId,
+
+          elementCounts:
+            item.elementCounts
+        })
+
+      );
+
+
+    const sections =
+      diffByKey(
+
+        primary.sections,
+        comparison.sections,
+
+        (item) =>
+          item.id,
+
+        (item) => ({
+          type:
+            item.type,
+
+          elform:
+            item.elform,
+
+          nip:
+            item.nip ?? null,
+
+          thickness:
+            item.thickness ?? null
+        })
+
+      );
+
+
+    const materials =
+      diffByKey(
+
+        primary.materials,
+        comparison.materials,
+
+        (item) =>
+          item.id,
+
+        (item) => ({
+          keyword:
+            item.baseKeyword ||
+            item.keyword,
+
+          properties:
+            item.properties
+        })
+
+      );
+
+
+    const controls =
+      diffByKey(
+
+        primary.controls,
+        comparison.controls,
+
+        (item) =>
+          item.keyword,
+
+        (item) =>
+          item.values
+
+      );
+
+
+    const outputs =
+      diffByKey(
+
+        primary.databases,
+        comparison.databases,
+
+        (item) =>
+          item.keyword,
+
+        (item) =>
+          item.values
+
+      );
+
+
+    return {
+
+      parts,
+      sections,
+      materials,
+      controls,
+      outputs,
+
+      contactsSame:
+        arraysEqual(
+          primary.contacts,
+          comparison.contacts,
+          contactComparable
+        ),
+
+      boundariesSame:
+        arraysEqual(
+          primary.boundaries,
+          comparison.boundaries,
+          boundaryComparable
+        ),
+
+      motionsSame:
+        arraysEqual(
+          primary.motions,
+          comparison.motions,
+          motionComparable
+        )
+
+    };
+  }
+
+
+  function comparisonStatusHtml(same) {
+
+    return `
+      <span class="
+        lsdyna-compare-status
+        ${
+          same
+            ? "is-same"
+            : "is-changed"
+        }
+      ">
+        ${same ? "Same" : "Changed"}
+      </span>
+    `;
+  }
+
+
+  function comparisonView() {
+
+    const comparison =
+      state.comparisonDeck;
+
+
+    if (!comparison) {
+
+      return `
+
+        <div class="lsdyna-note">
+
+          <strong>Primary deck:</strong>
+          ${escapeHtml(state.deck.filename)}
+
+          <br><br>
+
+          Open a second deck to compare model definitions.
+          For your current project this can be
+          <code>CZ-V3-A45.k</code> or your own reconstructed
+          version of <code>CZ-V3-A0.K</code>.
+
+        </div>
+
+
+        <label class="lsdyna-comparison-upload">
+
+          <strong>
+            Choose comparison deck
+          </strong>
+
+          <span>
+            The second deck is parsed without 3D geometry to reduce memory use.
+          </span>
+
+          <input
+            id="lsdyna-comparison-input"
+            type="file"
+            accept=".k,.key,.dyn,.inc,.txt,text/plain"
+          >
+
+        </label>
+
+      `;
+    }
+
+
+    const diff =
+      semanticComparison(
+        state.deck,
+        comparison
+      );
+
+
+    const rows = [
+
+      `
+        <tr>
+          <td>Nodes</td>
+          <td>${state.deck.nodes.toLocaleString()}</td>
+          <td>${comparison.nodes.toLocaleString()}</td>
+          <td>
+            ${comparisonStatusHtml(
+              state.deck.nodes ===
+              comparison.nodes
+            )}
+          </td>
+          <td>Count only</td>
+        </tr>
+      `,
+
+      `
+        <tr>
+          <td>Elements</td>
+          <td>${totalElementCount(state.deck).toLocaleString()}</td>
+          <td>${totalElementCount(comparison).toLocaleString()}</td>
+          <td>
+            ${comparisonStatusHtml(
+              totalElementCount(state.deck) ===
+              totalElementCount(comparison)
+            )}
+          </td>
+          <td>Count only</td>
+        </tr>
+      `,
+
+      `
+        <tr>
+          <td>Parts</td>
+          <td>${state.deck.parts.length}</td>
+          <td>${comparison.parts.length}</td>
+          <td>${comparisonStatusHtml(diff.parts.same)}</td>
+          <td>${escapeHtml(differenceText(diff.parts))}</td>
+        </tr>
+      `,
+
+      `
+        <tr>
+          <td>Sections</td>
+          <td>${state.deck.sections.length}</td>
+          <td>${comparison.sections.length}</td>
+          <td>${comparisonStatusHtml(diff.sections.same)}</td>
+          <td>${escapeHtml(differenceText(diff.sections))}</td>
+        </tr>
+      `,
+
+      `
+        <tr>
+          <td>Materials</td>
+          <td>${state.deck.materials.length}</td>
+          <td>${comparison.materials.length}</td>
+          <td>${comparisonStatusHtml(diff.materials.same)}</td>
+          <td>${escapeHtml(differenceText(diff.materials))}</td>
+        </tr>
+      `,
+
+      `
+        <tr>
+          <td>Contacts</td>
+          <td>${state.deck.contacts.length}</td>
+          <td>${comparison.contacts.length}</td>
+          <td>${comparisonStatusHtml(diff.contactsSame)}</td>
+          <td>Recognised contact definitions</td>
+        </tr>
+      `,
+
+      `
+        <tr>
+          <td>Boundary conditions</td>
+          <td>${state.deck.boundaries.length}</td>
+          <td>${comparison.boundaries.length}</td>
+          <td>${comparisonStatusHtml(diff.boundariesSame)}</td>
+          <td>Recognised boundary definitions</td>
+        </tr>
+      `,
+
+      `
+        <tr>
+          <td>Initial motion</td>
+          <td colspan="2">
+            Primary:
+            ${escapeHtml(motionSummary(state.deck))}
+            <br>
+            Comparison:
+            ${escapeHtml(motionSummary(comparison))}
+          </td>
+          <td>${comparisonStatusHtml(diff.motionsSame)}</td>
+          <td>Velocity and target comparison</td>
+        </tr>
+      `,
+
+      `
+        <tr>
+          <td>Controls</td>
+          <td>${state.deck.controls.length}</td>
+          <td>${comparison.controls.length}</td>
+          <td>${comparisonStatusHtml(diff.controls.same)}</td>
+          <td>${escapeHtml(differenceText(diff.controls))}</td>
+        </tr>
+      `,
+
+      `
+        <tr>
+          <td>Outputs</td>
+          <td>${state.deck.databases.length}</td>
+          <td>${comparison.databases.length}</td>
+          <td>${comparisonStatusHtml(diff.outputs.same)}</td>
+          <td>${escapeHtml(differenceText(diff.outputs))}</td>
+        </tr>
+      `
+
+    ];
+
+
+    const changedDefinitions = [
+
+      {
+        name: "Parts",
+        diff: diff.parts
+      },
+
+      {
+        name: "Sections",
+        diff: diff.sections
+      },
+
+      {
+        name: "Materials",
+        diff: diff.materials
+      },
+
+      {
+        name: "Controls",
+        diff: diff.controls
+      },
+
+      {
+        name: "Outputs",
+        diff: diff.outputs
+      }
+
+    ]
+      .filter(
+        (item) =>
+          !item.diff.same
+      )
+      .map(
+        (item) => `
+
+          <article class="lsdyna-compare-detail">
+
+            <strong>
+              ${escapeHtml(item.name)}
+            </strong>
+
+            ${
+              item.diff.changed.length
+                ? `
+                  <span>
+                    Changed:
+                    ${escapeHtml(
+                      item.diff.changed.join(", ")
+                    )}
+                  </span>
+                `
+                : ""
+            }
+
+            ${
+              item.diff.added.length
+                ? `
+                  <span>
+                    Added:
+                    ${escapeHtml(
+                      item.diff.added.join(", ")
+                    )}
+                  </span>
+                `
+                : ""
+            }
+
+            ${
+              item.diff.removed.length
+                ? `
+                  <span>
+                    Removed:
+                    ${escapeHtml(
+                      item.diff.removed.join(", ")
+                    )}
+                  </span>
+                `
+                : ""
+            }
+
+          </article>
+
+        `
+      )
+      .join("");
+
+
+    return `
+
+      <div class="lsdyna-comparison-header">
+
+        <div>
+
+          <strong>
+            ${escapeHtml(state.deck.filename)}
+          </strong>
+
+          <span>
+            versus
+          </span>
+
+          <strong>
+            ${escapeHtml(state.comparisonFilename)}
+          </strong>
+
+        </div>
+
+
+        <button
+          class="lsdyna-button lsdyna-button-secondary"
+          type="button"
+          data-action="clear-comparison"
+        >
+          Choose another comparison deck
+        </button>
+
+      </div>
+
+
+      <div class="lsdyna-study-table">
+
+        ${standardTable(
+          [
+            "Category",
+            "Primary",
+            "Comparison",
+            "Status",
+            "Detail"
+          ],
+          rows,
+          "No comparison data."
+        )}
+
+      </div>
+
+
+      ${
+        changedDefinitions
+          ? `
+            <h3 class="lsdyna-panel-heading">
+              Changed definitions
+            </h3>
+
+            <div class="lsdyna-compare-detail-grid">
+              ${changedDefinitions}
+            </div>
+          `
+          : `
+            <div class="lsdyna-note">
+              No recognised definition differences were found.
+            </div>
+          `
+      }
 
     `;
   }
@@ -3629,7 +5268,30 @@
 
       return previewView();
 
-    }    
+    }
+
+    if (
+      state.activeView ===
+      "reconstruction"
+    ) {
+      return reconstructionView();
+    }
+
+
+    if (
+      state.activeView ===
+      "compare"
+    ) {
+      return comparisonView();
+    }
+
+
+    if (
+      state.activeView ===
+      "questions"
+    ) {
+      return questionsView();
+    }
 
     if (state.activeView === "model") {
       return modelView();
@@ -4060,6 +5722,15 @@
     state.deck = null;
     state.activeView = "overview";
     state.rawIndex = 0;
+    state.selectedPartId = null;
+    state.viewerColorMode = "part";
+
+    state.studyProgress = {};
+    state.questions = [];
+    state.questionDraftSource = "";
+
+    state.comparisonDeck = null;
+    state.comparisonFilename = "";
     markDirty(false);
 
     fileInput.value = "";
@@ -4098,10 +5769,36 @@
 
     reader.onload = () => {
       try {
-        state.originalText = String(reader.result || "");
-        state.deck = parseDeck(state.originalText, file.name);
-        state.activeView = "overview";
-        state.rawIndex = 0;
+        state.originalText =
+          String(
+            reader.result || ""
+          );
+
+        state.deck =
+          parseDeck(
+            state.originalText,
+            file.name
+          );
+
+        state.activeView =
+          "overview";
+
+        state.rawIndex =
+          0;
+
+        state.selectedPartId =
+          null;
+
+        state.viewerColorMode =
+          "part";
+
+        state.comparisonDeck =
+          null;
+
+        state.comparisonFilename =
+          "";
+
+        loadStudyState();
         markDirty(false);
         setStatus(message("status.loaded", { name: file.name }), "success");
         render();
@@ -4270,7 +5967,107 @@
           .CorrosionAtlasLsdynaViewer
           ?.showAllParts();
 
-      }      
+      }
+      
+      /* =====================================================
+         BATCH 5 — STUDY WORKFLOW ACTIONS
+         ===================================================== */
+
+      if (
+        action ===
+        "question-from-part"
+      ) {
+
+        const partId =
+          control.dataset.partId;
+
+
+        const item =
+          modelGraphItem(
+            partId
+          );
+
+
+        state.questionDraftSource =
+          item
+            ? `PID ${item.partId} — ${item.title}`
+            : `PID ${partId}`;
+
+
+        state.activeView =
+          "questions";
+
+
+        render();
+      }
+
+
+      if (
+        action ===
+        "question-add"
+      ) {
+
+        addQuestionFromForm();
+
+      }
+
+
+      if (
+        action ===
+        "question-delete"
+      ) {
+
+        const id =
+          control.dataset.questionId;
+
+
+        state.questions =
+          state.questions.filter(
+            (item) =>
+              item.id !== id
+          );
+
+
+        saveStudyState();
+
+        render();
+      }
+
+
+      if (
+        action ===
+        "export-questions"
+      ) {
+
+        exportQuestionsCsv();
+
+      }
+
+
+      if (
+        action ===
+        "export-study-notebook"
+      ) {
+
+        exportStudyNotebook();
+
+      }
+
+
+      if (
+        action ===
+        "clear-comparison"
+      ) {
+
+        state.comparisonDeck =
+          null;
+
+        state.comparisonFilename =
+          "";
+
+
+        render();
+      }
 
       if (action === "select-raw") {
         state.rawIndex = Number(control.dataset.index);
@@ -4314,27 +6111,144 @@
       "change",
       (event) => {
 
+        const target =
+          event.target;
+
+
+        /* -----------------------------------------------
+           Viewer colour mode
+           ----------------------------------------------- */
+
         if (
-          event.target.dataset.action !==
+          target.dataset.action ===
           "viewer-color-mode"
         ) {
+
+          const mode =
+            target.value;
+
+
+          state.viewerColorMode =
+            mode;
+
+
+          window
+            .CorrosionAtlasLsdynaViewer
+            ?.setColorMode(
+              mode
+            );
+
+
           return;
         }
 
 
-        const mode =
-          event.target.value;
+        /* -----------------------------------------------
+           Reconstruction stage status
+           ----------------------------------------------- */
+
+        if (
+          target.dataset.action ===
+          "study-stage-status"
+        ) {
+
+          const stageId =
+            target.dataset.stageId;
 
 
-        state.viewerColorMode =
-          mode;
+          ensureStudyProgress();
 
 
-        window
-          .CorrosionAtlasLsdynaViewer
-          ?.setColorMode(
-            mode
+          state.studyProgress[
+            stageId
+          ].status =
+            target.value;
+
+
+          saveStudyState();
+
+          render();
+
+          return;
+        }
+
+
+        /* -----------------------------------------------
+           Comparison deck
+           ----------------------------------------------- */
+
+        if (
+          target.id ===
+          "lsdyna-comparison-input"
+        ) {
+
+          const file =
+            target.files?.[0];
+
+
+          if (!file) {
+            return;
+          }
+
+
+          const reader =
+            new FileReader();
+
+
+          reader.onload =
+            () => {
+
+              try {
+
+                /*
+                 * includeGeometry:false prevents us from
+                 * storing a second 3D FE model.
+                 */
+
+                state.comparisonDeck =
+                  parseDeck(
+
+                    String(
+                      reader.result || ""
+                    ),
+
+                    file.name,
+
+                    {
+                      includeGeometry: false
+                    }
+
+                  );
+
+
+                state.comparisonFilename =
+                  file.name;
+
+
+                render();
+
+              } catch (error) {
+
+                console.error(
+                  "Comparison deck error:",
+                  error
+                );
+
+
+                window.alert(
+                  "The comparison deck could not be parsed."
+                );
+
+              }
+
+            };
+
+
+          reader.readAsText(
+            file
           );
+
+        }
 
       }
     );
@@ -4402,6 +6316,32 @@
               partId,
               opacity
             );
+
+        }
+
+        /* -----------------------------------------------
+           Reconstruction notes
+           ----------------------------------------------- */
+
+        if (
+          event.target.dataset.action ===
+          "study-stage-note"
+        ) {
+
+          const stageId =
+            event.target.dataset.stageId;
+
+
+          ensureStudyProgress();
+
+
+          state.studyProgress[
+            stageId
+          ].note =
+            event.target.value;
+
+
+          saveStudyState();
 
         }
 

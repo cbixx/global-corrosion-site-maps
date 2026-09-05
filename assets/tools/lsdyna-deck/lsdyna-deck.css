@@ -1798,3 +1798,512 @@
   }
 
 }
+
+/* ============================================================
+   LS-DYNA MODEL EXPLORER
+   Batch 5 — reconstruction, questions and semantic comparison
+   ============================================================ */
+
+
+/* ------------------------------------------------------------
+   Reconstruction summary / toolbar
+   ------------------------------------------------------------ */
+
+.lsdyna-reconstruction-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  gap: 1rem;
+
+  margin: 1rem 0;
+
+  padding: 0.9rem 1rem;
+
+  border: 1px solid var(--ca-border);
+  border-radius: 10px;
+
+  background: rgba(16, 41, 58, 0.035);
+}
+
+
+.lsdyna-reconstruction-toolbar > div {
+  display: flex;
+  flex-direction: column;
+
+  gap: 0.18rem;
+}
+
+
+.lsdyna-reconstruction-toolbar strong {
+  color: var(--ca-navy);
+
+  font-family: var(--font-ui);
+  font-size: 0.88rem;
+}
+
+
+.lsdyna-reconstruction-toolbar span {
+  color: var(--ca-muted);
+
+  font-size: 0.76rem;
+}
+
+
+/* ------------------------------------------------------------
+   Reconstruction cards
+   ------------------------------------------------------------ */
+
+.lsdyna-reconstruction-grid {
+  display: grid;
+
+  grid-template-columns:
+    repeat(2, minmax(0, 1fr));
+
+  gap: 0.8rem;
+}
+
+
+.lsdyna-reconstruction-card {
+  padding: 0.9rem;
+
+  border: 1px solid var(--ca-border);
+  border-left: 4px solid #aab5bc;
+  border-radius: 10px;
+
+  background: #ffffff;
+}
+
+
+.lsdyna-reconstruction-card[
+  data-study-status="working"
+] {
+  border-left-color: #c99132;
+}
+
+
+.lsdyna-reconstruction-card[
+  data-study-status="done"
+] {
+  border-left-color: #338568;
+}
+
+
+.lsdyna-reconstruction-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+
+  gap: 0.75rem;
+}
+
+
+.lsdyna-reconstruction-card-header > div {
+  min-width: 0;
+}
+
+
+.lsdyna-reconstruction-number {
+  color: var(--ca-rust);
+
+  font-family: Consolas, Monaco, "Courier New", monospace;
+  font-size: 0.68rem;
+  font-weight: 800;
+}
+
+
+.lsdyna-reconstruction-card h3 {
+  margin: 0.15rem 0 0;
+
+  color: var(--ca-navy);
+
+  font-size: 0.94rem;
+}
+
+
+.lsdyna-reconstruction-status {
+  flex: 0 0 auto;
+
+  padding: 0.38rem 0.5rem;
+
+  border: 1px solid var(--ca-border);
+  border-radius: 7px;
+
+  background: #ffffff;
+
+  color: var(--ca-navy);
+
+  font-family: var(--font-ui);
+  font-size: 0.72rem;
+}
+
+
+.lsdyna-reconstruction-hint {
+  margin: 0.55rem 0;
+
+  color: var(--ca-muted);
+
+  font-size: 0.76rem;
+  line-height: 1.5;
+}
+
+
+.lsdyna-reconstruction-note {
+  display: grid;
+
+  gap: 0.3rem;
+}
+
+
+.lsdyna-reconstruction-note > span {
+  color: #476273;
+
+  font-family: var(--font-ui);
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
+
+.lsdyna-reconstruction-note textarea {
+  width: 100%;
+  min-height: 110px;
+
+  resize: vertical;
+
+  padding: 0.55rem;
+
+  border: 1px solid rgba(16, 41, 58, 0.15);
+  border-radius: 7px;
+
+  background: #fbfcfd;
+
+  color: var(--ca-navy);
+
+  font: inherit;
+  font-size: 0.78rem;
+  line-height: 1.5;
+}
+
+
+/* ------------------------------------------------------------
+   Questions
+   ------------------------------------------------------------ */
+
+.lsdyna-question-layout {
+  display: grid;
+
+  grid-template-columns:
+    minmax(300px, 0.75fr)
+    minmax(420px, 1.25fr);
+
+  gap: 1rem;
+
+  align-items: start;
+}
+
+
+.lsdyna-question-form {
+  display: grid;
+
+  gap: 0.7rem;
+
+  padding: 1rem;
+
+  border: 1px solid var(--ca-border);
+  border-radius: 10px;
+
+  background: #ffffff;
+}
+
+
+.lsdyna-question-form h3 {
+  margin: 0;
+
+  color: var(--ca-navy);
+
+  font-size: 1rem;
+}
+
+
+.lsdyna-question-form label {
+  display: grid;
+
+  gap: 0.3rem;
+}
+
+
+.lsdyna-question-form label > span {
+  color: #456274;
+
+  font-family: var(--font-ui);
+  font-size: 0.72rem;
+  font-weight: 750;
+}
+
+
+.lsdyna-question-form input,
+.lsdyna-question-form textarea {
+  width: 100%;
+
+  padding: 0.55rem;
+
+  border: 1px solid rgba(16, 41, 58, 0.16);
+  border-radius: 7px;
+
+  background: #fbfcfd;
+
+  color: var(--ca-navy);
+
+  font: inherit;
+  font-size: 0.78rem;
+}
+
+
+.lsdyna-question-form textarea {
+  min-height: 90px;
+
+  resize: vertical;
+}
+
+
+.lsdyna-question-list {
+  min-width: 0;
+}
+
+
+.lsdyna-question-card {
+  margin-bottom: 0.7rem;
+
+  padding: 0.85rem;
+
+  border: 1px solid var(--ca-border);
+  border-radius: 9px;
+
+  background: #ffffff;
+}
+
+
+.lsdyna-question-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  gap: 0.5rem;
+
+  margin-bottom: 0.6rem;
+}
+
+
+.lsdyna-question-card-header strong {
+  color: var(--ca-rust);
+
+  font-family: Consolas, Monaco, "Courier New", monospace;
+}
+
+
+.lsdyna-question-delete {
+  padding: 0.25rem 0.4rem;
+
+  border: 0;
+
+  background: transparent;
+
+  color: #9a4d3c;
+
+  cursor: pointer;
+
+  font-size: 0.7rem;
+}
+
+
+.lsdyna-question-details {
+  display: grid;
+
+  gap: 0.55rem;
+
+  margin: 0;
+}
+
+
+.lsdyna-question-details > div {
+  display: grid;
+
+  grid-template-columns:
+    135px minmax(0, 1fr);
+
+  gap: 0.6rem;
+}
+
+
+.lsdyna-question-details dt {
+  color: var(--ca-muted);
+
+  font-size: 0.72rem;
+}
+
+
+.lsdyna-question-details dd {
+  margin: 0;
+
+  color: var(--ca-navy);
+
+  font-size: 0.78rem;
+  line-height: 1.5;
+}
+
+
+/* ------------------------------------------------------------
+   Comparison
+   ------------------------------------------------------------ */
+
+.lsdyna-comparison-upload {
+  display: grid;
+
+  gap: 0.45rem;
+
+  margin-top: 1rem;
+
+  padding: 1rem;
+
+  border: 1px dashed rgba(16, 41, 58, 0.28);
+  border-radius: 10px;
+
+  background: rgba(16, 41, 58, 0.025);
+
+  cursor: pointer;
+}
+
+
+.lsdyna-comparison-upload strong {
+  color: var(--ca-navy);
+}
+
+
+.lsdyna-comparison-upload span {
+  color: var(--ca-muted);
+
+  font-size: 0.78rem;
+}
+
+
+.lsdyna-comparison-upload input {
+  margin-top: 0.35rem;
+}
+
+
+.lsdyna-comparison-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  gap: 1rem;
+
+  margin-bottom: 1rem;
+
+  padding: 0.8rem 0.9rem;
+
+  border: 1px solid var(--ca-border);
+  border-radius: 9px;
+
+  background: rgba(16, 41, 58, 0.035);
+}
+
+
+.lsdyna-comparison-header > div {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+
+  gap: 0.45rem;
+}
+
+
+.lsdyna-comparison-header span {
+  color: var(--ca-muted);
+}
+
+
+.lsdyna-compare-status {
+  display: inline-flex;
+
+  padding: 0.22rem 0.48rem;
+
+  border-radius: 999px;
+
+  font-size: 0.7rem;
+  font-weight: 800;
+}
+
+
+.lsdyna-compare-status.is-same {
+  background: #edf8f3;
+
+  color: #17694f;
+}
+
+
+.lsdyna-compare-status.is-changed {
+  background: #fff0e9;
+
+  color: #a14728;
+}
+
+
+.lsdyna-compare-detail-grid {
+  display: grid;
+
+  grid-template-columns:
+    repeat(2, minmax(0, 1fr));
+
+  gap: 0.6rem;
+}
+
+
+.lsdyna-compare-detail {
+  display: grid;
+
+  gap: 0.35rem;
+
+  padding: 0.75rem;
+
+  border: 1px solid var(--ca-border);
+  border-radius: 8px;
+
+  background: #ffffff;
+}
+
+
+.lsdyna-compare-detail strong {
+  color: var(--ca-navy);
+
+  font-size: 0.82rem;
+}
+
+
+.lsdyna-compare-detail span {
+  color: var(--ca-muted);
+
+  font-size: 0.74rem;
+}
+
+
+/* ------------------------------------------------------------
+   Responsive Batch 5
+   ------------------------------------------------------------ */
+
+@media (max-width: 900px) {
+
+  .lsdyna-reconstruction-grid,
+  .lsdyna-question-layout,
+  .lsdyna-compare-detail-grid {
+    grid-template-columns: 1fr;
+  }
+
+
+  .lsdyna-reconstruction-toolbar,
+  .lsdyna-comparison-header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+}
