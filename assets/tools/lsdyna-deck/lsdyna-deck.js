@@ -19,13 +19,151 @@
   const workspace = document.getElementById("lsdyna-workspace");
   const fileStatus = document.getElementById("lsdyna-file-status");
 
-  const state = {
-    originalText: "",
-    deck: null,
-    activeView: "overview",
-    rawIndex: 0,
-    dirty: false
+  /* ============================================================
+     MODEL EXPLORER STUDY VIEWS
+     ============================================================ */
+
+  const studyViews = [
+    "overview",
+    "preview",
+    "model",
+    "parts",
+    "sections",
+    "materials",
+    "contacts",
+    "motion",
+    "controls",
+    "outputs",
+    "parameters",
+    "raw",
+    "validation"
+  ];
+
+  const studyText = {
+    en: {
+      nav: {
+        preview: "3D Preview",
+        model: "Model graph",
+        parts: "Parts",
+        sections: "Sections",
+        materials: "Materials",
+        contacts: "Contacts",
+        motion: "BCs & motion",
+        controls: "Controls",
+        outputs: "Outputs"
+      },
+
+      view: {
+        preview: {
+          title: "3D model preview",
+          subtitle:
+            "Inspect the parsed undeformed finite-element model directly in the browser."
+        },
+        model: {
+          title: "Model graph",
+          subtitle: "Trace Part → Section → Material relationships and element assignments."
+        },
+        parts: {
+          title: "Parts",
+          subtitle: "Study each physical model component and the LS-DYNA definitions attached to it."
+        },
+        sections: {
+          title: "Sections",
+          subtitle: "Review element formulations, shell thicknesses, and section usage."
+        },
+        materials: {
+          title: "Materials",
+          subtitle: "Review constitutive models, recognised parameters, and material usage."
+        },
+        contacts: {
+          title: "Contacts",
+          subtitle: "Review recognised interaction definitions and friction parameters."
+        },
+        motion: {
+          title: "Boundary conditions & motion",
+          subtitle: "Review restraints, node sets, and initial-velocity definitions."
+        },
+        controls: {
+          title: "Analysis controls",
+          subtitle: "Review explicit-analysis control cards and their first data records."
+        },
+        outputs: {
+          title: "Output requests",
+          subtitle: "Review requested LS-DYNA database and time-history outputs."
+        }
+      }
+    },
+
+    zh: {
+      nav: {
+        preview: "三维预览",
+        model: "模型关系",
+        parts: "部件",
+        sections: "截面",
+        materials: "材料",
+        contacts: "接触",
+        motion: "边界与运动",
+        controls: "控制卡",
+        outputs: "输出"
+      },
+
+      view: {
+        preview: {
+          title: "三维模型预览",
+          subtitle:
+            "直接在浏览器中查看已解析的未变形有限元模型。"
+        },        
+        model: {
+          title: "模型关系",
+          subtitle: "追踪 Part → Section → Material 关系以及各部件的单元组成。"
+        },
+        parts: {
+          title: "部件",
+          subtitle: "查看各物理构件及其对应的 LS-DYNA 定义。"
+        },
+        sections: {
+          title: "截面",
+          subtitle: "查看单元公式、壳厚以及各截面的使用情况。"
+        },
+        materials: {
+          title: "材料",
+          subtitle: "查看材料本构、已识别参数及材料使用情况。"
+        },
+        contacts: {
+          title: "接触",
+          subtitle: "查看已识别的相互作用定义与摩擦参数。"
+        },
+        motion: {
+          title: "边界条件与运动",
+          subtitle: "查看约束、节点集以及初始速度定义。"
+        },
+        controls: {
+          title: "分析控制",
+          subtitle: "查看显式分析控制卡及其首行参数。"
+        },
+        outputs: {
+          title: "输出请求",
+          subtitle: "查看 LS-DYNA 数据库及时间历程输出请求。"
+        }
+      }
+    }
   };
+
+  function studyValue(group, key) {
+    return (
+      studyText[locale]?.[group]?.[key] ??
+      studyText.en?.[group]?.[key] ??
+      null
+    );
+  }
+
+  function navLabel(view) {
+    return studyValue("nav", view) || message(`nav.${view}`);
+  }
+
+  function viewMeta(view) {
+    return studyValue("view", view) || valueAt(`view.${view}`);
+  }
 
   const help = {
     "*CONTROL_TERMINATION": "Sets the intended duration of the analysis.",
@@ -44,7 +182,32 @@
     "*INITIAL_VELOCITY_GENERATION": "Applies an initial velocity to a selected target such as a part.",
     "*INITIAL_VELOCITY_RIGID_BODY": "Applies an initial velocity to a rigid body.",
     "*BOUNDARY_SPC_SET": "Restrains specified degrees of freedom for a node set.",
-    "*CONTACT_AUTOMATIC_SINGLE_SURFACE": "Applies automatic contact among eligible surfaces."
+    "*CONTACT_AUTOMATIC_SINGLE_SURFACE": "Applies automatic contact among eligible surfaces.",
+    "*CONTROL_TIMESTEP": "Controls the explicit solution time step and optional mass scaling.",
+
+    "*CONTROL_HOURGLASS":
+      "Defines hourglass-control settings for reduced-integration elements.",
+
+    "*CONTROL_CONTACT":
+      "Defines global contact-control options.",
+
+    "*CONTROL_SHELL":
+      "Defines global shell-element calculation options.",
+
+    "*DATABASE_RCFORC":
+      "Writes resultant contact-force histories.",
+
+    "*DATABASE_D3THDT":
+      "Requests high-frequency binary time-history output.",
+
+    "*MAT_PLASTIC_KINEMATIC":
+      "Defines elastic-plastic behaviour with optional Cowper-Symonds strain-rate effects.",
+
+    "*INITIAL_VELOCITY_NODE":
+      "Assigns initial velocity directly to individual nodes.",
+
+    "*BOUNDARY_SPC_NODE":
+      "Restrains selected degrees of freedom for individual nodes."
   };
 
   function message(path, values = {}) {
@@ -135,6 +298,539 @@
     return keyword.replace("*MAT_", "").replaceAll("_", " ");
   }
 
+  function numericEntries(entries) {
+    return entries.filter((entry) => {
+      return entry.fields.length && isNumeric(entry.fields[0]);
+    });
+  }
+
+  function emptyElementCounts() {
+    return {
+      shell: 0,
+      solid: 0,
+      beam: 0,
+      other: 0
+    };
+  }
+
+  /* ============================================================
+     PREVIEW GEOMETRY STORE
+     ============================================================ */
+
+  function createGeometryStore() {
+
+    return {
+
+      /*
+       * Node ID → zero-based index in positionArray.
+       */
+      nodeIndex: new Map(),
+
+
+      /*
+       * Temporary flat coordinate array:
+       * [x1, y1, z1, x2, y2, z2, ...]
+       */
+      positions: [],
+
+
+      /*
+       * Filled after parsing.
+       */
+      positionArray: null,
+
+
+      /*
+       * PID →
+       * {
+       *   shell: [n1,n2,n3,n4,...],
+       *   solid: [n1,...n8,...],
+       *   beam:  [n1,n2,...]
+       * }
+       */
+      parts: new Map(),
+
+
+      nodeCount: 0,
+
+
+      bounds: {
+
+        min: [
+          Infinity,
+          Infinity,
+          Infinity
+        ],
+
+        max: [
+          -Infinity,
+          -Infinity,
+          -Infinity
+        ]
+
+      }
+
+    };
+  }
+
+
+  function geometryPart(
+    geometry,
+    partId
+  ) {
+
+    const key =
+      String(partId);
+
+    if (
+      !geometry.parts.has(key)
+    ) {
+
+      geometry.parts.set(
+        key,
+        {
+          shell: [],
+          solid: [],
+          beam: []
+        }
+      );
+
+    }
+
+    return geometry.parts.get(
+      key
+    );
+  }
+
+
+  function addGeometryNode(
+    geometry,
+    id,
+    x,
+    y,
+    z
+  ) {
+
+    if (
+      id === null ||
+      x === null ||
+      y === null ||
+      z === null
+    ) {
+
+      return;
+    }
+
+
+    const index =
+      geometry.positions.length / 3;
+
+
+    geometry.nodeIndex.set(
+      id,
+      index
+    );
+
+
+    geometry.positions.push(
+      x,
+      y,
+      z
+    );
+
+
+    geometry.nodeCount += 1;
+
+
+    geometry.bounds.min[0] =
+      Math.min(
+        geometry.bounds.min[0],
+        x
+      );
+
+    geometry.bounds.min[1] =
+      Math.min(
+        geometry.bounds.min[1],
+        y
+      );
+
+    geometry.bounds.min[2] =
+      Math.min(
+        geometry.bounds.min[2],
+        z
+      );
+
+
+    geometry.bounds.max[0] =
+      Math.max(
+        geometry.bounds.max[0],
+        x
+      );
+
+    geometry.bounds.max[1] =
+      Math.max(
+        geometry.bounds.max[1],
+        y
+      );
+
+    geometry.bounds.max[2] =
+      Math.max(
+        geometry.bounds.max[2],
+        z
+      );
+  }
+
+
+  function addGeometryElement(
+    geometry,
+    kind,
+    partId,
+    fields
+  ) {
+
+    if (
+      partId === null ||
+      partId === undefined
+    ) {
+
+      return;
+    }
+
+
+    const part =
+      geometryPart(
+        geometry,
+        partId
+      );
+
+
+    if (kind === "shell") {
+
+      const nodes =
+        fields
+          .slice(2, 6)
+          .map(parseNumber);
+
+
+      if (
+        nodes.length >= 3 &&
+        nodes
+          .slice(0, 3)
+          .every(
+            (value) =>
+              value !== null
+          )
+      ) {
+
+        const n4 =
+          nodes[3] ??
+          nodes[2];
+
+
+        part.shell.push(
+          nodes[0],
+          nodes[1],
+          nodes[2],
+          n4
+        );
+
+      }
+
+      return;
+    }
+
+
+    if (kind === "solid") {
+
+      const nodes =
+        fields
+          .slice(2, 10)
+          .map(parseNumber);
+
+
+      if (
+        nodes.length === 8 &&
+        nodes.every(
+          (value) =>
+            value !== null
+        )
+      ) {
+
+        part.solid.push(
+          ...nodes
+        );
+
+      }
+
+      return;
+    }
+
+
+    if (kind === "beam") {
+
+      const nodes =
+        fields
+          .slice(2, 4)
+          .map(parseNumber);
+
+
+      if (
+        nodes.length === 2 &&
+        nodes.every(
+          (value) =>
+            value !== null
+        )
+      ) {
+
+        part.beam.push(
+          nodes[0],
+          nodes[1]
+        );
+
+      }
+
+    }
+  }
+
+
+  function finalizeGeometry(
+    geometry
+  ) {
+
+    /*
+     * Float32 is more than adequate for browser visualisation
+     * and approximately halves coordinate memory compared with
+     * ordinary JavaScript numbers in a numeric array.
+     */
+
+    geometry.positionArray =
+      new Float32Array(
+        geometry.positions
+      );
+
+
+    /*
+     * Release the temporary coordinate array.
+     */
+    geometry.positions = null;
+
+
+    return geometry;
+  }
+
+  function parseMaterialBlock(block, blockIndex, entries) {
+    const records = numericEntries(entries);
+
+    const first = records[0]?.fields || [];
+    const second = records[1]?.fields || [];
+
+    const baseKeyword = block.keyword.replace(/_TITLE$/, "");
+
+    const material = {
+      id: parseNumber(first[0]),
+
+      type: localMaterialType(baseKeyword),
+
+      keyword: block.keyword,
+      baseKeyword,
+
+      blockIndex,
+      line: block.startLine,
+
+      ro: parseNumber(first[1]),
+      e: parseNumber(first[2]),
+      pr: parseNumber(first[3]),
+
+      sigy: null,
+      etan: null,
+      fail: null,
+      tdel: null,
+
+      cmo: null,
+      con1: null,
+      con2: null,
+
+      properties: {}
+    };
+
+    if (baseKeyword === "*MAT_ELASTIC") {
+
+      material.properties = {
+        RO: parseNumber(first[1]),
+        E: parseNumber(first[2]),
+        PR: parseNumber(first[3])
+      };
+
+    } else if (baseKeyword === "*MAT_RIGID") {
+
+      material.cmo = parseNumber(second[0]);
+      material.con1 = parseNumber(second[1]);
+      material.con2 = parseNumber(second[2]);
+
+      material.properties = {
+        RO: parseNumber(first[1]),
+        E: parseNumber(first[2]),
+        PR: parseNumber(first[3]),
+        CMO: material.cmo,
+        CON1: material.con1,
+        CON2: material.con2
+      };
+
+    } else if (baseKeyword === "*MAT_PLASTIC_KINEMATIC") {
+
+      material.sigy = parseNumber(first[4]);
+      material.etan = parseNumber(first[5]);
+
+      material.properties = {
+        RO: parseNumber(first[1]),
+        E: parseNumber(first[2]),
+        PR: parseNumber(first[3]),
+        SIGY: material.sigy,
+        ETAN: material.etan,
+        BETA: parseNumber(first[6]),
+        SRC: parseNumber(second[0]),
+        SRP: parseNumber(second[1]),
+        FS: parseNumber(second[2]),
+        VP: parseNumber(second[3])
+      };
+
+    } else if (
+      baseKeyword === "*MAT_PIECEWISE_LINEAR_PLASTICITY" ||
+      baseKeyword === "*MAT_024"
+    ) {
+
+      material.sigy = parseNumber(first[4]);
+      material.etan = parseNumber(first[5]);
+      material.fail = parseNumber(first[6]);
+      material.tdel = parseNumber(first[7]);
+
+      material.properties = {
+        RO: parseNumber(first[1]),
+        E: parseNumber(first[2]),
+        PR: parseNumber(first[3]),
+        SIGY: material.sigy,
+        ETAN: material.etan,
+        FAIL: material.fail,
+        TDEL: material.tdel,
+        C: parseNumber(second[0]),
+        P: parseNumber(second[1])
+      };
+
+    } else {
+
+      material.properties = {
+        RECORD_1: first.join(", "),
+        RECORD_2: second.join(", ")
+      };
+
+    }
+
+    return material;
+  }
+
+  function materialSummary(material) {
+    const entries = Object.entries(material.properties || {})
+      .filter(([, value]) => {
+        return value !== null && value !== undefined && value !== "";
+      })
+      .slice(0, 8);
+
+    if (!entries.length) {
+      return "No recognised parameters";
+    }
+
+    return entries
+      .map(([key, value]) => `${key}=${formatNumber(value)}`)
+      .join(" · ");
+  }
+
+  function elementBreakdown(counts) {
+    const parts = [];
+
+    if (counts?.shell) parts.push(`${counts.shell} shell`);
+    if (counts?.solid) parts.push(`${counts.solid} solid`);
+    if (counts?.beam) parts.push(`${counts.beam} beam`);
+    if (counts?.other) parts.push(`${counts.other} other`);
+
+    return parts.length ? parts.join(" · ") : "0";
+  }
+
+  function buildModelGraph(deck, partMap, materialMap, sectionMap) {
+    deck.usage = {
+      sections: new Map(),
+      materials: new Map()
+    };
+
+    deck.modelGraph = deck.parts.map((part) => {
+      const id = String(part.id);
+
+      const section =
+        part.sectionId === null
+          ? null
+          : sectionMap.get(String(part.sectionId)) || null;
+
+      const material =
+        part.materialId === null
+          ? null
+          : materialMap.get(String(part.materialId)) || null;
+
+      const elementCounts =
+        deck.elements.byPartType.get(id) || emptyElementCounts();
+
+      const totalElements =
+        elementCounts.shell +
+        elementCounts.solid +
+        elementCounts.beam +
+        elementCounts.other;
+
+      const elementTypes = Object.entries(elementCounts)
+        .filter(([, count]) => count > 0)
+        .map(([type]) => type);
+
+      if (section) {
+        const key = String(section.id);
+
+        if (!deck.usage.sections.has(key)) {
+          deck.usage.sections.set(key, []);
+        }
+
+        deck.usage.sections.get(key).push(part.id);
+      }
+
+      if (material) {
+        const key = String(material.id);
+
+        if (!deck.usage.materials.has(key)) {
+          deck.usage.materials.set(key, []);
+        }
+
+        deck.usage.materials.get(key).push(part.id);
+      }
+
+      return {
+        part,
+        partId: part.id,
+        title: part.title,
+
+        section,
+        sectionId: part.sectionId,
+
+        material,
+        materialId: part.materialId,
+
+        elementCounts,
+        elementTypes,
+        totalElements,
+
+        sectionResolved:
+          part.sectionId === null ? false : Boolean(section),
+
+        materialResolved:
+          part.materialId === null ? false : Boolean(material)
+      };
+    });
+  }  
+
   function parseDeck(text, filename) {
     const lines = String(text)
       .replace(/^\uFEFF/, "")
@@ -193,8 +889,25 @@
         shell: 0,
         beam: 0,
         other: 0,
-        byPart: new Map()
+
+        byPart: new Map(),
+
+        /* Separate shell / solid / beam counts for every PID. */
+        byPartType: new Map()
       },
+
+      modelGraph: [],
+
+      usage: {
+        sections: new Map(),
+        materials: new Map()
+      },
+
+
+      /* Actual geometry retained for browser preview. */
+      geometry: createGeometryStore(),
+
+
       diagnostics: []
     };
 
@@ -276,26 +989,11 @@
       }
 
       if (block.keyword.startsWith("*MAT_")) {
-        const first = entries[0]?.fields || [];
-        const second = entries[1]?.fields || [];
-
-        const material = {
-          id: parseNumber(first[0]),
-          type: localMaterialType(block.keyword),
-          keyword: block.keyword,
+        const material = parseMaterialBlock(
+          block,
           blockIndex,
-          line: block.startLine,
-          ro: parseNumber(first[1]),
-          e: parseNumber(first[2]),
-          pr: parseNumber(first[3]),
-          sigy: parseNumber(first[4]),
-          etan: parseNumber(first[5]),
-          fail: parseNumber(first[6]),
-          tdel: parseNumber(first[7]),
-          cmo: parseNumber(second[0]),
-          con1: parseNumber(second[1]),
-          con2: parseNumber(second[2])
-        };
+          entries
+        );
 
         if (material.id !== null) {
           deck.materials.push(material);
@@ -338,12 +1036,56 @@
         }
       }
 
-      if (block.keyword === "*NODE" || block.keyword.startsWith("*NODE_")) {
-        entries.forEach((entry) => {
-          if (entry.fields.length >= 4 && entry.fields.slice(0, 4).every(isNumeric)) {
-            deck.nodes += 1;
+      if (
+        block.keyword === "*NODE" ||
+        block.keyword.startsWith("*NODE_")
+      ) {
+
+        entries.forEach(
+          (entry) => {
+
+            if (
+              entry.fields.length >= 4 &&
+              entry.fields
+                .slice(0, 4)
+                .every(isNumeric)
+            ) {
+
+              const id =
+                parseNumber(
+                  entry.fields[0]
+                );
+
+              const x =
+                parseNumber(
+                  entry.fields[1]
+                );
+
+              const y =
+                parseNumber(
+                  entry.fields[2]
+                );
+
+              const z =
+                parseNumber(
+                  entry.fields[3]
+                );
+
+
+              deck.nodes += 1;
+
+
+              addGeometryNode(
+                deck.geometry,
+                id,
+                x,
+                y,
+                z
+              );
+            }
+
           }
-        });
+        );
       }
 
       if (block.keyword.startsWith("*ELEMENT_")) {
@@ -358,8 +1100,39 @@
         entries.forEach((entry) => {
           if (entry.fields.length >= 2 && isNumeric(entry.fields[0]) && isNumeric(entry.fields[1])) {
             deck.elements[kind] += 1;
-            const partId = String(parseNumber(entry.fields[1]));
-            deck.elements.byPart.set(partId, (deck.elements.byPart.get(partId) || 0) + 1);
+
+            const numericPartId =
+              parseNumber(
+                entry.fields[1]
+              );
+
+            const partId =
+              String(
+                numericPartId
+              );
+
+            deck.elements.byPart.set(
+              partId,
+              (deck.elements.byPart.get(partId) || 0) + 1
+            );
+
+            const typeCounts =
+              deck.elements.byPartType.get(partId) ||
+              emptyElementCounts();
+
+            typeCounts[kind] += 1;
+
+            deck.elements.byPartType.set(
+              partId,
+              typeCounts
+            );
+
+            addGeometryElement(
+              deck.geometry,
+              kind,
+              numericPartId,
+              entry.fields
+            );            
           }
         });
       }
@@ -420,30 +1193,186 @@
         });
       }
 
-      if (block.keyword.startsWith("*BOUNDARY_")) {
-        const fields = entries[0]?.fields || [];
-        const boundary = {
+      if (block.keyword === "*INITIAL_VELOCITY_NODE") {
+        const records = numericEntries(entries)
+          .filter((entry) => entry.fields.length >= 4);
+
+        let firstVelocity = null;
+        let uniform = true;
+        let validCount = 0;
+
+        records.forEach((entry) => {
+          const vx = parseNumber(entry.fields[1]);
+          const vy = parseNumber(entry.fields[2]);
+          const vz = parseNumber(entry.fields[3]);
+
+          if (vx === null || vy === null || vz === null) {
+            return;
+          }
+
+          validCount += 1;
+
+          if (!firstVelocity) {
+            firstVelocity = [vx, vy, vz];
+            return;
+          }
+
+          const tolerance = 1e-10;
+
+          if (
+            Math.abs(vx - firstVelocity[0]) > tolerance ||
+            Math.abs(vy - firstVelocity[1]) > tolerance ||
+            Math.abs(vz - firstVelocity[2]) > tolerance
+          ) {
+            uniform = false;
+          }
+        });
+
+        deck.motions.push({
+          kind: "initialVelocityNode",
+
           keyword: block.keyword,
+
           blockIndex,
           line: block.startLine,
-          recordIndex: 0,
-          target: parseNumber(fields[0]),
-          data: fields
-        };
 
-        if (block.keyword === "*BOUNDARY_SPC_SET") {
-          boundary.type = "spcSet";
-          boundary.dofs = fields.slice(2, 8);
-        } else if (block.keyword.includes("PRESCRIBED_MOTION")) {
-          boundary.type = "prescribedMotion";
-          boundary.dof = parseNumber(fields[1]);
-          boundary.vad = parseNumber(fields[2]);
-          boundary.lcid = parseNumber(fields[3]);
+          count: validCount,
+          uniform,
+
+          vx: firstVelocity?.[0] ?? null,
+          vy: firstVelocity?.[1] ?? null,
+          vz: firstVelocity?.[2] ?? null,
+
+          magnitude: firstVelocity
+            ? Math.sqrt(
+                firstVelocity[0] ** 2 +
+                firstVelocity[1] ** 2 +
+                firstVelocity[2] ** 2
+              )
+            : null
+        });
+      }      
+
+      if (block.keyword.startsWith("*BOUNDARY_")) {
+        const records = numericEntries(entries);
+
+        /* -----------------------------------------------
+           Node-by-node SPC
+           ----------------------------------------------- */
+
+        if (block.keyword === "*BOUNDARY_SPC_NODE") {
+
+          const validRecords = records.filter(
+            (entry) => entry.fields.length >= 8
+          );
+
+          const patterns = new Map();
+
+          validRecords.forEach((entry) => {
+            const pattern = entry.fields
+              .slice(2, 8)
+              .join(",");
+
+            patterns.set(
+              pattern,
+              (patterns.get(pattern) || 0) + 1
+            );
+          });
+
+          deck.boundaries.push({
+            keyword: block.keyword,
+            blockIndex,
+            line: block.startLine,
+
+            type: "spcNode",
+
+            count: validRecords.length,
+
+            sampleTarget:
+              parseNumber(validRecords[0]?.fields?.[0]),
+
+            patterns: [...patterns.entries()].map(
+              ([pattern, count]) => ({
+                pattern,
+                count
+              })
+            )
+          });
+
+        /* -----------------------------------------------
+           Node-set SPC
+           ----------------------------------------------- */
+
+        } else if (block.keyword === "*BOUNDARY_SPC_SET") {
+
+          const fields = records[0]?.fields || [];
+
+          deck.boundaries.push({
+            keyword: block.keyword,
+            blockIndex,
+            line: block.startLine,
+
+            recordIndex: 0,
+            type: "spcSet",
+
+            target: parseNumber(fields[0]),
+
+            dofs: fields.slice(2, 8),
+
+            data: fields
+          });
+
+        /* -----------------------------------------------
+           Prescribed motion
+           ----------------------------------------------- */
+
+        } else if (
+          block.keyword.includes("PRESCRIBED_MOTION")
+        ) {
+
+          const fields = records[0]?.fields || [];
+
+          deck.boundaries.push({
+            keyword: block.keyword,
+            blockIndex,
+            line: block.startLine,
+
+            recordIndex: 0,
+            type: "prescribedMotion",
+
+            target: parseNumber(fields[0]),
+            dof: parseNumber(fields[1]),
+            vad: parseNumber(fields[2]),
+            lcid: parseNumber(fields[3]),
+
+            data: fields
+          });
+
+        /* -----------------------------------------------
+           Other boundary cards
+           ----------------------------------------------- */
+
         } else {
-          boundary.type = block.keyword.replace("*BOUNDARY_", "").replaceAll("_", " ");
-        }
 
-        deck.boundaries.push(boundary);
+          const fields = records[0]?.fields || [];
+
+          deck.boundaries.push({
+            keyword: block.keyword,
+            blockIndex,
+            line: block.startLine,
+
+            recordIndex: 0,
+
+            type: block.keyword
+              .replace("*BOUNDARY_", "")
+              .replaceAll("_", " "),
+
+            target: parseNumber(fields[0]),
+
+            data: fields
+          });
+
+        }
       }
 
       if (block.keyword.startsWith("*SET_NODE_LIST")) {
@@ -464,17 +1393,53 @@
       }
 
       if (block.keyword.startsWith("*CONTACT_")) {
-        const first = entries[0]?.fields || [];
-        const second = entries[1]?.fields || [];
+        const records = numericEntries(entries);
+
+        let cursor = 0;
+        let contactId = null;
+
+        /*
+         * _ID variants usually contain an identification
+         * record before the ordinary contact data.
+         */
+        if (
+          block.keyword.endsWith("_ID") &&
+          records.length
+        ) {
+          const candidate = records[0].fields;
+
+          const firstFourNumeric =
+            candidate
+              .slice(0, 4)
+              .filter(isNumeric)
+              .length;
+
+          if (firstFourNumeric < 4) {
+            contactId = parseNumber(candidate[0]);
+            cursor = 1;
+          }
+        }
+
+        const first =
+          records[cursor]?.fields || [];
+
+        const second =
+          records[cursor + 1]?.fields || [];
 
         deck.contacts.push({
+          id: contactId,
+
           keyword: block.keyword,
+
           blockIndex,
           line: block.startLine,
+
           ssid: parseNumber(first[0]),
           msid: parseNumber(first[1]),
+
           sstyp: parseNumber(first[2]),
           mstyp: parseNumber(first[3]),
+
           fs: parseNumber(second[0]),
           fd: parseNumber(second[1])
         });
@@ -495,7 +1460,28 @@
       deck.title = filename.replace(/\.[^.]+$/, "");
     }
 
-    validateDeck(deck, partMap, materialMap, sectionMap);
+    finalizeGeometry(
+      deck.geometry
+    );
+
+    /*
+     * Convert the independently parsed cards into an
+     * explicit model relationship graph.
+     */
+    buildModelGraph(
+      deck,
+      partMap,
+      materialMap,
+      sectionMap
+    );
+
+    validateDeck(
+      deck,
+      partMap,
+      materialMap,
+      sectionMap
+    );
+
     return deck;
   }
 
@@ -680,17 +1666,39 @@
   }
 
   function motionDescription(motion) {
-    return motion.kind === "initialVelocityGeneration"
-      ? "*INITIAL_VELOCITY_GENERATION"
-      : "*INITIAL_VELOCITY_RIGID_BODY";
+    if (motion.kind === "initialVelocityGeneration") {
+      return "*INITIAL_VELOCITY_GENERATION";
+    }
+
+    if (motion.kind === "initialVelocityRigid") {
+      return "*INITIAL_VELOCITY_RIGID_BODY";
+    }
+
+    if (motion.kind === "initialVelocityNode") {
+      return "*INITIAL_VELOCITY_NODE";
+    }
+
+    return motion.keyword || "Initial motion";
   }
 
   function targetDescription(motion) {
-    if (motion.targetType === 2) {
-      return message("misc.rigidTarget", { value: formatNumber(motion.target) });
+    if (motion.kind === "initialVelocityNode") {
+      return `${formatNumber(motion.count)} nodes${
+        motion.uniform ? " · uniform vector" : " · variable vectors"
+      }`;
     }
 
-    return message("misc.target", { value: formatNumber(motion.target) });
+    if (motion.targetType === 2) {
+      return message(
+        "misc.rigidTarget",
+        { value: formatNumber(motion.target) }
+      );
+    }
+
+    return message(
+      "misc.target",
+      { value: formatNumber(motion.target) }
+    );
   }
 
   function overviewView() {
@@ -762,6 +1770,876 @@
       <p class="lsdyna-footer-note">${message("overview.rawNote")}</p>
     `;
   }
+
+  /* ============================================================
+     STUDY VIEWS
+     ============================================================ */
+
+  function previewView() {
+
+    const geometry =
+      state.deck.geometry;
+
+
+    const bounds =
+      geometry.bounds;
+
+
+    const size = [
+
+      bounds.max[0] -
+      bounds.min[0],
+
+      bounds.max[1] -
+      bounds.min[1],
+
+      bounds.max[2] -
+      bounds.min[2]
+
+    ];
+
+
+    return `
+
+      <div class="lsdyna-note">
+
+        <strong>Undeformed model:</strong>
+
+        this preview is reconstructed directly from
+        <code>*NODE</code>,
+        <code>*ELEMENT_SHELL</code>,
+        <code>*ELEMENT_SOLID</code>, and
+        <code>*ELEMENT_BEAM</code>.
+
+        It does not display LS-DYNA result files such as
+        <code>d3plot</code>.
+
+      </div>
+
+
+      <div class="lsdyna-viewer-toolbar">
+
+        <div class="lsdyna-viewer-toolbar-group">
+
+          <span class="lsdyna-viewer-toolbar-label">
+            View
+          </span>
+
+          <button
+            class="lsdyna-button lsdyna-button-secondary"
+            type="button"
+            data-action="viewer-view"
+            data-viewer-view="iso"
+          >
+            ISO
+          </button>
+
+          <button
+            class="lsdyna-button lsdyna-button-secondary"
+            type="button"
+            data-action="viewer-view"
+            data-viewer-view="front"
+          >
+            Front
+          </button>
+
+          <button
+            class="lsdyna-button lsdyna-button-secondary"
+            type="button"
+            data-action="viewer-view"
+            data-viewer-view="right"
+          >
+            Right
+          </button>
+
+          <button
+            class="lsdyna-button lsdyna-button-secondary"
+            type="button"
+            data-action="viewer-view"
+            data-viewer-view="top"
+          >
+            Top
+          </button>
+
+          <button
+            class="lsdyna-button lsdyna-button-secondary"
+            type="button"
+            data-action="viewer-fit"
+          >
+            Fit
+          </button>
+
+        </div>
+
+
+        <div class="lsdyna-viewer-toolbar-group">
+
+          <span class="lsdyna-viewer-toolbar-label">
+            Display
+          </span>
+
+          <button
+            class="lsdyna-button lsdyna-button-secondary"
+            type="button"
+            data-action="viewer-wireframe"
+          >
+            Wireframe
+          </button>
+
+          <button
+            class="lsdyna-button lsdyna-button-secondary"
+            type="button"
+            data-action="viewer-toggle-kind"
+            data-viewer-kind="shell"
+          >
+            Shells
+          </button>
+
+          <button
+            class="lsdyna-button lsdyna-button-secondary"
+            type="button"
+            data-action="viewer-toggle-kind"
+            data-viewer-kind="solid"
+          >
+            Solids
+          </button>
+
+          <button
+            class="lsdyna-button lsdyna-button-secondary"
+            type="button"
+            data-action="viewer-toggle-kind"
+            data-viewer-kind="beam"
+          >
+            Beams
+          </button>
+
+        </div>
+
+      </div>
+
+
+      <div class="lsdyna-viewer-frame">
+
+        <div
+          class="lsdyna-viewer-stage"
+          id="lsdyna-3d-host"
+          aria-label="Interactive LS-DYNA finite-element model preview"
+        ></div>
+
+
+        <div class="lsdyna-viewer-statusbar">
+
+          <span id="lsdyna-viewer-status">
+            Preparing model preview…
+          </span>
+
+          <span>
+            Orbit: left drag · Pan: right drag · Zoom: wheel
+          </span>
+
+        </div>
+
+      </div>
+
+
+      <div class="lsdyna-stat-grid lsdyna-viewer-stat-grid">
+
+        ${statCard(
+          "Model width",
+          formatNumber(size[0]),
+          "X extent"
+        )}
+
+        ${statCard(
+          "Model depth",
+          formatNumber(size[1]),
+          "Y extent"
+        )}
+
+        ${statCard(
+          "Model height",
+          formatNumber(size[2]),
+          "Z extent"
+        )}
+
+        ${statCard(
+          "Geometry parts",
+          geometry.parts.size,
+          "Parts containing renderable elements"
+        )}
+
+      </div>
+
+    `;
+  }
+
+  function linkStatusHtml(graph) {
+    const complete =
+      graph.sectionResolved &&
+      graph.materialResolved;
+
+    return `
+      <span class="lsdyna-link-status ${
+        complete
+          ? "lsdyna-link-status-good"
+          : "lsdyna-link-status-warning"
+      }">
+        ${complete ? "Linked" : "Incomplete"}
+      </span>
+    `;
+  }
+
+
+  function modelView() {
+    const deck = state.deck;
+
+    const incomplete =
+      deck.modelGraph.filter((item) => {
+        return (
+          !item.sectionResolved ||
+          !item.materialResolved
+        );
+      }).length;
+
+    const rows = deck.modelGraph.map((item) => {
+      return `
+        <tr>
+          <td>${escapeHtml(formatNumber(item.partId))}</td>
+
+          <td>
+            <strong>${escapeHtml(item.title)}</strong>
+          </td>
+
+          <td>
+            ${escapeHtml(
+              item.elementTypes.length
+                ? item.elementTypes.join(", ")
+                : "—"
+            )}
+          </td>
+
+          <td>
+            ${escapeHtml(formatNumber(item.sectionId))}
+          </td>
+
+          <td>
+            ${
+              item.section
+                ? escapeHtml(item.section.type)
+                : '<span class="lsdyna-missing">Missing</span>'
+            }
+          </td>
+
+          <td>
+            ${escapeHtml(formatNumber(item.materialId))}
+          </td>
+
+          <td>
+            ${
+              item.material
+                ? `<code>${escapeHtml(item.material.baseKeyword || item.material.keyword)}</code>`
+                : '<span class="lsdyna-missing">Missing</span>'
+            }
+          </td>
+
+          <td>
+            ${escapeHtml(
+              item.totalElements.toLocaleString()
+            )}
+          </td>
+
+          <td>
+            ${linkStatusHtml(item)}
+          </td>
+        </tr>
+      `;
+    });
+
+    return `
+      <div class="lsdyna-note">
+        <strong>Core LS-DYNA relationship:</strong>
+
+        geometry is carried by nodes and elements;
+        every element belongs to a Part; the Part points to
+        a Section and a Material.
+      </div>
+
+      <div class="lsdyna-model-chain">
+        <span class="lsdyna-model-chain-item">NODE</span>
+        <span class="lsdyna-model-chain-arrow">→</span>
+
+        <span class="lsdyna-model-chain-item">ELEMENT</span>
+        <span class="lsdyna-model-chain-arrow">→</span>
+
+        <span class="lsdyna-model-chain-item">PART</span>
+        <span class="lsdyna-model-chain-arrow">→</span>
+
+        <span class="lsdyna-model-chain-item">SECTION</span>
+
+        <span class="lsdyna-model-chain-arrow">+</span>
+
+        <span class="lsdyna-model-chain-item">MATERIAL</span>
+      </div>
+
+      <div class="lsdyna-stat-grid">
+
+        ${statCard(
+          "Parts",
+          deck.modelGraph.length,
+          "Model components"
+        )}
+
+        ${statCard(
+          "Fully linked",
+          deck.modelGraph.length - incomplete,
+          "Section + material resolved"
+        )}
+
+        ${statCard(
+          "Incomplete",
+          incomplete,
+          "Missing relationship"
+        )}
+
+        ${statCard(
+          "Element families",
+          [
+            deck.elements.shell ? "Shell" : "",
+            deck.elements.solid ? "Solid" : "",
+            deck.elements.beam ? "Beam" : ""
+          ].filter(Boolean).join(" / ") || "—",
+          "Recognised"
+        )}
+
+      </div>
+
+      <h3 class="lsdyna-panel-heading">
+        Part → Section → Material map
+      </h3>
+
+      <div class="lsdyna-study-table">
+        ${standardTable(
+          [
+            "PID",
+            "Part",
+            "Element type",
+            "SID",
+            "Section",
+            "MID",
+            "Material",
+            "Elements",
+            "Status"
+          ],
+          rows,
+          "No model relationships were built."
+        )}
+      </div>
+    `;
+  }
+
+
+  function partsStudyView() {
+    const rows = state.deck.modelGraph.map((item) => `
+      <tr>
+        <td>${escapeHtml(formatNumber(item.partId))}</td>
+
+        <td>
+          <strong>${escapeHtml(item.title)}</strong>
+        </td>
+
+        <td>
+          ${escapeHtml(
+            elementBreakdown(item.elementCounts)
+          )}
+        </td>
+
+        <td>${escapeHtml(formatNumber(item.sectionId))}</td>
+
+        <td>${escapeHtml(formatNumber(item.materialId))}</td>
+
+        <td>${escapeHtml(message("misc.line", {
+          line: item.part.line
+        }))}</td>
+      </tr>
+    `);
+
+    return `
+      <div class="lsdyna-note">
+        A Part is the main bridge between physical model
+        components and LS-DYNA property definitions.
+      </div>
+
+      <div class="lsdyna-study-table">
+        ${standardTable(
+          [
+            "PID",
+            "Part title",
+            "Element composition",
+            "SID",
+            "MID",
+            "Definition"
+          ],
+          rows,
+          "No Parts were parsed."
+        )}
+      </div>
+    `;
+  }
+
+
+  function sectionsStudyView() {
+    const deck = state.deck;
+
+    const rows = deck.sections.map((section) => {
+      const usedBy =
+        deck.usage.sections.get(String(section.id)) || [];
+
+      const thickness =
+        section.thickness?.length
+          ? section.thickness
+              .map((value) => formatNumber(value))
+              .join(" / ")
+          : "—";
+
+      return `
+        <tr>
+          <td>${escapeHtml(formatNumber(section.id))}</td>
+
+          <td>${escapeHtml(section.type)}</td>
+
+          <td>${escapeHtml(formatNumber(section.elform))}</td>
+
+          <td>${escapeHtml(formatNumber(section.nip))}</td>
+
+          <td>${escapeHtml(thickness)}</td>
+
+          <td>
+            ${escapeHtml(
+              usedBy.length
+                ? usedBy.join(", ")
+                : "Unused"
+            )}
+          </td>
+
+          <td>
+            ${escapeHtml(
+              message("misc.line", {
+                line: section.line
+              })
+            )}
+          </td>
+        </tr>
+      `;
+    });
+
+    return `
+      <div class="lsdyna-note">
+        Sections define element formulation and geometric
+        properties such as shell thickness.
+      </div>
+
+      <div class="lsdyna-study-table">
+        ${standardTable(
+          [
+            "SID",
+            "Type",
+            "ELFORM",
+            "NIP",
+            "Thickness",
+            "Used by PID",
+            "Definition"
+          ],
+          rows,
+          "No sections were parsed."
+        )}
+      </div>
+    `;
+  }
+
+
+  function materialsStudyView() {
+    const deck = state.deck;
+
+    const rows = deck.materials.map((material) => {
+      const usedBy =
+        deck.usage.materials.get(String(material.id)) || [];
+
+      return `
+        <tr>
+          <td>${escapeHtml(formatNumber(material.id))}</td>
+
+          <td>
+            <code>
+              ${escapeHtml(material.baseKeyword || material.keyword)}
+            </code>
+          </td>
+
+          <td>${escapeHtml(material.type)}</td>
+
+          <td>
+            ${escapeHtml(materialSummary(material))}
+          </td>
+
+          <td>
+            ${escapeHtml(
+              usedBy.length
+                ? usedBy.join(", ")
+                : "Unused"
+            )}
+          </td>
+
+          <td>
+            ${escapeHtml(
+              message("misc.line", {
+                line: material.line
+              })
+            )}
+          </td>
+        </tr>
+      `;
+    });
+
+    return `
+      <div class="lsdyna-note">
+        These values are interpreted from recognised material
+        cards. Always verify unusual or advanced material options
+        against the raw keyword block and LS-DYNA manual.
+      </div>
+
+      <div class="lsdyna-study-table">
+        ${standardTable(
+          [
+            "MID",
+            "Keyword",
+            "Behaviour",
+            "Recognised parameters",
+            "Used by PID",
+            "Definition"
+          ],
+          rows,
+          "No material cards were parsed."
+        )}
+      </div>
+    `;
+  }
+
+
+  function contactsStudyView() {
+    const rows = state.deck.contacts.map((contact) => `
+      <tr>
+
+        <td>
+          ${escapeHtml(
+            contact.id === null
+              ? "—"
+              : formatNumber(contact.id)
+          )}
+        </td>
+
+        <td>
+          <code>${escapeHtml(contact.keyword)}</code>
+        </td>
+
+        <td>${escapeHtml(formatNumber(contact.ssid))}</td>
+
+        <td>${escapeHtml(formatNumber(contact.msid))}</td>
+
+        <td>
+          ${escapeHtml(formatNumber(contact.sstyp))}
+          /
+          ${escapeHtml(formatNumber(contact.mstyp))}
+        </td>
+
+        <td>${escapeHtml(formatNumber(contact.fs))}</td>
+
+        <td>${escapeHtml(formatNumber(contact.fd))}</td>
+
+        <td>
+          ${escapeHtml(
+            message("misc.line", {
+              line: contact.line
+            })
+          )}
+        </td>
+
+      </tr>
+    `);
+
+    return `
+      <div class="lsdyna-note">
+        SSID/MSID identify the interacting surfaces or sets.
+        SSTYP/MSTYP define how those IDs are interpreted.
+        Advanced contact options remain available in Raw Deck.
+      </div>
+
+      <div class="lsdyna-study-table">
+        ${standardTable(
+          [
+            "CID",
+            "Keyword",
+            "SSID",
+            "MSID",
+            "SSTYP / MSTYP",
+            "FS",
+            "FD",
+            "Definition"
+          ],
+          rows,
+          "No contact cards were parsed."
+        )}
+      </div>
+    `;
+  }
+
+
+  function motionStudyView() {
+    const deck = state.deck;
+
+    const motionRows = deck.motions.map((motion) => {
+
+      const magnitude =
+        motion.magnitude ??
+        (
+          motion.vx !== null &&
+          motion.vy !== null &&
+          motion.vz !== null
+            ? Math.sqrt(
+                motion.vx ** 2 +
+                motion.vy ** 2 +
+                motion.vz ** 2
+              )
+            : null
+        );
+
+      return `
+        <tr>
+          <td>
+            <code>${escapeHtml(motionDescription(motion))}</code>
+          </td>
+
+          <td>${escapeHtml(targetDescription(motion))}</td>
+
+          <td>${escapeHtml(formatNumber(motion.vx))}</td>
+          <td>${escapeHtml(formatNumber(motion.vy))}</td>
+          <td>${escapeHtml(formatNumber(motion.vz))}</td>
+
+          <td>${escapeHtml(formatNumber(magnitude))}</td>
+
+          <td>
+            ${escapeHtml(
+              message("misc.line", {
+                line: motion.line
+              })
+            )}
+          </td>
+        </tr>
+      `;
+    });
+
+
+    const boundaryRows = deck.boundaries.map((boundary) => {
+
+      let target = "—";
+      let detail = "";
+
+      if (boundary.type === "spcNode") {
+
+        target = `${boundary.count.toLocaleString()} nodes`;
+
+        detail = boundary.patterns
+          ?.slice(0, 3)
+          .map((item) => {
+            return `${item.pattern} (${item.count})`;
+          })
+          .join(" · ") || "—";
+
+      } else {
+
+        target =
+          boundary.target === null ||
+          boundary.target === undefined
+            ? "—"
+            : formatNumber(boundary.target);
+
+        detail =
+          boundary.dofs?.join(", ") ||
+          boundary.data?.join(", ") ||
+          "—";
+      }
+
+      return `
+        <tr>
+          <td><code>${escapeHtml(boundary.keyword)}</code></td>
+
+          <td>${escapeHtml(target)}</td>
+
+          <td>${escapeHtml(detail)}</td>
+
+          <td>
+            ${escapeHtml(
+              message("misc.line", {
+                line: boundary.line
+              })
+            )}
+          </td>
+        </tr>
+      `;
+    });
+
+
+    return `
+      <h3 class="lsdyna-panel-heading">
+        Initial motion
+      </h3>
+
+      <div class="lsdyna-study-table">
+        ${standardTable(
+          [
+            "Method",
+            "Target",
+            "Vx",
+            "Vy",
+            "Vz",
+            "|V|",
+            "Definition"
+          ],
+          motionRows,
+          "No supported initial motion was parsed."
+        )}
+      </div>
+
+
+      <h3 class="lsdyna-panel-heading">
+        Boundary conditions
+      </h3>
+
+      <div class="lsdyna-study-table">
+        ${standardTable(
+          [
+            "Keyword",
+            "Target",
+            "DOF / record summary",
+            "Definition"
+          ],
+          boundaryRows,
+          "No boundary-condition cards were parsed."
+        )}
+      </div>
+    `;
+  }
+
+
+  function controlsStudyView() {
+    const rows = state.deck.controls.map((control) => {
+
+      const explanation =
+        help[control.keyword] ||
+        "Control card; inspect the raw block for complete options.";
+
+      return `
+        <tr>
+          <td>
+            <code>${escapeHtml(control.keyword)}</code>
+          </td>
+
+          <td>
+            ${escapeHtml(
+              control.values?.join(", ") || "—"
+            )}
+          </td>
+
+          <td>${escapeHtml(explanation)}</td>
+
+          <td>
+            ${escapeHtml(
+              message("misc.line", {
+                line: control.line
+              })
+            )}
+          </td>
+        </tr>
+      `;
+    });
+
+    return `
+      <div class="lsdyna-note">
+        Only the first recognised data record is summarised here.
+        Use Raw Deck when studying multi-card control definitions.
+      </div>
+
+      <div class="lsdyna-study-table">
+        ${standardTable(
+          [
+            "Keyword",
+            "First data record",
+            "Purpose",
+            "Definition"
+          ],
+          rows,
+          "No control cards were parsed."
+        )}
+      </div>
+    `;
+  }
+
+
+  function outputsStudyView() {
+    const rows = state.deck.databases.map((database) => {
+
+      const explanation =
+        help[database.keyword] ||
+        "LS-DYNA database or result-output request.";
+
+      return `
+        <tr>
+
+          <td>
+            <code>${escapeHtml(database.keyword)}</code>
+          </td>
+
+          <td>${escapeHtml(formatNumber(database.dt))}</td>
+
+          <td>
+            ${escapeHtml(
+              database.values?.join(", ") || "—"
+            )}
+          </td>
+
+          <td>${escapeHtml(explanation)}</td>
+
+          <td>
+            ${escapeHtml(
+              message("misc.line", {
+                line: database.line
+              })
+            )}
+          </td>
+
+        </tr>
+      `;
+    });
+
+    return `
+      <div class="lsdyna-note">
+        Output cards determine which histories and binary result
+        files are available after the calculation.
+      </div>
+
+      <div class="lsdyna-study-table">
+        ${standardTable(
+          [
+            "Keyword",
+            "DT / first value",
+            "First data record",
+            "Purpose",
+            "Definition"
+          ],
+          rows,
+          "No database output cards were parsed."
+        )}
+      </div>
+    `;
+  }  
 
   function textField(label, value, attributes = "", helpText = "") {
     return `
@@ -1091,15 +2969,65 @@
   }
 
   function viewHtml() {
-    if (state.activeView === "parameters") return parameterView();
-    if (state.activeView === "raw") return rawView();
-    if (state.activeView === "validation") return validationView();
+
+    if (
+      state.activeView === "preview"
+    ) {
+
+      return previewView();
+
+    }    
+
+    if (state.activeView === "model") {
+      return modelView();
+    }
+
+    if (state.activeView === "parts") {
+      return partsStudyView();
+    }
+
+    if (state.activeView === "sections") {
+      return sectionsStudyView();
+    }
+
+    if (state.activeView === "materials") {
+      return materialsStudyView();
+    }
+
+    if (state.activeView === "contacts") {
+      return contactsStudyView();
+    }
+
+    if (state.activeView === "motion") {
+      return motionStudyView();
+    }
+
+    if (state.activeView === "controls") {
+      return controlsStudyView();
+    }
+
+    if (state.activeView === "outputs") {
+      return outputsStudyView();
+    }
+
+    if (state.activeView === "parameters") {
+      return parameterView();
+    }
+
+    if (state.activeView === "raw") {
+      return rawView();
+    }
+
+    if (state.activeView === "validation") {
+      return validationView();
+    }
+
     return overviewView();
   }
 
   function workspaceHtml() {
     const deck = state.deck;
-    const viewCopy = valueAt(`view.${state.activeView}`);
+    const viewCopy = viewMeta(state.activeView);
 
     return `
       <div class="lsdyna-workspace-layout">
@@ -1116,7 +3044,7 @@
           ${state.dirty ? `<span class="lsdyna-unsaved">${message("side.unsaved")}</span>` : ""}
 
           <nav class="lsdyna-view-nav" aria-label="${escapeHtml(message("nav.overview"))}">
-            ${["overview", "parameters", "raw", "validation"].map((view) => `
+            ${studyViews.map((view) => `
               <button
                 class="lsdyna-view-nav-button ${view === state.activeView ? "is-active" : ""}"
                 type="button"
@@ -1124,7 +3052,7 @@
                 data-view="${view}"
                 ${view === state.activeView ? 'aria-current="page"' : ""}
               >
-                ${message(`nav.${view}`)}
+                ${navLabel(view)}
               </button>
             `).join("")}
           </nav>
@@ -1153,11 +3081,160 @@
   }
 
   function render() {
-    if (!state.deck) return;
 
-    workspace.innerHTML = workspaceHtml();
-    workspace.hidden = false;
-    uploadPanel.hidden = true;
+    if (!state.deck) {
+      return;
+    }
+
+
+    /*
+     * Dispose any WebGL viewer attached to the previous
+     * workspace DOM before replacing the HTML.
+     */
+
+    if (
+      window.CorrosionAtlasLsdynaViewer
+    ) {
+
+      window
+        .CorrosionAtlasLsdynaViewer
+        .dispose();
+
+    }
+
+
+    workspace.innerHTML =
+      workspaceHtml();
+
+    workspace.hidden =
+      false;
+
+    uploadPanel.hidden =
+      true;
+
+
+    if (
+      state.activeView === "preview"
+    ) {
+
+      schedulePreviewMount();
+
+    }
+  }
+
+  function schedulePreviewMount() {
+
+    window.requestAnimationFrame(
+      () => {
+
+        const host =
+          workspace.querySelector(
+            "#lsdyna-3d-host"
+          );
+
+        const statusElement =
+          workspace.querySelector(
+            "#lsdyna-viewer-status"
+          );
+
+
+        if (!host) {
+          return;
+        }
+
+
+        const mountViewer = () => {
+
+          const viewer =
+            window
+              .CorrosionAtlasLsdynaViewer;
+
+
+          if (!viewer) {
+
+            if (statusElement) {
+
+              statusElement.textContent =
+                "3D viewer module is still loading…";
+
+            }
+
+            return false;
+          }
+
+
+          try {
+
+            if (statusElement) {
+
+              statusElement.textContent =
+                "Building 3D geometry…";
+
+            }
+
+
+            viewer.mount(
+
+              host,
+
+              state.deck.geometry,
+
+              {
+                statusElement
+              }
+
+            );
+
+
+            return true;
+
+          } catch (error) {
+
+            console.error(
+              "LS-DYNA viewer error:",
+              error
+            );
+
+
+            if (statusElement) {
+
+              statusElement.textContent =
+                `Preview error: ${error.message}`;
+
+            }
+
+
+            return false;
+          }
+        };
+
+
+        if (mountViewer()) {
+          return;
+        }
+
+
+        /*
+         * If the module has not finished loading yet,
+         * retry automatically when it announces readiness.
+         */
+
+        window.addEventListener(
+
+          "lsdyna-viewer-ready",
+
+          () => {
+            mountViewer();
+          },
+
+          {
+            once: true
+          }
+
+        );
+
+      }
+    );
   }
 
   function applyParameterEdits() {
@@ -1402,6 +3479,65 @@
         state.activeView = control.dataset.view;
         render();
       }
+
+      if (
+        action === "viewer-fit"
+      ) {
+
+        window
+          .CorrosionAtlasLsdynaViewer
+          ?.fit();
+
+      }
+
+
+      if (
+        action === "viewer-view"
+      ) {
+
+        window
+          .CorrosionAtlasLsdynaViewer
+          ?.setView(
+            control.dataset.viewerView
+          );
+
+      }
+
+
+      if (
+        action === "viewer-wireframe"
+      ) {
+
+        const enabled =
+          window
+            .CorrosionAtlasLsdynaViewer
+            ?.toggleWireframe();
+
+        control.classList.toggle(
+          "is-active",
+          Boolean(enabled)
+        );
+
+      }
+
+
+      if (
+        action === "viewer-toggle-kind"
+      ) {
+
+        const visible =
+          window
+            .CorrosionAtlasLsdynaViewer
+            ?.toggleKind(
+              control.dataset.viewerKind
+            );
+
+        control.classList.toggle(
+          "is-muted",
+          visible === false
+        );
+
+      }      
 
       if (action === "select-raw") {
         state.rawIndex = Number(control.dataset.index);

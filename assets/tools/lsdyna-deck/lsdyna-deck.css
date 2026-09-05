@@ -788,3 +788,501 @@
     min-height: 420px;
   }
 }
+
+/* ============================================================
+   LS-DYNA MODEL EXPLORER
+   Batch 1 — study / reconstruction page structure
+   ============================================================ */
+
+
+/* ------------------------------------------------------------
+   Workflow cards
+   ------------------------------------------------------------ */
+
+.lsdyna-workflow-grid {
+  margin-top: 2rem;
+}
+
+.lsdyna-workflow-grid .lsdyna-scope-card {
+  position: relative;
+  overflow: hidden;
+}
+
+.lsdyna-phase-number {
+  margin-bottom: 0.8rem;
+
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+
+  opacity: 0.58;
+}
+
+.lsdyna-phase-outcome {
+  margin-top: 1rem;
+  margin-bottom: 0;
+
+  font-size: 0.92rem;
+  line-height: 1.55;
+
+  opacity: 0.82;
+}
+
+
+/* ------------------------------------------------------------
+   Shared section heading
+   ------------------------------------------------------------ */
+
+.lsdyna-section-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+
+  gap: 1.5rem;
+
+  margin-bottom: 1.25rem;
+}
+
+.lsdyna-section-heading h2 {
+  margin-top: 0.2rem;
+  margin-bottom: 0.45rem;
+}
+
+.lsdyna-section-heading p:last-child {
+  margin-bottom: 0;
+}
+
+
+/* ------------------------------------------------------------
+   Reconstruction roadmap
+   ------------------------------------------------------------ */
+
+.lsdyna-study-roadmap {
+  margin-top: 2.2rem;
+  margin-bottom: 2.2rem;
+
+  padding: 1.35rem;
+
+  border: 1px solid rgba(16, 41, 58, 0.14);
+  border-radius: 14px;
+
+  background: rgba(255, 255, 255, 0.56);
+}
+
+.lsdyna-roadmap-track {
+  display: grid;
+
+  grid-template-columns:
+    repeat(5, minmax(0, 1fr));
+
+  gap: 0.7rem;
+
+  margin-top: 1.2rem;
+}
+
+.lsdyna-roadmap-stage {
+  min-width: 0;
+
+  padding: 0.8rem 0.85rem;
+
+  border: 1px solid rgba(16, 41, 58, 0.12);
+  border-radius: 9px;
+
+  background: rgba(255, 255, 255, 0.76);
+
+  display: flex;
+  flex-direction: column;
+
+  gap: 0.22rem;
+}
+
+.lsdyna-roadmap-stage > span:last-child {
+  font-size: 0.88rem;
+  font-weight: 600;
+
+  line-height: 1.3;
+}
+
+.lsdyna-roadmap-index {
+  font-size: 0.68rem;
+  font-weight: 700;
+
+  letter-spacing: 0.08em;
+
+  opacity: 0.48;
+}
+
+
+/* ------------------------------------------------------------
+   Tool shell spacing adjustment
+   ------------------------------------------------------------ */
+
+.lsdyna-study-roadmap + .lsdyna-tool-shell {
+  margin-top: 0;
+}
+
+
+/* ------------------------------------------------------------
+   Future reconstruction note
+   ------------------------------------------------------------ */
+
+.lsdyna-development-note {
+  margin-top: 2rem;
+
+  padding: 1.25rem 1.35rem;
+
+  border-left: 3px solid rgba(16, 41, 58, 0.35);
+
+  background: rgba(16, 41, 58, 0.035);
+}
+
+.lsdyna-development-note h2 {
+  margin-top: 0.2rem;
+  margin-bottom: 0.55rem;
+
+  font-size: 1.15rem;
+}
+
+.lsdyna-development-note p:last-child {
+  margin-bottom: 0;
+
+  max-width: 72rem;
+
+  line-height: 1.65;
+}
+
+
+/* ------------------------------------------------------------
+   Responsive roadmap
+   ------------------------------------------------------------ */
+
+@media (max-width: 1000px) {
+
+  .lsdyna-roadmap-track {
+    grid-template-columns:
+      repeat(2, minmax(0, 1fr));
+  }
+
+}
+
+
+@media (max-width: 640px) {
+
+  .lsdyna-study-roadmap {
+    padding: 1rem;
+  }
+
+  .lsdyna-roadmap-track {
+    grid-template-columns: 1fr;
+  }
+
+  .lsdyna-section-heading {
+    display: block;
+  }
+
+}
+
+/* ============================================================
+   LS-DYNA MODEL EXPLORER
+   Batch 2 — model graph and study views
+   ============================================================ */
+
+/* Batch 1 reused the dark-header kicker on light backgrounds. */
+.lsdyna-study-roadmap .lsdyna-tool-kicker,
+.lsdyna-development-note .lsdyna-tool-kicker {
+  color: var(--ca-rust) !important;
+}
+
+
+/* ------------------------------------------------------------
+   Model relationship status
+   ------------------------------------------------------------ */
+
+.lsdyna-link-status {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.6rem;
+
+  padding: 0.22rem 0.48rem;
+
+  border-radius: 999px;
+
+  font-family: var(--font-ui);
+  font-size: 0.7rem;
+  font-weight: 750;
+  white-space: nowrap;
+}
+
+.lsdyna-link-status-good {
+  background: #edf8f3;
+  color: #17694f;
+}
+
+.lsdyna-link-status-warning {
+  background: #fff6df;
+  color: #835716;
+}
+
+
+/* ------------------------------------------------------------
+   Compact model information
+   ------------------------------------------------------------ */
+
+.lsdyna-model-chain {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+
+  margin: 1rem 0;
+}
+
+.lsdyna-model-chain-item {
+  padding: 0.55rem 0.72rem;
+
+  border: 1px solid var(--ca-border);
+  border-radius: 9px;
+
+  background: #ffffff;
+
+  color: var(--ca-navy);
+  font-family: var(--font-ui);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.lsdyna-model-chain-arrow {
+  color: var(--ca-muted);
+  font-size: 0.9rem;
+}
+
+
+/* ------------------------------------------------------------
+   Technical value lists
+   ------------------------------------------------------------ */
+
+.lsdyna-tech-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+
+.lsdyna-tech-tag {
+  display: inline-flex;
+
+  padding: 0.2rem 0.4rem;
+
+  border: 1px solid rgba(16, 41, 58, 0.12);
+  border-radius: 6px;
+
+  background: rgba(16, 41, 58, 0.045);
+
+  color: #38566a;
+
+  font-family: Consolas, Monaco, "Courier New", monospace;
+  font-size: 0.72rem;
+}
+
+
+/* The study workspace now has more navigation items. */
+.lsdyna-view-nav {
+  max-height: calc(100vh - 10rem);
+  overflow-y: auto;
+}
+
+
+/* Slightly denser technical tables. */
+.lsdyna-study-table .lsdyna-table {
+  min-width: 760px;
+}
+
+.lsdyna-study-table .lsdyna-table td {
+  font-size: 0.8rem;
+}
+
+
+/* ------------------------------------------------------------
+   Responsive adjustments
+   ------------------------------------------------------------ */
+
+@media (max-width: 860px) {
+
+  .lsdyna-view-nav {
+    max-height: none;
+    overflow: visible;
+  }
+
+}
+
+
+/* ============================================================
+   LS-DYNA MODEL EXPLORER
+   Batch 3 — interactive 3D model preview
+   ============================================================ */
+
+
+/* ------------------------------------------------------------
+   Viewer toolbar
+   ------------------------------------------------------------ */
+
+.lsdyna-viewer-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+
+  gap: 0.8rem;
+
+  margin: 1rem 0 0.75rem;
+}
+
+.lsdyna-viewer-toolbar-group {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+
+  gap: 0.4rem;
+}
+
+.lsdyna-viewer-toolbar-label {
+  margin-right: 0.2rem;
+
+  color: var(--ca-muted);
+
+  font-family: var(--font-ui);
+  font-size: 0.74rem;
+  font-weight: 750;
+
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+
+.lsdyna-viewer-toolbar .lsdyna-button {
+  min-height: 2.1rem;
+
+  padding: 0.42rem 0.64rem;
+
+  font-size: 0.77rem;
+}
+
+
+.lsdyna-viewer-toolbar .lsdyna-button.is-active {
+  background: var(--ca-rust);
+  color: #ffffff;
+}
+
+
+.lsdyna-viewer-toolbar .lsdyna-button.is-muted {
+  opacity: 0.42;
+}
+
+
+/* ------------------------------------------------------------
+   Viewer frame
+   ------------------------------------------------------------ */
+
+.lsdyna-viewer-frame {
+  overflow: hidden;
+
+  border: 1px solid var(--ca-border);
+  border-radius: 12px;
+
+  background: #f4f7f9;
+}
+
+
+.lsdyna-viewer-stage {
+  position: relative;
+
+  width: 100%;
+  height: clamp(
+    420px,
+    62vh,
+    680px
+  );
+
+  min-height: 420px;
+
+  overflow: hidden;
+
+  background: #f4f7f9;
+
+  touch-action: none;
+}
+
+
+.lsdyna-viewer-stage canvas {
+  display: block;
+
+  width: 100%;
+  height: 100%;
+
+  outline: none;
+}
+
+
+/* ------------------------------------------------------------
+   Viewer status
+   ------------------------------------------------------------ */
+
+.lsdyna-viewer-statusbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+
+  gap: 0.6rem;
+
+  padding: 0.55rem 0.7rem;
+
+  border-top: 1px solid var(--ca-border);
+
+  background: #ffffff;
+
+  color: var(--ca-muted);
+
+  font-family: var(--font-ui);
+  font-size: 0.72rem;
+  line-height: 1.4;
+}
+
+
+#lsdyna-viewer-status {
+  color: var(--ca-navy);
+
+  font-weight: 700;
+}
+
+
+/* ------------------------------------------------------------
+   Viewer geometry statistics
+   ------------------------------------------------------------ */
+
+.lsdyna-viewer-stat-grid {
+  margin-top: 0.8rem;
+}
+
+
+/* ------------------------------------------------------------
+   Responsive
+   ------------------------------------------------------------ */
+
+@media (max-width: 700px) {
+
+  .lsdyna-viewer-toolbar {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .lsdyna-viewer-stage {
+    height: 420px;
+    min-height: 420px;
+  }
+
+  .lsdyna-viewer-statusbar {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+}

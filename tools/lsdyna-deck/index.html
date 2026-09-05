@@ -2,89 +2,291 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>LS-DYNA Deck Navigator & Editor | Corrosion Atlas</title>
+
+  <title>LS-DYNA Model Explorer & Deck Editor | Corrosion Atlas</title>
+
   <meta
     name="description"
-    content="A browser-based LS-DYNA keyword deck navigator and basic editor for reviewing recognised model inputs locally."
+    content="A browser-based LS-DYNA model explorer for studying, reconstructing, comparing, and editing keyword decks locally."
   >
+
   <meta name="viewport" content="width=device-width, initial-scale=1">
 
-  <link rel="canonical" href="https://corrosionatlas.org/tools/lsdyna-deck/">
-  <link rel="alternate" hreflang="zh-CN" href="https://corrosionatlas.org/zh/tools/lsdyna-deck/">
+  <link
+    rel="canonical"
+    href="https://corrosionatlas.org/tools/lsdyna-deck/"
+  >
+
+  <link
+    rel="alternate"
+    hreflang="zh-CN"
+    href="https://corrosionatlas.org/zh/tools/lsdyna-deck/"
+  >
 
   <link rel="stylesheet" href="/css/styles.css">
-  <link rel="stylesheet" href="/assets/tools/lsdyna-deck/lsdyna-deck.css">
+  <link
+    rel="stylesheet"
+    href="/assets/tools/lsdyna-deck/lsdyna-deck.css"
+  >
 
-  <link rel="icon" href="/assets/icons/favicon.ico?v=3" sizes="any">
-  <link rel="icon" href="/assets/icons/favicon.svg?v=3" type="image/svg+xml">
+  <link
+    rel="icon"
+    href="/assets/icons/favicon.ico?v=3"
+    sizes="any"
+  >
+
+  <link
+    rel="icon"
+    href="/assets/icons/favicon.svg?v=3"
+    type="image/svg+xml"
+  >
+
   <meta name="theme-color" content="#10293A">
 </head>
 
 <body>
+
   <main class="content-page lsdyna-deck-page">
+
+    <!-- =========================================================
+         PAGE INTRODUCTION
+         ========================================================= -->
+
     <div class="landing-kicker">Tools</div>
 
-    <h1>LS-DYNA Deck Navigator &amp; Editor</h1>
+    <h1>LS-DYNA Model Explorer &amp; Deck Editor</h1>
 
     <p class="lsdyna-deck-intro">
-      Inspect a single LS-DYNA keyword deck, review recognised model inputs,
-      make limited parameter edits, run basic consistency checks, and export
-      an edited copy for verification in LS-PrePost and LS-DYNA.
+      Study how an LS-DYNA model is assembled, trace relationships between
+      parts, sections, materials, elements and analysis settings, reconstruct
+      modelling decisions step by step, compare keyword decks, and make
+      controlled edits without leaving the browser.
     </p>
 
     <div class="lsdyna-privacy-note" role="note">
       <strong>Local processing:</strong>
-      Your keyword deck is read and processed only in this browser. It is not
-      uploaded to Corrosion Atlas or sent to an external server.
+      Keyword decks are read and processed only in this browser.
+      They are not uploaded to Corrosion Atlas or sent to an external server.
     </div>
 
-    <section class="lsdyna-scope-grid" aria-label="Tool scope">
+
+    <!-- =========================================================
+         THREE-PHASE WORKFLOW
+         ========================================================= -->
+
+    <section
+      class="lsdyna-scope-grid lsdyna-workflow-grid"
+      aria-label="LS-DYNA model study workflow"
+    >
+
       <article class="lsdyna-scope-card">
-        <h2>Inspect</h2>
+        <div class="lsdyna-phase-number" aria-hidden="true">01</div>
+
+        <h2>Explore</h2>
+
         <p>
-          Review recognised parts, materials, sections, nodes, elements,
-          initial motion, boundary conditions, contact cards, controls, and
-          output requests.
+          Understand the reference model before changing it. Inspect its
+          parts, elements, sections, materials, contacts, constraints,
+          initial motion, controls, and requested outputs.
+        </p>
+
+        <p class="lsdyna-phase-outcome">
+          <strong>Goal:</strong>
+          understand what exists in the model and how the components are linked.
         </p>
       </article>
 
+
       <article class="lsdyna-scope-card">
-        <h2>Edit</h2>
+        <div class="lsdyna-phase-number" aria-hidden="true">02</div>
+
+        <h2>Reconstruct</h2>
+
         <p>
-          Adjust selected common parameters through a guided interface, or edit
-          individual keyword blocks directly through the raw editor.
+          Follow the original modelling logic from geometry and element
+          formulation through materials, contacts, boundary conditions,
+          loading, analysis controls, and database output requests.
+        </p>
+
+        <p class="lsdyna-phase-outcome">
+          <strong>Goal:</strong>
+          reproduce the model deliberately rather than copying keyword cards.
         </p>
       </article>
 
+
       <article class="lsdyna-scope-card">
-        <h2>Verify</h2>
+        <div class="lsdyna-phase-number" aria-hidden="true">03</div>
+
+        <h2>Compare</h2>
+
         <p>
-          Run lightweight deck checks before exporting a copy. Final validation
-          must still be carried out with the LS-DYNA keyword reader and solver.
+          Compare a reconstructed deck with the reference model, or compare
+          modelling cases such as normal and oblique impacts, while focusing
+          on engineering differences rather than raw line-by-line text.
+        </p>
+
+        <p class="lsdyna-phase-outcome">
+          <strong>Goal:</strong>
+          identify exactly which modelling decisions have changed.
         </p>
       </article>
+
     </section>
 
-    <section class="lsdyna-tool-shell" id="lsdyna-app" aria-label="LS-DYNA deck tool">
-      <div class="lsdyna-tool-header">
+
+    <!-- =========================================================
+         STUDY ROADMAP
+         ========================================================= -->
+
+    <section
+      class="lsdyna-study-roadmap"
+      aria-labelledby="lsdyna-study-roadmap-title"
+    >
+
+      <div class="lsdyna-section-heading">
         <div>
-          <p class="lsdyna-tool-kicker">Local browser tool</p>
-          <h2>Open an LS-DYNA keyword deck</h2>
+          <p class="lsdyna-tool-kicker">Model reconstruction workflow</p>
+
+          <h2 id="lsdyna-study-roadmap-title">
+            Follow the model from geometry to results
+          </h2>
+
           <p>
-            Choose one <code>.k</code>, <code>.key</code>, <code>.dyn</code>,
-            <code>.inc</code>, or text-based keyword file.
+            The workspace is organised around the sequence normally followed
+            when reconstructing an explicit collision model.
+          </p>
+        </div>
+      </div>
+
+
+      <div
+        class="lsdyna-roadmap-track"
+        aria-label="Model reconstruction stages"
+      >
+
+        <div class="lsdyna-roadmap-stage">
+          <span class="lsdyna-roadmap-index">01</span>
+          <span>Geometry</span>
+        </div>
+
+        <div class="lsdyna-roadmap-stage">
+          <span class="lsdyna-roadmap-index">02</span>
+          <span>Mesh &amp; Elements</span>
+        </div>
+
+        <div class="lsdyna-roadmap-stage">
+          <span class="lsdyna-roadmap-index">03</span>
+          <span>Parts &amp; Sections</span>
+        </div>
+
+        <div class="lsdyna-roadmap-stage">
+          <span class="lsdyna-roadmap-index">04</span>
+          <span>Materials</span>
+        </div>
+
+        <div class="lsdyna-roadmap-stage">
+          <span class="lsdyna-roadmap-index">05</span>
+          <span>Contacts</span>
+        </div>
+
+        <div class="lsdyna-roadmap-stage">
+          <span class="lsdyna-roadmap-index">06</span>
+          <span>Boundary Conditions</span>
+        </div>
+
+        <div class="lsdyna-roadmap-stage">
+          <span class="lsdyna-roadmap-index">07</span>
+          <span>Initial Motion</span>
+        </div>
+
+        <div class="lsdyna-roadmap-stage">
+          <span class="lsdyna-roadmap-index">08</span>
+          <span>Controls</span>
+        </div>
+
+        <div class="lsdyna-roadmap-stage">
+          <span class="lsdyna-roadmap-index">09</span>
+          <span>Outputs</span>
+        </div>
+
+        <div class="lsdyna-roadmap-stage">
+          <span class="lsdyna-roadmap-index">10</span>
+          <span>Comparison</span>
+        </div>
+
+      </div>
+
+    </section>
+
+
+    <!-- =========================================================
+         TOOL
+         ========================================================= -->
+
+    <section
+      class="lsdyna-tool-shell"
+      id="lsdyna-app"
+      aria-label="LS-DYNA model explorer"
+    >
+
+      <div class="lsdyna-tool-header">
+
+        <div>
+          <p class="lsdyna-tool-kicker">
+            Local model workspace
+          </p>
+
+          <h2>
+            Open a reference LS-DYNA keyword deck
+          </h2>
+
+          <p>
+            Start with the model you want to understand or reproduce.
+            Choose one <code>.k</code>, <code>.key</code>,
+            <code>.dyn</code>, <code>.inc</code>, or other
+            text-based keyword file.
           </p>
         </div>
 
-        <span class="lsdyna-local-badge">No file upload</span>
+        <span class="lsdyna-local-badge">
+          No file upload
+        </span>
+
       </div>
 
-      <section class="lsdyna-upload-panel" id="lsdyna-upload-panel">
-        <label class="lsdyna-dropzone" id="lsdyna-dropzone" for="lsdyna-file-input">
-          <strong>Drag a keyword deck here</strong>
-          <span>or select a file from your computer</span>
-          <span class="lsdyna-select-button">Choose keyword file</span>
+
+      <!-- =======================================================
+           FILE INPUT
+           IMPORTANT:
+           IDs are deliberately preserved for existing JS.
+           ======================================================= -->
+
+      <section
+        class="lsdyna-upload-panel"
+        id="lsdyna-upload-panel"
+      >
+
+        <label
+          class="lsdyna-dropzone"
+          id="lsdyna-dropzone"
+          for="lsdyna-file-input"
+        >
+
+          <strong>
+            Drag a reference keyword deck here
+          </strong>
+
+          <span>
+            or select a file from your computer
+          </span>
+
+          <span class="lsdyna-select-button">
+            Choose keyword file
+          </span>
+
         </label>
+
 
         <input
           id="lsdyna-file-input"
@@ -93,35 +295,148 @@
           aria-describedby="lsdyna-file-guidance"
         >
 
-        <p class="lsdyna-file-guidance" id="lsdyna-file-guidance">
-          The original file remains unchanged. Any edits are kept in browser
-          memory until you explicitly export a new <code>_edited.k</code> file.
+
+        <p
+          class="lsdyna-file-guidance"
+          id="lsdyna-file-guidance"
+        >
+          The original file remains unchanged. The model is parsed locally
+          so that its structure and recognised analysis settings can be
+          studied before any edits are made.
         </p>
 
-        <p class="lsdyna-file-status" id="lsdyna-file-status" aria-live="polite"></p>
+
+        <p
+          class="lsdyna-file-status"
+          id="lsdyna-file-status"
+          aria-live="polite"
+        ></p>
+
       </section>
 
-      <section class="lsdyna-workspace" id="lsdyna-workspace" hidden aria-live="polite"></section>
 
-      <div class="lsdyna-scope-warning" role="note">
-        <strong>Important limitation:</strong>
-        This is a browser-side aid, not a full LS-DYNA keyword reader.
-        Constructs such as <code>*INCLUDE</code>, <code>*PARAMETER</code>,
-        curves, transformations, advanced contact options, and unsupported card
-        formats may be retained but not fully interpreted by the guided editor.
+      <!-- =======================================================
+           EXISTING DYNAMIC WORKSPACE
+           DO NOT put static content inside this yet.
+           Current JS owns this container.
+           ======================================================= -->
+
+      <section
+        class="lsdyna-workspace"
+        id="lsdyna-workspace"
+        hidden
+        aria-live="polite"
+      ></section>
+
+
+      <!-- =======================================================
+           LIMITATION NOTICE
+           ======================================================= -->
+
+      <div
+        class="lsdyna-scope-warning"
+        role="note"
+      >
+
+        <strong>Interpretation boundary:</strong>
+
+        This tool is intended to support model study, reconstruction,
+        comparison, and controlled editing. It is not a replacement for the
+        LS-DYNA keyword reader, LS-PrePost, or the solver.
+
+        Constructs such as <code>*INCLUDE</code>,
+        <code>*PARAMETER</code>, curves, transformations, advanced contact
+        options, and unsupported card formats may be preserved without being
+        fully interpreted.
+
       </div>
+
     </section>
+
+
+    <!-- =========================================================
+         FUTURE WORKSPACE NOTE
+         ========================================================= -->
+
+    <section
+      class="lsdyna-development-note"
+      aria-labelledby="lsdyna-development-note-title"
+    >
+
+      <div>
+
+        <p class="lsdyna-tool-kicker">
+          Reconstruction workspace
+        </p>
+
+        <h2 id="lsdyna-development-note-title">
+          Built for understanding a model, not only editing it
+        </h2>
+
+        <p>
+          Subsequent workspace functions will connect each physical model
+          component to its LS-DYNA part, section, material, elements,
+          interactions, constraints, and analysis controls. An interactive
+          model preview will allow those relationships to be inspected
+          directly in the browser.
+        </p>
+
+      </div>
+
+    </section>
+
 
     <noscript>
       <p class="page-note">
-        JavaScript is required to read and edit LS-DYNA keyword decks locally.
+        JavaScript is required to read and inspect LS-DYNA keyword decks
+        locally.
       </p>
     </noscript>
+
   </main>
+
+
+  <!-- ===========================================================
+       EXISTING SCRIPTS
+       Do not change these in Batch 1.
+       =========================================================== -->
 
   <script src="/assets/site-i18n.js" defer></script>
   <script src="/assets/site-shell.js" defer></script>
-  <script src="/assets/tools/lsdyna-deck/lsdyna-deck.i18n.js" defer></script>
-  <script src="/assets/tools/lsdyna-deck/lsdyna-deck.js" defer></script>
+
+  <script
+    src="/assets/tools/lsdyna-deck/lsdyna-deck.i18n.js"
+    defer
+  ></script>
+
+
+  <!-- =========================================================
+       THREE.JS IMPORT MAP
+       Used only by the LS-DYNA browser model viewer.
+       ========================================================= -->
+
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+    }
+  }
+  </script>
+
+
+  <!-- 3D viewer module -->
+  <script
+    type="module"
+    src="/assets/tools/lsdyna-deck/lsdyna-viewer.js"
+  ></script>
+
+
+  <!-- Main LS-DYNA deck application -->
+  <script
+    src="/assets/tools/lsdyna-deck/lsdyna-deck.js"
+    defer
+  ></script>
+
 </body>
 </html>
