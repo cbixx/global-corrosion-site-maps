@@ -2307,3 +2307,49 @@
   }
 
 }
+
+/* ============================================================
+   LS-DYNA MODEL EXPLORER
+   Batch 6 — final contact / parser polish
+   ============================================================ */
+
+
+/* ------------------------------------------------------------
+   Resolved contact Part sets
+   ------------------------------------------------------------ */
+
+.lsdyna-contact-target {
+  display: grid;
+
+  gap: 0.2rem;
+
+  min-width: 120px;
+}
+
+
+.lsdyna-contact-target code {
+  color: var(--ca-navy);
+
+  font-size: 0.73rem;
+  font-weight: 750;
+}
+
+
+.lsdyna-contact-members {
+  display: block;
+
+  color: var(--ca-muted);
+
+  font-size: 0.7rem;
+  line-height: 1.4;
+}
+
+
+.lsdyna-contact-unresolved {
+  display: block;
+
+  color: #9a5d29;
+
+  font-size: 0.7rem;
+  line-height: 1.4;
+}

@@ -3,6 +3,8 @@ window.CorrosionAtlasLsdynaDeckI18n = {
     status: {
       ready: "Ready to open a keyword deck.",
       reading: "Reading {name} locally…",
+      parsing: "Parsing {name}…",
+      loadedTimed: "Loaded {name} in {seconds} s.",
       loaded: "Loaded {name}.",
       unsupported: "This file does not look like a supported LS-DYNA keyword deck. You may still try opening it as plain text.",
       tooLarge: "This file is {size} MB. Large decks can make the browser slow.",
@@ -172,13 +174,19 @@ window.CorrosionAtlasLsdynaDeckI18n = {
       missingMaterial: ["error", "Part {part} refers to missing material {material}", "{title} cannot be fully interpreted."],
       missingSection: ["error", "Part {part} refers to missing section {section}", "{title} cannot be fully interpreted."],
       missingPart: ["error", "{count} element(s) refer to missing Part {part}", "Check element part IDs and *PART cards."],
-      blankRecords: ["warning", "{keyword} contains blank physical line(s)", "Blank records can be misread inside variable-length blocks. Inspect raw block at line {line}."]
+      blankRecords: ["warning", "{keyword} contains blank physical line(s)", "Blank records can be misread inside variable-length blocks. Inspect raw block at line {line}."],
+      missingPartSet: [
+        "warning",
+        "Contact refers to unresolved Part set {set}",
+        "{side} of {keyword} uses set type 2, but *SET_PART_LIST {set} was not resolved in this file."
+      ],
     },
 
     material: {
       rigid: "Rigid body",
       elastic: "Linear elastic",
-      plastic: "Piecewise linear plasticity (MAT_024)"
+      plastic: "Piecewise linear plasticity (MAT_024)",
+      kinematic: "Plastic kinematic / mixed hardening"
     },
 
     misc: {
@@ -202,6 +210,8 @@ window.CorrosionAtlasLsdynaDeckI18n = {
     status: {
       ready: "可打开 LS-DYNA 关键字文件。",
       reading: "正在本地读取 {name}…",
+      parsing: "正在解析 {name}…",
+      loadedTimed: "已加载 {name}，解析耗时 {seconds} 秒。",
       loaded: "已加载 {name}。",
       unsupported: "该文件看起来不像常见的 LS-DYNA 关键字文件，但仍可按纯文本尝试读取。",
       tooLarge: "该文件大小为 {size} MB。较大的 deck 可能使浏览器运行变慢。",
@@ -371,13 +381,19 @@ window.CorrosionAtlasLsdynaDeckI18n = {
       missingMaterial: ["error", "部件 {part} 引用了缺失材料 {material}", "{title} 无法被完整解释。"],
       missingSection: ["error", "部件 {part} 引用了缺失截面 {section}", "{title} 无法被完整解释。"],
       missingPart: ["error", "{count} 个单元引用了不存在的部件 {part}", "请检查单元中的 part ID 与 *PART 卡。"],
-      blankRecords: ["warning", "{keyword} 含有空白物理行", "可变长度块中的空白记录可能被误读。请在第 {line} 行附近的原始关键字块中检查。"]
+      blankRecords: ["warning", "{keyword} 含有空白物理行", "可变长度块中的空白记录可能被误读。请在第 {line} 行附近的原始关键字块中检查。"],
+      missingPartSet: [
+        "warning",
+        "接触引用了未解析的 Part 集合 {set}",
+        "{keyword} 的 {side} 使用集合类型 2，但当前文件中未解析到 *SET_PART_LIST {set}。"
+      ],      
     },
 
     material: {
       rigid: "刚体",
       elastic: "线弹性",
-      plastic: "分段线性塑性 (MAT_024)"
+      plastic: "分段线性塑性 (MAT_024)",
+      kinematic: "弹塑性（随动／混合硬化）"      
     },
 
     misc: {

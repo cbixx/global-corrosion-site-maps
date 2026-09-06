@@ -188,13 +188,22 @@ function shellIndices(connectivity, nodeMap) {
   return new Uint32Array(indices);
 }
 
-
 /* ============================================================
    SOLID SURFACE
    ============================================================ */
 
-function solidIndices(connectivity, nodeMap) {
+
+/*
+ * Simple fallback:
+ * render all six faces of every 8-node solid.
+ */
+function solidAllFaceIndices(
+  connectivity,
+  nodeMap
+) {
+
   const indices = [];
+
 
   for (
     let i = 0;
@@ -202,20 +211,38 @@ function solidIndices(connectivity, nodeMap) {
     i += 8
   ) {
 
-    const ids = connectivity.slice(
-      i,
-      i + 8
-    );
+    /*
+     * Array.from is intentional:
+     * connectivity may now be a Uint32Array.
+     */
+    const ids =
+      Array.from(
+        connectivity.slice(
+          i,
+          i + 8
+        )
+      );
 
-    const n = ids.map(
-      (id) => nodeIndex(nodeMap, id)
-    );
+
+    const n =
+      ids.map(
+        (id) =>
+          nodeIndex(
+            nodeMap,
+            id
+          )
+      );
+
 
     if (
-      n.some((value) => value === null)
+      n.some(
+        (value) =>
+          value === null
+      )
     ) {
       continue;
     }
+
 
     const [
       n1,
@@ -229,66 +256,318 @@ function solidIndices(connectivity, nodeMap) {
     ] = n;
 
 
-    /*
-     * Six faces of a standard 8-node hexahedral element.
-     *
-     * Interior faces are deliberately retained in Batch 3.
-     * Exterior-face extraction will be introduced during the
-     * later performance optimisation batch.
-     */
-
     pushQuad(
       indices,
-      n1,
-      n2,
-      n3,
-      n4
+      n1, n2, n3, n4
     );
 
     pushQuad(
       indices,
-      n5,
-      n8,
-      n7,
-      n6
+      n5, n8, n7, n6
     );
 
     pushQuad(
       indices,
-      n1,
-      n5,
-      n6,
-      n2
+      n1, n5, n6, n2
     );
 
     pushQuad(
       indices,
-      n2,
-      n6,
-      n7,
-      n3
+      n2, n6, n7, n3
     );
 
     pushQuad(
       indices,
-      n3,
-      n7,
-      n8,
-      n4
+      n3, n7, n8, n4
     );
 
     pushQuad(
       indices,
-      n4,
-      n8,
-      n5,
-      n1
+      n4, n8, n5, n1
     );
   }
 
-  return new Uint32Array(indices);
+
+  return new Uint32Array(
+    indices
+  );
 }
 
+
+/*
+ * Remove repeated node IDs while preserving face order.
+ * This also makes the preview more tolerant of degenerate
+ * solid formulations encoded with repeated nodes.
+ */
+function uniqueFaceNodes(face) {
+
+  const result = [];
+
+
+  face.forEach(
+    (id) => {
+
+      if (
+        id === null ||
+        id === undefined ||
+        id === 0
+      ) {
+        return;
+      }
+
+
+      if (
+        !result.includes(id)
+      ) {
+
+        result.push(id);
+
+      }
+
+    }
+  );
+
+
+  return result;
+}
+
+
+/*
+ * Extract exterior faces only.
+ *
+ * A face occurring twice inside the same Part is considered
+ * internal and is not sent to the GPU.
+ */
+function solidExteriorIndices(
+  connectivity,
+  nodeMap
+) {
+
+  const faceStore =
+    new Map();
+
+
+  const addFace =
+    (face) => {
+
+      const nodes =
+        uniqueFaceNodes(
+          face
+        );
+
+
+      if (
+        nodes.length < 3
+      ) {
+        return;
+      }
+
+
+      const key =
+        nodes
+          .slice()
+          .sort(
+            (a, b) =>
+              a - b
+          )
+          .join(":");
+
+
+      const existing =
+        faceStore.get(
+          key
+        );
+
+
+      if (existing) {
+
+        existing.count += 1;
+
+      } else {
+
+        faceStore.set(
+          key,
+          {
+            nodes,
+            count: 1
+          }
+        );
+
+      }
+    };
+
+
+  for (
+    let i = 0;
+    i + 7 < connectivity.length;
+    i += 8
+  ) {
+
+    const n1 = connectivity[i];
+    const n2 = connectivity[i + 1];
+    const n3 = connectivity[i + 2];
+    const n4 = connectivity[i + 3];
+
+    const n5 = connectivity[i + 4];
+    const n6 = connectivity[i + 5];
+    const n7 = connectivity[i + 6];
+    const n8 = connectivity[i + 7];
+
+
+    addFace([
+      n1, n2, n3, n4
+    ]);
+
+    addFace([
+      n5, n8, n7, n6
+    ]);
+
+    addFace([
+      n1, n5, n6, n2
+    ]);
+
+    addFace([
+      n2, n6, n7, n3
+    ]);
+
+    addFace([
+      n3, n7, n8, n4
+    ]);
+
+    addFace([
+      n4, n8, n5, n1
+    ]);
+  }
+
+
+  const indices = [];
+
+
+  faceStore.forEach(
+    (face) => {
+
+      /*
+       * Two occurrences = internal face.
+       */
+      if (
+        face.count !== 1
+      ) {
+        return;
+      }
+
+
+      const mapped =
+        face.nodes.map(
+          (id) =>
+            nodeIndex(
+              nodeMap,
+              id
+            )
+        );
+
+
+      if (
+        mapped.some(
+          (value) =>
+            value === null
+        )
+      ) {
+        return;
+      }
+
+
+      if (
+        mapped.length === 3
+      ) {
+
+        pushTriangle(
+          indices,
+          mapped[0],
+          mapped[1],
+          mapped[2]
+        );
+
+        return;
+      }
+
+
+      if (
+        mapped.length >= 4
+      ) {
+
+        pushQuad(
+          indices,
+          mapped[0],
+          mapped[1],
+          mapped[2],
+          mapped[3]
+        );
+
+      }
+
+    }
+  );
+
+
+  return new Uint32Array(
+    indices
+  );
+}
+
+
+/*
+ * Exterior-face extraction uses temporary memory.
+ * For exceptionally large solid Parts, fall back to the
+ * simpler all-face path rather than building a huge face map.
+ */
+function solidIndices(
+  connectivity,
+  nodeMap
+) {
+
+  const solidCount =
+    Math.floor(
+      connectivity.length / 8
+    );
+
+
+  if (
+    solidCount > 120000
+  ) {
+
+    return solidAllFaceIndices(
+      connectivity,
+      nodeMap
+    );
+
+  }
+
+
+  const exterior =
+    solidExteriorIndices(
+      connectivity,
+      nodeMap
+    );
+
+
+  /*
+   * Safety fallback if an unusual solid formulation produces
+   * no recognisable exterior faces.
+   */
+  if (
+    !exterior.length
+  ) {
+
+    return solidAllFaceIndices(
+      connectivity,
+      nodeMap
+    );
+
+  }
+
+
+  return exterior;
+}
 
 /* ============================================================
    BEAMS
@@ -398,6 +677,17 @@ class LsdynaViewer {
     this.statusElement =
       options.statusElement || null;
 
+    /*
+     * The supplied ship–pile reference model is large enough
+     * that full antialiasing + StandardMaterial normals are
+     * unnecessary for a study preview.
+     */
+    this.largeModel =
+      Number(
+        model?.nodeCount ||
+        0
+      ) >= 250000;      
+
     this.meshes = [];
 
     this.partObjects =
@@ -481,15 +771,23 @@ class LsdynaViewer {
 
     this.renderer =
       new THREE.WebGLRenderer({
-        antialias: true,
-        alpha: false
+        antialias:
+          !this.largeModel,
+
+        alpha:
+          false
       });
 
     this.renderer.setPixelRatio(
-      Math.min(
-        window.devicePixelRatio || 1,
-        2
-      )
+
+      this.largeModel
+        ? 1
+        : Math.min(
+            window.devicePixelRatio ||
+            1,
+            2
+          )
+
     );
 
     this.renderer.outputColorSpace =
@@ -775,7 +1073,13 @@ class LsdynaViewer {
               )
             );
 
-            geometry.computeVertexNormals();
+            if (
+              !this.largeModel
+            ) {
+
+              geometry.computeVertexNormals();
+
+            }
 
 
             const shellColor =
@@ -786,12 +1090,28 @@ class LsdynaViewer {
 
 
             const material =
-              new THREE.MeshStandardMaterial({
-                color: shellColor,
-                roughness: 0.74,
-                metalness: 0.04,
-                side: THREE.DoubleSide
-              });
+              this.largeModel
+                ? new THREE.MeshBasicMaterial({
+                    color:
+                      shellColor,
+
+                    side:
+                      THREE.DoubleSide
+                  })
+
+                : new THREE.MeshStandardMaterial({
+                    color:
+                      shellColor,
+
+                    roughness:
+                      0.74,
+
+                    metalness:
+                      0.04,
+
+                    side:
+                      THREE.DoubleSide
+                  });
 
 
             const mesh =
@@ -855,7 +1175,13 @@ class LsdynaViewer {
               )
             );
 
-            geometry.computeVertexNormals();
+            if (
+              !this.largeModel
+            ) {
+
+              geometry.computeVertexNormals();
+
+            }
 
 
             const solidColor =
@@ -866,12 +1192,28 @@ class LsdynaViewer {
 
 
             const material =
-              new THREE.MeshStandardMaterial({
-                color: solidColor,
-                roughness: 0.82,
-                metalness: 0,
-                side: THREE.DoubleSide
-              });
+              this.largeModel
+                ? new THREE.MeshBasicMaterial({
+                    color:
+                      solidColor,
+
+                    side:
+                      THREE.DoubleSide
+                  })
+
+                : new THREE.MeshStandardMaterial({
+                    color:
+                      solidColor,
+
+                    roughness:
+                      0.82,
+
+                    metalness:
+                      0,
+
+                    side:
+                      THREE.DoubleSide
+                  });
 
 
             const mesh =
@@ -989,8 +1331,16 @@ class LsdynaViewer {
     if (this.statusElement) {
 
       this.statusElement.textContent =
+
         `${geometryStore.nodeCount.toLocaleString()} nodes · ` +
-        `${renderedParts.toLocaleString()} rendered parts`;
+
+        `${renderedParts.toLocaleString()} rendered parts` +
+
+        (
+          this.largeModel
+            ? " · large-model render mode"
+            : ""
+        );
 
     }
   }

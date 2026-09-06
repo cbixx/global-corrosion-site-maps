@@ -741,7 +741,19 @@
       "Assigns initial velocity directly to individual nodes.",
 
     "*BOUNDARY_SPC_NODE":
-      "Restrains selected degrees of freedom for individual nodes."
+      "Restrains selected degrees of freedom for individual nodes.",
+
+    "*SET_PART_LIST":
+      "Defines an explicit set of LS-DYNA Part IDs.",
+
+    "*SET_PART_LIST_TITLE":
+      "Defines a titled explicit set of LS-DYNA Part IDs.",
+
+    "*DATABASE_BINARY_D3THDT":
+      "Requests high-frequency binary time-history output.",
+
+    "*DATABASE_HISTORY_NODE":
+      "Selects nodes for history output.",      
   };
 
   function message(path, values = {}) {
@@ -823,13 +835,50 @@
   }
 
   function localMaterialType(keyword) {
-    if (keyword === "*MAT_RIGID") return message("material.rigid");
-    if (keyword === "*MAT_ELASTIC") return message("material.elastic");
-    if (keyword === "*MAT_PIECEWISE_LINEAR_PLASTICITY" || keyword === "*MAT_024") {
-      return message("material.plastic");
+
+    if (
+      keyword ===
+      "*MAT_RIGID"
+    ) {
+      return message("material.rigid");
     }
 
-    return keyword.replace("*MAT_", "").replaceAll("_", " ");
+
+    if (
+      keyword ===
+      "*MAT_ELASTIC"
+    ) {
+      return message("material.elastic");
+    }
+
+
+    if (
+      keyword ===
+      "*MAT_PLASTIC_KINEMATIC"
+    ) {
+      return message(
+        "material.kinematic"
+      );
+    }
+
+
+    if (
+      keyword ===
+      "*MAT_PIECEWISE_LINEAR_PLASTICITY" ||
+      keyword ===
+      "*MAT_024"
+    ) {
+
+      return message(
+        "material.plastic"
+      );
+
+    }
+
+
+    return keyword
+      .replace("*MAT_", "")
+      .replaceAll("_", " ");
   }
 
   function numericEntries(entries) {
@@ -837,6 +886,48 @@
       return entry.fields.length && isNumeric(entry.fields[0]);
     });
   }
+
+  function databaseKind(
+    keyword
+  ) {
+
+    /*
+     * These cards select entities rather than specifying
+     * an ordinary output interval.
+     */
+    if (
+      keyword.startsWith(
+        "*DATABASE_HISTORY_"
+      )
+    ) {
+
+      return "selection";
+
+    }
+
+
+    /*
+     * These configure binary/database behaviour.
+     */
+    if (
+      keyword ===
+        "*DATABASE_EXTENT_BINARY" ||
+      keyword ===
+        "*DATABASE_FORMAT"
+    ) {
+
+      return "configuration";
+
+    }
+
+
+    /*
+     * For the common time-history / binary output cards
+     * used in this project, the first field is treated as
+     * the output interval.
+     */
+    return "interval";
+  }  
 
   function emptyElementCounts() {
     return {
@@ -1126,17 +1217,15 @@
     }
   }
 
-
   function finalizeGeometry(
     geometry
   ) {
 
     /*
-     * Float32 is more than adequate for browser visualisation
-     * and approximately halves coordinate memory compared with
-     * ordinary JavaScript numbers in a numeric array.
+     * Coordinates:
+     * Float32 is sufficient for the local-coordinate browser
+     * preview used by this tool.
      */
-
     geometry.positionArray =
       new Float32Array(
         geometry.positions
@@ -1144,13 +1233,46 @@
 
 
     /*
-     * Release the temporary coordinate array.
+     * Release temporary ordinary JS coordinate array.
      */
-    geometry.positions = null;
+    geometry.positions =
+      null;
+
+
+    /*
+     * Element connectivity can be very large.
+     *
+     * Convert ordinary JS number arrays to compact typed arrays.
+     * This is particularly important for several-hundred-thousand
+     * element decks.
+     */
+    geometry.parts.forEach(
+      (part) => {
+
+        part.shell =
+          new Uint32Array(
+            part.shell
+          );
+
+
+        part.solid =
+          new Uint32Array(
+            part.solid
+          );
+
+
+        part.beam =
+          new Uint32Array(
+            part.beam
+          );
+
+      }
+    );
 
 
     return geometry;
   }
+
 
   function parseMaterialBlock(block, blockIndex, entries) {
     const records = numericEntries(entries);
@@ -1754,14 +1876,47 @@
         });
       }
 
-      if (block.keyword.startsWith("*DATABASE_")) {
+      if (
+        block.keyword.startsWith(
+          "*DATABASE_"
+        )
+      ) {
+
+        const values =
+          entries[0]?.fields ||
+          [];
+
+
+        const kind =
+          databaseKind(
+            block.keyword
+          );
+
+
         deck.databases.push({
-          keyword: block.keyword,
+
+          keyword:
+            block.keyword,
+
+          kind,
+
           blockIndex,
-          line: block.startLine,
-          recordIndex: 0,
-          dt: parseNumber(entries[0]?.fields?.[0]),
-          values: entries[0]?.fields || []
+
+          line:
+            block.startLine,
+
+          recordIndex:
+            0,
+
+          dt:
+            kind === "interval"
+              ? parseNumber(
+                  values[0]
+                )
+              : null,
+
+          values
+
         });
       }
 
@@ -1998,6 +2153,84 @@
         });
       }
 
+      /* =====================================================
+         PART SETS
+         ===================================================== */
+
+      if (
+        block.keyword ===
+          "*SET_PART_LIST" ||
+        block.keyword ===
+          "*SET_PART_LIST_TITLE"
+      ) {
+
+        /*
+         * numericEntries() also handles the _TITLE variant:
+         * its text title is ignored and the first numeric
+         * record becomes the set header.
+         */
+        const records =
+          numericEntries(
+            entries
+          );
+
+
+        const header =
+          records[0]?.fields ||
+          [];
+
+
+        const setId =
+          parseNumber(
+            header[0]
+          );
+
+
+        const members =
+          records
+            .slice(1)
+            .flatMap(
+              (entry) =>
+                entry.fields
+                  .map(parseNumber)
+                  .filter(
+                    (value) =>
+                      Number.isInteger(value) &&
+                      value > 0
+                  )
+            );
+
+
+        if (
+          setId !== null
+        ) {
+
+          deck.sets.push({
+
+            id:
+              setId,
+
+            type:
+              "partList",
+
+            members,
+
+            count:
+              members.length,
+
+            keyword:
+              block.keyword,
+
+            blockIndex,
+
+            line:
+              block.startLine
+
+          });
+
+        }
+      }      
+
       if (block.keyword.startsWith("*CONTACT_")) {
         const records = numericEntries(entries);
 
@@ -2138,6 +2371,99 @@
     if (!deck.contacts.length) {
       addDiagnostic(deck, "noContact");
     }
+
+    /*
+     * Validate Part-set references used by contact cards.
+     */
+
+    const knownPartSets =
+      new Set(
+
+        deck.sets
+          .filter(
+            (set) =>
+              set.type ===
+              "partList"
+          )
+          .map(
+            (set) =>
+              String(set.id)
+          )
+
+      );
+
+
+    deck.contacts.forEach(
+      (contact) => {
+
+        const references = [
+
+          {
+            side: "SSID",
+            id: contact.ssid,
+            type: contact.sstyp
+          },
+
+          {
+            side: "MSID",
+            id: contact.msid,
+            type: contact.mstyp
+          }
+
+        ];
+
+
+        references.forEach(
+          (reference) => {
+
+            if (
+              Number(
+                reference.type
+              ) !== 2
+            ) {
+              return;
+            }
+
+
+            if (
+              reference.id === null ||
+              reference.id === undefined ||
+              Number(reference.id) <= 0
+            ) {
+              return;
+            }
+
+
+            if (
+              !knownPartSets.has(
+                String(
+                  reference.id
+                )
+              )
+            ) {
+
+              addDiagnostic(
+                deck,
+                "missingPartSet",
+                {
+                  set:
+                    reference.id,
+
+                  side:
+                    reference.side,
+
+                  keyword:
+                    contact.keyword
+                }
+              );
+
+            }
+
+          }
+        );
+
+      }
+    );    
 
     if (!deck.motions.length && !deck.boundaries.some((boundary) => boundary.type === "prescribedMotion")) {
       addDiagnostic(deck, "noMotion");
@@ -4823,74 +5149,287 @@
     `;
   }
 
+  function partSetById(
+    deck,
+    setId
+  ) {
 
-  function contactsStudyView() {
-    const rows = state.deck.contacts.map((contact) => `
-      <tr>
+    if (
+      setId === null ||
+      setId === undefined
+    ) {
 
-        <td>
-          ${escapeHtml(
-            contact.id === null
-              ? "—"
-              : formatNumber(contact.id)
-          )}
-        </td>
+      return null;
 
-        <td>
-          <code>${escapeHtml(contact.keyword)}</code>
-        </td>
+    }
 
-        <td>${escapeHtml(formatNumber(contact.ssid))}</td>
 
-        <td>${escapeHtml(formatNumber(contact.msid))}</td>
+    return (
+      deck.sets.find(
+        (set) =>
 
-        <td>
-          ${escapeHtml(formatNumber(contact.sstyp))}
-          /
-          ${escapeHtml(formatNumber(contact.mstyp))}
-        </td>
+          set.type ===
+            "partList" &&
 
-        <td>${escapeHtml(formatNumber(contact.fs))}</td>
+          String(set.id) ===
+            String(setId)
+      ) ||
+      null
+    );
+  }
 
-        <td>${escapeHtml(formatNumber(contact.fd))}</td>
 
-        <td>
-          ${escapeHtml(
-            message("misc.line", {
-              line: contact.line
-            })
-          )}
-        </td>
+  function contactTargetHtml(
+    deck,
+    targetId,
+    targetType
+  ) {
 
-      </tr>
-    `);
+    if (
+      targetId === null ||
+      targetId === undefined
+    ) {
+
+      return "—";
+
+    }
+
+
+    const raw =
+      formatNumber(
+        targetId
+      );
+
+
+    /*
+     * In these contact cards, type 2 means the ID
+     * should be interpreted as a Part set.
+     */
+    if (
+      Number(targetType) !== 2
+    ) {
+
+      return `
+        <code>
+          ${escapeHtml(raw)}
+        </code>
+      `;
+
+    }
+
+
+    const set =
+      partSetById(
+        deck,
+        targetId
+      );
+
+
+    if (!set) {
+
+      return `
+
+        <div class="lsdyna-contact-target">
+
+          <code>
+            Set ${escapeHtml(raw)}
+          </code>
+
+          <span class="lsdyna-contact-unresolved">
+            Part set not resolved
+          </span>
+
+        </div>
+
+      `;
+
+    }
+
+
+    const preview =
+      set.members
+        .slice(0, 12)
+        .join(", ");
+
+
+    const remaining =
+      Math.max(
+        0,
+        set.members.length - 12
+      );
+
 
     return `
-      <div class="lsdyna-note">
-        SSID/MSID identify the interacting surfaces or sets.
-        SSTYP/MSTYP define how those IDs are interpreted.
-        Advanced contact options remain available in Raw Deck.
+
+      <div class="lsdyna-contact-target">
+
+        <code>
+          Set ${escapeHtml(raw)}
+        </code>
+
+        <span class="lsdyna-contact-members">
+
+          PIDs:
+          ${escapeHtml(
+            preview || "—"
+          )}
+
+          ${
+            remaining
+              ? ` +${remaining} more`
+              : ""
+          }
+
+        </span>
+
       </div>
 
+    `;
+  }  
+
+  function contactsStudyView() {
+
+    const deck =
+      state.deck;
+
+
+    const rows =
+      deck.contacts.map(
+        (contact) => `
+
+          <tr>
+
+            <td>
+              ${escapeHtml(
+                contact.id === null
+                  ? "—"
+                  : formatNumber(
+                      contact.id
+                    )
+              )}
+            </td>
+
+
+            <td>
+              <code>
+                ${escapeHtml(
+                  contact.keyword
+                )}
+              </code>
+            </td>
+
+
+            <td>
+              ${contactTargetHtml(
+                deck,
+                contact.ssid,
+                contact.sstyp
+              )}
+            </td>
+
+
+            <td>
+              ${contactTargetHtml(
+                deck,
+                contact.msid,
+                contact.mstyp
+              )}
+            </td>
+
+
+            <td>
+
+              ${escapeHtml(
+                formatNumber(
+                  contact.sstyp
+                )
+              )}
+
+              /
+
+              ${escapeHtml(
+                formatNumber(
+                  contact.mstyp
+                )
+              )}
+
+            </td>
+
+
+            <td>
+              ${escapeHtml(
+                formatNumber(
+                  contact.fs
+                )
+              )}
+            </td>
+
+
+            <td>
+              ${escapeHtml(
+                formatNumber(
+                  contact.fd
+                )
+              )}
+            </td>
+
+
+            <td>
+              ${escapeHtml(
+                message(
+                  "misc.line",
+                  {
+                    line:
+                      contact.line
+                  }
+                )
+              )}
+            </td>
+
+          </tr>
+
+        `
+      );
+
+
+    return `
+
+      <div class="lsdyna-note">
+
+        For contact target type
+        <code>2</code>, the SSID/MSID is interpreted here
+        as a Part-set ID. When the corresponding
+        <code>*SET_PART_LIST</code> is available, its PIDs
+        are shown directly.
+
+      </div>
+
+
       <div class="lsdyna-study-table">
+
         ${standardTable(
+
           [
             "CID",
             "Keyword",
-            "SSID",
-            "MSID",
+            "SSID / single target",
+            "MSID / master target",
             "SSTYP / MSTYP",
             "FS",
             "FD",
             "Definition"
           ],
+
           rows,
+
           "No contact cards were parsed."
+
         )}
+
       </div>
+
     `;
   }
-
 
   function motionStudyView() {
     const deck = state.deck;
@@ -5082,64 +5621,131 @@
     `;
   }
 
-
   function outputsStudyView() {
-    const rows = state.deck.databases.map((database) => {
 
-      const explanation =
-        help[database.keyword] ||
-        "LS-DYNA database or result-output request.";
+    const rows =
+      state.deck.databases.map(
+        (database) => {
 
-      return `
-        <tr>
+          const explanation =
+            help[database.keyword] ||
+            "LS-DYNA database or result-output request.";
 
-          <td>
-            <code>${escapeHtml(database.keyword)}</code>
-          </td>
 
-          <td>${escapeHtml(formatNumber(database.dt))}</td>
+          const kindLabel =
+            database.kind === "selection"
+              ? "Selection"
+              : database.kind === "configuration"
+                ? "Configuration"
+                : "Interval output";
 
-          <td>
-            ${escapeHtml(
-              database.values?.join(", ") || "—"
-            )}
-          </td>
 
-          <td>${escapeHtml(explanation)}</td>
+          const interval =
+            database.kind === "interval"
+              ? formatNumber(
+                  database.dt
+                )
+              : "—";
 
-          <td>
-            ${escapeHtml(
-              message("misc.line", {
-                line: database.line
-              })
-            )}
-          </td>
 
-        </tr>
-      `;
-    });
+          return `
+
+            <tr>
+
+              <td>
+                <code>
+                  ${escapeHtml(
+                    database.keyword
+                  )}
+                </code>
+              </td>
+
+
+              <td>
+                ${escapeHtml(
+                  kindLabel
+                )}
+              </td>
+
+
+              <td>
+                ${escapeHtml(
+                  interval
+                )}
+              </td>
+
+
+              <td>
+                ${escapeHtml(
+                  database.values
+                    ?.join(", ") ||
+                  "—"
+                )}
+              </td>
+
+
+              <td>
+                ${escapeHtml(
+                  explanation
+                )}
+              </td>
+
+
+              <td>
+                ${escapeHtml(
+                  message(
+                    "misc.line",
+                    {
+                      line:
+                        database.line
+                    }
+                  )
+                )}
+              </td>
+
+            </tr>
+
+          `;
+
+        }
+      );
+
 
     return `
+
       <div class="lsdyna-note">
-        Output cards determine which histories and binary result
-        files are available after the calculation.
+
+        Output cards may define a time interval, select
+        history entities, or configure the binary database.
+        The raw keyword block remains authoritative for
+        advanced options.
+
       </div>
 
+
       <div class="lsdyna-study-table">
+
         ${standardTable(
+
           [
             "Keyword",
-            "DT / first value",
+            "Type",
+            "Interval",
             "First data record",
             "Purpose",
             "Definition"
           ],
+
           rows,
+
           "No database output cards were parsed."
+
         )}
+
       </div>
+
     `;
-  }  
+  }
 
   function textField(label, value, attributes = "", helpText = "") {
     return `
@@ -5976,44 +6582,121 @@
     const reader = new FileReader();
 
     reader.onload = () => {
-      try {
-        state.originalText =
-          String(
-            reader.result || ""
-          );
 
-        state.deck =
-          parseDeck(
-            state.originalText,
-            file.name
-          );
+      state.originalText =
+        String(
+          reader.result ||
+          ""
+        );
 
-        state.activeView =
-          "overview";
 
-        state.rawIndex =
-          0;
+      /*
+       * Let the browser paint this message before entering
+       * the synchronous deck parser.
+       */
+      setStatus(
+        message(
+          "status.parsing",
+          {
+            name:
+              file.name
+          }
+        )
+      );
 
-        state.selectedPartId =
-          null;
 
-        state.viewerColorMode =
-          "part";
+      window.setTimeout(
+        () => {
 
-        state.comparisonDeck =
-          null;
+          const started =
+            performance.now();
 
-        state.comparisonFilename =
-          "";
 
-        loadStudyState();
-        markDirty(false);
-        setStatus(message("status.loaded", { name: file.name }), "success");
-        render();
-      } catch (error) {
-        console.error(error);
-        setStatus(message("status.readError"), "error");
-      }
+          try {
+
+            state.deck =
+              parseDeck(
+                state.originalText,
+                file.name
+              );
+
+
+            state.activeView =
+              "overview";
+
+
+            state.rawIndex =
+              0;
+
+
+            state.selectedPartId =
+              null;
+
+
+            state.viewerColorMode =
+              "part";
+
+
+            state.comparisonDeck =
+              null;
+
+
+            state.comparisonFilename =
+              "";
+
+
+            loadStudyState();
+
+            markDirty(false);
+
+
+            const elapsed =
+              (
+                (
+                  performance.now() -
+                  started
+                ) /
+                1000
+              ).toFixed(1);
+
+
+            setStatus(
+              message(
+                "status.loadedTimed",
+                {
+                  name:
+                    file.name,
+
+                  seconds:
+                    elapsed
+                }
+              ),
+              "success"
+            );
+
+
+            render();
+
+          } catch (error) {
+
+            console.error(
+              error
+            );
+
+
+            setStatus(
+              message(
+                "status.readError"
+              ),
+              "error"
+            );
+
+          }
+
+        },
+
+        30
+      );
     };
 
     reader.onerror = () => {
