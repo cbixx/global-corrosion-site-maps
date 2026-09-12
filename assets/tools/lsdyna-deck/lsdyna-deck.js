@@ -1721,40 +1721,73 @@
         }
       }
 
-      if (block.keyword === "*PART") {
-        let title = message("misc.untitled");
-        let partRecord = null;
-        let titlePhysicalIndex = null;
+if (
+  block.keyword === "*PART" ||
+  block.keyword === "*PART_TITLE"
+) {
+  let index = 0;
 
-        if (entries.length) {
-          const first = entries[0].fields;
+  while (index < entries.length) {
+    let title = message("misc.untitled");
+    let titlePhysicalIndex = null;
+    let partRecord = null;
 
-          if (first.length >= 3 && first.slice(0, 3).every(isNumeric)) {
-            partRecord = entries[0];
-          } else {
-            title = entries[0].text.trim();
-            titlePhysicalIndex = entries[0].physicalIndex;
-            partRecord = entries[1];
-          }
-        }
+    const current = entries[index];
+    const currentFields = current?.fields || [];
 
-        const fields = partRecord?.fields || [];
-        const part = {
-          id: parseNumber(fields[0]),
-          sectionId: parseNumber(fields[1]),
-          materialId: parseNumber(fields[2]),
-          title,
-          blockIndex,
-          line: block.startLine,
-          titlePhysicalIndex,
-          partPhysicalIndex: partRecord?.physicalIndex ?? null
-        };
+    if (
+      currentFields.length >= 3 &&
+      currentFields.slice(0, 3).every(isNumeric)
+    ) {
+      // PART record without a preceding title.
+      partRecord = current;
+      index += 1;
+    } else {
+      // Treat this line as the title and look for the following
+      // numerical PART record.
+      title = current?.text.trim() || message("misc.untitled");
+      titlePhysicalIndex = current?.physicalIndex ?? null;
 
-        if (part.id !== null) {
-          deck.parts.push(part);
-          partMap.set(String(part.id), part);
-        }
+      const candidate = entries[index + 1];
+      const candidateFields = candidate?.fields || [];
+
+      if (
+        candidateFields.length >= 3 &&
+        candidateFields.slice(0, 3).every(isNumeric)
+      ) {
+        partRecord = candidate;
+        index += 2;
+      } else {
+        // Unexpected record: skip it rather than aborting the
+        // remainder of the PART block.
+        index += 1;
+        continue;
       }
+    }
+
+    const fields = partRecord?.fields || [];
+
+    const part = {
+      id: parseNumber(fields[0]),
+      sectionId: parseNumber(fields[1]),
+      materialId: parseNumber(fields[2]),
+      title,
+      blockIndex,
+      line:
+        block.startLine +
+        (partRecord?.physicalIndex ?? 0) +
+        1,
+      titlePhysicalIndex,
+      partPhysicalIndex:
+        partRecord?.physicalIndex ?? null
+    };
+
+    if (part.id !== null) {
+      deck.parts.push(part);
+      partMap.set(String(part.id), part);
+    }
+  }
+}
 
       if (
         block.keyword === "*NODE" ||
