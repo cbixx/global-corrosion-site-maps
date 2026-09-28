@@ -4,6 +4,38 @@ const searchInput = document.getElementById("source-search");
 const sourceList = document.getElementById("source-list");
 const statusElement = document.getElementById("status");
 const sourceCount = document.getElementById("source-count");
+const pdfDownloadOptions =
+  document.getElementById(
+    "pdf-download-options"
+  );
+
+const pdfDownloadCount =
+  document.getElementById(
+    "pdf-download-count"
+  );
+
+const pdfSelectAll =
+  document.getElementById(
+    "pdf-select-all"
+  );
+
+const pdfClearAll =
+  document.getElementById(
+    "pdf-clear-all"
+  );
+
+const pdfDownloadSelected =
+  document.getElementById(
+    "pdf-download-selected"
+  );
+
+const pdfDownloadAll =
+  document.getElementById(
+    "pdf-download-all"
+  );
+
+const selectedPdfIds =
+  new Set();
 
 function normalise(value) {
   return String(value || "").trim().toLowerCase();
@@ -89,6 +121,129 @@ function renderSources(sources) {
   sourceList.hidden = false;
 }
 
+function updatePdfSelection() {
+  const pdfSources =
+    allSources.filter(
+      (source) =>
+        String(
+          source.private_pdf_object_key ||
+          ""
+        ).trim()
+    );
+
+  pdfDownloadCount.textContent =
+    `${selectedPdfIds.size} selected · ` +
+    `${pdfSources.length} PDF${pdfSources.length === 1 ? "" : "s"} available`;
+
+  pdfDownloadSelected.disabled =
+    selectedPdfIds.size === 0;
+
+  pdfDownloadAll.disabled =
+    pdfSources.length === 0;
+}
+
+
+function renderPdfDownloadOptions() {
+  pdfDownloadOptions.replaceChildren();
+
+  const pdfSources =
+    allSources.filter(
+      (source) =>
+        String(
+          source.private_pdf_object_key ||
+          ""
+        ).trim()
+    );
+
+  if (pdfSources.length === 0) {
+    pdfDownloadOptions.textContent =
+      "No Source PDFs are currently stored.";
+
+    updatePdfSelection();
+    return;
+  }
+
+  for (const source of pdfSources) {
+    const label =
+      document.createElement(
+        "label"
+      );
+
+    label.className =
+      "source-pdf-download-option";
+
+    const checkbox =
+      document.createElement(
+        "input"
+      );
+
+    checkbox.type =
+      "checkbox";
+
+    checkbox.checked =
+      selectedPdfIds.has(
+        Number(source.id)
+      );
+
+    checkbox.addEventListener(
+      "change",
+      () => {
+        const id =
+          Number(source.id);
+
+        if (checkbox.checked) {
+          selectedPdfIds.add(id);
+        } else {
+          selectedPdfIds.delete(id);
+        }
+
+        updatePdfSelection();
+      }
+    );
+
+    const text =
+      document.createElement(
+        "span"
+      );
+
+    text.textContent =
+      `${String(
+        source.source_code || ""
+      ).toUpperCase()} — ` +
+      `${source.source_title || "(Untitled source)"}`;
+
+    label.append(
+      checkbox,
+      text
+    );
+
+    pdfDownloadOptions.append(
+      label
+    );
+  }
+
+  updatePdfSelection();
+}
+
+
+function downloadPdfArchive(ids = null) {
+  let url =
+    "/api/source-pdfs.zip";
+
+  if (
+    Array.isArray(ids) &&
+    ids.length > 0
+  ) {
+    url +=
+      `?ids=${encodeURIComponent(
+        ids.join(",")
+      )}`;
+  }
+
+  window.location.href =
+    url;
+}
+
 function applySearch() {
   const query = normalise(searchInput.value);
 
@@ -120,6 +275,7 @@ async function loadSources() {
     allSources = payload.sources;
 
     renderSources(allSources);
+    renderPdfDownloadOptions();
   } catch (error) {
     console.error("Unable to load sources.", error);
 
@@ -130,6 +286,59 @@ async function loadSources() {
     sourceList.hidden = true;
   }
 }
+
+pdfSelectAll.addEventListener(
+  "click",
+  () => {
+    selectedPdfIds.clear();
+
+    for (
+      const source
+      of allSources
+    ) {
+      if (
+        String(
+          source.private_pdf_object_key ||
+          ""
+        ).trim()
+      ) {
+        selectedPdfIds.add(
+          Number(source.id)
+        );
+      }
+    }
+
+    renderPdfDownloadOptions();
+  }
+);
+
+
+pdfClearAll.addEventListener(
+  "click",
+  () => {
+    selectedPdfIds.clear();
+
+    renderPdfDownloadOptions();
+  }
+);
+
+
+pdfDownloadSelected.addEventListener(
+  "click",
+  () => {
+    downloadPdfArchive(
+      [...selectedPdfIds]
+    );
+  }
+);
+
+
+pdfDownloadAll.addEventListener(
+  "click",
+  () => {
+    downloadPdfArchive();
+  }
+);
 
 searchInput.addEventListener("input", applySearch);
 

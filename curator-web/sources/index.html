@@ -30,14 +30,6 @@
         <div id="source-count" class="source-count"></div>
 
         <a
-          class="button"
-          href="/api/source-pdfs.zip"
-          download
-        >
-          Download all PDFs
-        </a>
-
-        <a
           class="button button-primary"
           href="/sources/detail/?new=1"
         >
@@ -45,6 +37,58 @@
         </a>
       </div>
     </div>
+
+    <section class="source-pdf-download-panel">
+      <div class="source-pdf-download-heading">
+        <div>
+          <strong>PDF downloads</strong>
+          <div
+            id="pdf-download-count"
+            class="source-count"
+          ></div>
+        </div>
+
+        <div class="page-actions">
+          <button
+            id="pdf-select-all"
+            class="button"
+            type="button"
+          >
+            Select all
+          </button>
+
+          <button
+            id="pdf-clear-all"
+            class="button"
+            type="button"
+          >
+            Clear
+          </button>
+
+          <button
+            id="pdf-download-selected"
+            class="button"
+            type="button"
+            disabled
+          >
+            Download selected
+          </button>
+
+          <button
+            id="pdf-download-all"
+            class="button button-primary"
+            type="button"
+          >
+            Download all PDFs
+          </button>
+        </div>
+      </div>
+
+      <div
+        id="pdf-download-options"
+        class="source-pdf-download-options"
+      ></div>
+    </section>
 
     <div class="search-panel">
       <input

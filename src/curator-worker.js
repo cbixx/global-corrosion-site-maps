@@ -48,7 +48,7 @@ async function handleSourcesList(env) {
 
   endpoint.searchParams.set(
     "select",
-    "id,source_code,source_title,authors_or_organization,publication_year,source_kind,source_type"
+    "id,source_code,source_title,authors_or_organization,publication_year,source_kind,source_type,private_pdf_object_key"
   );
 
   endpoint.searchParams.set("order", "source_code.asc");
@@ -7935,6 +7935,7 @@ function sourcePdfError(
 }
 
 async function handleAllSourcePdfsDownload(
+  request,
   env
 ) {
   if (!env.SOURCE_PDFS) {
@@ -8024,6 +8025,54 @@ async function handleAllSourcePdfsDownload(
           ""
         ).trim()
     );
+  
+    const url =
+      new URL(
+        request.url
+      );
+
+    const requestedIdsText =
+      String(
+        url.searchParams.get("ids") ||
+        ""
+      ).trim();
+
+    let sourcesToDownload =
+      attachedSources;
+
+    if (requestedIdsText) {
+      const requestedIds =
+        new Set(
+          requestedIdsText
+            .split(",")
+            .map((value) =>
+              Number(value)
+            )
+            .filter((value) =>
+              Number.isInteger(value) &&
+              value > 0
+            )
+        );
+
+      sourcesToDownload =
+        attachedSources.filter(
+          (source) =>
+            requestedIds.has(
+              Number(source.id)
+            )
+        );
+    }
+
+    if (
+      sourcesToDownload.length === 0
+    ) {
+      return sourcePdfError(
+        requestedIdsText
+          ? "None of the selected Sources has an attached PDF."
+          : "No private PDFs are currently attached to Sources.",
+        404
+      );
+    }  
 
   if (
     attachedSources.length === 0
@@ -8042,7 +8091,7 @@ async function handleAllSourcePdfsDownload(
 
   for (
     const source
-    of attachedSources
+    of sourcesToDownload
   ) {
     const objectKey =
       String(
@@ -14964,7 +15013,10 @@ export default {
     }
 
     if (path === "/api/source-pdfs.zip" && request.method === "GET") {
-      return handleAllSourcePdfsDownload(env);
+      return handleAllSourcePdfsDownload(
+        request,
+        env
+      );
     }
 
     if (path === "/api/sources" && request.method === "GET") {
