@@ -7934,6 +7934,241 @@ function sourcePdfError(
   );
 }
 
+async function handleAllSourcePdfsDownload(
+  env
+) {
+  if (!env.SOURCE_PDFS) {
+    return sourcePdfError(
+      "Private PDF storage is not configured.",
+      500
+    );
+  }
+
+  if (
+    !env.SUPABASE_URL ||
+    !env.SUPABASE_SECRET_KEY
+  ) {
+    return sourcePdfError(
+      "Supabase configuration is missing.",
+      500
+    );
+  }
+
+  const endpoint =
+    new URL(
+      "/rest/v1/sources",
+      env.SUPABASE_URL
+    );
+
+  endpoint.searchParams.set(
+    "select",
+    [
+      "id",
+      "source_code",
+      "local_file_name",
+      "private_pdf_object_key",
+    ].join(",")
+  );
+
+  endpoint.searchParams.set(
+    "order",
+    "source_code.asc"
+  );
+
+  let sources;
+
+  try {
+    const response =
+      await fetch(
+        endpoint,
+        {
+          headers: {
+            apikey:
+              env.SUPABASE_SECRET_KEY,
+
+            authorization:
+              `Bearer ${env.SUPABASE_SECRET_KEY}`,
+
+            accept:
+              "application/json",
+          },
+        }
+      );
+
+    if (!response.ok) {
+      throw new Error(
+        await response.text()
+      );
+    }
+
+    sources =
+      await response.json();
+
+  } catch (error) {
+    console.error(
+      "Unable to load Source PDF list.",
+      error
+    );
+
+    return sourcePdfError(
+      "Unable to load Source PDF metadata.",
+      502
+    );
+  }
+
+  const attachedSources =
+    sources.filter(
+      (source) =>
+        String(
+          source.private_pdf_object_key ||
+          ""
+        ).trim()
+    );
+
+  if (
+    attachedSources.length === 0
+  ) {
+    return sourcePdfError(
+      "No private PDFs are currently attached to Sources.",
+      404
+    );
+  }
+
+  const zip =
+    new JSZip();
+
+  const missing = [];
+  let added = 0;
+
+  for (
+    const source
+    of attachedSources
+  ) {
+    const objectKey =
+      String(
+        source.private_pdf_object_key ||
+        ""
+      ).trim();
+
+    try {
+      const object =
+        await env.SOURCE_PDFS.get(
+          objectKey
+        );
+
+      if (!object) {
+        missing.push(
+          String(
+            source.source_code ||
+            source.id
+          )
+        );
+
+        continue;
+      }
+
+      const bytes =
+        await object.arrayBuffer();
+
+      const sourceCode =
+        String(
+          normaliseSourceCode(
+            source.source_code
+          ) ||
+          `source-${source.id}`
+        );
+
+      const safeCode =
+        sourceCode.replace(
+          /[^a-zA-Z0-9._-]+/g,
+          "_"
+        );
+
+      zip.file(
+        `${safeCode}.pdf`,
+        bytes
+      );
+
+      added += 1;
+
+    } catch (error) {
+      console.error(
+        `Unable to add PDF ${objectKey} to archive.`,
+        error
+      );
+
+      missing.push(
+        String(
+          source.source_code ||
+          source.id
+        )
+      );
+    }
+  }
+
+  if (added === 0) {
+    return sourcePdfError(
+      "No stored PDFs could be read from R2.",
+      502
+    );
+  }
+
+  if (missing.length > 0) {
+    zip.file(
+      "_missing-pdfs.txt",
+      [
+        "The following Source records reference PDFs that could not be included:",
+        "",
+        ...missing,
+        "",
+      ].join("\n")
+    );
+  }
+
+  /*
+   * PDFs are already compressed, so STORE is
+   * considerably faster than trying to DEFLATE
+   * every PDF again.
+   */
+  const archive =
+    await zip.generateAsync({
+      type: "uint8array",
+      compression: "STORE",
+    });
+
+  return new Response(
+    archive,
+    {
+      status: 200,
+
+      headers: {
+        "content-type":
+          "application/zip",
+
+        "content-disposition":
+          'attachment; filename="corrosion-atlas-source-pdfs.zip"',
+
+        "content-length":
+          String(
+            archive.byteLength
+          ),
+
+        "cache-control":
+          "private, no-store",
+
+        "x-pdf-count":
+          String(added),
+
+        "x-pdf-missing-count":
+          String(
+            missing.length
+          ),
+      },
+    }
+  );
+}
+
+
 
 async function handleSourcePdfGet(
   request,
@@ -14726,6 +14961,10 @@ export default {
 
     if (path === "/api/source-form-options" && request.method === "GET") {
       return handleSourceFormOptions(env);
+    }
+
+    if (path === "/api/source-pdfs.zip" && request.method === "GET") {
+      return handleAllSourcePdfsDownload(env);
     }
 
     if (path === "/api/sources" && request.method === "GET") {
