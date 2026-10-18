@@ -73,6 +73,7 @@ async function serveIndex(request, env, audience = "public") {
     <script>
       window.CORROSION_MAP_AUDIENCE = ${JSON.stringify(audience)};
       window.CORROSION_MAP_WORKER_BUILD_ID = ${JSON.stringify(WORKER_BUILD_ID)};
+      window.CORROSION_TIANDITU_BROWSER_KEY = ${JSON.stringify(env.TIANDITU_BROWSER_KEY || "")};
     </script>
     `;
 
@@ -172,6 +173,10 @@ export default {
 
     if (path === "/team") {
       return serveIndex(request, env, "team");
+    }
+
+    if (path === "/map" || path === "/map/index.html") {
+      return serveIndex(request, env, "public");
     }
 
     if (path === "/api/team/source-pdf") {

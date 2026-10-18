@@ -553,18 +553,32 @@
         </div>
 
         <div class="map-tool-grid map-tool-grid-narrow">
+
           <section class="map-tool-card">
             <div class="map-tool-card-kicker">Basemap</div>
-            <h3>Map labels</h3>
+            <h3>Map provider</h3>
+
             <p>
-              Label switching is temporarily disabled while the public map uses the OSM fallback basemap.
+              Select the geographical basemap.
+              Corrosion observations and environmental
+              overlays remain unchanged.
             </p>
 
             <div class="control-group">
-              <label class="control-label" for="labelModeSelect">Label mode</label>
-              <select id="labelModeSelect" class="control-select" disabled>
-                <option value="none">Temporarily disabled — OSM fallback active</option>
+              <label class="control-label" for="baseMapSelect">
+                Basemap
+              </label>
+
+              <select id="baseMapSelect" class="control-select">
+                <option value="osm">OpenStreetMap</option>
+                <option value="tianditu">Tianditu (天地图)</option>
               </select>
+            </div>
+
+            <div id="basemapStatus"
+                class="small-status"
+                role="status"
+                aria-live="polite">
             </div>
           </section>
         </div>
@@ -1446,30 +1460,143 @@
       );
     }
 
+
+    /*
+    * Country mini-maps remain on OpenStreetMap.
+    */
     function createTiandituBaseLayer() {
-      // Temporary fallback:
-      // Keep this function name because the country mini-map already calls createTiandituBaseLayer().
-      // Internally, it now returns the OSM basemap.
       return createOsmBaseLayer();
     }
 
-    const baseLayer = createOsmBaseLayer();
-    baseLayer.addTo(map);
+    /*
+    * Tianditu browser key is supplied by
+    * the Cloudflare public Worker.
+    */
+    const TIANDITU_KEY = String(
+      window.CORROSION_TIANDITU_BROWSER_KEY || ""
+    ).trim();
 
-    // Temporary no-op while OSM fallback is active.
-    // OSM labels are built into the raster basemap, so Chinese/English label switching is disabled for now.
-    function setAnnotationMode(mode) {
-      try {
-        window.localStorage.setItem("corrosionMapLabelMode", "none");
-      } catch {
-        // Ignore localStorage errors.
+    /*
+    * Construct Tianditu WMTS tile layers.
+    */
+    function createTiandituTileLayer(layerName) {
+      const url =
+        "https://t{s}.tianditu.gov.cn/" +
+        layerName + "_w/wmts" +
+        "?SERVICE=WMTS" +
+        "&REQUEST=GetTile" +
+        "&VERSION=1.0.0" +
+        "&LAYER=" + layerName +
+        "&STYLE=default" +
+        "&TILEMATRIXSET=w" +
+        "&FORMAT=tiles" +
+        "&TILECOL={x}" +
+        "&TILEROW={y}" +
+        "&TILEMATRIX={z}" +
+        "&tk=" + encodeURIComponent(TIANDITU_KEY);
+
+      return L.tileLayer(url, {
+        subdomains: ["0", "1", "2", "3", "4", "5", "6", "7"],
+        minZoom: 1,
+        maxNativeZoom: 18,
+        maxZoom: 19,
+        zIndex: layerName === "cva" ? 201 : 200,
+        attribution:
+          '&copy; <a href="https://www.tianditu.gov.cn/">Tianditu 天地图</a>'
+      });
+    }
+
+    /*
+    * Prepare the basemaps.
+    * OSM remains the default.
+    */
+    const osmBaseLayer = createOsmBaseLayer();
+
+    let tiandituPublicLayer = null;
+    let activeBaseLayer = osmBaseLayer;
+
+    activeBaseLayer.addTo(map);
+
+    /*
+    * Switch basemaps without removing
+    * corrosion or environmental overlays.
+    */
+    function setBasemap(mode, persist = true) {
+      const requestedTianditu = mode === "tianditu";
+
+      const useTianditu =
+        requestedTianditu && Boolean(TIANDITU_KEY);
+
+      if (useTianditu && !tiandituPublicLayer) {
+        tiandituPublicLayer = L.layerGroup([
+          createTiandituTileLayer("vec"),
+          createTiandituTileLayer("cva")
+        ]);
       }
 
-      const select = document.getElementById("labelModeSelect");
-      if (select) {
-        select.value = "none";
+      const nextLayer = useTianditu
+        ? tiandituPublicLayer
+        : osmBaseLayer;
+
+      if (activeBaseLayer !== nextLayer) {
+        map.removeLayer(activeBaseLayer);
+        nextLayer.addTo(map);
+        activeBaseLayer = nextLayer;
+      }
+
+      const actualMode = useTianditu
+        ? "tianditu"
+        : "osm";
+
+      const selector =
+        document.getElementById("baseMapSelect");
+
+      if (selector) {
+        selector.value = actualMode;
+      }
+
+      const status =
+        document.getElementById("basemapStatus");
+
+      if (status) {
+        if (requestedTianditu && !TIANDITU_KEY) {
+          status.textContent =
+            "Tianditu key unavailable. Using OpenStreetMap.";
+        } else {
+          status.textContent = useTianditu
+            ? "Tianditu basemap active."
+            : "OpenStreetMap active.";
+        }
+      }
+
+      if (persist) {
+        try {
+          localStorage.setItem(
+            "corrosionMapBasemap",
+            actualMode
+          );
+        } catch {
+          // Browser storage may be unavailable.
+        }
       }
     }
+
+    /*
+    * Restore the visitor's previous choice.
+    */
+    let savedBasemap = "osm";
+
+    try {
+      savedBasemap =
+        localStorage.getItem("corrosionMapBasemap") ||
+        "osm";
+    } catch {
+      // Use default.
+    }
+
+    setBasemap(savedBasemap, false);
+
+
     map.createPane('corrosionHeatPane');
     map.getPane('corrosionHeatPane').style.zIndex = 450;
     map.getPane('corrosionHeatPane').style.pointerEvents = 'none';
@@ -6634,8 +6761,8 @@
         document.getElementById('sourceOnlyFilter').addEventListener('change', () => applyFilters(true));
         document.getElementById('searchBox').addEventListener('input', () => applyFilters(true));
         document.getElementById('countryFilter').addEventListener('change', () => applyFilters(true));
-        document.getElementById('labelModeSelect')?.addEventListener('change', function(event) {
-          setAnnotationMode(event.target.value);
+        document.getElementById('baseMapSelect')?.addEventListener('change', function(event) {
+          setBasemap(event.target.value);
         });
         document.getElementById('regionFilter').addEventListener('change', () => applyFilters(true));
         document.getElementById('metalFilter').addEventListener('change', () => applyFilters(true));
