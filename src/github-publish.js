@@ -78,20 +78,16 @@ function requireGitHubConfig(
 }
 
 
-function githubHeaders(
-  config
-) {
+
+function githubHeaders(config) {
   return {
-    accept:
-      "application/vnd.github+json",
-
-    authorization:
-      `Bearer ${config.token}`,
-
-    "x-github-api-version":
-      "2022-11-28",
+    accept: "application/vnd.github+json",
+    authorization: `Bearer ${config.token}`,
+    "user-agent": "CorrosionAtlas-Curator",
+    "x-github-api-version": "2022-11-28",
   };
 }
+
 
 
 function encodeRepoPath(
