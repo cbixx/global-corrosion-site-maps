@@ -226,22 +226,300 @@ function renderPdfDownloadOptions() {
 }
 
 
-function downloadPdfArchive(ids = null) {
-  let url =
-    "/api/source-pdfs.zip";
-
-  if (
+async function downloadPdfArchive(
+  ids = null
+) {
+  const requestedIds =
     Array.isArray(ids) &&
     ids.length > 0
+      ? new Set(
+          ids.map(
+            (id) =>
+              Number(id)
+          )
+        )
+      : null;
+
+  const pdfSources =
+    allSources.filter(
+      (source) => {
+        const hasPdf =
+          String(
+            source.private_pdf_object_key ||
+            ""
+          ).trim();
+
+        if (!hasPdf) {
+          return false;
+        }
+
+        if (!requestedIds) {
+          return true;
+        }
+
+        return requestedIds.has(
+          Number(source.id)
+        );
+      }
+    );
+
+  if (
+    pdfSources.length === 0
   ) {
-    url +=
-      `?ids=${encodeURIComponent(
-        ids.join(",")
-      )}`;
+    pdfDownloadCount.textContent =
+      "No PDFs selected.";
+
+    return;
   }
 
-  window.location.href =
-    url;
+  if (
+    typeof JSZip ===
+    "undefined"
+  ) {
+    pdfDownloadCount.textContent =
+      "ZIP library failed to load.";
+
+    return;
+  }
+
+  const originalSelectedText =
+    pdfDownloadSelected.textContent;
+
+  const originalAllText =
+    pdfDownloadAll.textContent;
+
+  pdfDownloadSelected.disabled =
+    true;
+
+  pdfDownloadAll.disabled =
+    true;
+
+  pdfSelectAll.disabled =
+    true;
+
+  pdfClearAll.disabled =
+    true;
+
+  const zip =
+    new JSZip();
+
+  const missing =
+    [];
+
+  let added =
+    0;
+
+  try {
+    for (
+      let index = 0;
+      index <
+        pdfSources.length;
+      index += 1
+    ) {
+      const source =
+        pdfSources[index];
+
+      const sourceCode =
+        String(
+          source.source_code ||
+          `source-${source.id}`
+        )
+          .trim()
+          .toLowerCase();
+
+      const safeCode =
+        sourceCode.replace(
+          /[^a-zA-Z0-9._-]+/g,
+          "_"
+        );
+
+      pdfDownloadCount.textContent =
+        `Downloading ${index + 1} of ${pdfSources.length}: ` +
+        `${sourceCode.toUpperCase()}`;
+
+      pdfDownloadSelected.textContent =
+        `Downloading ${index + 1}/${pdfSources.length}…`;
+
+      pdfDownloadAll.textContent =
+        `Downloading ${index + 1}/${pdfSources.length}…`;
+
+      try {
+        const response =
+          await fetch(
+            `/api/sources/${encodeURIComponent(
+              source.id
+            )}/pdf`,
+            {
+              headers: {
+                accept:
+                  "application/pdf",
+              },
+            }
+          );
+
+        if (!response.ok) {
+          throw new Error(
+            `HTTP ${response.status}`
+          );
+        }
+
+        const blob =
+          await response.blob();
+
+        zip.file(
+          `${safeCode}.pdf`,
+          blob,
+          {
+            binary: true,
+            compression:
+              "STORE",
+          }
+        );
+
+        added += 1;
+
+      } catch (error) {
+        console.error(
+          `Unable to download PDF for ${sourceCode}.`,
+          error
+        );
+
+        missing.push(
+          sourceCode
+        );
+      }
+    }
+
+    if (
+      missing.length > 0
+    ) {
+      zip.file(
+        "_missing-pdfs.txt",
+        [
+          "The following Source PDFs could not be downloaded:",
+          "",
+          ...missing,
+          "",
+        ].join("\n")
+      );
+    }
+
+    if (added === 0) {
+      throw new Error(
+        "None of the selected PDFs could be downloaded."
+      );
+    }
+
+    pdfDownloadCount.textContent =
+      `Creating ZIP from ${added} PDF${added === 1 ? "" : "s"}…`;
+
+    pdfDownloadSelected.textContent =
+      "Creating ZIP…";
+
+    pdfDownloadAll.textContent =
+      "Creating ZIP…";
+
+    const archive =
+      await zip.generateAsync(
+        {
+          type: "blob",
+
+          /*
+           * PDFs are already compressed.
+           * Recompressing them only wastes
+           * CPU and memory.
+           */
+          compression:
+            "STORE",
+        },
+        (metadata) => {
+          const percent =
+            Math.round(
+              metadata.percent
+            );
+
+          pdfDownloadCount.textContent =
+            `Creating ZIP… ${percent}%`;
+        }
+      );
+
+    const url =
+      URL.createObjectURL(
+        archive
+      );
+
+    const anchor =
+      document.createElement(
+        "a"
+      );
+
+    anchor.href =
+      url;
+
+    anchor.download =
+      "corrosion-atlas-source-pdfs.zip";
+
+    document.body.append(
+      anchor
+    );
+
+    anchor.click();
+
+    anchor.remove();
+
+    window.setTimeout(
+      () => {
+        URL.revokeObjectURL(
+          url
+        );
+      },
+      1000
+    );
+
+    pdfDownloadCount.textContent =
+      `Downloaded ${added} PDF${added === 1 ? "" : "s"}` +
+      (
+        missing.length > 0
+          ? ` · ${missing.length} missing`
+          : ""
+      );
+
+  } catch (error) {
+    console.error(
+      "PDF archive download failed.",
+      error
+    );
+
+    pdfDownloadCount.textContent =
+      error.message ||
+      "PDF download failed.";
+
+  } finally {
+    pdfDownloadSelected.textContent =
+      originalSelectedText;
+
+    pdfDownloadAll.textContent =
+      originalAllText;
+
+    pdfSelectAll.disabled =
+      false;
+
+    pdfClearAll.disabled =
+      false;
+
+    pdfDownloadSelected.disabled =
+      selectedPdfIds.size ===
+      0;
+
+    pdfDownloadAll.disabled =
+      allSources.every(
+        (source) =>
+          !String(
+            source.private_pdf_object_key ||
+            ""
+          ).trim()
+      );
+  }
 }
 
 function applySearch() {
