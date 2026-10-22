@@ -368,24 +368,35 @@ function addField(fieldName, label, value) {
   fieldsElement.append(row);
 }
 
-function renderSourcePdf() {
-  /*
-   * A Source must exist in the database
-   * before a PDF can be attached.
-   */
-  if (
-    !currentSource ||
-    !currentSource.id
-  ) {
-    sourcePdfSection.hidden =
-      true;
 
+function renderSourcePdf() {
+  if (!currentSource) {
+    sourcePdfSection.hidden = true;
     return;
   }
 
+  sourcePdfSection.hidden = false;
 
-  sourcePdfSection.hidden =
-    false;
+  // New source: allow PDF selection before saving.
+  if (!currentSource.id) {
+    const selectedFile = sourcePdfInput.files?.[0];
+
+    sourcePdfTitle.textContent = selectedFile
+      ? selectedFile.name
+      : "No PDF selected";
+
+    sourcePdfMeta.textContent =
+      "Optional: select a PDF to upload automatically when saving this source.";
+
+    openSourcePdf.hidden = true;
+    removeSourcePdfButton.hidden = true;
+
+    uploadSourcePdfButton.textContent = selectedFile
+      ? "Change PDF"
+      : "Select PDF";
+
+    return;
+  }
 
 
   const objectKey =
@@ -721,17 +732,36 @@ saveButton.addEventListener("click", async () => {
         "",
         `/sources/detail/?id=${encodeURIComponent(currentSource.id)}`
       );
-      siteLinksSection.hidden = false;
 
-      await Promise.all([
+      siteLinksSection.hidden = false;
+    }
+
+    renderSource();
+
+    // Upload selected PDF after the source exists.
+    const hasSelectedPdf =
+      creating && Boolean(sourcePdfInput.files?.[0]);
+
+    if (hasSelectedPdf) {
+      sourcePdfInput.dispatchEvent(
+        new Event("change")
+      );
+    }
+
+    // Load linked-site controls without interfering
+    // with the successful source creation.
+    if (creating) {
+      await Promise.allSettled([
         loadSiteOptions(),
         loadLinkedSites(),
       ]);
     }
 
-    renderSource();
+    saveMessage.textContent = hasSelectedPdf
+      ? "Source saved. PDF upload started; check the PDF section for its status."
+      : "Saved.";
 
-    saveMessage.textContent = "Saved.";
+
     saveMessage.className = "save-message save-message-success";
     saveMessage.hidden = false;
 
@@ -1097,6 +1127,13 @@ sourcePdfInput.addEventListener(
       return;
     }
 
+    // During source creation, keep the file
+    // selected until the source is saved.
+    if (!currentSource?.id) {
+      sourcePdfMessage.hidden = true;
+      renderSourcePdf();
+      return;
+    }
 
     uploadSourcePdfButton.disabled =
       true;
