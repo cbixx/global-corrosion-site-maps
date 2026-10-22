@@ -2565,6 +2565,30 @@ a.manage-record:hover {
   font-weight: 700;
 }
 
+.sites-bulk-query {
+  width: 100%;
+  min-width: 180px;
+  box-sizing: border-box;
+}
+
+.sites-bulk-query-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.sites-bulk-suggestion {
+  flex: 1 1 210px;
+  min-width: 0;
+}
+
+.sites-bulk-query-actions .button {
+  flex-shrink: 0;
+}
+
+
 .sites-bulk-state {
   flex-shrink: 0;
   padding: 5px 9px;

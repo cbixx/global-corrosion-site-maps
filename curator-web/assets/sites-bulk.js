@@ -547,9 +547,17 @@ function bulkFindExistingSite(
 }
 
 
+
 function bulkRefreshRowState(
   row
 ) {
+  if (row.query_dirty) {
+    row.state = "review";
+    row.existing_match = null;
+    row.selected = false;
+    return;
+  }
+
   row.existing_match =
     bulkFindExistingSite(
       row
@@ -906,6 +914,7 @@ function bulkUpdateSelectionControls() {
 
   bulkCreateButton.disabled =
     bulkCreating ||
+    bulkAnalysing ||
     selected.length === 0;
 
 
@@ -1198,6 +1207,138 @@ function bulkCreateTextInput(
 }
 
 
+function bulkQuerySuggestions(row) {
+  const suggestions = [];
+  const seen = new Set([bulkNormalise(row.query)]);
+
+  function add(text, prefix) {
+    const query = String(text || "").trim();
+    const key = bulkNormalise(query);
+
+    if (!key || seen.has(key)) return;
+
+    seen.add(key);
+    suggestions.push({
+      query,
+      label: prefix + query
+    });
+  }
+
+  // Suggestions from existing geographical results.
+  for (const result of row.results || []) {
+    add(
+      result.full_label ||
+      result.label ||
+      result.site_label,
+      "Geographic result: "
+    );
+  }
+
+  // Simplify queries containing station codes or descriptions.
+  const simpler = String(row.query || "")
+    .replace(/\bACS\s*\d+\b/gi, "")
+    .replace(/\([^)]*\)/g, "")
+    .replace(/\s+/g, " ")
+    .replace(/^[,\s–-]+|[,\s–-]+$/g, "");
+
+  add(simpler, "Try simplified name: ");
+
+  const parts = String(row.query || "")
+    .split(",")
+    .map(part => part.trim())
+    .filter(Boolean);
+
+  if (parts.length > 2) {
+    add(
+      parts.slice(-2).join(", "),
+      "Try broader area: "
+    );
+  }
+
+  return suggestions.slice(0, 7);
+}
+
+
+async function bulkAnalyseOneSite(row, queryText) {
+  if (
+    bulkAnalysing ||
+    bulkCreating ||
+    bulkCreationSucceeded(row)
+  ) return;
+
+  const query = String(queryText || "").trim();
+
+  if (!query) {
+    row.error = "Enter a location name to analyse.";
+    row.state = "review";
+    row.selected = false;
+    bulkRenderRows();
+    return;
+  }
+
+  bulkAnalysing = true;
+  bulkAnalyseButton.disabled = true;
+  bulkClearButton.disabled = true;
+
+  // Reset only this row. Other rows remain unchanged.
+  Object.assign(row, {
+    query,
+    query_dirty: false,
+    results: [],
+    candidate_index: 0,
+    site_label: "",
+    country: "",
+    country_code: "",
+    administering_country: "",
+    latitude: "",
+    longitude: "",
+    region_category: "",
+    region_note: "",
+    existing_match: null,
+    state: "searching",
+    error: "",
+    selected: false,
+    selection_touched: false,
+    creation_status: "",
+    create_error: ""
+  });
+
+  bulkRenderRows();
+
+  try {
+    // Respect the existing geocoding request interval.
+    await bulkSleep(BULK_LOOKUP_DELAY_MS);
+
+    // Force a fresh search, including for the same query.
+    bulkSearchCache.delete(bulkNormalise(query));
+
+    row.results = await bulkSearchLocation(query);
+
+    if (row.results.length) {
+      await bulkApplyCandidate(row, 0);
+    } else {
+      row.state = "review";
+      row.error =
+        "No geographic matches. Edit the query and try again.";
+    }
+
+  } catch (error) {
+    console.error("Single-site lookup failed.", error);
+
+    row.state = "review";
+    row.error =
+      error.message || "Geographic lookup failed.";
+
+  } finally {
+    bulkAnalysing = false;
+    bulkAnalyseButton.disabled = false;
+    bulkClearButton.disabled = false;
+
+    bulkRenderRows();
+  }
+}
+
+
 function bulkRenderRow(
   row
 ) {
@@ -1237,22 +1378,135 @@ function bulkRenderRow(
     "Search query";
 
 
-  const queryValue =
-    document.createElement(
-      "div"
+
+  const queryInput = document.createElement("input");
+
+  queryInput.type = "text";
+  queryInput.className = "detail-input sites-bulk-query";
+  queryInput.value = row.query;
+
+  queryInput.disabled =
+    bulkAnalysing ||
+    bulkCreating ||
+    bulkCreationSucceeded(row);
+
+  queryInput.setAttribute(
+    "aria-label",
+    "Geographic search query"
+  );
+
+  queryInput.addEventListener("input", () => {
+    row.query = queryInput.value;
+    row.query_dirty = true;
+    row.state = "review";
+    row.selected = false;
+    row.selection_touched = false;
+
+    row.error =
+      "Query revised. Click Analyse this site to search again.";
+
+    // Prevent using geographical results from an old query.
+    const previousMatches = card.querySelector(
+      ".sites-bulk-candidate-field"
     );
 
-  queryValue.className =
-    "sites-bulk-query";
+    if (previousMatches) {
+      previousMatches.remove();
+    }
 
-  queryValue.textContent =
-    row.query;
+    const createSelector = card.querySelector(
+      ".sites-bulk-select"
+    );
 
+    if (createSelector) {
+      createSelector.remove();
+    }
+
+    const status = card.querySelector(
+      ".sites-bulk-state"
+    );
+
+    if (status) {
+      status.className =
+        "sites-bulk-state sites-bulk-state-review";
+      status.textContent = "Needs review";
+    }
+
+    bulkUpdateSummary();
+  });
+
+
+  // Did you mean? suggestions
+  const suggestions = document.createElement("select");
+
+  suggestions.className =
+    "detail-input sites-bulk-suggestion";
+
+  suggestions.setAttribute(
+    "aria-label",
+    "Did you mean?"
+  );
+
+  const placeholder = document.createElement("option");
+  placeholder.value = "";
+  placeholder.textContent =
+    "Did you mean? Select an alternative";
+
+  suggestions.append(placeholder);
+
+  for (const item of bulkQuerySuggestions(row)) {
+    const option = document.createElement("option");
+
+    option.value = item.query;
+    option.textContent = item.label;
+
+    suggestions.append(option);
+  }
+
+  if (suggestions.options.length === 1) {
+    placeholder.textContent =
+      "No suggestions — edit the query";
+    suggestions.disabled = true;
+  }
+
+  suggestions.disabled =
+    suggestions.disabled || queryInput.disabled;
+
+  suggestions.addEventListener("change", () => {
+    if (!suggestions.value) return;
+
+    queryInput.value = suggestions.value;
+    queryInput.dispatchEvent(new Event("input"));
+
+    suggestions.value = "";
+  });
+
+
+  // Individual analysis button
+  const retry = document.createElement("button");
+
+  retry.type = "button";
+  retry.className = "button button-secondary";
+  retry.textContent = "Analyse this site";
+  retry.disabled = queryInput.disabled;
+
+  retry.addEventListener("click", () => {
+    bulkAnalyseOneSite(row, queryInput.value);
+  });
+
+
+  const queryActions = document.createElement("div");
+
+  queryActions.className = "sites-bulk-query-actions";
+
+  queryActions.append(suggestions, retry);
 
   queryBlock.append(
     queryLabel,
-    queryValue
+    queryInput,
+    queryActions
   );
+
 
 
   const controls =
