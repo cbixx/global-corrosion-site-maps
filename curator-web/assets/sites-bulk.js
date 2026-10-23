@@ -2662,6 +2662,7 @@ async function bulkAnalyseSites() {
 
     bulkAnalyseButton.textContent =
       "Analyse Sites";
+    bulkRenderRows();  
   }
 }
 
