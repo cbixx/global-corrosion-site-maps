@@ -153,8 +153,8 @@ const importResult =
 let currentWorkbookFile =
   null;
 
-let currentPreviewSummary =
-  null;
+let currentPreviewSummary = null;
+let currentPreviewRows = [];
 
 let workbookSources = [];
 
@@ -1480,8 +1480,8 @@ function renderCorrosionPreview(
     payload.summary ||
     {};
 
-  currentPreviewSummary =
-    summary;
+  currentPreviewSummary = summary;
+  currentPreviewRows = preview;
 
 
   importConfirmCheckbox.checked =
@@ -1988,12 +1988,34 @@ importButton.addEventListener(
       false;
 
 
+
+    let importJobId = "";
+
     try {
-      const total = Number(currentPreviewSummary?.ready || 0);
+      const fileDigest = await crypto.subtle.digest(
+        "SHA-256",
+        await currentWorkbookFile.arrayBuffer()
+      );
+
+      importJobId = Array.from(
+        new Uint8Array(fileDigest)
+      )
+        .map(value =>
+          value.toString(16).padStart(2, "0")
+        )
+        .join("");
+
+      const total = Number(
+        currentPreviewSummary?.ready || 0
+      );
+
 
       let offset = 0;
       let created = 0;
       let updated = 0;
+      let existing = 0;
+      let resumed = 0;
+      let conflicts = 0;
 
       const warnings = [];
 
@@ -2040,19 +2062,46 @@ importButton.addEventListener(
           );
         }
 
+
+        if (payload.batch_job_id !== importJobId) {
+          throw new Error(
+            "Workbook identity mismatch; import stopped."
+          );
+        }
+
         created += Number(payload.created || 0);
         updated += Number(payload.updated || 0);
 
+        existing += (payload.batch_rows || [])
+          .filter(result =>
+            result.status === "existing"
+          ).length;
+
+        resumed += (payload.batch_rows || [])
+          .filter(result =>
+            result.status === "skipped_completed" &&
+            result.previous_status !== "conflict"
+          ).length;
+
+        conflicts += Number(payload.conflicts || 0);
+
         if (payload.warning) {
+
           warnings.push(payload.warning);
         }
 
         offset = next;
       }
 
+
       let message =
-        `Imported ${created + updated} observations: ` +
-        `${created} created, ${updated} updated.`;
+        `Job ${importJobId.slice(0, 12)}…: ` +
+        `${created} created, ` +
+        `${updated} explicitly updated, ` +
+        `${existing} already in database, ` +
+        `${resumed} previously processed, ` +
+        `${conflicts} conflicts.`;
+
 
       if (warnings.length) {
         message += " " + [...new Set(warnings)].join(" ");
@@ -2060,15 +2109,24 @@ importButton.addEventListener(
 
       importResult.textContent = message;
 
-      importResult.className = warnings.length
+      importResult.className = warnings.length || conflicts
         ? "save-message save-message-warning"
         : "save-message save-message-success";
-
-
 
       importResult.hidden =
         false;
 
+
+      if (conflicts > 0) {
+        importResult.textContent +=
+          " Conflicting measurements were not overwritten." +
+          " Review the import journal before proceeding.";
+
+        importButton.disabled = true;
+
+        await loadObservations();
+        return;
+      }
 
       /*
        * Prevent accidental second import from the
@@ -2107,9 +2165,73 @@ importButton.addEventListener(
       );
 
 
-      importResult.textContent =
+
+      let detail =
         error.message ||
         "Unable to import corrosion workbook.";
+
+      if (importJobId) {
+        try {
+          const response = await fetch(
+            "/api/corrosion-import-status?job_id=" +
+            encodeURIComponent(importJobId)
+          );
+
+          const status = await response.json();
+
+          if (response.ok && status.ok) {
+            const completed = status.rows.filter(
+              row =>
+                ["created", "existing", "updated"]
+                  .includes(row.status)
+            );
+
+            const conflicts = status.rows.filter(
+              row => row.status === "conflict"
+            );
+
+            const completedNumbers = new Set(
+              completed.map(row => Number(row.excel_row))
+            );
+
+            const pending = currentPreviewRows
+              .filter(row =>
+                row.validation_status === "READY" &&
+                !completedNumbers.has(Number(row.excel_row))
+              )
+              .map(row => row.excel_row);
+
+            detail +=
+              "\n\nSaved Excel rows: " +
+              (completed.map(row => row.excel_row)
+                .join(", ") || "None");
+
+            detail +=
+              "\nPending or unresolved Excel rows: " +
+              (pending.join(", ") || "None");
+
+            if (conflicts.length > 0) {
+              detail +=
+                "\nConflicting Excel rows: " +
+                conflicts.map(row => row.excel_row).join(", ");
+            }
+
+            detail +=
+              "\n\nYou can retry the same workbook." +
+              " Completed rows will be skipped.";
+          }
+
+        } catch (statusError) {
+          console.warn(
+            "Import history lookup unavailable.",
+            statusError
+          );
+        }
+      }
+
+      importResult.textContent = detail;
+      importResult.style.whiteSpace = "pre-line";
+
 
       importResult.className =
         "save-message save-message-error";

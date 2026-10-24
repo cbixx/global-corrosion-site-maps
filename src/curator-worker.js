@@ -11766,6 +11766,93 @@ async function updateCorrosionLinkMetadata(
 }
 
 
+async function handleCorrosionImportStatus(request, env) {
+  if (!env.SUPABASE_URL || !env.SUPABASE_SECRET_KEY) {
+    return Response.json(
+      { ok: false, error: "Supabase configuration is missing." },
+      { status: 500 }
+    );
+  }
+
+  const jobId = new URL(request.url)
+    .searchParams.get("job_id") || "";
+
+  if (!/^[a-f0-9]{64}$/.test(jobId)) {
+    return Response.json(
+      { ok: false, error: "Invalid import job ID." },
+      { status: 400 }
+    );
+  }
+
+  const headers = {
+    apikey: env.SUPABASE_SECRET_KEY,
+    authorization: `Bearer ${env.SUPABASE_SECRET_KEY}`,
+    accept: "application/json"
+  };
+
+  const jobEndpoint = new URL(
+    "/rest/v1/corrosion_import_jobs",
+    env.SUPABASE_URL
+  );
+
+  jobEndpoint.searchParams.set("job_id", `eq.${jobId}`);
+  jobEndpoint.searchParams.set(
+    "select",
+    "job_id,file_name,total_rows,created_at"
+  );
+
+  const rowsEndpoint = new URL(
+    "/rest/v1/corrosion_import_rows",
+    env.SUPABASE_URL
+  );
+
+  rowsEndpoint.searchParams.set("job_id", `eq.${jobId}`);
+  rowsEndpoint.searchParams.set(
+    "select",
+    "excel_row,status,observation_id,message,recorded_at"
+  );
+  rowsEndpoint.searchParams.set("order", "excel_row.asc");
+
+  try {
+    const [jobResponse, rowsResponse] = await Promise.all([
+      fetch(jobEndpoint, { headers }),
+      fetch(rowsEndpoint, { headers })
+    ]);
+
+    if (!jobResponse.ok || !rowsResponse.ok) {
+      throw new Error("Unable to retrieve import history.");
+    }
+
+    const jobs = await jobResponse.json();
+    const rows = await rowsResponse.json();
+
+    return Response.json(
+      {
+        ok: true,
+        job: jobs[0] || null,
+        rows
+      },
+      {
+        headers: {
+          "cache-control": "no-store"
+        }
+      }
+    );
+
+  } catch (error) {
+    console.error("Import status lookup failed.", error);
+
+    return Response.json(
+      {
+        ok: false,
+        error: "Could not read import history."
+      },
+      { status: 502 }
+    );
+  }
+}
+
+
 async function handleCorrosionWorkbookImport(
   request,
   env
@@ -12405,6 +12492,9 @@ async function handleCorrosionWorkbookImport(
         excelRow:
           row.excel_row,
 
+        explicitObservationId:
+          row.observation_id || null,
+
         site,
 
         source,
@@ -12419,30 +12509,135 @@ async function handleCorrosionWorkbookImport(
 
 
     /*
-     * ---------------------------------------------------
-     * Perform observation writes.
-     * ---------------------------------------------------
+     * Atomic, journaled corrosion observation import.
+     * Each request handles at most eight rows.
      */
-
 
     const offset = Number(
       request.headers.get("x-corrosion-batch-offset") ?? 0
     );
 
-    if (!Number.isSafeInteger(offset) || offset < 0) {
+    if (
+      !Number.isSafeInteger(offset) ||
+      offset < 0 ||
+      offset >= operations.length
+    ) {
       throw new Error("Invalid corrosion import batch offset.");
     }
 
-    // Limit database writes per Worker invocation.
     const batchOperations = operations.slice(
       offset,
       offset + 8
     );
 
+    // Same workbook bytes always produce the same job ID.
+    const digest = await crypto.subtle.digest(
+      "SHA-256",
+      bytes
+    );
 
+    const jobId = Array.from(
+      new Uint8Array(digest)
+    )
+      .map(value =>
+        value.toString(16).padStart(2, "0")
+      )
+      .join("");
 
-    let created = 0;
-    let updated = 0;
+    const endpoint = new URL(
+      "/rest/v1/rpc/apply_corrosion_import_batch",
+      env.SUPABASE_URL
+    );
+
+    const rpcResponse = await fetch(endpoint, {
+      method: "POST",
+
+      headers: {
+        apikey: env.SUPABASE_SECRET_KEY,
+
+        authorization:
+          `Bearer ${env.SUPABASE_SECRET_KEY}`,
+
+        "content-type": "application/json",
+        accept: "application/json"
+      },
+
+      body: JSON.stringify({
+        p_job_id: jobId,
+
+        p_file_name:
+          fileName || "corrosion workbook",
+
+        p_total_rows:
+          operations.length,
+
+        p_items: batchOperations.map(operation => ({
+          excel_row:
+            operation.excelRow,
+
+          explicit_observation_id:
+            operation.explicitObservationId,
+
+          payload:
+            operation.payload
+        }))
+      })
+    });
+
+    if (!rpcResponse.ok) {
+      const detail = await rpcResponse.text();
+
+      throw new Error(
+        "Atomic import batch failed: " +
+        detail.slice(0, 350)
+      );
+    }
+
+    const batchResult = await rpcResponse.json();
+
+    const outcomes = Array.isArray(batchResult.results)
+      ? batchResult.results
+      : [];
+
+    const created = outcomes.filter(
+      result => result.status === "created"
+    ).length;
+
+    const updated = outcomes.filter(
+      result => result.status === "updated"
+    ).length;
+
+    const existing = outcomes.filter(
+      result => result.status === "existing"
+    ).length;
+
+    const resumed = outcomes.filter(
+      result =>
+        result.status === "skipped_completed" &&
+        result.previous_status !== "conflict"
+    ).length;
+
+    const conflicts = outcomes.filter(
+      result =>
+        result.status === "conflict" ||
+        result.previous_status === "conflict"
+    ).length;
+
+    // Only accepted observations may propagate metadata.
+    const acceptedExcelRows = new Set(
+      outcomes
+        .filter(result =>
+          ["created", "updated", "existing"].includes(
+            result.status
+          ) ||
+          (
+            result.status === "skipped_completed" &&
+            result.previous_status !== "conflict"
+          )
+        )
+        .map(result => Number(result.excel_row))
+    );
+
 
 
     const touchedSiteIds =
@@ -12452,38 +12647,18 @@ async function handleCorrosionWorkbookImport(
       new Map();
 
 
-    for (
-      const operation
-      of batchOperations
-    ) {
-      await writeCorrosionObservation(
-        env,
-        {
-          id:
-            operation
-              .targetObservationId,
-
-          payload:
-            operation.payload,
-        }
-      );
-
-
+    for (const operation of batchOperations) {
       if (
-        operation
-          .targetObservationId ===
-        null
+        !acceptedExcelRows.has(
+          Number(operation.excelRow)
+        )
       ) {
-        created +=
-          1;
-
-      } else {
-        updated +=
-          1;
+        continue;
       }
 
-
       touchedSiteIds.add(
+
+
         Number(
           operation.site.id
         )
@@ -12603,7 +12778,20 @@ async function handleCorrosionWorkbookImport(
         updated,
 
 
-        skipped: 0,
+        skipped: existing + resumed,
+
+        conflicts,
+
+        batch_job_id: jobId,
+
+        batch_rows: outcomes,
+
+        batch_status: {
+          recorded: batchResult.recorded,
+          complete: batchResult.complete,
+          conflicts: batchResult.conflicts,
+          total: batchResult.total
+        },
 
         batch_next: Math.min(
           offset + batchOperations.length,
@@ -14911,6 +15099,16 @@ export default {
       request.method === "POST"
     ) {
       return handleCorrosionWorkbookPreview(
+        request,
+        env
+      );
+    }
+
+    if (
+      path === "/api/corrosion-import-status" &&
+      request.method === "GET"
+    ) {
+      return handleCorrosionImportStatus(
         request,
         env
       );
