@@ -12424,6 +12424,23 @@ async function handleCorrosionWorkbookImport(
      * ---------------------------------------------------
      */
 
+
+    const offset = Number(
+      request.headers.get("x-corrosion-batch-offset") ?? 0
+    );
+
+    if (!Number.isSafeInteger(offset) || offset < 0) {
+      throw new Error("Invalid corrosion import batch offset.");
+    }
+
+    // Limit database writes per Worker invocation.
+    const batchOperations = operations.slice(
+      offset,
+      offset + 8
+    );
+
+
+
     let created = 0;
     let updated = 0;
 
@@ -12437,7 +12454,7 @@ async function handleCorrosionWorkbookImport(
 
     for (
       const operation
-      of operations
+      of batchOperations
     ) {
       await writeCorrosionObservation(
         env,
@@ -12585,10 +12602,18 @@ async function handleCorrosionWorkbookImport(
 
         updated,
 
-        skipped:
-          0,
+
+        skipped: 0,
+
+        batch_next: Math.min(
+          offset + batchOperations.length,
+          operations.length
+        ),
+
+        batch_total: operations.length,
 
         warning,
+
       },
       {
         headers: {

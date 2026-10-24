@@ -1989,72 +1989,82 @@ importButton.addEventListener(
 
 
     try {
-      const response =
-        await fetch(
+      const total = Number(currentPreviewSummary?.ready || 0);
+
+      let offset = 0;
+      let created = 0;
+      let updated = 0;
+
+      const warnings = [];
+
+      while (offset < total) {
+        importResult.textContent =
+          `Importing observations ${offset + 1}–${Math.min(offset + 8, total)} of ${total}…`;
+
+        const response = await fetch(
           "/api/corrosion-workbook-import",
           {
-            method:
-              "POST",
-
+            method: "POST",
             headers: {
               "content-type":
-                currentWorkbookFile
-                  .type ||
+                currentWorkbookFile.type ||
                 "application/octet-stream",
 
               "x-corrosion-file-name":
-                encodeURIComponent(
-                  currentWorkbookFile
-                    .name
-                ),
+                encodeURIComponent(currentWorkbookFile.name),
 
-              accept:
-                "application/json",
+              "x-corrosion-batch-offset":
+                String(offset),
+
+              accept: "application/json"
             },
-
-            body:
-              currentWorkbookFile,
+            body: currentWorkbookFile
           }
         );
 
+        const payload = await response.json();
 
-      const payload =
-        await response.json();
+        if (!response.ok || !payload.ok) {
+          throw new Error(
+            `Batch starting at row ${offset + 1} failed: ` +
+            (payload.error || `HTTP ${response.status}`) +
+            ". Check imported records before retrying."
+          );
+        }
 
+        const next = Number(payload.batch_next);
 
-      if (
-        !response.ok ||
-        !payload.ok
-      ) {
-        throw new Error(
-          payload.error ||
-          `HTTP ${response.status}`
-        );
+        if (!Number.isSafeInteger(next) || next <= offset) {
+          throw new Error(
+            "Import did not advance to the next batch."
+          );
+        }
+
+        created += Number(payload.created || 0);
+        updated += Number(payload.updated || 0);
+
+        if (payload.warning) {
+          warnings.push(payload.warning);
+        }
+
+        offset = next;
       }
-
 
       let message =
-        `Imported ${payload.imported} corrosion observation` +
-        `${payload.imported === 1 ? "" : "s"}. ` +
-        `${payload.created} created, ` +
-        `${payload.updated} updated.`;
+        `Imported ${created + updated} observations: ` +
+        `${created} created, ${updated} updated.`;
 
-
-      if (
-        payload.warning
-      ) {
-        message +=
-          ` ${payload.warning}`;
+      if (warnings.length) {
+        message += " " + [...new Set(warnings)].join(" ");
       }
 
+      importResult.textContent = message;
 
-      importResult.textContent =
-        message;
+      importResult.className = warnings.length
+        ? "save-message save-message-warning"
+        : "save-message save-message-success";
 
-      importResult.className =
-        payload.warning
-          ? "save-message save-message-warning"
-          : "save-message save-message-success";
+
 
       importResult.hidden =
         false;
