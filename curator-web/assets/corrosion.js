@@ -159,12 +159,17 @@ const importResult =
     "corrosion-import-result"
   );
 
+const identityDownloadButton =
+  document.getElementById(
+    "corrosion-download-identified-workbook"
+  );
 
 let currentWorkbookFile =
   null;
 
 let currentPreviewSummary = null;
 let currentPreviewRows = [];
+let lastImportedSourceCode = "";
 
 let workbookSources = [];
 
@@ -1454,6 +1459,79 @@ generateWorkbookButton.addEventListener(
   }
 );
 
+
+identityDownloadButton.addEventListener(
+  "click",
+  async () => {
+    if (!lastImportedSourceCode) {
+      return;
+    }
+
+    identityDownloadButton.disabled = true;
+
+    try {
+      let source = workbookSources.find(
+        item =>
+          String(item.source_code || "")
+            .trim()
+            .toLowerCase() === lastImportedSourceCode
+      );
+
+      // Refresh the source selector if the source was
+      // added after this page originally loaded.
+      if (!source) {
+        await loadWorkbookSources();
+
+        source = workbookSources.find(
+          item =>
+            String(item.source_code || "")
+              .trim()
+              .toLowerCase() === lastImportedSourceCode
+        );
+      }
+
+      if (!source) {
+        throw new Error(
+          "The imported source is not available " +
+          "in the workbook generator."
+        );
+      }
+
+      workbookSource.value = String(source.id);
+
+      renderWorkbookSourceContext();
+
+      if (generateWorkbookButton.disabled) {
+        throw new Error(
+          "Workbook generation is unavailable for this source."
+        );
+      }
+
+      // Reuse the existing XLSM generation and download
+      // mechanism, including its error handling.
+      generateWorkbookButton.click();
+
+    } catch (error) {
+      console.error(
+        "Identity-filled workbook download failed.",
+        error
+      );
+
+      importResult.textContent =
+        "Unable to generate the identity-filled workbook: " +
+        error.message;
+
+      importResult.className =
+        "save-message save-message-warning";
+
+      importResult.hidden = false;
+
+    } finally {
+      identityDownloadButton.disabled = false;
+    }
+  }
+);
+
 function appendPreviewCell(
   row,
   value
@@ -1800,6 +1878,9 @@ workbookUploadInput.addEventListener(
 
     currentWorkbookFile =
       file;
+
+    lastImportedSourceCode = "";
+    identityDownloadButton.hidden = true;
 
     currentPreviewSummary =
       null;
@@ -2161,6 +2242,121 @@ importButton.addEventListener(
         await loadObservations();
         return;
       }
+
+
+      /*
+       * Phase 2 identity synchronization.
+       * Reconcile the original workbook against records
+       * that have just been committed to Supabase.
+       */
+
+      const sourceCodes = [
+        ...new Set(
+          currentPreviewRows
+            .map(row =>
+              String(row.source_code || "")
+                .trim()
+                .toLowerCase()
+            )
+            .filter(Boolean)
+        )
+      ];
+
+      lastImportedSourceCode =
+        sourceCodes.length === 1
+          ? sourceCodes[0]
+          : "";
+
+      let synchronizationMessage = "";
+
+      try {
+        const refreshResponse = await fetch(
+          "/api/corrosion-workbook-preview",
+          {
+            method: "POST",
+            headers: {
+              "content-type":
+                currentWorkbookFile.type ||
+                "application/octet-stream",
+
+              "x-corrosion-file-name":
+                encodeURIComponent(currentWorkbookFile.name),
+
+              accept: "application/json"
+            },
+            body: currentWorkbookFile
+          }
+        );
+
+        const refreshed = await refreshResponse.json();
+
+        if (!refreshResponse.ok || !refreshed.ok) {
+          throw new Error(
+            refreshed.error ||
+            `HTTP ${refreshResponse.status}`
+          );
+        }
+
+        const refreshedRows = Array.isArray(
+          refreshed.preview
+        ) ? refreshed.preview : [];
+
+        if (
+          refreshedRows.length !== currentPreviewRows.length
+        ) {
+          throw new Error(
+            "Reconciliation returned a different row count."
+          );
+        }
+
+        // Redisplay the actual saved database identities.
+        renderCorrosionPreview(refreshed);
+
+        const missingUuidRows = refreshedRows.filter(
+          row =>
+            row.validation_status === "READY" &&
+            !row.matched_observation_uuid
+        );
+
+        if (missingUuidRows.length > 0) {
+          throw new Error(
+            `UUID lookup incomplete for ${missingUuidRows.length} row(s).`
+          );
+        }
+
+        synchronizationMessage =
+          ` Database identities synchronized for ` +
+          `${refreshedRows.length} observation(s).`;
+
+      } catch (syncError) {
+        console.warn(
+          "Post-import identity refresh failed.",
+          syncError
+        );
+
+        synchronizationMessage =
+          " Observations were saved, but the automatic " +
+          "identity refresh was incomplete: " +
+          syncError.message;
+      }
+
+      // Restore the result text because preview rendering
+      // resets the import-result panel.
+      importResult.textContent =
+        message + synchronizationMessage;
+
+      importResult.className =
+        warnings.length ||
+        synchronizationMessage.includes("incomplete")
+          ? "save-message save-message-warning"
+          : "save-message save-message-success";
+
+      importResult.hidden = false;
+      importConfirm.hidden = false;
+
+      identityDownloadButton.hidden =
+        !lastImportedSourceCode;
+
 
       /*
        * Prevent accidental second import from the

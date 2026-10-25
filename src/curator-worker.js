@@ -11468,21 +11468,42 @@ function reconcileCorrosionWorkbookPreview(
       continue;
     }
 
-    const journal = journalByRow.get(Number(row.excel_row));
+
+    const journal = journalByRow.get(
+      Number(row.excel_row)
+    );
 
     if (journal) {
-      mark(
-        journal.status === "conflict"
-          ? "CONFLICT"
-          : "EXISTING",
-        `Previous import result: ${journal.status}. ` +
-        (journal.message || "")
+      const existing = byId.get(
+        Number(journal.observation_id)
       );
 
-      row.matched_observation_id =
-        journal.observation_id;
+      if (journal.status === "conflict") {
+        mark(
+          "CONFLICT",
+          `Previous import conflict: ${journal.message || ""}`,
+          existing || null
+        );
+
+      } else if (!existing) {
+        mark(
+          "CONFLICT",
+          "Import journal references an observation " +
+          "that is no longer present in the database."
+        );
+
+      } else {
+        mark(
+          "EXISTING",
+          `Previously imported: ${journal.status}. ` +
+          (journal.message || ""),
+          existing
+        );
+      }
+
       continue;
     }
+
 
     // Verify the specimen before accepting its identity.
     if (row.specimen_uuid) {
