@@ -1564,6 +1564,7 @@ function renderCorrosionPreview(
         observation.record_action
     );
 
+
     appendPreviewCell(
       row,
       observation.matched_observation_id
@@ -1571,8 +1572,25 @@ function renderCorrosionPreview(
 
     appendPreviewCell(
       row,
+      observation.matched_observation_uuid ||
+        observation.observation_uuid
+    );
+
+    appendPreviewCell(
+      row,
+      observation.specimen_uuid
+    );
+
+    appendPreviewCell(
+      row,
+      observation.source_record_key
+    );
+
+    appendPreviewCell(
+      row,
       observation.validation_status
     );
+
 
     appendPreviewCell(
       row,

@@ -421,8 +421,26 @@ def ensure_schema_updates() -> None:
                     """
                 )
 
-        if not has_new_corrosion_identity:
+
+        identity_v2_row = conn.execute(
+            """
+            SELECT
+                to_regclass(
+                    'public.ca_corrosion_legacy_identity_partial'
+                ) IS NOT NULL AS present
+            """
+        ).fetchone()
+
+        identity_v2_present = bool(
+            identity_v2_row["present"]
+        )
+
+        if (
+            not has_new_corrosion_identity
+            and not identity_v2_present
+        ):
             conn.execute(
+
                 """
                 alter table corrosion_observations
                 add constraint

@@ -9891,6 +9891,26 @@ function corrosionBuildWorkbookRow(
     );
   }
 
+  // Phase 2B identity columns, after existing helper columns.
+  const identityColumns = [
+    ["X", "observation_uuid"],
+    ["Y", "source_record_key"],
+    ["Z", "specimen_uuid"],
+    ["AA", "source_locator"],
+    ["AB", "identity_notes"]
+  ];
+
+  for (const [column, field] of identityColumns) {
+    cells.push(
+      corrosionInlineCell(
+        column,
+        rowNumber,
+        "",
+        record[field] ?? ""
+      )
+    );
+  }
+
 
   return (
     `<row r="${rowNumber}">` +
@@ -9959,6 +9979,22 @@ function corrosionMutateObservationSheet(
     );
   }
 
+  const identityHeaders = [
+    ["X", "observation_uuid"],
+    ["Y", "source_record_key"],
+    ["Z", "specimen_uuid"],
+    ["AA", "source_locator"],
+    ["AB", "identity_notes"]
+  ];
+
+  const extendedHeaderRow = headerRow.replace(
+    "</row>",
+    identityHeaders
+      .map(([column, heading]) =>
+        corrosionInlineCell(column, 1, "", heading)
+      )
+      .join("") + "</row>"
+  );
 
   const generatedRows = [];
 
@@ -9980,17 +10016,14 @@ function corrosionMutateObservationSheet(
     );
   }
 
-
   const lastDataRow =
     records.length + 1;
 
-
   const sheetData =
     `<sheetData>` +
-    headerRow +
+    extendedHeaderRow +
     generatedRows.join("") +
     `</sheetData>`;
-
 
   let output =
     sheetXml.replace(
@@ -9998,18 +10031,17 @@ function corrosionMutateObservationSheet(
       sheetData
     );
 
-
   output =
     output.replace(
       /<dimension ref="[^"]*"\/>/,
-      `<dimension ref="A1:W${lastDataRow}"/>`
+      `<dimension ref="A1:AB${lastDataRow}"/>`
     );
 
 
   output =
     output.replace(
       /<autoFilter ref="[^"]*"\/>/,
-      `<autoFilter ref="A1:T${lastDataRow}"/>`
+      `<autoFilter ref="A1:AB${lastDataRow}"/>`
     );
 
 
@@ -10075,7 +10107,7 @@ function corrosionMutateWorkbookXml(
   output =
     output.replace(
       /'Corrosion Observations'!\$A\$1:\$T\$\d+/g,
-      `'Corrosion Observations'!$A$1:$T$${lastDataRow}`
+      `'Corrosion Observations'!$A$1:$AB$${lastDataRow}`
     );
 
 
@@ -10346,6 +10378,11 @@ async function loadCorrosionWorkbookRecords(
     [
       "id",
       "site_fk",
+      "observation_uuid",
+      "specimen_uuid",
+      "source_record_key",
+      "source_locator",
+      "identity_notes",
       "material",
       "exposure_period",
       "exposure_start",
@@ -10513,6 +10550,21 @@ async function loadCorrosionWorkbookRecords(
 
         observation_id:
           observation.id,
+
+        observation_uuid:
+          observation.observation_uuid || "",
+
+        specimen_uuid:
+          observation.specimen_uuid || "",
+
+        source_record_key:
+          observation.source_record_key || "",
+
+        source_locator:
+          observation.source_locator || "",
+
+        identity_notes:
+          observation.identity_notes || "",
 
         material:
           corrosionCleanText(
@@ -11005,6 +11057,11 @@ async function loadCorrosionValidationContext(
         "corrosion_observations",
         [
           "id",
+          "observation_uuid",
+          "specimen_uuid",
+          "source_record_key",
+          "source_locator",
+          "identity_notes",
           "site_fk",
           "source_fk",
           "material",
@@ -11094,15 +11151,24 @@ async function loadCorrosionValidationContext(
         })
       );
 
+
+  const specimenRows =
+    await fetchAllCorrosionContextRows(
+      env,
+      "corrosion_specimens",
+      "specimen_uuid,site_fk,source_fk,sites(site_id),sources(source_code)"
+    );
+
   return {
     existingSiteIds,
     existingSourceCodes,
     existingSiteSourcePairs,
     existingObservations,
 
-    // Full records used for database reconciliation.
     databaseObservations: observationRows,
+    databaseSpecimens: specimenRows,
   };
+
 }
 
 
@@ -11204,165 +11270,310 @@ function corrosionPreviewIdentity({
 function reconcileCorrosionWorkbookPreview(
   preview,
   databaseObservations,
-  journalRows
+  journalRows,
+  databaseSpecimens = []
 ) {
   const byId = new Map();
-  const byIdentity = new Map();
+  const byUuid = new Map();
+  const bySourceKey = new Map();
+  const byLegacyIdentity = new Map();
 
-  const journalByExcelRow = new Map(
-    journalRows.map(row => [
-      Number(row.excel_row),
-      row
+  const journalByRow = new Map(
+    journalRows.map(item => [
+      Number(item.excel_row),
+      item
     ])
   );
 
-  // Index existing database observations.
+  const clean = value =>
+    String(value ?? "").trim().toLowerCase();
+
+  const sourceKey = (sourceCode, key) =>
+    `${clean(sourceCode)}\u0000${clean(key)}`;
+
+  const legacyKey = record => corrosionPreviewIdentity({
+    siteId: record.site_id ?? record.sites?.site_id,
+    sourceCode: record.source_code ?? record.sources?.source_code,
+    material: record.material,
+    exposurePeriod: record.exposure_period,
+    exposureStart: record.exposure_start,
+    exposureEnd: record.exposure_end,
+    corrosionMetric: record.corrosion_metric,
+    measurementMethod: record.measurement_method,
+    specimenCondition: record.specimen_condition,
+    exposureCondition: record.exposure_condition
+  });
+
+  const sameMeasurement = (db, row) =>
+    Number(db.value) === Number(row.reported_value) &&
+    String(db.unit ?? "").trim() ===
+      String(row.reported_unit ?? "").trim();
+
+  const sameLegacyIdentity = (db, row) =>
+    legacyKey(db) === legacyKey(row);
+
+
+  const sameSpecimen = (db, row) =>
+    !row.specimen_uuid ||
+    Boolean(
+      db.specimen_uuid &&
+      clean(row.specimen_uuid) === clean(db.specimen_uuid)
+    );
+
+  const compatibleExplicitSpecimen = (db, row) =>
+    !row.specimen_uuid ||
+    !db.specimen_uuid ||
+    clean(row.specimen_uuid) === clean(db.specimen_uuid);
+
+  const registeredSpecimens = new Map(
+    databaseSpecimens.map(specimen => [
+      clean(specimen.specimen_uuid),
+      specimen
+    ])
+  );
+
+
   for (const db of databaseObservations) {
     byId.set(Number(db.id), db);
 
-    const key = corrosionPreviewIdentity({
-      siteId: db.sites?.site_id,
-      sourceCode: db.sources?.source_code,
-      material: db.material,
-      exposurePeriod: db.exposure_period,
-      exposureStart: db.exposure_start,
-      exposureEnd: db.exposure_end,
-      corrosionMetric: db.corrosion_metric,
-      measurementMethod: db.measurement_method,
-      specimenCondition: db.specimen_condition,
-      exposureCondition: db.exposure_condition
-    });
+    byUuid.set(clean(db.observation_uuid), db);
 
-    const matches = byIdentity.get(key) || [];
+    const dbSite = db.sites?.site_id;
+    const dbSource = db.sources?.source_code;
 
+    if (db.source_record_key) {
+      bySourceKey.set(
+        sourceKey(dbSource, db.source_record_key),
+        db
+      );
+    }
+
+    const key = legacyKey(db);
+    const matches = byLegacyIdentity.get(key) || [];
     matches.push(db);
-    byIdentity.set(key, matches);
+    byLegacyIdentity.set(key, matches);
   }
 
   for (const row of preview) {
     row.matched_observation_id = null;
+    row.matched_observation_uuid = null;
     row.reconciliation_message = "";
 
-    // First: workbook validation.
-    if (row.validation_status !== "READY") {
-      row.reconciliation_status = "INVALID";
-      continue;
-    }
+    const mark = (status, message, matched = null) => {
+      row.reconciliation_status = status;
+      row.reconciliation_message = message;
 
-    // Second: persistent import history.
-    const journal = journalByExcelRow.get(
-      Number(row.excel_row)
-    );
-
-    if (journal) {
-      row.matched_observation_id =
-        journal.observation_id;
-
-      row.reconciliation_status =
-        journal.status === "conflict"
-          ? "CONFLICT"
-          : "EXISTING";
-
-      row.reconciliation_message =
-        "Previously recorded in this workbook's import journal: " +
-        journal.status + ". " +
-        (journal.message || "");
-
-      continue;
-    }
-
-    // Third: an explicitly supplied observation ID.
-    const explicitId =
-      String(row.observation_id ?? "").trim();
-
-    if (explicitId) {
-      const db = byId.get(Number(explicitId));
-
-      if (!db) {
-        row.reconciliation_status = "INVALID";
-        row.validation_status = "ERROR";
-
-        row.reconciliation_message =
-          "Explicit observation ID was not found.";
-
-      } else {
-        row.reconciliation_status = "UPDATE";
-        row.matched_observation_id = db.id;
-
-        row.reconciliation_message =
-          "Explicit update of observation #" +
-          db.id +
-          ". Verify the intended changes before importing.";
+      if (matched) {
+        row.matched_observation_id = matched.id;
+        row.matched_observation_uuid =
+          matched.observation_uuid || null;
       }
 
+      if (status === "INVALID") {
+        row.validation_status = "ERROR";
+      }
+    };
+
+    if (row.validation_status !== "READY") {
+      mark("INVALID", row.validation_message);
       continue;
     }
 
-    // Fourth: match the scientific observation identity.
-    const key = corrosionPreviewIdentity({
-      siteId: row.site_id,
-      sourceCode: row.source_code,
-      material: row.material,
-      exposurePeriod: row.exposure_period,
-      exposureStart: row.exposure_start,
-      exposureEnd: row.exposure_end,
-      corrosionMetric: row.corrosion_metric
-    });
+    const journal = journalByRow.get(Number(row.excel_row));
 
-    const matches = byIdentity.get(key) || [];
+    if (journal) {
+      mark(
+        journal.status === "conflict"
+          ? "CONFLICT"
+          : "EXISTING",
+        `Previous import result: ${journal.status}. ` +
+        (journal.message || "")
+      );
+
+      row.matched_observation_id =
+        journal.observation_id;
+      continue;
+    }
+
+    // Verify the specimen before accepting its identity.
+    if (row.specimen_uuid) {
+      const specimen = registeredSpecimens.get(
+        clean(row.specimen_uuid)
+      );
+
+      if (!specimen) {
+        mark(
+          "INVALID",
+          "Specimen UUID is not registered in Supabase."
+        );
+        continue;
+      }
+
+      if (
+        clean(specimen.sites?.site_id) !== clean(row.site_id) ||
+        clean(specimen.sources?.source_code) !==
+          clean(row.source_code)
+      ) {
+        mark(
+          "INVALID",
+          "Specimen belongs to a different Site/Source."
+        );
+        continue;
+      }
+    }
+
+    // Permanent observation UUID or numeric ID.
+    const uuid = clean(row.observation_uuid);
+    const numericId = String(row.observation_id ?? "").trim();
+
+    if (uuid || numericId) {
+      const uuidMatch = uuid ? byUuid.get(uuid) : null;
+      const idMatch = numericId
+        ? byId.get(Number(numericId))
+        : null;
+
+      const db = uuidMatch || idMatch;
+
+      if (
+        !db ||
+        (uuid && !uuidMatch) ||
+        (numericId && !idMatch) ||
+        (uuidMatch && idMatch &&
+          Number(uuidMatch.id) !== Number(idMatch.id))
+      ) {
+        mark(
+          "INVALID",
+          "Observation UUID and/or numeric ID is missing or mismatched."
+        );
+        continue;
+      }
+
+      if (
+        clean(db.sites?.site_id) !== clean(row.site_id) ||
+        clean(db.sources?.source_code) !== clean(row.source_code)
+      ) {
+        mark(
+          "INVALID",
+          "Observation identity belongs to a different Site/Source."
+        );
+        continue;
+      }
+
+      if (
+        !compatibleExplicitSpecimen(db, row) ||
+        (
+          row.source_record_key &&
+          db.source_record_key &&
+          clean(row.source_record_key) !==
+            clean(db.source_record_key)
+        )
+      ) {
+        mark(
+          "CONFLICT",
+          "Explicit identity has a different specimen or source record key.",
+          db
+        );
+        continue;
+      }
+
+      mark(
+        "UPDATE",
+        `Explicit update of observation #${db.id}.`,
+        db
+      );
+      continue;
+    }
+
+    // Source-scoped key is the next strongest identity.
+    const stableKey = clean(row.source_record_key);
+
+    if (stableKey) {
+      const db = bySourceKey.get(
+        sourceKey(row.source_code, stableKey)
+      );
+
+      if (db) {
+        if (
+          clean(db.sites?.site_id) !== clean(row.site_id) ||
+          !sameSpecimen(db, row) ||
+          !sameMeasurement(db, row) ||
+          !sameLegacyIdentity(db, row)
+        ) {
+          mark(
+            "CONFLICT",
+            `Source key matches observation #${db.id}, ` +
+            "but its data or specimen differs. Use its UUID for an explicit correction.",
+            db
+          );
+        } else {
+          mark(
+            "EXISTING",
+            `Source record key matches observation #${db.id}.`,
+            db
+          );
+        }
+        continue;
+      }
+    }
+
+    // Legacy matching for unidentified or newly keyed rows.
+    const matches = byLegacyIdentity.get(
+      legacyKey(row)
+    ) || [];
 
     if (matches.length === 0) {
-      row.reconciliation_status = "NEW";
-
-      row.reconciliation_message =
-        "No matching observation currently exists in Supabase.";
-
+      mark(
+        "NEW",
+        "No matching observation in Supabase."
+      );
       continue;
     }
 
-    if (matches.length > 1) {
-      row.reconciliation_status = "CONFLICT";
+    // Confirm that all overlapping observations belong
+    // to known, different physical specimens.
+    const distinctSpecimen =
+      Boolean(stableKey && row.specimen_uuid) &&
+      matches.every(db =>
+        db.specimen_uuid &&
+        clean(db.specimen_uuid) !==
+          clean(row.specimen_uuid)
+      );
 
-      row.reconciliation_message =
-        "Multiple database observations share this identity. " +
-        "Manual review is required.";
-
+    if (distinctSpecimen) {
+      mark(
+        "NEW",
+        "Distinct registered specimen; overlapping exposure conditions allowed."
+      );
       continue;
     }
 
-    const db = matches[0];
-
-    row.matched_observation_id = db.id;
-
-    const sameValue =
-      Number(db.value) === Number(row.reported_value);
-
-    const sameUnit =
-      String(db.unit ?? "").trim() ===
-      String(row.reported_unit ?? "").trim();
-
-    if (sameValue && sameUnit) {
-      row.reconciliation_status = "EXISTING";
-
-      row.reconciliation_message =
-        "Identical measurement already exists as observation #" +
-        db.id +
-        ". No duplicate will be created.";
-
-    } else {
-      row.reconciliation_status = "CONFLICT";
-
-      row.reconciliation_message =
-        "Existing observation #" + db.id +
-        " reports " + db.value + " " + db.unit +
-        "; workbook reports " +
-        row.reported_value + " " + row.reported_unit +
-        ". Existing data will not be overwritten.";
+    if (
+      !stableKey &&
+      matches.length === 1 &&
+      sameMeasurement(matches[0], row) &&
+      sameSpecimen(matches[0], row)
+    ) {
+      mark(
+        "EXISTING",
+        `Matches observation #${matches[0].id}.`,
+        matches[0]
+      );
+      continue;
     }
+
+    mark(
+      "CONFLICT",
+      matches.length > 1
+        ? "Multiple observations share this legacy identity."
+        : "Legacy identity overlaps an existing observation. " +
+          "Review the specimen and source-record identity.",
+      matches.length === 1 ? matches[0] : null
+    );
   }
 
   return preview;
 }
+
 
 async function handleCorrosionWorkbookPreview(
   request,
@@ -11559,7 +11770,8 @@ async function handleCorrosionWorkbookPreview(
     reconcileCorrosionWorkbookPreview(
       preview,
       context.databaseObservations,
-      journalRows
+      journalRows,
+      context.databaseSpecimens
     );
 
 
@@ -11775,7 +11987,9 @@ async function loadCorrosionImportContext(
           "id",
           "site_fk",
           "source_fk",
-
+          "observation_uuid",
+          "specimen_uuid",
+          "source_record_key",
           "material",
           "exposure_period",
           "exposure_start",
@@ -12679,6 +12893,23 @@ async function handleCorrosionWorkbookImport(
 
 
       const payload = {
+
+        ...(row.specimen_uuid
+          ? { specimen_uuid: row.specimen_uuid }
+          : {}),
+
+        ...(row.source_record_key
+          ? { source_record_key: row.source_record_key }
+          : {}),
+
+        ...(row.source_locator
+          ? { source_locator: row.source_locator }
+          : {}),
+
+        ...(row.identity_notes
+          ? { identity_notes: row.identity_notes }
+          : {}),
+
         site_fk:
           Number(site.id),
 
@@ -12846,10 +13077,12 @@ async function handleCorrosionWorkbookImport(
       )
       .join("");
 
+
     const endpoint = new URL(
-      "/rest/v1/rpc/apply_corrosion_import_batch",
+      "/rest/v1/rpc/apply_corrosion_import_batch_v2",
       env.SUPABASE_URL
     );
+
 
     const rpcResponse = await fetch(endpoint, {
       method: "POST",
@@ -12873,16 +13106,26 @@ async function handleCorrosionWorkbookImport(
         p_total_rows:
           operations.length,
 
-        p_items: batchOperations.map(operation => ({
-          excel_row:
-            operation.excelRow,
 
-          explicit_observation_id:
-            operation.explicitObservationId,
+        p_items: batchOperations.map(operation => {
+          const sourceRow = validated.find(
+            row => Number(row.excel_row) ===
+              Number(operation.excelRow)
+          );
 
-          payload:
-            operation.payload
-        }))
+          return {
+            excel_row: operation.excelRow,
+
+            explicit_observation_id:
+              operation.explicitObservationId,
+
+            observation_uuid:
+              sourceRow?.observation_uuid || null,
+
+            payload: operation.payload
+          };
+        })
+
       })
     });
 

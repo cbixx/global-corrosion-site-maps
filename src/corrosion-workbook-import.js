@@ -231,6 +231,21 @@ export function readCorrosionWorkbook(
           .observation_id ??
         "",
 
+      observation_uuid:
+        cleanText(rawRecord.observation_uuid),
+
+      specimen_uuid:
+        cleanText(rawRecord.specimen_uuid),
+
+      source_record_key:
+        cleanText(rawRecord.source_record_key),
+
+      source_locator:
+        cleanText(rawRecord.source_locator),
+
+      identity_notes:
+        cleanText(rawRecord.identity_notes),
+
       material:
         cleanText(
           rawRecord.material
@@ -288,8 +303,14 @@ export function readCorrosionWorkbook(
      * starter rows. Only observation-entry fields
      * determine whether the row is imported.
      */
+
     const observationValues = [
       record.observation_id,
+      record.observation_uuid,
+      record.specimen_uuid,
+      record.source_record_key,
+      record.source_locator,
+      record.identity_notes,
       record.material,
       record.exposure_period,
       record.exposure_start,
@@ -540,6 +561,37 @@ export function validateCorrosionWorkbookRows(
         observationId =
           idNumber;
       }
+    }
+
+
+    const uuidPattern =
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+    if (
+      row.observation_uuid &&
+      !uuidPattern.test(row.observation_uuid)
+    ) {
+      errors.push(
+        "observation_uuid must be a valid UUID."
+      );
+    }
+
+    if (
+      row.specimen_uuid &&
+      !uuidPattern.test(row.specimen_uuid)
+    ) {
+      errors.push(
+        "specimen_uuid must be a valid UUID."
+      );
+    }
+
+    if (
+      row.source_record_key &&
+      row.source_record_key.length > 200
+    ) {
+      errors.push(
+        "source_record_key cannot exceed 200 characters."
+      );
     }
 
 
@@ -867,6 +919,7 @@ export function validateCorrosionWorkbookRows(
 }
 
 
+
 export function flagCorrosionWorkbookDuplicates(preview) {
   const firstRows = new Map();
 
@@ -875,26 +928,29 @@ export function flagCorrosionWorkbookDuplicates(preview) {
       continue;
     }
 
-    const explicitId =
-      String(row.observation_id ?? "").trim();
+    const clean = value =>
+      String(value ?? "").trim().toLocaleLowerCase();
 
-    const key = explicitId
-      ? "id:" + Number(explicitId)
-      : "identity:" + [
-          row.site_id,
-          row.source_code,
-          row.material,
-          row.exposure_period,
-          row.exposure_start,
-          row.exposure_end,
-          row.corrosion_metric
-        ]
-          .map(value =>
-            String(value ?? "")
-              .trim()
-              .toLocaleLowerCase()
-          )
-          .join("\u0000");
+    const numericId = clean(row.observation_id);
+    const uuid = clean(row.observation_uuid);
+    const sourceKey = clean(row.source_record_key);
+
+    // Explicit identity takes precedence over editable metadata.
+    const key = numericId
+      ? `id:${numericId}`
+      : uuid
+        ? `uuid:${uuid}`
+        : sourceKey
+          ? `source:${clean(row.source_code)}:${sourceKey}`
+          : "legacy:" + [
+              row.site_id,
+              row.source_code,
+              row.material,
+              row.exposure_period,
+              row.exposure_start,
+              row.exposure_end,
+              row.corrosion_metric
+            ].map(clean).join("\u0000");
 
     const original = firstRows.get(key);
 
@@ -903,23 +959,20 @@ export function flagCorrosionWorkbookDuplicates(preview) {
       continue;
     }
 
-    // Both rows are ambiguous, not just the later row.
     for (const duplicate of [original, row]) {
       duplicate.validation_status = "ERROR";
 
-      const warning =
-        "Ambiguous repeated observation identity in Excel rows " +
-        original.excel_row + " and " + row.excel_row +
-        ". Separate specimens need distinct identities before import.";
+      const message =
+        `Repeated observation identity in Excel rows ` +
+        `${original.excel_row} and ${row.excel_row}. ` +
+        `Each independent observation requires a distinct identity.`;
 
-      if (!duplicate.validation_message.includes(warning)) {
-        duplicate.validation_message = [
-          duplicate.validation_message,
-          warning
-        ]
-          .filter(Boolean)
-          .join("; ");
-      }
+      duplicate.validation_message = [
+        duplicate.validation_message,
+        message
+      ]
+        .filter(Boolean)
+        .join("; ");
     }
   }
 
