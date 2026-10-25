@@ -865,3 +865,63 @@ export function validateCorrosionWorkbookRows(
 
   return preview;
 }
+
+
+export function flagCorrosionWorkbookDuplicates(preview) {
+  const firstRows = new Map();
+
+  for (const row of preview) {
+    if (row.validation_status !== "READY") {
+      continue;
+    }
+
+    const explicitId =
+      String(row.observation_id ?? "").trim();
+
+    const key = explicitId
+      ? "id:" + Number(explicitId)
+      : "identity:" + [
+          row.site_id,
+          row.source_code,
+          row.material,
+          row.exposure_period,
+          row.exposure_start,
+          row.exposure_end,
+          row.corrosion_metric
+        ]
+          .map(value =>
+            String(value ?? "")
+              .trim()
+              .toLocaleLowerCase()
+          )
+          .join("\u0000");
+
+    const original = firstRows.get(key);
+
+    if (!original) {
+      firstRows.set(key, row);
+      continue;
+    }
+
+    // Both rows are ambiguous, not just the later row.
+    for (const duplicate of [original, row]) {
+      duplicate.validation_status = "ERROR";
+
+      const warning =
+        "Ambiguous repeated observation identity in Excel rows " +
+        original.excel_row + " and " + row.excel_row +
+        ". Separate specimens need distinct identities before import.";
+
+      if (!duplicate.validation_message.includes(warning)) {
+        duplicate.validation_message = [
+          duplicate.validation_message,
+          warning
+        ]
+          .filter(Boolean)
+          .join("; ");
+      }
+    }
+  }
+
+  return preview;
+}

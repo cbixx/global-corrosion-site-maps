@@ -2,6 +2,7 @@ import JSZip from "jszip";
 import {
   readCorrosionWorkbook,
   validateCorrosionWorkbookRows,
+  flagCorrosionWorkbookDuplicates,
 } from "./corrosion-workbook-import.js";
 
 import {
@@ -10998,10 +10999,27 @@ async function loadCorrosionValidationContext(
         "sites(site_id),sources(source_code)"
       ),
 
+
       fetchAllCorrosionContextRows(
         env,
         "corrosion_observations",
-        "id,sites(site_id),sources(source_code)"
+        [
+          "id",
+          "site_fk",
+          "source_fk",
+          "material",
+          "exposure_period",
+          "exposure_start",
+          "exposure_end",
+          "corrosion_metric",
+          "measurement_method",
+          "specimen_condition",
+          "exposure_condition",
+          "value",
+          "unit",
+          "sites(site_id)",
+          "sources(source_code)"
+        ].join(",")
       ),
     ]);
 
@@ -11076,15 +11094,275 @@ async function loadCorrosionValidationContext(
         })
       );
 
-
   return {
     existingSiteIds,
     existingSourceCodes,
     existingSiteSourcePairs,
     existingObservations,
+
+    // Full records used for database reconciliation.
+    databaseObservations: observationRows,
   };
 }
 
+
+async function loadCorrosionPreviewJournal(env, jobId) {
+  const allRows = [];
+  const pageSize = 1000;
+
+  for (let start = 0; start < 20000; start += pageSize) {
+    const endpoint = new URL(
+      "/rest/v1/corrosion_import_rows",
+      env.SUPABASE_URL
+    );
+
+    endpoint.searchParams.set("job_id", `eq.${jobId}`);
+
+    endpoint.searchParams.set(
+      "select",
+      "excel_row,status,observation_id,message"
+    );
+
+    endpoint.searchParams.set(
+      "order",
+      "excel_row.asc"
+    );
+
+    const response = await fetch(endpoint, {
+      headers: {
+        apikey: env.SUPABASE_SECRET_KEY,
+
+        authorization:
+          `Bearer ${env.SUPABASE_SECRET_KEY}`,
+
+        accept: "application/json",
+
+        range: `${start}-${start + pageSize - 1}`
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error(
+        "Unable to read previous corrosion import history."
+      );
+    }
+
+    const rows = await response.json();
+
+    allRows.push(...rows);
+
+    if (rows.length < pageSize) {
+      return allRows;
+    }
+  }
+
+  throw new Error(
+    "Import journal exceeds the supported preview limit."
+  );
+}
+
+
+function corrosionPreviewIdentity({
+  siteId,
+  sourceCode,
+  material,
+  exposurePeriod,
+  exposureStart,
+  exposureEnd,
+  corrosionMetric,
+  measurementMethod = "",
+  specimenCondition = "",
+  exposureCondition = ""
+}) {
+  const values = [
+    siteId,
+    sourceCode,
+    material,
+    exposurePeriod,
+    exposureStart,
+    exposureEnd,
+    corrosionMetric,
+    measurementMethod,
+    specimenCondition,
+    exposureCondition
+  ];
+
+  return values
+    .map((value, index) => {
+      const clean = String(value ?? "").trim();
+
+      // Site IDs and source codes are canonical identifiers.
+      // Other fields retain exact case for SQL-compatible matching.
+      return index < 2
+        ? clean.toLocaleLowerCase()
+        : clean;
+    })
+    .join("\u0000");
+}
+
+
+function reconcileCorrosionWorkbookPreview(
+  preview,
+  databaseObservations,
+  journalRows
+) {
+  const byId = new Map();
+  const byIdentity = new Map();
+
+  const journalByExcelRow = new Map(
+    journalRows.map(row => [
+      Number(row.excel_row),
+      row
+    ])
+  );
+
+  // Index existing database observations.
+  for (const db of databaseObservations) {
+    byId.set(Number(db.id), db);
+
+    const key = corrosionPreviewIdentity({
+      siteId: db.sites?.site_id,
+      sourceCode: db.sources?.source_code,
+      material: db.material,
+      exposurePeriod: db.exposure_period,
+      exposureStart: db.exposure_start,
+      exposureEnd: db.exposure_end,
+      corrosionMetric: db.corrosion_metric,
+      measurementMethod: db.measurement_method,
+      specimenCondition: db.specimen_condition,
+      exposureCondition: db.exposure_condition
+    });
+
+    const matches = byIdentity.get(key) || [];
+
+    matches.push(db);
+    byIdentity.set(key, matches);
+  }
+
+  for (const row of preview) {
+    row.matched_observation_id = null;
+    row.reconciliation_message = "";
+
+    // First: workbook validation.
+    if (row.validation_status !== "READY") {
+      row.reconciliation_status = "INVALID";
+      continue;
+    }
+
+    // Second: persistent import history.
+    const journal = journalByExcelRow.get(
+      Number(row.excel_row)
+    );
+
+    if (journal) {
+      row.matched_observation_id =
+        journal.observation_id;
+
+      row.reconciliation_status =
+        journal.status === "conflict"
+          ? "CONFLICT"
+          : "EXISTING";
+
+      row.reconciliation_message =
+        "Previously recorded in this workbook's import journal: " +
+        journal.status + ". " +
+        (journal.message || "");
+
+      continue;
+    }
+
+    // Third: an explicitly supplied observation ID.
+    const explicitId =
+      String(row.observation_id ?? "").trim();
+
+    if (explicitId) {
+      const db = byId.get(Number(explicitId));
+
+      if (!db) {
+        row.reconciliation_status = "INVALID";
+        row.validation_status = "ERROR";
+
+        row.reconciliation_message =
+          "Explicit observation ID was not found.";
+
+      } else {
+        row.reconciliation_status = "UPDATE";
+        row.matched_observation_id = db.id;
+
+        row.reconciliation_message =
+          "Explicit update of observation #" +
+          db.id +
+          ". Verify the intended changes before importing.";
+      }
+
+      continue;
+    }
+
+    // Fourth: match the scientific observation identity.
+    const key = corrosionPreviewIdentity({
+      siteId: row.site_id,
+      sourceCode: row.source_code,
+      material: row.material,
+      exposurePeriod: row.exposure_period,
+      exposureStart: row.exposure_start,
+      exposureEnd: row.exposure_end,
+      corrosionMetric: row.corrosion_metric
+    });
+
+    const matches = byIdentity.get(key) || [];
+
+    if (matches.length === 0) {
+      row.reconciliation_status = "NEW";
+
+      row.reconciliation_message =
+        "No matching observation currently exists in Supabase.";
+
+      continue;
+    }
+
+    if (matches.length > 1) {
+      row.reconciliation_status = "CONFLICT";
+
+      row.reconciliation_message =
+        "Multiple database observations share this identity. " +
+        "Manual review is required.";
+
+      continue;
+    }
+
+    const db = matches[0];
+
+    row.matched_observation_id = db.id;
+
+    const sameValue =
+      Number(db.value) === Number(row.reported_value);
+
+    const sameUnit =
+      String(db.unit ?? "").trim() ===
+      String(row.reported_unit ?? "").trim();
+
+    if (sameValue && sameUnit) {
+      row.reconciliation_status = "EXISTING";
+
+      row.reconciliation_message =
+        "Identical measurement already exists as observation #" +
+        db.id +
+        ". No duplicate will be created.";
+
+    } else {
+      row.reconciliation_status = "CONFLICT";
+
+      row.reconciliation_message =
+        "Existing observation #" + db.id +
+        " reports " + db.value + " " + db.unit +
+        "; workbook reports " +
+        row.reported_value + " " + row.reported_unit +
+        ". Existing data will not be overwritten.";
+    }
+  }
+
+  return preview;
+}
 
 async function handleCorrosionWorkbookPreview(
   request,
@@ -11249,43 +11527,66 @@ async function handleCorrosionWorkbookPreview(
 
 
     const preview =
-      validateCorrosionWorkbookRows(
+      flagCorrosionWorkbookDuplicates(
+        validateCorrosionWorkbookRows(
         records,
         context
+        )
       );
 
 
+    // Identify this exact workbook using Phase 1A's SHA-256 scheme.
+    const digest = await crypto.subtle.digest(
+      "SHA-256",
+      bytes
+    );
+
+    const jobId = Array.from(
+      new Uint8Array(digest)
+    )
+      .map(value =>
+        value.toString(16).padStart(2, "0")
+      )
+      .join("");
+
+    // Previous imports of the identical workbook.
+    const journalRows = await loadCorrosionPreviewJournal(
+      env,
+      jobId
+    );
+
+    // Reconcile only after normal workbook validation.
+    reconcileCorrosionWorkbookPreview(
+      preview,
+      context.databaseObservations,
+      journalRows
+    );
+
+
+    const countStatus = status =>
+      preview.filter(
+        row => row.reconciliation_status === status
+      ).length;
+
     const summary = {
-      total:
-        preview.length,
+      total: preview.length,
 
       ready:
-        preview.filter(
-          (row) =>
-            row.validation_status ===
-            "READY"
-        ).length,
+        countStatus("NEW") +
+        countStatus("EXISTING") +
+        countStatus("UPDATE"),
 
-      errors:
-        preview.filter(
-          (row) =>
-            row.validation_status ===
-            "ERROR"
-        ).length,
+      errors: countStatus("INVALID"),
 
-      create:
-        preview.filter(
-          (row) =>
-            row.record_action ===
-            "CREATE"
-        ).length,
+      create: countStatus("NEW"),
 
-      update:
-        preview.filter(
-          (row) =>
-            row.record_action ===
-            "UPDATE"
-        ).length,
+      update: countStatus("UPDATE"),
+
+      existing: countStatus("EXISTING"),
+
+      conflicts: countStatus("CONFLICT"),
+
+      job_id: jobId
     };
 
 
@@ -12024,11 +12325,12 @@ async function handleCorrosionWorkbookImport(
      */
 
     const validated =
-      validateCorrosionWorkbookRows(
-        records,
-        context.validationContext
+      flagCorrosionWorkbookDuplicates(
+        validateCorrosionWorkbookRows(
+          records,
+          context.validationContext
+        )
       );
-
 
     const errors =
       validated.filter(

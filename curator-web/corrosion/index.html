@@ -176,43 +176,50 @@
           hidden
         ></div>
 
-
         <div
           id="corrosion-import-preview"
           hidden
         >
 
-          <div class="corrosion-preview-metrics">
+        <div class="corrosion-preview-metrics">
 
-            <div class="corrosion-preview-metric">
-              <span>Ready</span>
-              <strong id="corrosion-preview-ready">0</strong>
-            </div>
-
-            <div class="corrosion-preview-metric">
-              <span>Errors</span>
-              <strong id="corrosion-preview-errors">0</strong>
-            </div>
-
-            <div class="corrosion-preview-metric">
-              <span>New</span>
-              <strong id="corrosion-preview-create">0</strong>
-            </div>
-
-            <div class="corrosion-preview-metric">
-              <span>Updates</span>
-              <strong id="corrosion-preview-update">0</strong>
-            </div>
-
+          <div class="corrosion-preview-metric">
+            <span>Ready</span>
+            <strong id="corrosion-preview-ready">0</strong>
           </div>
 
+          <div class="corrosion-preview-metric">
+            <span>Invalid</span>
+            <strong id="corrosion-preview-errors">0</strong>
+          </div>
+
+          <div class="corrosion-preview-metric">
+            <span>New</span>
+            <strong id="corrosion-preview-create">0</strong>
+          </div>
+
+          <div class="corrosion-preview-metric">
+            <span>Already imported</span>
+            <strong id="corrosion-preview-existing">0</strong>
+          </div>
+
+          <div class="corrosion-preview-metric">
+            <span>Conflicts</span>
+            <strong id="corrosion-preview-conflicts">0</strong>
+          </div>
+
+          <div class="corrosion-preview-metric">
+            <span>Explicit updates</span>
+            <strong id="corrosion-preview-update">0</strong>
+          </div>
+
+        </div>
 
           <div
             id="corrosion-preview-message"
             class="save-message"
             hidden
           ></div>
-
 
           <div class="corrosion-preview-table-wrap">
 
@@ -222,6 +229,7 @@
                 <tr>
                   <th>Excel row</th>
                   <th>Action</th>
+                  <th>DB observation ID</th>
                   <th>Status</th>
                   <th>Source</th>
                   <th>Site</th>
@@ -259,8 +267,9 @@
               >
 
               <span>
-                I reviewed the validated workbook rows and want to
-                import these corrosion observations.
+                I reviewed the database reconciliation results, including
+                existing records and any explicit updates, and confirm
+                that these observations should be imported.
               </span>
 
             </label>

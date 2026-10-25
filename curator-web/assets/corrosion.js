@@ -119,6 +119,16 @@ const previewUpdate =
     "corrosion-preview-update"
   );
 
+const previewExisting =
+  document.getElementById(
+    "corrosion-preview-existing"
+  );
+
+const previewConflicts =
+  document.getElementById(
+    "corrosion-preview-conflicts"
+  );
+
 const previewMessage =
   document.getElementById(
     "corrosion-preview-message"
@@ -1518,9 +1528,13 @@ function renderCorrosionPreview(
       0
     );
 
+  previewExisting.textContent =
+    String(summary.existing || 0);
+
+  previewConflicts.textContent =
+    String(summary.conflicts || 0);
 
   previewBody.replaceChildren();
-
 
   for (
     const observation
@@ -1531,13 +1545,13 @@ function renderCorrosionPreview(
         "tr"
       );
 
+    const needsReview =
+      observation.validation_status === "ERROR" ||
+      observation.reconciliation_status === "CONFLICT";
 
-    row.className =
-      observation.validation_status ===
-      "ERROR"
-        ? "corrosion-preview-row-error"
-        : "corrosion-preview-row-ready";
-
+    row.className = needsReview
+      ? "corrosion-preview-row-error"
+      : "corrosion-preview-row-ready";
 
     appendPreviewCell(
       row,
@@ -1546,7 +1560,13 @@ function renderCorrosionPreview(
 
     appendPreviewCell(
       row,
-      observation.record_action
+      observation.reconciliation_status ||
+        observation.record_action
+    );
+
+    appendPreviewCell(
+      row,
+      observation.matched_observation_id
     );
 
     appendPreviewCell(
@@ -1667,12 +1687,15 @@ function renderCorrosionPreview(
       density
     );
 
-
     appendPreviewCell(
       row,
-      observation.validation_message
+      [
+        observation.validation_message,
+        observation.reconciliation_message
+      ]
+        .filter(Boolean)
+        .join(" | ")
     );
-
 
     previewBody.append(
       row
@@ -1680,54 +1703,51 @@ function renderCorrosionPreview(
   }
 
 
-  if (
-    preview.length === 0
-  ) {
+  if (preview.length === 0) {
     previewMessage.textContent =
-      "No completed corrosion observation rows were found. " +
-      "Blank starter rows were ignored.";
+      "No completed corrosion observation rows were found.";
 
     previewMessage.className =
       "save-message save-message-warning";
 
-    previewMessage.hidden =
-      false;
-
-  } else if (
-    Number(
-      summary.errors ||
-      0
-    ) > 0
-  ) {
+  } else if (Number(summary.errors || 0) > 0) {
     previewMessage.textContent =
-      "The workbook contains validation errors. " +
-      "Correct those rows in Excel and upload the workbook again.";
+      `${summary.errors} invalid row(s) detected. ` +
+      "Correct the workbook and upload it again. " +
+      "No observations have been imported.";
 
     previewMessage.className =
       "save-message save-message-error";
 
-    previewMessage.hidden =
-      false;
+  } else if (Number(summary.conflicts || 0) > 0) {
+    previewMessage.textContent =
+      `${summary.conflicts} conflicting observation(s) detected. ` +
+      "Review the existing database IDs and measurements. " +
+      "Import is blocked until the conflicts are resolved.";
+
+    previewMessage.className =
+      "save-message save-message-error";
 
   } else {
     previewMessage.textContent =
-      "All workbook rows passed validation. " +
-      "Database import is intentionally disabled in this preview-only patch.";
+      `${summary.create || 0} new, ` +
+      `${summary.existing || 0} already imported, ` +
+      `${summary.update || 0} explicit updates. ` +
+      "Database reconciliation passed. Review the rows before importing.";
 
     previewMessage.className =
-      "save-message save-message-success";
-
-    previewMessage.hidden =
-      false;
+      Number(summary.update || 0) > 0
+        ? "save-message save-message-warning"
+        : "save-message save-message-success";
   }
+
+  previewMessage.hidden = false;
 
   const canImport =
     preview.length > 0 &&
-    Number(
-      summary.errors ||
-      0
-    ) === 0;
-
+    Number(summary.ready || 0) > 0 &&
+    Number(summary.errors || 0) === 0 &&
+    Number(summary.conflicts || 0) === 0;
 
   importConfirm.hidden =
     !canImport;
@@ -1908,12 +1928,9 @@ importConfirmCheckbox.addEventListener(
           ?.errors ||
         0
       ) === 0 &&
-      Number(
-        currentPreviewSummary
-          ?.ready ||
-        0
-      ) > 0;
 
+      Number(currentPreviewSummary?.ready || 0) > 0 &&
+      Number(currentPreviewSummary?.conflicts || 0) === 0;
 
     importButton.disabled =
       !(
@@ -1948,16 +1965,15 @@ importButton.addEventListener(
       return;
     }
 
-
     if (
-      Number(
-        currentPreviewSummary
-          ?.errors ||
-        0
-      ) > 0
+      Number(currentPreviewSummary?.errors || 0) > 0 ||
+      Number(currentPreviewSummary?.conflicts || 0) > 0
     ) {
+
+
       importResult.textContent =
-        "The workbook contains validation errors and cannot be imported.";
+        "The workbook contains invalid or conflicting observations. " +
+        "Resolve them and upload the revised workbook before importing.";
 
       importResult.className =
         "save-message save-message-error";
