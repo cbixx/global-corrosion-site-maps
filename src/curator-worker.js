@@ -9900,16 +9900,18 @@ function corrosionBuildWorkbookRow(
     ["AB", "identity_notes"]
   ];
 
+
   for (const [column, field] of identityColumns) {
     cells.push(
       corrosionInlineCell(
         column,
         rowNumber,
-        "",
+        styles.T,
         record[field] ?? ""
       )
     );
   }
+
 
 
   return (
@@ -9987,14 +9989,24 @@ function corrosionMutateObservationSheet(
     ["AB", "identity_notes"]
   ];
 
+
+  const identityHeaderStyle =
+    corrosionCellStyle(headerRow, "T", 1);
+
   const extendedHeaderRow = headerRow.replace(
     "</row>",
     identityHeaders
       .map(([column, heading]) =>
-        corrosionInlineCell(column, 1, "", heading)
+        corrosionInlineCell(
+          column,
+          1,
+          identityHeaderStyle,
+          heading
+        )
       )
       .join("") + "</row>"
   );
+
 
   const generatedRows = [];
 
@@ -10038,12 +10050,89 @@ function corrosionMutateObservationSheet(
     );
 
 
-  output =
-    output.replace(
-      /<autoFilter ref="[^"]*"\/>/,
-      `<autoFilter ref="A1:AB${lastDataRow}"/>`
-    );
+  // Give the five identity columns their own widths
+  // without changing existing worksheet columns.
+  const identityWidths = [
+    [24, 40], // X: observation_uuid
+    [25, 28], // Y: source_record_key
+    [26, 40], // Z: specimen_uuid
+    [27, 26], // AA: source_locator
+    [28, 40]  // AB: identity_notes
+  ];
 
+  output = output.replace(
+    /<cols>([\s\S]*?)<\/cols>/,
+    (_match, existingXml) => {
+      const existingColumns =
+        existingXml.match(/<col\b[^>]*\/>/g) || [];
+
+      const preserved = [];
+
+      for (const columnXml of existingColumns) {
+        const min = Number(
+          columnXml.match(/\bmin="(\d+)"/)?.[1]
+        );
+
+        const max = Number(
+          columnXml.match(/\bmax="(\d+)"/)?.[1]
+        );
+
+        if (max < 24 || min > 28) {
+          preserved.push(columnXml);
+          continue;
+        }
+
+        if (min < 24) {
+          preserved.push(
+            columnXml.replace(
+              /\bmax="\d+"/,
+              'max="23"'
+            )
+          );
+        }
+
+        if (max > 28) {
+          preserved.push(
+            columnXml.replace(
+              /\bmin="\d+"/,
+              'min="29"'
+            )
+          );
+        }
+      }
+
+      const identityColumnsXml = identityWidths.map(
+        ([index, width]) =>
+          `<col min="${index}" max="${index}" ` +
+          `width="${width}" customWidth="1"/>`
+      );
+
+      const allColumns = [
+        ...preserved,
+        ...identityColumnsXml
+      ];
+
+      allColumns.sort((a, b) => {
+        const first = Number(
+          a.match(/\bmin="(\d+)"/)?.[1]
+        );
+
+        const second = Number(
+          b.match(/\bmin="(\d+)"/)?.[1]
+        );
+
+        return first - second;
+      });
+
+      return `<cols>${allColumns.join("")}</cols>`;
+    }
+  );
+
+  output = output.replace(
+    /(<autoFilter\b[^>]*\bref=")[^"]*(")/,
+    (_match, prefix, suffix) =>
+      `${prefix}A1:AB${lastDataRow}${suffix}`
+  );
 
   /*
    * Conditional formatting.
