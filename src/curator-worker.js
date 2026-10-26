@@ -11626,10 +11626,23 @@ function reconcileCorrosionWorkbookPreview(
       }
     }
 
-    // Legacy matching for unidentified or newly keyed rows.
-    const matches = byLegacyIdentity.get(
+
+    // Legacy matching is retained for unidentified rows.
+    // A new source key must not match an existing observation
+    // that already has a different source key.
+
+    const legacyMatches = byLegacyIdentity.get(
       legacyKey(row)
     ) || [];
+
+    const matches = stableKey
+      ? legacyMatches.filter(
+          db => !String(
+            db.source_record_key ?? ""
+          ).trim()
+        )
+      : legacyMatches;
+
 
     if (matches.length === 0) {
       mark(
