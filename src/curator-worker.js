@@ -1507,6 +1507,163 @@ async function persistSourceMetadataOptions(
   }
 }
 
+
+async function handleSourceCandidates(request, env) {
+  if (!env.SUPABASE_URL || !env.SUPABASE_SECRET_KEY) {
+    return Response.json(
+      {
+        ok: false,
+        error: "Supabase configuration is missing."
+      },
+      { status: 500 }
+    );
+  }
+
+  let input;
+
+  try {
+    input = await request.json();
+  } catch {
+    return Response.json(
+      {
+        ok: false,
+        error: "Invalid JSON request."
+      },
+      { status: 400 }
+    );
+  }
+
+  if (!input || typeof input !== "object" ||
+      Array.isArray(input)) {
+    return Response.json(
+      {
+        ok: false,
+        error: "Expected a Source metadata object."
+      },
+      { status: 400 }
+    );
+  }
+
+  const fields = [
+    "doi",
+    "source_title",
+    "publication_year",
+    "authors_or_organization"
+  ];
+
+  const values = {};
+
+  for (const field of fields) {
+    values[field] = String(input[field] ?? "").trim();
+
+    if (values[field].length > 1000) {
+      return Response.json(
+        {
+          ok: false,
+          error: `${field} exceeds the maximum length.`
+        },
+        { status: 400 }
+      );
+    }
+  }
+
+  if (!values.doi && !values.source_title) {
+    return Response.json(
+      {
+        ok: false,
+        error: "Provide a DOI or Source title."
+      },
+      { status: 400 }
+    );
+  }
+
+  let excludeId = null;
+
+  if (input.exclude_source_id !== undefined &&
+      input.exclude_source_id !== null &&
+      String(input.exclude_source_id).trim() !== "") {
+    excludeId = Number(input.exclude_source_id);
+
+    if (!Number.isSafeInteger(excludeId) ||
+        excludeId <= 0) {
+      return Response.json(
+        {
+          ok: false,
+          error: "Invalid excluded Source ID."
+        },
+        { status: 400 }
+      );
+    }
+  }
+
+  const endpoint = new URL(
+    "/rest/v1/rpc/ca_find_source_candidates",
+    env.SUPABASE_URL
+  );
+
+  try {
+    const response = await fetch(endpoint, {
+      method: "POST",
+      headers: {
+        apikey: env.SUPABASE_SECRET_KEY,
+        authorization:
+          `Bearer ${env.SUPABASE_SECRET_KEY}`,
+        "content-type": "application/json",
+        accept: "application/json"
+      },
+      body: JSON.stringify({
+        p_doi: values.doi || null,
+        p_title: values.source_title || null,
+        p_year: values.publication_year || null,
+        p_authors: values.authors_or_organization || null,
+        p_exclude_id: excludeId
+      })
+    });
+
+    if (!response.ok) {
+      console.error(
+        "Source candidate lookup failed.",
+        response.status,
+        await response.text()
+      );
+
+      throw new Error("Database candidate lookup failed.");
+    }
+
+    const candidates = await response.json();
+
+    if (!Array.isArray(candidates)) {
+      throw new Error("Unexpected candidate lookup response.");
+    }
+
+    return Response.json(
+      {
+        ok: true,
+        candidates
+      },
+      {
+        headers: {
+          "cache-control": "no-store"
+        }
+      }
+    );
+
+  } catch (error) {
+    console.error(
+      "Unable to check Source duplicates.",
+      error
+    );
+
+    return Response.json(
+      {
+        ok: false,
+        error: "Unable to check bibliographic duplicates."
+      },
+      { status: 502 }
+    );
+  }
+}
+
 async function handleSourceCreate(request, env) {
   if (!env.SUPABASE_URL || !env.SUPABASE_SECRET_KEY) {
     return Response.json(
@@ -15909,6 +16066,17 @@ export default {
         env
       );
     }
+
+    if (
+      path === "/api/source-candidates" &&
+      request.method === "POST"
+    ) {
+      return handleSourceCandidates(
+        request,
+        env
+      );
+    }
+
 
     if (path === "/api/sources" && request.method === "GET") {
       return handleSourcesList(env);
