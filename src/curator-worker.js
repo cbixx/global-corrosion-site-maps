@@ -2799,104 +2799,152 @@ async function handleLocationSearch(
   );
 }
 
-async function handleSiteMatchPreview(
-  request,
-  env
+async function lookupSiteCandidates(
+  env,
+  values,
+  excludeId = null
 ) {
+  if (!env.SUPABASE_URL || !env.SUPABASE_SECRET_KEY) {
+    throw new Error("Supabase configuration is missing.");
+  }
+
+  const endpoint = new URL(
+    "/rest/v1/rpc/ca_find_site_candidates",
+    env.SUPABASE_URL
+  );
+
+  const response = await fetch(endpoint, {
+    method: "POST",
+    headers: {
+      apikey: env.SUPABASE_SECRET_KEY,
+      authorization: `Bearer ${env.SUPABASE_SECRET_KEY}`,
+      "content-type": "application/json",
+      accept: "application/json"
+    },
+    body: JSON.stringify({
+      p_site_id: String(values.site_id ?? "").trim() || null,
+      p_label: String(values.site_label ?? "").trim() || null,
+      p_country:
+        String(values.modern_country_location ?? "").trim() || null,
+      p_lat: values.latitude === "" ||
+             values.latitude == null
+        ? null
+        : Number(values.latitude),
+      p_lon: values.longitude === "" ||
+             values.longitude == null
+        ? null
+        : Number(values.longitude),
+      p_exclude_id: excludeId
+    })
+  });
+
+  if (!response.ok) {
+    console.error(
+      "Geographic candidate lookup failed.",
+      response.status,
+      await response.text()
+    );
+
+    throw new Error("Geographic candidate lookup failed.");
+  }
+
+  const candidates = await response.json();
+
+  if (!Array.isArray(candidates)) {
+    throw new Error("Unexpected geographic lookup response.");
+  }
+
+  return candidates;
+}
+
+
+async function handleSiteMatchPreview(request, env) {
   let payload;
 
   try {
-    payload =
-      await request.json();
+    payload = await request.json();
   } catch {
     return Response.json(
-      {
-        ok: false,
-        error:
-          "Invalid JSON body.",
-      },
+      { ok: false, error: "Invalid JSON body." },
       { status: 400 }
     );
   }
 
   if (
-    !String(
-      payload.site_label || ""
-    ).trim() ||
+    !payload ||
+    typeof payload !== "object" ||
+    Array.isArray(payload)
+  ) {
+    return Response.json(
+      { ok: false, error: "Invalid Site data." },
+      { status: 400 }
+    );
+  }
+
+  if (
+    !String(payload.site_label ?? "").trim() ||
     payload.latitude === "" ||
-    payload.latitude === null ||
-    payload.latitude === undefined ||
+    payload.latitude == null ||
     payload.longitude === "" ||
-    payload.longitude === null ||
-    payload.longitude === undefined
+    payload.longitude == null
   ) {
     return Response.json({
       ok: true,
       checked: false,
       will_merge: false,
+      candidates: []
     });
   }
 
-  const latitude =
-    Number(payload.latitude);
-
-  const longitude =
-    Number(payload.longitude);
+  const latitude = Number(payload.latitude);
+  const longitude = Number(payload.longitude);
 
   if (
     !Number.isFinite(latitude) ||
-    !Number.isFinite(longitude)
+    latitude < -90 ||
+    latitude > 90 ||
+    !Number.isFinite(longitude) ||
+    longitude < -180 ||
+    longitude > 180
   ) {
-    return Response.json({
-      ok: true,
-      checked: false,
-      will_merge: false,
-      message:
-        "Existing-site check skipped: invalid coordinates.",
-    });
+    return Response.json(
+      { ok: false, error: "Invalid Site coordinates." },
+      { status: 400 }
+    );
   }
 
-  const rows =
-    await loadSiteMatchCandidates(env);
+  try {
+    const candidates = await lookupSiteCandidates(env, {
+      ...payload,
+      latitude,
+      longitude
+    });
 
-  const match =
-    findExistingSite(
-      rows,
+    return Response.json(
       {
-        ...payload,
-        latitude,
-        longitude,
+        ok: true,
+        checked: true,
+        will_merge: false,
+        candidates
+      },
+      {
+        headers: { "cache-control": "no-store" }
       }
     );
 
-  if (!match.site) {
-    return Response.json({
-      ok: true,
-      checked: true,
-      will_merge: false,
-    });
+  } catch (error) {
+    console.error("Site preview lookup failed.", error);
+
+    return Response.json(
+      {
+        ok: false,
+        error: "Unable to check geographic Site identity."
+      },
+      { status: 502 }
+    );
   }
-
-  return Response.json({
-    ok: true,
-    checked: true,
-    will_merge: true,
-
-    existing: {
-      id: match.site.id,
-      site_id:
-        match.site.site_id || "",
-      site_label:
-        match.site.site_label || "",
-      modern_country_location:
-        match.site
-          .modern_country_location || "",
-    },
-
-    match_reason:
-      match.reason,
-  });
 }
+
 
 async function handleSiteCreate(
   request,
@@ -3036,14 +3084,21 @@ async function handleSiteCreate(
     );
   }
 
-  let candidateRows;
+
+  /*
+   * Phase 4B — safe geographic identity check.
+   * Existing Sites are never automatically merged.
+   */
+
+  let geographicCandidates;
 
   try {
-    candidateRows =
-      await loadSiteMatchCandidates(env);
+    geographicCandidates =
+      await lookupSiteCandidates(env, site);
+
   } catch (error) {
     console.error(
-      "Unable to inspect Site duplicates.",
+      "Unable to validate geographic Site identity.",
       error
     );
 
@@ -3051,182 +3106,59 @@ async function handleSiteCreate(
       {
         ok: false,
         error:
-          "Unable to check for an existing Site.",
+          "Could not verify geographic identity. " +
+          "The Site was not saved."
       },
-      {
-        status: 502,
-        headers: {
-          "cache-control": "no-store",
-        },
-      }
+      { status: 502 }
     );
   }
 
-  const match =
-    findExistingSite(
-      candidateRows,
-      site
-    );
+  const idCollision = geographicCandidates.find(
+    candidate =>
+      candidate.match_type === "SITE_ID_COLLISION"
+  );
 
-  /*
-   * Existing Site:
-   * preserve populated scalar fields,
-   * merge multi-value summary fields,
-   * append new notes without duplication.
-   */
-  if (match.site) {
-    const existing =
-      match.site;
-
-    const merged = {
-      site_id:
-        firstNonemptyValue(
-          existing.site_id,
-          site.site_id
-        ),
-
-      site_label:
-        firstNonemptyValue(
-          existing.site_label,
-          site.site_label
-        ),
-
-      site_type:
-        firstNonemptyValue(
-          existing.site_type,
-          site.site_type
-        ),
-
-      latitude:
-        firstNonemptyValue(
-          existing.latitude,
-          site.latitude
-        ),
-
-      longitude:
-        firstNonemptyValue(
-          existing.longitude,
-          site.longitude
-        ),
-
-      modern_country_location:
-        firstNonemptyValue(
-          existing.modern_country_location,
-          site.modern_country_location
-        ),
-
-      administering_country:
-        firstNonemptyValue(
-          existing.administering_country,
-          site.administering_country
-        ),
-
-      former_entity:
-        firstNonemptyValue(
-          existing.former_entity,
-          site.former_entity
-        ),
-
-      region_category:
-        mergeSiteMetadata(
-          existing.region_category,
-          site.region_category
-        ),
-
-      exposure_period:
-        mergeSiteMetadata(
-          existing.exposure_period,
-          site.exposure_period
-        ),
-
-      metal:
-        mergeSiteMetadata(
-          existing.metal,
-          site.metal
-        ),
-
-      notes:
-        mergeSiteNotes(
-          existing.notes,
-          site.notes
-        ),
-    };
-
-    const endpoint =
-      new URL(
-        "/rest/v1/sites",
-        env.SUPABASE_URL
-      );
-
-    endpoint.searchParams.set(
-      "id",
-      `eq.${existing.id}`
-    );
-
-    const response =
-      await fetch(endpoint, {
-        method: "PATCH",
-        headers: {
-          apikey:
-            env.SUPABASE_SECRET_KEY,
-
-          "content-type":
-            "application/json",
-
-          accept:
-            "application/json",
-
-          prefer:
-            "return=representation",
-        },
-        body:
-          JSON.stringify(merged),
-      });
-
-    if (!response.ok) {
-      console.error(
-        "Unable to merge Site.",
-        response.status,
-        await response.text()
-      );
-
-      return Response.json(
-        {
-          ok: false,
-          error:
-            "Unable to merge existing Site.",
-        },
-        {
-          status: 502,
-          headers: {
-            "cache-control": "no-store",
-          },
-        }
-      );
-    }
-
-    const rows =
-      await response.json();
-
+  if (idCollision) {
     return Response.json(
       {
-        ok: true,
-        site:
-          rows[0] || null,
-
-        action:
-          "merged",
-
-        match_reason:
-          match.reason,
+        ok: false,
+        code: "SITE_ID_COLLISION",
+        error:
+          `Site ID ${site.site_id} already belongs to ` +
+          `${idCollision.site_label}. ` +
+          "Choose another Site ID or open the existing Site.",
+        candidates: geographicCandidates
       },
       {
-        headers: {
-          "cache-control": "no-store",
-        },
+        status: 409,
+        headers: { "cache-control": "no-store" }
       }
     );
   }
+
+  if (
+    geographicCandidates.length > 0 &&
+    payload?.geographic_review_acknowledged !== true
+  ) {
+    return Response.json(
+      {
+        ok: false,
+        code: "SITE_GEOGRAPHIC_REVIEW_REQUIRED",
+        error:
+          "Potentially matching geographic Sites were found. " +
+          "Review the candidates and confirm that the new " +
+          "record represents a distinct exposure Site.",
+        candidates: geographicCandidates,
+        requires_review: true
+      },
+      {
+        status: 409,
+        headers: { "cache-control": "no-store" }
+      }
+    );
+  }
+
+
 
   const endpoint =
     new URL(
@@ -3254,24 +3186,20 @@ async function handleSiteCreate(
         JSON.stringify(site),
     });
 
-  if (!response.ok) {
-    console.error(
-      "Unable to create Site.",
-      response.status,
-      await response.text()
-    );
 
     return Response.json(
       {
         ok: false,
-        error:
-          "Unable to create Site.",
+        error: response.status === 409
+          ? "Site creation conflicts with an existing record. " +
+            "Check whether the Site ID is already used."
+          : "Unable to create Site."
       },
       {
-        status: 502,
+        status: response.status === 409 ? 409 : 502,
         headers: {
-          "cache-control": "no-store",
-        },
+          "cache-control": "no-store"
+        }
       }
     );
   }

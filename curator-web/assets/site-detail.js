@@ -17,6 +17,9 @@ const locationResults = document.getElementById("location-results");
 const siteIdSuggestion = document.getElementById("site-id-suggestion");
 const siteMatchPreview = document.getElementById("site-match-preview");
 
+let siteMatchPreviewSequence = 0;
+let siteMatchAckInput = null;
+
 let lastSuggestedSiteId = "";
 let siteCountryCode = "";
 let currentRegionSuggestion = null;
@@ -850,6 +853,12 @@ saveButton.addEventListener("click", async () => {
   }
 
   if (creating) {
+    updates.geographic_review_acknowledged =
+      Boolean(siteMatchAckInput?.checked);
+  }
+
+
+  if (creating) {
     const missing = [];
 
     if (!updates.site_id?.trim()) {
@@ -957,9 +966,21 @@ saveButton.addEventListener("click", async () => {
 
     const payload = await response.json();
 
+
     if (!response.ok || !payload.ok || !payload.site) {
-      throw new Error(payload.error || `HTTP ${response.status}`);
+      if (Array.isArray(payload.candidates) && creating) {
+        siteMatchPreviewSequence += 1;
+
+        renderSiteCandidatePreview(
+          payload.candidates
+        );
+      }
+
+      throw new Error(
+        payload.error || `HTTP ${response.status}`
+      );
     }
+
 
     currentSite = payload.site;
     editing = false;
@@ -1458,130 +1479,209 @@ async function refreshSuggestedSiteId() {
   }
 }
 
+function renderSiteCandidatePreview(candidates) {
+  siteMatchPreview.replaceChildren();
+  siteMatchAckInput = null;
+
+  const idCollision = candidates.some(
+    candidate =>
+      candidate.match_type === "SITE_ID_COLLISION"
+  );
+
+  siteMatchPreview.className =
+    candidates.length
+      ? "save-message save-message-warning"
+      : "save-message save-message-success";
+
+  siteMatchPreview.hidden = false;
+
+  const heading = document.createElement("strong");
+
+  if (!candidates.length) {
+    heading.textContent =
+      "No potentially matching Sites found.";
+
+    siteMatchPreview.append(heading);
+    return;
+  }
+
+  if (idCollision) {
+    heading.textContent =
+      "Site ID already exists. Choose another ID " +
+      "or use the existing Site.";
+  } else {
+    heading.textContent =
+      `${candidates.length} possible geographic ` +
+      "match(es) found. Review before saving.";
+  }
+
+  siteMatchPreview.append(heading);
+
+  const list = document.createElement("div");
+  list.className = "source-duplicate-list";
+
+  for (const candidate of candidates) {
+    const item = document.createElement("div");
+    item.className = "source-duplicate-item";
+
+    const link = document.createElement("a");
+
+    link.href =
+      `/sites/detail/?id=${encodeURIComponent(
+        candidate.site_pk
+      )}`;
+
+    link.target = "_blank";
+    link.rel = "noopener";
+
+    link.textContent =
+      `${candidate.site_id} — ${candidate.site_label}`;
+
+    const meta = document.createElement("div");
+    meta.className = "source-duplicate-meta";
+
+    const distance =
+      candidate.distance_m == null
+        ? ""
+        : `${Number(candidate.distance_m).toFixed(1)} m`;
+
+    meta.textContent = [
+      candidate.modern_country_location,
+      candidate.match_type?.replaceAll("_", " "),
+      distance
+    ]
+      .filter(Boolean)
+      .join(" · ");
+
+    item.append(link, meta);
+    list.append(item);
+  }
+
+  siteMatchPreview.append(list);
+
+  if (!idCollision) {
+    const reviewLabel = document.createElement("label");
+    reviewLabel.className = "source-duplicate-review";
+
+    const checkbox = document.createElement("input");
+    checkbox.type = "checkbox";
+
+    const description = document.createElement("span");
+
+    description.textContent =
+      "I have reviewed the matching Sites and " +
+      "confirm that the new record represents a " +
+      "distinct geographic exposure Site.";
+
+    reviewLabel.append(checkbox, description);
+    siteMatchPreview.append(reviewLabel);
+
+    siteMatchAckInput = checkbox;
+  }
+}
+
+
 async function refreshSiteMatchPreview() {
+  const sequence = ++siteMatchPreviewSequence;
+  siteMatchAckInput = null;
+
   if (!isNewSite()) {
+    siteMatchPreview.hidden = true;
     return;
   }
 
   const siteId =
-    getSiteInput("site_id")
-      ?.value.trim() || "";
+    getSiteInput("site_id")?.value.trim() || "";
 
   const siteLabel =
-    getSiteInput("site_label")
-      ?.value.trim() || "";
+    getSiteInput("site_label")?.value.trim() || "";
 
   const latitude =
-    getSiteInput("latitude")
-      ?.value.trim() || "";
+    getSiteInput("latitude")?.value.trim() || "";
 
   const longitude =
-    getSiteInput("longitude")
-      ?.value.trim() || "";
+    getSiteInput("longitude")?.value.trim() || "";
 
   const country =
-    getSiteInput(
-      "modern_country_location"
-    )?.value.trim() || "";
+    getSiteInput("modern_country_location")
+      ?.value.trim() || "";
 
-  if (
-    !siteLabel ||
-    !latitude ||
-    !longitude
-  ) {
-    siteMatchPreview.hidden =
-      true;
-
+  if (!siteLabel || !latitude || !longitude) {
+    siteMatchPreview.hidden = true;
+    siteMatchPreview.replaceChildren();
     return;
   }
 
+  siteMatchPreview.hidden = false;
+  siteMatchPreview.className =
+    "save-message save-message-warning";
+
+  siteMatchPreview.textContent =
+    "Checking geographic Site identity…";
+
   try {
-    const response =
-      await fetch(
-        "/api/site-match-preview",
-        {
-          method: "POST",
-          headers: {
-            "content-type":
-              "application/json",
+    const response = await fetch(
+      "/api/site-match-preview",
+      {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          accept: "application/json"
+        },
+        body: JSON.stringify({
+          site_id: siteId,
+          site_label: siteLabel,
+          latitude,
+          longitude,
+          modern_country_location: country
+        })
+      }
+    );
 
-            accept:
-              "application/json",
-          },
+    const payload = await response.json();
 
-          body:
-            JSON.stringify({
-              site_id:
-                siteId,
-
-              site_label:
-                siteLabel,
-
-              latitude,
-              longitude,
-
-              modern_country_location:
-                country,
-            }),
-        }
-      );
-
-    const payload =
-      await response.json();
-
-    if (
-      !response.ok ||
-      !payload.ok
-    ) {
+    if (!response.ok || !payload.ok) {
       throw new Error(
         payload.error ||
-        "Unable to check existing Sites."
+        "Unable to check geographic Site identity."
       );
     }
 
-    if (!payload.checked) {
-      siteMatchPreview.hidden =
-        true;
-
+    if (sequence !== siteMatchPreviewSequence) {
       return;
     }
 
-    if (payload.will_merge) {
-      const existing =
-        payload.existing || {};
-
-      siteMatchPreview.textContent =
-        `Existing Site likely found: ` +
-        `${existing.site_id || ""} — ` +
-        `${existing.site_label || ""}. ` +
-        `Saving will merge into this row. ` +
-        `Match basis: ${payload.match_reason}.`;
-
-      siteMatchPreview.className =
-        "save-message save-message-warning";
-    } else {
-      siteMatchPreview.textContent =
-        "No matching Site found. Saving will create a new Site row.";
-
-      siteMatchPreview.className =
-        "save-message save-message-success";
+    if (!payload.checked) {
+      siteMatchPreview.hidden = true;
+      return;
     }
 
-    siteMatchPreview.hidden =
-      false;
+    renderSiteCandidatePreview(
+      Array.isArray(payload.candidates)
+        ? payload.candidates
+        : []
+    );
+
   } catch (error) {
-    console.error(error);
+    if (sequence !== siteMatchPreviewSequence) {
+      return;
+    }
+
+    console.error("Geographic preview failed.", error);
+
+    siteMatchAckInput = null;
 
     siteMatchPreview.textContent =
-      "Existing-Site check is currently unavailable.";
+      "Geographic identity checking is unavailable. " +
+      "Saving will require server verification.";
 
     siteMatchPreview.className =
       "save-message save-message-warning";
 
-    siteMatchPreview.hidden =
-      false;
+    siteMatchPreview.hidden = false;
   }
 }
+
 
 function renderLocationResults(
   results
