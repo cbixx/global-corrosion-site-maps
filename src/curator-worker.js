@@ -3182,12 +3182,20 @@ async function handleSiteCreate(
         prefer:
           "return=representation",
       },
+
       body:
         JSON.stringify(site),
     });
 
+  if (!response.ok) {
+    console.error(
+      "Unable to create Site.",
+      response.status,
+      await response.text()
+    );
 
     return Response.json(
+
       {
         ok: false,
         error: response.status === 409
@@ -3225,7 +3233,7 @@ async function handleSiteCreate(
       },
     }
   );
-
+}
 
 async function getSupabaseTableCount(
   env,
