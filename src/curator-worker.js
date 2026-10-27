@@ -384,6 +384,110 @@ async function handleSourceUpdate(request, env, sourceId) {
     }
   }
 
+
+  /*
+   * Phase 3B — validate changed bibliographic metadata.
+   * Do not block edits to unrelated fields.
+   */
+
+  const bibliographicFields = [
+    "doi",
+    "source_title",
+    "publication_year",
+    "authors_or_organization"
+  ];
+
+  if (bibliographicFields.some(
+    field => Object.hasOwn(updates, field)
+  )) {
+    const currentEndpoint = new URL(
+      "/rest/v1/sources",
+      env.SUPABASE_URL
+    );
+
+    currentEndpoint.searchParams.set(
+      "select",
+      "id,doi,source_title,publication_year,authors_or_organization"
+    );
+
+    currentEndpoint.searchParams.set("id", `eq.${id}`);
+    currentEndpoint.searchParams.set("limit", "1");
+
+    let currentRecord;
+
+    try {
+      const currentResponse = await fetch(
+        currentEndpoint,
+        {
+          headers: {
+            apikey: env.SUPABASE_SECRET_KEY,
+            authorization:
+              `Bearer ${env.SUPABASE_SECRET_KEY}`,
+            accept: "application/json"
+          }
+        }
+      );
+
+      if (!currentResponse.ok) {
+        throw new Error(
+          `Source lookup HTTP ${currentResponse.status}`
+        );
+      }
+
+      const records = await currentResponse.json();
+      currentRecord = records[0] || null;
+
+    } catch (error) {
+      console.error(
+        "Unable to load Source for identity check.",
+        error
+      );
+
+      return Response.json(
+        {
+          ok: false,
+          error: "Unable to verify current Source metadata."
+        },
+        { status: 502 }
+      );
+    }
+
+    if (!currentRecord) {
+      return Response.json(
+        {
+          ok: false,
+          error: "Source not found."
+        },
+        { status: 404 }
+      );
+    }
+
+    const proposedRecord = {
+      ...currentRecord,
+      ...updates
+    };
+
+    const bibliographyChanged = bibliographicFields.some(
+      field =>
+        String(currentRecord[field] ?? "").trim() !==
+        String(proposedRecord[field] ?? "").trim()
+    );
+
+    if (bibliographyChanged) {
+      const bibliographicBlock =
+        await checkSourceBibliographyBeforeSave(
+          env,
+          proposedRecord,
+          id,
+          payload?.bibliographic_review_acknowledged === true
+        );
+
+      if (bibliographicBlock) {
+        return bibliographicBlock;
+      }
+    }
+  }
+
   const endpoint = new URL("/rest/v1/sources", env.SUPABASE_URL);
   endpoint.searchParams.set("id", `eq.${id}`);
 
@@ -406,16 +510,22 @@ async function handleSourceUpdate(request, env, sourceId) {
       detail,
     });
 
+
+    const bibliographicConflict =
+      detail.includes("ca_sources_unique_doi_title");
+
     return Response.json(
       {
         ok: false,
-        error: "Unable to save source.",
+        error: bibliographicConflict
+          ? "Another Source already has the same normalized DOI and title."
+          : "Unable to save source."
       },
       {
-        status: 502,
+        status: bibliographicConflict ? 409 : 502,
         headers: {
-          "cache-control": "no-store",
-        },
+          "cache-control": "no-store"
+        }
       }
     );
   }
@@ -1664,6 +1774,143 @@ async function handleSourceCandidates(request, env) {
   }
 }
 
+
+async function checkSourceBibliographyBeforeSave(
+  env,
+  source,
+  excludeId = null,
+  acknowledged = false
+) {
+  const doi = String(source.doi ?? "").trim();
+  const title = String(source.source_title ?? "").trim();
+  const year = String(source.publication_year ?? "").trim();
+  const authors = String(
+    source.authors_or_organization ?? ""
+  ).trim();
+
+  if (!doi && !title) {
+    return null;
+  }
+
+  if ([doi, title, year, authors].some(
+    value => value.length > 1000
+  )) {
+    return Response.json(
+      {
+        ok: false,
+        error: "Bibliographic field exceeds 1000 characters."
+      },
+      { status: 400 }
+    );
+  }
+
+  const endpoint = new URL(
+    "/rest/v1/rpc/ca_find_source_candidates",
+    env.SUPABASE_URL
+  );
+
+  let candidates;
+
+  try {
+    const response = await fetch(endpoint, {
+      method: "POST",
+      headers: {
+        apikey: env.SUPABASE_SECRET_KEY,
+        authorization:
+          `Bearer ${env.SUPABASE_SECRET_KEY}`,
+        "content-type": "application/json",
+        accept: "application/json"
+      },
+      body: JSON.stringify({
+        p_doi: doi || null,
+        p_title: title || null,
+        p_year: year || null,
+        p_authors: authors || null,
+        p_exclude_id: excludeId
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error(
+        `Candidate lookup HTTP ${response.status}`
+      );
+    }
+
+    candidates = await response.json();
+
+    if (!Array.isArray(candidates)) {
+      throw new Error(
+        "Invalid bibliographic candidate response."
+      );
+    }
+
+  } catch (error) {
+    console.error(
+      "Save-time Source duplicate check failed.",
+      error
+    );
+
+    return Response.json(
+      {
+        ok: false,
+        error:
+          "Could not verify bibliographic uniqueness. " +
+          "Source was not saved."
+      },
+      { status: 502 }
+    );
+  }
+
+  const strongMatches = candidates.filter(
+    item =>
+      item.match_type === "DOI_TITLE_MATCH" ||
+      item.match_type === "DOI_AUTHOR_REVIEW"
+  );
+
+  if (strongMatches.length > 0) {
+    return Response.json(
+      {
+        ok: false,
+        code: "SOURCE_DUPLICATE",
+        error:
+          "A Source with the same DOI and title already " +
+          "exists. Open the existing Source instead.",
+        candidates: strongMatches
+      },
+      {
+        status: 409,
+        headers: { "cache-control": "no-store" }
+      }
+    );
+  }
+
+  const reviewMatches = candidates.filter(
+    item => item.match_type !== "TITLE_REVIEW"
+  );
+
+  if (reviewMatches.length > 0 && !acknowledged) {
+    return Response.json(
+      {
+        ok: false,
+        code: "SOURCE_REVIEW_REQUIRED",
+        error:
+          "Possible duplicate publications were found. " +
+          "Review the existing Sources and explicitly " +
+          "confirm that this publication is distinct.",
+        candidates,
+        requires_review: true
+      },
+      {
+        status: 409,
+        headers: { "cache-control": "no-store" }
+      }
+    );
+  }
+
+  return null;
+}
+
+
 async function handleSourceCreate(request, env) {
   if (!env.SUPABASE_URL || !env.SUPABASE_SECRET_KEY) {
     return Response.json(
@@ -1790,6 +2037,21 @@ async function handleSourceCreate(request, env) {
     );
   }
 
+
+  // Phase 3B: independent save-time identity check.
+  const bibliographicBlock =
+    await checkSourceBibliographyBeforeSave(
+      env,
+      source,
+      null,
+      payload?.bibliographic_review_acknowledged === true
+    );
+
+  if (bibliographicBlock) {
+    return bibliographicBlock;
+  }
+
+
   /*
    * PDF/R2 creation is not part of 4B.
    * These fields will be populated by the dedicated
@@ -1836,10 +2098,16 @@ async function handleSourceCreate(request, env) {
       }
     );
 
-    const message =
-      response.status === 409
+
+    const bibliographicConflict =
+      detail.includes("ca_sources_unique_doi_title");
+
+    const message = bibliographicConflict
+      ? "A Source with the same normalized DOI and title already exists."
+      : response.status === 409
         ? "That source code already exists."
         : "Unable to create source.";
+
 
     return Response.json(
       {

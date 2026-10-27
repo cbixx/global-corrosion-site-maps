@@ -354,6 +354,73 @@ textarea.detail-input {
   background: #fbeeee;
 }
 
+
+/* Phase 3B — bibliographic identity review */
+
+.source-duplicate-panel {
+  margin: 0 0 20px;
+  padding: 16px 18px;
+  border: 1px solid #d6dce1;
+  border-radius: 9px;
+  background: #f8fafb;
+}
+
+.source-duplicate-panel[hidden],
+.source-duplicate-review[hidden] {
+  display: none;
+}
+
+.source-duplicate-summary {
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+.source-duplicate-list {
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.source-duplicate-list:empty {
+  display: none;
+}
+
+.source-duplicate-item {
+  padding: 12px;
+  border: 1px solid #e0e5e9;
+  border-radius: 7px;
+  background: #ffffff;
+}
+
+.source-duplicate-item a {
+  color: #234c70;
+  font-weight: 600;
+  text-decoration: underline;
+}
+
+.source-duplicate-meta {
+  margin-top: 5px;
+  color: #65717b;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.source-duplicate-review {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-top: 16px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.source-duplicate-review input {
+  margin-top: 3px;
+  flex-shrink: 0;
+}
+
+
 .related-section {
   margin-top: 38px;
 }

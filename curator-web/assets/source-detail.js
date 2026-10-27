@@ -7,6 +7,14 @@ const editButton = document.getElementById("edit-button");
 const cancelButton = document.getElementById("cancel-button");
 const saveButton = document.getElementById("save-button");
 const saveMessage = document.getElementById("save-message");
+const sourceDuplicatePanel = document.getElementById("source-duplicate-panel");
+const sourceDuplicateSummary = document.getElementById("source-duplicate-summary");
+const sourceDuplicateList = document.getElementById("source-duplicate-list");
+const sourceDuplicateReviewLabel = document.getElementById("source-duplicate-review-label");
+const sourceDuplicateAck = document.getElementById("source-duplicate-ack");
+let sourceDuplicateTimer = null;
+let sourceDuplicateSequence = 0;
+
 
 const siteLinksSection = document.getElementById("site-links-section");
 const addSiteLinkButton = document.getElementById("add-site-link-button");
@@ -272,6 +280,13 @@ function addField(fieldName, label, value) {
     input.id =
       `field-${fieldName}`;
 
+    if (SOURCE_BIBLIOGRAPHIC_FIELDS.includes(fieldName)) {
+      input.addEventListener(
+        "input",
+        scheduleSourceDuplicateCheck
+      );
+    }
+
     if (fieldName === "source_code") {
       input.autocapitalize = "off";
       input.autocomplete = "off";
@@ -459,6 +474,195 @@ function renderSourcePdf() {
   }
 }
 
+
+const SOURCE_BIBLIOGRAPHIC_FIELDS = [
+  "doi",
+  "source_title",
+  "publication_year",
+  "authors_or_organization"
+];
+
+const SOURCE_STRONG_DUPLICATES = new Set([
+  "DOI_TITLE_MATCH",
+  "DOI_AUTHOR_REVIEW"
+]);
+
+function sourceBibliographyFromForm() {
+  const data = {};
+
+  for (const field of SOURCE_BIBLIOGRAPHIC_FIELDS) {
+    const input = fieldsElement.querySelector(
+      `[data-field="${field}"]`
+    );
+
+    data[field] = String(input?.value || "").trim();
+  }
+
+  if (currentSource?.id) {
+    data.exclude_source_id = currentSource.id;
+  }
+
+  return data;
+}
+
+function renderSourceCandidates(candidates) {
+  sourceDuplicatePanel.hidden = false;
+  sourceDuplicateList.replaceChildren();
+
+  sourceDuplicateAck.checked = false;
+
+  const blocked = candidates.some(
+    item => SOURCE_STRONG_DUPLICATES.has(item.match_type)
+  );
+
+  const needsReview = candidates.some(
+    item =>
+      !SOURCE_STRONG_DUPLICATES.has(item.match_type) &&
+      item.match_type !== "TITLE_REVIEW"
+  );
+
+  if (candidates.length === 0) {
+    sourceDuplicateSummary.textContent =
+      "No matching Sources found.";
+
+  } else if (blocked) {
+    sourceDuplicateSummary.textContent =
+      "A publication with the same DOI and title " +
+      "already exists. Use the existing Source.";
+
+  } else if (needsReview) {
+    sourceDuplicateSummary.textContent =
+      `${candidates.length} possible matching Source(s). ` +
+      "Review before saving.";
+
+  } else {
+    sourceDuplicateSummary.textContent =
+      `${candidates.length} Source(s) share this title. ` +
+      "Check whether they refer to the same publication.";
+  }
+
+  sourceDuplicateReviewLabel.hidden =
+    blocked || !needsReview;
+
+  for (const candidate of candidates) {
+    const item = document.createElement("div");
+    item.className = "source-duplicate-item";
+
+    const link = document.createElement("a");
+
+    link.href =
+      `/sources/detail/?id=${encodeURIComponent(
+        candidate.source_id
+      )}`;
+
+    link.target = "_blank";
+    link.rel = "noopener";
+
+    link.textContent =
+      `${String(candidate.source_code || "").toUpperCase()} — ` +
+      `${candidate.source_title || "(Untitled Source)"}`;
+
+    const meta = document.createElement("div");
+    meta.className = "source-duplicate-meta";
+
+    meta.textContent = [
+      candidate.authors_or_organization,
+      candidate.publication_year,
+      candidate.match_type?.replaceAll("_", " ")
+    ]
+      .filter(Boolean)
+      .join(" · ");
+
+    item.append(link, meta);
+    sourceDuplicateList.append(item);
+  }
+}
+
+async function checkSourceCandidatesLive(sequence) {
+  const input = sourceBibliographyFromForm();
+
+  if (!input.doi && !input.source_title) {
+    sourceDuplicatePanel.hidden = true;
+    return;
+  }
+
+  try {
+    const response = await fetch(
+      "/api/source-candidates",
+      {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          accept: "application/json"
+        },
+        body: JSON.stringify(input)
+      }
+    );
+
+    const payload = await response.json();
+
+    if (!response.ok || !payload.ok) {
+      throw new Error(
+        payload.error || "Duplicate lookup failed."
+      );
+    }
+
+    // Ignore results from older requests or closed forms.
+    if (sequence !== sourceDuplicateSequence || !editing) {
+      return;
+    }
+
+    renderSourceCandidates(
+      Array.isArray(payload.candidates)
+        ? payload.candidates
+        : []
+    );
+
+  } catch (error) {
+    if (sequence !== sourceDuplicateSequence || !editing) {
+      return;
+    }
+
+    sourceDuplicatePanel.hidden = false;
+    sourceDuplicateSummary.textContent =
+      "Duplicate checking is unavailable: " +
+      error.message;
+
+    sourceDuplicateList.replaceChildren();
+    sourceDuplicateReviewLabel.hidden = true;
+  }
+}
+
+function scheduleSourceDuplicateCheck() {
+  sourceDuplicateSequence += 1;
+
+  window.clearTimeout(sourceDuplicateTimer);
+
+  const sequence = sourceDuplicateSequence;
+  const input = sourceBibliographyFromForm();
+
+  sourceDuplicateAck.checked = false;
+  sourceDuplicateReviewLabel.hidden = true;
+
+  if (!input.doi && !input.source_title) {
+    sourceDuplicatePanel.hidden = true;
+    sourceDuplicateList.replaceChildren();
+    return;
+  }
+
+  sourceDuplicatePanel.hidden = false;
+  sourceDuplicateSummary.textContent =
+    "Checking existing Sources…";
+
+  sourceDuplicateList.replaceChildren();
+
+  sourceDuplicateTimer = window.setTimeout(
+    () => checkSourceCandidatesLive(sequence),
+    450
+  );
+}
+
+
 function renderSource() {
   if (!currentSource) {
     return;
@@ -495,6 +699,14 @@ function renderSource() {
   saveButton.hidden = !editing;
 
   renderSourcePdf();
+  if (editing) {
+    scheduleSourceDuplicateCheck();
+  } else {
+    sourceDuplicateSequence += 1;
+    window.clearTimeout(sourceDuplicateTimer);
+    sourceDuplicatePanel.hidden = true;
+    sourceDuplicateAck.checked = false;
+  }
 }
 
 async function loadSource() {
@@ -639,6 +851,10 @@ saveButton.addEventListener("click", async () => {
     updates[input.dataset.field] = input.value;
   }
 
+  updates.bibliographic_review_acknowledged =
+    sourceDuplicateAck.checked;
+
+
   if (creating) {
     updates.source_code =
       normaliseSourceCode(
@@ -719,9 +935,19 @@ saveButton.addEventListener("click", async () => {
 
     const payload = await response.json();
 
+
     if (!response.ok || !payload.ok || !payload.source) {
-      throw new Error(payload.error || `HTTP ${response.status}`);
+      if (Array.isArray(payload.candidates)) {
+        sourceDuplicateSequence += 1;
+        window.clearTimeout(sourceDuplicateTimer);
+        renderSourceCandidates(payload.candidates);
+      }
+
+      throw new Error(
+        payload.error || `HTTP ${response.status}`
+      );
     }
+
 
     currentSource = payload.source;
     editing = false;

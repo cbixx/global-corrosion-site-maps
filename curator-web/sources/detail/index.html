@@ -56,9 +56,44 @@
         </div>
       </div>
 
+
       <div id="save-message" class="save-message" hidden></div>
 
+      <section
+        id="source-duplicate-panel"
+        class="source-duplicate-panel"
+        aria-live="polite"
+        hidden
+      >
+        <div
+          id="source-duplicate-summary"
+          class="source-duplicate-summary"
+        ></div>
+
+        <div
+          id="source-duplicate-list"
+          class="source-duplicate-list"
+        ></div>
+
+        <label
+          id="source-duplicate-review-label"
+          class="source-duplicate-review"
+          hidden
+        >
+          <input
+            id="source-duplicate-ack"
+            type="checkbox"
+          >
+
+          <span>
+            I have reviewed the matching Sources and confirm
+            that this is a genuinely distinct publication.
+          </span>
+        </label>
+      </section>
+
       <div id="source-fields" class="detail-fields"></div>
+
 
       <section
         id="source-pdf-section"
