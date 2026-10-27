@@ -3225,7 +3225,7 @@ async function handleSiteCreate(
       },
     }
   );
-}
+
 
 async function getSupabaseTableCount(
   env,
