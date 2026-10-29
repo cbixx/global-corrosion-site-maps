@@ -3407,3 +3407,125 @@ a.manage-record:hover {
     flex-direction: column;
   }
 }
+
+
+/* Programme registry — compact layout */
+
+.programme-manager {
+  margin: 20px 0 24px;
+  background: #fff;
+  border: 1px solid #dde1e5;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.programme-manager > summary {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 16px 20px;
+  cursor: pointer;
+  font-size: 16px;
+  font-weight: 600;
+  list-style: none;
+}
+
+.programme-manager > summary::-webkit-details-marker {
+  display: none;
+}
+
+.programme-manager > summary::before {
+  content: "▸";
+  color: #66717b;
+}
+
+.programme-manager[open] > summary::before {
+  content: "▾";
+}
+
+.programme-manager > summary:hover {
+  background: #f8f9fa;
+}
+
+.programme-summary-hint {
+  color: #7a848c;
+  font-size: 13px;
+  font-weight: 400;
+}
+
+.programme-manager-body {
+  padding: 0 20px 20px;
+  margin-top: 0;
+}
+
+#programme-list {
+  background: #fff;
+  border: 1px solid #e3e7eb;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.programme-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 20px;
+  padding: 12px 16px;
+  border-bottom: 1px solid #e8ebee;
+}
+
+.programme-row:last-child {
+  border-bottom: none;
+}
+
+.programme-row:hover {
+  background: #fafbfc;
+}
+
+.programme-info {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.programme-info strong {
+  display: block;
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.programme-full {
+  margin-top: 3px;
+  color: #66717b;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.programme-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.programme-actions .button {
+  min-height: 34px;
+  padding: 0 12px;
+  white-space: nowrap;
+  font-size: 13px;
+}
+
+@media (max-width: 640px) {
+  .programme-row {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .programme-actions {
+    justify-content: flex-start;
+  }
+
+  .programme-manager-body {
+    padding: 0 12px 16px;
+  }
+}

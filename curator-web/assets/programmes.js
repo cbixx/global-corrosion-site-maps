@@ -35,16 +35,17 @@ async function loadProgrammes() {
 
   for (const programme of data.programmes) {
     const row = document.createElement("div");
-    row.className = "detail-field";
+    row.className = "programme-row";
 
     const content = document.createElement("div");
+    content.className = "programme-info";
 
     const name = document.createElement("strong");
     name.textContent = programme.display_name;
 
     const full = document.createElement("div");
     full.textContent = programme.full_name || "Full name not specified";
-    full.style.marginTop = "4px";
+    full.className = "programme-full";
 
     content.append(name, full);
 
@@ -110,10 +111,7 @@ async function loadProgrammes() {
     });
 
     const actions = document.createElement("div");
-    actions.style.display = "flex";
-    actions.style.gap = "8px";
-    actions.style.justifyContent = "flex-end";
-    actions.style.flexWrap = "wrap";
+    actions.className = "programme-actions";
 
     actions.append(edit, remove);
     row.append(content, actions);
