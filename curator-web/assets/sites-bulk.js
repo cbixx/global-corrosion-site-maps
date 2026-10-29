@@ -1980,6 +1980,16 @@ function bulkRenderRow(
     );
   }
 
+  if (row.creation_status === "error") {
+    const errorBox = document.createElement("div");
+
+    errorBox.className = "save-message save-message-error";
+
+    errorBox.textContent =
+      row.create_error || "Unable to create Site.";
+
+    card.append(errorBox);
+  }
 
   return card;
 }
