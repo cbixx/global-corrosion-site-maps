@@ -73,14 +73,17 @@ async function handleProgrammes(request, env) {
     });
   }
 
-  if (request.method === "POST") {
+  if (
+    request.method === "POST" ||
+    request.method === "DELETE"
+  ) {
     let input;
 
     try {
       input = await request.json();
     } catch {
       return Response.json(
-        { ok: false, error: "Invalid JSON." },
+        { ok: false, error: "Invalid JSON body." },
         { status: 400 }
       );
     }
@@ -89,36 +92,8 @@ async function handleProgrammes(request, env) {
       ? null
       : Number(input.id);
 
-    const record = {
-      display_name: String(input.display_name || "").trim(),
-      full_name: String(input.full_name || "").trim(),
-      description: String(input.description || "").trim()
-    };
-
-    if (!record.display_name ||
-        record.display_name.length > 120 ||
-        record.full_name.length > 1000) {
-      return Response.json(
-        { ok: false, error: "Invalid programme name." },
-        { status: 400 }
-      );
-    }
-
     if (
-      record.display_name.includes(",") ||
-      record.display_name.includes(";")
-    ) {
-      return Response.json(
-        {
-          ok: false,
-          error: "Programme abbreviations cannot contain commas or semicolons."
-        },
-        { status: 400 }
-      );
-    }
-
-    if (
-      input.id != null &&
+      id !== null &&
       (!Number.isSafeInteger(id) || id <= 0)
     ) {
       return Response.json(
@@ -127,69 +102,70 @@ async function handleProgrammes(request, env) {
       );
     }
 
-    // Protect existing source links: rename is deliberately disabled.
-    if (id !== null) {
-      const checkUrl = new URL(base);
-      checkUrl.searchParams.set("select", "display_name");
-      checkUrl.searchParams.set("id", `eq.${id}`);
-
-      const check = await fetch(checkUrl, { headers });
-
-      if (!check.ok) {
-        return Response.json(
-          { ok: false, error: "Programme lookup failed." },
-          { status: 502 }
-        );
-      }
-
-      const existing = (await check.json())[0];
-
-      if (!existing) {
-        return Response.json(
-          { ok: false, error: "Programme not found." },
-          { status: 404 }
-        );
-      }
-
-      if (existing.display_name !== record.display_name) {
-        return Response.json(
-          {
-            ok: false,
-            error: "Display names cannot be renamed here. Existing sources may reference them."
-          },
-          { status: 400 }
-        );
-      }
-
-      base.searchParams.set("id", `eq.${id}`);
+    if (request.method === "DELETE" && id === null) {
+      return Response.json(
+        { ok: false, error: "Programme ID is required." },
+        { status: 400 }
+      );
     }
 
-    const response = await fetch(base, {
-      method: id === null ? "POST" : "PATCH",
-      headers: {
-        ...headers,
-        prefer: "return=representation"
-      },
-      body: JSON.stringify(record)
-    });
+    const deleting = request.method === "DELETE";
+
+    const rpcName = deleting
+      ? "ca_delete_programme"
+      : "ca_save_programme";
+
+    const rpcPayload = deleting
+      ? { p_id: id }
+      : {
+          p_id: id,
+          p_display_name: String(input.display_name || "").trim(),
+          p_full_name: String(input.full_name || "").trim(),
+          p_description: String(input.description || "").trim()
+        };
+
+    const response = await fetch(
+      new URL(`/rest/v1/rpc/${rpcName}`, env.SUPABASE_URL),
+      {
+        method: "POST",
+        headers: {
+          ...headers,
+          prefer: "return=representation"
+        },
+        body: JSON.stringify(rpcPayload)
+      }
+    );
 
     if (!response.ok) {
+      const detail = await response.json().catch(() => ({}));
+
+      const conflict =
+        detail.code === "23505" ||
+        String(detail.message || "").startsWith("Cannot delete");
+
       return Response.json(
         {
           ok: false,
-          error: response.status === 409
-            ? "Programme abbreviation already exists."
-            : "Unable to save programme."
+          error: conflict
+            ? (detail.message || "Programme conflict.")
+            : detail.code === "P0001"
+              ? detail.message
+              : "Unable to update programme."
         },
-        { status: response.status === 409 ? 409 : 502 }
+        { status: conflict ? 409 : detail.code === "P0001" ? 400 : 502 }
       );
+    }
+
+    if (deleting) {
+      return Response.json({ ok: true, deleted: true });
     }
 
     return Response.json({
       ok: true,
-      programme: (await response.json())[0]
+      programme: await response.json()
     });
   }
+
 
   return Response.json(
     { ok: false, error: "Method not allowed." },
@@ -1662,6 +1638,41 @@ async function handleSourceFormOptions(env) {
     );
   }
 
+  const programmeEndpoint = new URL(
+    "/rest/v1/programmes",
+    env.SUPABASE_URL
+  );
+
+  programmeEndpoint.searchParams.set(
+    "select",
+    "display_name"
+  );
+
+  programmeEndpoint.searchParams.set(
+    "order",
+    "display_name.asc"
+  );
+
+  const programmeResponse = await fetch(programmeEndpoint, {
+    headers: {
+      apikey: env.SUPABASE_SECRET_KEY,
+      authorization: `Bearer ${env.SUPABASE_SECRET_KEY}`,
+      accept: "application/json"
+    }
+  });
+
+  if (!programmeResponse.ok) {
+    return Response.json(
+      { ok: false, error: "Unable to load programme catalogue." },
+      { status: 502 }
+    );
+  }
+
+  const catalogueProgrammes =
+    (await programmeResponse.json())
+      .map(row => row.display_name);
+
+
   const nextSourceCode =
     `s${String(maxSourceNumber + 1).padStart(3, "0")}`;
 
@@ -1680,9 +1691,8 @@ async function handleSourceFormOptions(env) {
 
       programme_options:
         mergeOptionValues(
-          PROGRAMME_OPTIONS,
-          existingProgrammes,
-          savedProgrammes
+          ["Other / independent"],
+          catalogueProgrammes
         ),
 
       metal_options:
@@ -16430,7 +16440,7 @@ export default {
 
     if (
       path === "/api/programmes" &&
-      ["GET", "POST"].includes(request.method)
+      ["GET", "POST", "DELETE"].includes(request.method)
     ) {
       return handleProgrammes(request, env);
     }

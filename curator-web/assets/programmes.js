@@ -61,7 +61,7 @@ async function loadProgrammes() {
 
       // Editing the abbreviation itself is restricted,
       // because existing source records use that abbreviation.
-      programmeDisplay.readOnly = true;
+      programmeDisplay.readOnly = false;
       programmeStatus.hidden = true;
       programmeForm.scrollIntoView({
         behavior: "smooth",
@@ -69,8 +69,56 @@ async function loadProgrammes() {
       });
     });
 
-    row.append(content, edit);
+    const remove = document.createElement("button");
+    remove.className = "button button-danger";
+    remove.type = "button";
+    remove.textContent = "Delete";
+
+    remove.addEventListener("click", async () => {
+    const confirmed = window.confirm(
+        `Delete programme "${programme.display_name}"?\n\n` +
+        "Deletion will be blocked if any sources still reference it."
+    );
+
+    if (!confirmed) return;
+
+    remove.disabled = true;
+
+    try {
+        const response = await fetch("/api/programmes", {
+        method: "DELETE",
+        headers: {
+            "content-type": "application/json"
+        },
+        body: JSON.stringify({ id: programme.id })
+        });
+
+        const data = await response.json();
+
+        if (!response.ok || !data.ok) {
+        throw new Error(data.error || "Unable to delete programme.");
+        }
+
+        resetProgrammeForm();
+        await loadProgrammes();
+        showProgrammeStatus("Programme deleted.");
+    } catch (error) {
+        showProgrammeStatus(error.message, true);
+    } finally {
+        remove.disabled = false;
+    }
+    });
+
+    const actions = document.createElement("div");
+    actions.style.display = "flex";
+    actions.style.gap = "8px";
+    actions.style.justifyContent = "flex-end";
+    actions.style.flexWrap = "wrap";
+
+    actions.append(edit, remove);
+    row.append(content, actions);
     programmeList.append(row);
+
   }
 }
 
