@@ -44,6 +44,28 @@ let currentSiteLinks = [];
 let currentSource = null;
 let editing = false;
 
+let programmeCatalogue = new Map();
+
+async function loadProgrammeCatalogue() {
+  try {
+    const response = await fetch("/api/programmes");
+    const data = await response.json();
+
+    if (!response.ok || !data.ok) {
+      throw new Error("Unable to load programme catalogue.");
+    }
+
+    programmeCatalogue = new Map(
+      data.programmes.map(p => [
+        p.display_name.toLowerCase(),
+        p.full_name
+      ])
+    );
+  } catch (error) {
+    console.warn("Programme catalogue unavailable.", error);
+  }
+}
+
 const FIELD_LABELS = {
   source_code: "Source code",
   source_title: "Source title",
@@ -373,6 +395,29 @@ function addField(fieldName, label, value) {
     valueElement.classList.add("detail-empty");
   } else {
     valueElement.textContent = String(value);
+  }
+  // Show full programme names below their abbreviations.
+  if (fieldName === "programme" && !editing && value) {
+    const names = String(value)
+      .split(/[,;]/)
+      .map(name => name.trim())
+      .filter(Boolean)
+      .map(name =>
+        programmeCatalogue.get(name.toLowerCase()) || ""
+      )
+      .filter(Boolean);
+
+    if (names.length > 0) {
+      const fullName = document.createElement("div");
+
+      fullName.textContent = [...new Set(names)].join("; ");
+      fullName.style.fontSize = "13px";
+      fullName.style.color = "#66717b";
+      fullName.style.marginTop = "5px";
+      fullName.style.lineHeight = "1.5";
+
+      valueElement.append(fullName);
+    }
   }
 
   row.append(
@@ -710,6 +755,7 @@ function renderSource() {
 }
 
 async function loadSource() {
+  await loadProgrammeCatalogue();
 
   if (isNewSource()) {
     let suggestedSourceCode = "";

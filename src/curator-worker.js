@@ -29,6 +29,174 @@ function htmlResponse(html, status = 200) {
   });
 }
 
+// Programme catalogue API
+
+async function handleProgrammes(request, env) {
+  if (!env.SUPABASE_URL || !env.SUPABASE_SECRET_KEY) {
+    return Response.json(
+      { ok: false, error: "Database configuration missing." },
+      { status: 500 }
+    );
+  }
+
+  const base = new URL(
+    "/rest/v1/programmes",
+    env.SUPABASE_URL
+  );
+
+  const headers = {
+    apikey: env.SUPABASE_SECRET_KEY,
+    authorization: `Bearer ${env.SUPABASE_SECRET_KEY}`,
+    "content-type": "application/json",
+    accept: "application/json"
+  };
+
+  if (request.method === "GET") {
+    base.searchParams.set(
+      "select",
+      "id,display_name,full_name,description"
+    );
+    base.searchParams.set("order", "display_name.asc");
+
+    const response = await fetch(base, { headers });
+
+    if (!response.ok) {
+      return Response.json(
+        { ok: false, error: "Unable to load programmes." },
+        { status: 502 }
+      );
+    }
+
+    return Response.json({
+      ok: true,
+      programmes: await response.json()
+    });
+  }
+
+  if (request.method === "POST") {
+    let input;
+
+    try {
+      input = await request.json();
+    } catch {
+      return Response.json(
+        { ok: false, error: "Invalid JSON." },
+        { status: 400 }
+      );
+    }
+
+    const id = input.id == null || input.id === ""
+      ? null
+      : Number(input.id);
+
+    const record = {
+      display_name: String(input.display_name || "").trim(),
+      full_name: String(input.full_name || "").trim(),
+      description: String(input.description || "").trim()
+    };
+
+    if (!record.display_name ||
+        record.display_name.length > 120 ||
+        record.full_name.length > 1000) {
+      return Response.json(
+        { ok: false, error: "Invalid programme name." },
+        { status: 400 }
+      );
+    }
+
+    if (
+      record.display_name.includes(",") ||
+      record.display_name.includes(";")
+    ) {
+      return Response.json(
+        {
+          ok: false,
+          error: "Programme abbreviations cannot contain commas or semicolons."
+        },
+        { status: 400 }
+      );
+    }
+
+    if (
+      input.id != null &&
+      (!Number.isSafeInteger(id) || id <= 0)
+    ) {
+      return Response.json(
+        { ok: false, error: "Invalid programme ID." },
+        { status: 400 }
+      );
+    }
+
+    // Protect existing source links: rename is deliberately disabled.
+    if (id !== null) {
+      const checkUrl = new URL(base);
+      checkUrl.searchParams.set("select", "display_name");
+      checkUrl.searchParams.set("id", `eq.${id}`);
+
+      const check = await fetch(checkUrl, { headers });
+
+      if (!check.ok) {
+        return Response.json(
+          { ok: false, error: "Programme lookup failed." },
+          { status: 502 }
+        );
+      }
+
+      const existing = (await check.json())[0];
+
+      if (!existing) {
+        return Response.json(
+          { ok: false, error: "Programme not found." },
+          { status: 404 }
+        );
+      }
+
+      if (existing.display_name !== record.display_name) {
+        return Response.json(
+          {
+            ok: false,
+            error: "Display names cannot be renamed here. Existing sources may reference them."
+          },
+          { status: 400 }
+        );
+      }
+
+      base.searchParams.set("id", `eq.${id}`);
+    }
+
+    const response = await fetch(base, {
+      method: id === null ? "POST" : "PATCH",
+      headers: {
+        ...headers,
+        prefer: "return=representation"
+      },
+      body: JSON.stringify(record)
+    });
+
+    if (!response.ok) {
+      return Response.json(
+        {
+          ok: false,
+          error: response.status === 409
+            ? "Programme abbreviation already exists."
+            : "Unable to save programme."
+        },
+        { status: response.status === 409 ? 409 : 502 }
+      );
+    }
+
+    return Response.json({
+      ok: true,
+      programme: (await response.json())[0]
+    });
+  }
+
+  return Response.json(
+    { ok: false, error: "Method not allowed." },
+    { status: 405 }
+  );
+}
+
 async function handleSourcesList(env) {
   if (!env.SUPABASE_URL || !env.SUPABASE_SECRET_KEY) {
     return Response.json(
@@ -16258,6 +16426,13 @@ export default {
       return handleSettingsRegionReset(
         env
       );
+    }
+
+    if (
+      path === "/api/programmes" &&
+      ["GET", "POST"].includes(request.method)
+    ) {
+      return handleProgrammes(request, env);
     }
 
     if (path === "/api/source-form-options" && request.method === "GET") {

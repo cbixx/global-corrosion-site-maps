@@ -90,6 +90,67 @@
       ></div>
     </section>
 
+
+<section class="related-section">
+  <div class="related-heading">
+    <div>
+      <h2>Research programmes</h2>
+      <p class="related-description">
+        Manage programme abbreviations and their full names.
+        Existing source associations are preserved.
+      </p>
+    </div>
+  </div>
+
+  <div id="programme-list"></div>
+
+  <form id="programme-form"
+        style="display:grid;gap:12px;max-width:720px;margin-top:18px;">
+
+    <input id="programme-id" type="hidden">
+
+    <label>
+      Display name / abbreviation
+      <input id="programme-display"
+             class="detail-input"
+             placeholder="e.g. ACCRP–NRC"
+             required>
+    </label>
+
+    <label>
+      Full programme name
+      <input id="programme-full"
+             class="detail-input"
+             placeholder="Official full name">
+    </label>
+
+    <label>
+      Description / historical notes
+      <textarea id="programme-description"
+                class="detail-input"
+                rows="3"></textarea>
+    </label>
+
+    <div class="page-actions">
+      <button type="submit"
+              class="button button-primary">
+        Save programme
+      </button>
+
+      <button id="programme-clear"
+              type="button"
+              class="button">
+        Clear
+      </button>
+    </div>
+
+    <div id="programme-status"
+         class="save-message"
+         hidden></div>
+  </form>
+</section>
+
+
     <div class="search-panel">
       <input
         id="source-search"
@@ -112,4 +173,64 @@
   <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
   <script src="/assets/sources.js"></script>
 </body>
+
+<section class="related-section">
+  <div class="related-heading">
+    <div>
+      <h2>Research programmes</h2>
+      <p class="related-description">
+        Manage programme abbreviations and their full names.
+        Existing source associations are preserved.
+      </p>
+    </div>
+  </div>
+
+  <div id="programme-list"></div>
+
+  <form id="programme-form"
+        style="display:grid;gap:12px;max-width:720px;margin-top:18px;">
+
+    <input id="programme-id" type="hidden">
+
+    <label>
+      Display name / abbreviation
+      <input id="programme-display"
+             class="detail-input"
+             placeholder="e.g. ACCRP–NRC"
+             required>
+    </label>
+
+    <label>
+      Full programme name
+      <input id="programme-full"
+             class="detail-input"
+             placeholder="Official full name">
+    </label>
+
+    <label>
+      Description / historical notes
+      <textarea id="programme-description"
+                class="detail-input"
+                rows="3"></textarea>
+    </label>
+
+    <div class="page-actions">
+      <button type="submit"
+              class="button button-primary">
+        Save programme
+      </button>
+
+      <button id="programme-clear"
+              type="button"
+              class="button">
+        Clear
+      </button>
+    </div>
+
+    <div id="programme-status"
+         class="save-message"
+         hidden></div>
+  </form>
+</section>
+<script src="/assets/programmes.js"></script>
 </html>
