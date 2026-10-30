@@ -144,6 +144,57 @@ let currentTotalPages = 1;
 
 let searchTimer = null;
 
+// Restore the current browser URL's search and pagination state.
+const initialEnvironmentParams =
+  new URLSearchParams(window.location.search);
+
+searchInput.value =
+  initialEnvironmentParams.get("q") || "";
+
+const savedEnvironmentPage =
+  Number(initialEnvironmentParams.get("page"));
+
+if (
+  Number.isSafeInteger(savedEnvironmentPage) &&
+  savedEnvironmentPage > 0
+) {
+  currentPage = savedEnvironmentPage;
+}
+
+const savedEnvironmentPageSize =
+  Number(initialEnvironmentParams.get("page_size"));
+
+if ([25, 50, 100, 200].includes(savedEnvironmentPageSize)) {
+  currentPageSize = savedEnvironmentPageSize;
+  pageSizeInput.value = String(savedEnvironmentPageSize);
+}
+
+function updateEnvironmentUrl() {
+  const params = new URLSearchParams();
+  const query = searchInput.value.trim();
+
+  if (query) {
+    params.set("q", query);
+  }
+
+  if (currentPage > 1) {
+    params.set("page", String(currentPage));
+  }
+
+  if (currentPageSize !== 50) {
+    params.set("page_size", String(currentPageSize));
+  }
+
+  const queryString = params.toString();
+
+  window.history.replaceState(
+    null,
+    "",
+    queryString
+      ? `/environment/?${queryString}`
+      : "/environment/"
+  );
+}
 
 function hasValue(
   value
@@ -966,6 +1017,7 @@ async function loadObservations() {
     );
   }
 
+  updateEnvironmentUrl();
 
   try {
     const response =
@@ -994,6 +1046,13 @@ async function loadObservations() {
       );
     }
 
+    if (
+      Number(payload.total_pages) > 0 &&
+      currentPage > Number(payload.total_pages)
+    ) {
+      currentPage = Number(payload.total_pages);
+      return loadObservations();
+    }
 
     renderObservations(
       payload

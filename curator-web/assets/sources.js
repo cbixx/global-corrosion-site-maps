@@ -1,6 +1,16 @@
 let allSources = [];
 
 const searchInput = document.getElementById("source-search");
+const SOURCE_SEARCH_KEY = "corrosion-atlas-sources-search";
+try {
+  const previousQuery = sessionStorage.getItem(SOURCE_SEARCH_KEY);
+
+  if (previousQuery !== null) {
+    searchInput.value = previousQuery;
+  }
+} catch (error) {
+  console.warn("Unable to restore Sources search.", error);
+}
 const sourceList = document.getElementById("source-list");
 const statusElement = document.getElementById("status");
 const sourceCount = document.getElementById("source-count");
@@ -552,7 +562,7 @@ async function loadSources() {
 
     allSources = payload.sources;
 
-    renderSources(allSources);
+    applySearch();
     renderPdfDownloadOptions();
   } catch (error) {
     console.error("Unable to load sources.", error);
@@ -618,6 +628,17 @@ pdfDownloadAll.addEventListener(
   }
 );
 
-searchInput.addEventListener("input", applySearch);
+searchInput.addEventListener("input", () => {
+  try {
+    sessionStorage.setItem(
+      SOURCE_SEARCH_KEY,
+      searchInput.value
+    );
+  } catch (error) {
+    console.warn("Unable to save Sources search.", error);
+  }
+
+  applySearch();
+});
 
 loadSources();

@@ -301,10 +301,29 @@ function ensureRegionSuggestionPanel() {
   notes.dataset.role =
     "region-suggestion-notes";
 
+  const applyButton = document.createElement("button");
+
+  applyButton.type = "button";
+  applyButton.className = "button button-small";
+  applyButton.textContent = "Apply suggested region";
+  applyButton.dataset.role = "apply-region-suggestion";
+  applyButton.disabled = true;
+
+  applyButton.addEventListener("click", () => {
+    const input = getSiteInput("region_category");
+    const suggested = currentRegionSuggestion?.region_category;
+
+    if (!editing || !input || !suggested) return;
+
+    input.value = suggested;
+    input.dataset.manualRegion = "1";
+  });
+
   panel.append(
     heading,
     value,
-    notes
+    notes,
+    applyButton
   );
 
   const regionInput =
@@ -393,6 +412,13 @@ async function refreshRegionClassification() {
 
   notesElement.textContent = "";
 
+  const applyButton = panel.querySelector(
+    '[data-role="apply-region-suggestion"]'
+  );
+
+  applyButton.disabled = true;
+  currentRegionSuggestion = null;
+
   try {
     const response =
       await fetch(
@@ -459,13 +485,18 @@ async function refreshRegionClassification() {
         "region_category"
       );
 
-    if (
-      regionInput &&
-      payload.region_category
-    ) {
-      regionInput.value =
-        payload.region_category;
+    if (regionInput && payload.region_category) {
+      // Preserve automatically populated regions for NEW Sites,
+      // unless the curator has manually edited the field.
+      if (
+        isNewSite() &&
+        regionInput.dataset.manualRegion !== "1"
+      ) {
+        regionInput.value = payload.region_category;
+      }
     }
+
+    applyButton.disabled = !payload.region_category;
 
     valueElement.textContent =
       payload.region_category ||
@@ -567,6 +598,12 @@ function addField(
       value === undefined
         ? ""
         : String(value);
+
+    if (fieldName === "region_category") {
+      input.addEventListener("input", () => {
+        input.dataset.manualRegion = "1";
+      });
+    }
 
     const placeholder =
       SITE_FIELD_PLACEHOLDERS[

@@ -563,89 +563,6 @@ function bulkRefreshRowState(
       row
     );
 
-  if (
-    bulkCreationSucceeded(
-      row
-    ) &&
-    row.created_site
-  ) {
-    const result =
-      document.createElement(
-        "div"
-      );
-
-    result.className =
-      "sites-bulk-created-result";
-
-
-    const text =
-      document.createElement(
-        "span"
-      );
-
-    text.textContent =
-      row.creation_status ===
-        "merged"
-        ? "Merged into"
-        : "Created";
-
-
-    const link =
-      document.createElement(
-        "a"
-      );
-
-    link.href =
-      `/sites/detail/?id=${encodeURIComponent(
-        row.created_site.id
-      )}`;
-
-    link.target =
-      "_blank";
-
-    link.rel =
-      "noopener";
-
-    link.textContent =
-      [
-        row.created_site.site_id,
-        row.created_site.site_label,
-      ]
-        .filter(Boolean)
-        .join(" · ");
-
-
-    result.append(
-      text,
-      link
-    );
-
-    card.append(
-      result
-    );
-  }
-
-
-  if (
-    row.creation_status ===
-      "error"
-  ) {
-    const error =
-      document.createElement(
-        "div"
-      );
-
-    error.className =
-      "save-message save-message-error";
-
-    error.textContent =
-      row.create_error ||
-      "Unable to create Site.";
-
-    card.append(
-      error
-    );
-  }
 
   if (
     row.existing_match
@@ -1978,6 +1895,31 @@ function bulkRenderRow(
     card.append(
       warning
     );
+  }
+
+  if (bulkCreationSucceeded(row) && row.created_site) {
+    const result = document.createElement("div");
+    result.className = "sites-bulk-created-result";
+
+    const label = document.createElement("span");
+    label.textContent =
+      row.creation_status === "merged"
+        ? "Merged into "
+        : "Created ";
+
+    const link = document.createElement("a");
+    link.href =
+      `/sites/detail/?id=${encodeURIComponent(row.created_site.id)}`;
+    link.target = "_blank";
+    link.rel = "noopener";
+
+    link.textContent = [
+      row.created_site.site_id,
+      row.created_site.site_label
+    ].filter(Boolean).join(" · ");
+
+    result.append(label, link);
+    card.append(result);
   }
 
   if (row.creation_status === "error") {

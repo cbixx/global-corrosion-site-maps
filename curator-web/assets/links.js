@@ -428,16 +428,23 @@ function renderSources() {
 
 
 function selectAllSites() {
+  const query = normalise(siteFilter.value);
+
   for (const site of sites) {
-    selectedSiteIds.add(
-      Number(site.id)
-    );
+    const text = normalise([
+      site.site_id,
+      site.site_label,
+      site.modern_country_location
+    ].join(" "));
+
+    if (!query || text.includes(query)) {
+      selectedSiteIds.add(Number(site.id));
+    }
   }
 
   renderSites();
   updateSelectionSummary();
 }
-
 
 function deselectAllSites() {
   selectedSiteIds.clear();
@@ -446,18 +453,24 @@ function deselectAllSites() {
   updateSelectionSummary();
 }
 
-
 function selectAllSources() {
+  const query = normalise(sourceFilter.value);
+
   for (const source of sources) {
-    selectedSourceIds.add(
-      Number(source.id)
-    );
+    const text = normalise([
+      source.source_code,
+      source.source_title,
+      source.programme
+    ].join(" "));
+
+    if (!query || text.includes(query)) {
+      selectedSourceIds.add(Number(source.id));
+    }
   }
 
   renderSources();
   sourceSelectionChanged();
 }
-
 
 function deselectAllSources() {
   selectedSourceIds.clear();
@@ -810,5 +823,24 @@ attachButton.addEventListener(
   attachSelected
 );
 
+document.getElementById("select-all-sites-database")
+  .addEventListener("click", () => {
+    for (const site of sites) {
+      selectedSiteIds.add(Number(site.id));
+    }
+
+    renderSites();
+    updateSelectionSummary();
+  });
+
+document.getElementById("select-all-sources-database")
+  .addEventListener("click", () => {
+    for (const source of sources) {
+      selectedSourceIds.add(Number(source.id));
+    }
+
+    renderSources();
+    sourceSelectionChanged();
+  });
 
 loadOptions();
