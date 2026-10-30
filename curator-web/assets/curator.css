@@ -3576,3 +3576,28 @@ a.manage-record:hover {
     height: 260px;
   }
 }
+
+/* Coordinate map search results */
+
+.site-map-result-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.site-map-result-actions .button {
+  font-size: 13px;
+  min-height: 34px;
+  padding: 6px 10px;
+}
+
+@media (max-width: 600px) {
+  .site-map-shell .location-result {
+    flex-direction: column;
+  }
+
+  .site-map-result-actions {
+    width: 100%;
+  }
+}

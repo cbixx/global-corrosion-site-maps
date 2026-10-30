@@ -164,6 +164,44 @@
             Drag the blue pin or click the map to adjust the location.
             Red circles represent existing Sites.
           </p>
+          <div class="location-search-row">
+            <input
+              id="site-map-location-query"
+              class="detail-input"
+              type="search"
+              placeholder="Search a place, e.g. El Pardo, Madrid, Spain"
+              autocomplete="off"
+            >
+
+            <button
+              id="site-map-search-button"
+              class="button"
+              type="button"
+            >
+              Search
+            </button>
+
+            <button
+              id="site-map-use-label-button"
+              class="button button-secondary"
+              type="button"
+            >
+              Use Site label
+            </button>
+          </div>
+
+          <p
+            id="site-map-search-status"
+            class="site-map-help"
+            aria-live="polite"
+            hidden
+          ></p>
+
+          <div
+            id="site-map-location-results"
+            class="location-results"
+            hidden
+          ></div>
           <div
             id="site-coordinate-canvas"
             class="site-coordinate-canvas"

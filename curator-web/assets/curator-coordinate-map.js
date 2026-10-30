@@ -154,6 +154,16 @@
     return {
       setPosition,
 
+      // Move only the map viewport; do not alter Site coordinates.
+      previewLocation(lat, lon) {
+        if (!valid(lat, lon)) return;
+
+        map.setView(
+          [Number(lat), Number(lon)],
+          13
+        );
+      },
+
       setSites(nextSites, ids = []) {
         existingSites = nextSites;
         related = new Set(ids.map(String));

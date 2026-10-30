@@ -16,17 +16,16 @@ const locationSearchStatus = document.getElementById("location-search-status");
 const locationResults = document.getElementById("location-results");
 const siteIdSuggestion = document.getElementById("site-id-suggestion");
 const siteMatchPreview = document.getElementById("site-match-preview");
-const singleMapShell =
-  document.getElementById("site-coordinate-tools");
-const singleMapToggle =
-  document.getElementById("site-coordinate-toggle");
-const singleMapPanel =
-  document.getElementById("site-coordinate-panel");
-const singleMapCanvas =
-  document.getElementById("site-coordinate-canvas");
-const singleMapStatus =
-  document.getElementById("site-coordinate-status");
-
+const singleMapShell = document.getElementById("site-coordinate-tools");
+const singleMapToggle = document.getElementById("site-coordinate-toggle");
+const singleMapPanel = document.getElementById("site-coordinate-panel");
+const singleMapCanvas = document.getElementById("site-coordinate-canvas");
+const singleMapStatus = document.getElementById("site-coordinate-status");
+const siteMapQuery = document.getElementById("site-map-location-query");
+const siteMapSearchButton = document.getElementById("site-map-search-button");
+const siteMapUseLabelButton = document.getElementById("site-map-use-label-button");
+const siteMapSearchStatus = document.getElementById("site-map-search-status");
+const siteMapLocationResults = document.getElementById("site-map-location-results");
 let singleCoordinateMap = null;
 let singleMapSites = [];
 let singleMapSitesLoaded = false;
@@ -41,6 +40,41 @@ function singleMapCoords() {
   return CuratorCoordinateMap.valid(lat, lon)
     ? [Number(lat), Number(lon)]
     : null;
+}
+
+function applySingleMapPosition(lat, lon) {
+  if (!editing || !CuratorCoordinateMap.valid(lat, lon)) {
+    return;
+  }
+
+  const latitudeInput = getSiteInput("latitude");
+  const longitudeInput = getSiteInput("longitude");
+
+  if (!latitudeInput || !longitudeInput) return;
+
+  latitudeInput.value = Number(lat).toFixed(6);
+  longitudeInput.value = Number(lon).toFixed(6);
+
+  singleCoordinateMap?.setPosition(
+    Number(lat),
+    Number(lon)
+  );
+
+  // Trigger the existing form's region and duplicate checks.
+  longitudeInput.dispatchEvent(
+    new Event("change", { bubbles: true })
+  );
+}
+
+function populateSiteMapQuery() {
+  const label =
+    getSiteInput("site_label")?.value.trim() || "";
+
+  const country =
+    getSiteInput("modern_country_location")?.value.trim() || "";
+
+  siteMapQuery.value =
+    [label, country].filter(Boolean).join(", ");
 }
 
 function syncSingleCoordinateMap() {
@@ -81,18 +115,7 @@ singleMapToggle.addEventListener("click", async () => {
           longitude: coords[1],
 
           onPick(lat, lon) {
-            const latitudeInput = getSiteInput("latitude");
-            const longitudeInput = getSiteInput("longitude");
-
-            if (!latitudeInput || !longitudeInput) return;
-
-            latitudeInput.value = lat.toFixed(6);
-            longitudeInput.value = lon.toFixed(6);
-
-            // Runs existing duplicate and region checks.
-            longitudeInput.dispatchEvent(
-              new Event("change", { bubbles: true })
-            );
+            applySingleMapPosition(lat, lon);
           }
         }
       );
@@ -116,7 +139,9 @@ singleMapToggle.addEventListener("click", async () => {
         );
       }
 
-      singleMapSites = payload.sites;
+      singleMapSites = payload.sites.filter(
+        site => String(site.id) !== String(currentSite?.id)
+      );
       singleMapSitesLoaded = true;
     }
 
@@ -133,6 +158,157 @@ singleMapToggle.addEventListener("click", async () => {
       singleCoordinateMap
         ? `Map usable, but comparison unavailable: ${error.message}`
         : `Map unavailable: ${error.message}`;
+  }
+});
+
+async function searchSiteMapLocation() {
+  const query = siteMapQuery.value.trim();
+
+  if (!query) {
+    siteMapSearchStatus.textContent =
+      "Enter a location or use the Site label.";
+    siteMapSearchStatus.hidden = false;
+    return;
+  }
+
+  siteMapSearchButton.disabled = true;
+  siteMapSearchButton.textContent = "Searching…";
+  siteMapLocationResults.replaceChildren();
+  siteMapLocationResults.hidden = true;
+  siteMapSearchStatus.hidden = false;
+  siteMapSearchStatus.textContent = "Searching locations…";
+
+  try {
+    const url = new URL(
+      "/api/location-search",
+      window.location.origin
+    );
+    url.searchParams.set("q", query);
+
+    const response = await fetch(url, {
+      headers: { accept: "application/json" }
+    });
+    const payload = await response.json();
+
+    if (!response.ok || !payload.ok ||
+        !Array.isArray(payload.results)) {
+      throw new Error(
+        payload.error || "Location search failed."
+      );
+    }
+
+    const results = payload.results.filter(result =>
+      CuratorCoordinateMap.valid(
+        result.latitude,
+        result.longitude
+      )
+    );
+
+    if (!results.length) {
+      siteMapSearchStatus.textContent =
+        "No matching locations found.";
+      return;
+    }
+
+    for (const result of results) {
+      const lat = Number(result.latitude);
+      const lon = Number(result.longitude);
+
+      const row = document.createElement("div");
+      row.className = "location-result";
+
+      const main = document.createElement("div");
+      const title = document.createElement("div");
+      title.className = "location-result-title";
+      title.textContent =
+        result.full_label ||
+        result.label ||
+        "Location result";
+
+      const detail = document.createElement("div");
+      detail.className = "location-result-detail";
+      detail.textContent =
+        `${lat.toFixed(6)}, ${lon.toFixed(6)}`;
+
+      main.append(title, detail);
+
+      const actions = document.createElement("div");
+      actions.className = "site-map-result-actions";
+
+      const preview = document.createElement("button");
+      preview.type = "button";
+      preview.className = "button button-secondary";
+      preview.textContent = "View on map";
+
+      preview.addEventListener("click", () => {
+        if (singleMapPanel.hidden && singleMapCoords()) {
+          singleMapToggle.click();
+        }
+
+        if (!singleCoordinateMap) {
+          siteMapSearchStatus.textContent =
+            "Use coordinates first to initialize the map.";
+          return;
+        }
+
+        singleCoordinateMap.previewLocation(lat, lon);
+
+        siteMapSearchStatus.textContent =
+          "Preview only. The Site's coordinates are unchanged.";
+      });
+
+      const apply = document.createElement("button");
+      apply.type = "button";
+      apply.className = "button";
+      apply.textContent = "Use coordinates";
+
+      apply.addEventListener("click", () => {
+        applySingleMapPosition(lat, lon);
+
+        if (singleMapPanel.hidden && singleMapCoords()) {
+          singleMapToggle.click();
+        }
+
+        siteMapSearchStatus.textContent =
+          "Coordinates updated in the form. " +
+          "Click Save to commit the change.";
+      });
+
+      actions.append(preview, apply);
+      row.append(main, actions);
+      siteMapLocationResults.append(row);
+    }
+
+    siteMapLocationResults.hidden = false;
+    siteMapSearchStatus.textContent =
+      `${results.length} location suggestion(s). ` +
+      "Inspect the correct result before applying coordinates.";
+
+  } catch (error) {
+    console.error("Site map search failed.", error);
+    siteMapSearchStatus.textContent =
+      error.message || "Location search unavailable.";
+
+  } finally {
+    siteMapSearchButton.disabled = false;
+    siteMapSearchButton.textContent = "Search";
+  }
+}
+
+siteMapSearchButton.addEventListener(
+  "click",
+  searchSiteMapLocation
+);
+
+siteMapUseLabelButton.addEventListener(
+  "click",
+  populateSiteMapQuery
+);
+
+siteMapQuery.addEventListener("keydown", event => {
+  if (event.key === "Enter") {
+    event.preventDefault();
+    searchSiteMapLocation();
   }
 });
 
@@ -906,6 +1082,9 @@ function renderSite() {
   }
   if (!editing) {
     hideRegionSuggestion();
+
+    singleMapPanel.hidden = true;
+    singleMapToggle.textContent = "Show coordinate map";
   }
 }
 
@@ -1014,6 +1193,13 @@ editButton.addEventListener(
     saveMessage.hidden = true;
 
     renderSite();
+    populateSiteMapQuery();
+
+    if (singleMapCoords() && singleMapPanel.hidden) {
+      singleMapToggle.click();
+    } else if (!singleMapPanel.hidden) {
+      singleCoordinateMap?.refresh();
+    }
 
     await refreshRegionClassification();
   }
