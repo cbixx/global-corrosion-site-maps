@@ -88,6 +88,9 @@ const bulkCreateMessage =
 
 let bulkExistingSites =
   [];
+// Only one coordinate map may be expanded in a bulk batch.
+let bulkOpenMapKey = null;
+let bulkCoordinateMap = null;
 
 let bulkRows =
   [];
@@ -1835,6 +1838,54 @@ function bulkRenderRow(
     );
   }
 
+  // Optional coordinate verification map for this Site.
+  if (
+    !bulkCreationSucceeded(row) &&
+    !row.query_dirty &&
+    row.latitude !== "" &&
+    row.longitude !== "" &&
+    row.latitude != null &&
+    row.longitude != null &&
+    CuratorCoordinateMap.valid(row.latitude, row.longitude)
+  ) {
+    const shell = document.createElement("section");
+    shell.className = "site-map-shell";
+
+    const toggle = document.createElement("button");
+    toggle.type = "button";
+    toggle.className = "button button-secondary";
+    toggle.disabled = bulkCreating;
+
+    const expanded = bulkOpenMapKey === row.key;
+
+    toggle.textContent = expanded
+      ? "Hide coordinate map"
+      : "Show coordinate map";
+
+    toggle.addEventListener("click", () => {
+      bulkOpenMapKey = expanded ? null : row.key;
+      bulkRenderRows();
+    });
+
+    const panel = document.createElement("div");
+    panel.className = "site-map-panel";
+    panel.hidden = !expanded;
+
+    const help = document.createElement("p");
+    help.className = "site-map-help";
+    help.textContent =
+      "Drag the blue pin or click the map to adjust coordinates. " +
+      "Red markers show nearby or matching existing Sites.";
+
+    const canvas = document.createElement("div");
+    canvas.className = "site-coordinate-canvas";
+    canvas.dataset.bulkCoordinateCanvas = "1";
+
+    panel.append(help, canvas);
+    shell.append(toggle, panel);
+    card.append(shell);
+  }
+
 
   if (
     row.existing_match
@@ -2017,8 +2068,12 @@ function bulkRenderRow(
 
 
 function bulkRenderRows() {
-  bulkResultsElement
-    .replaceChildren();
+  if (bulkCoordinateMap) {
+    bulkCoordinateMap.destroy();
+    bulkCoordinateMap = null;
+  }
+
+  bulkResultsElement.replaceChildren();
 
 
   const visibleRows =
@@ -2083,7 +2138,76 @@ function bulkRenderRows() {
     }
   }
 
+  // Initialize the one expanded map after the card is in the DOM.
+  if (bulkOpenMapKey !== null) {
+    const activeRow = bulkRows.find(
+      row => row.key === bulkOpenMapKey
+    );
 
+    const canvas = bulkResultsElement.querySelector(
+      '[data-bulk-coordinate-canvas]'
+    );
+
+    if (activeRow && canvas) {
+      try {
+        const relatedIds = [
+          activeRow.existing_match?.site?.id,
+          ...(activeRow.server_candidates || [])
+            .map(candidate => candidate.site_pk)
+        ].filter(id => id != null);
+
+        bulkCoordinateMap = CuratorCoordinateMap.create(
+          canvas,
+          {
+            latitude: Number(activeRow.latitude),
+            longitude: Number(activeRow.longitude),
+            sites: bulkExistingSites,
+            relatedIds,
+
+            onPick: async (lat, lon) => {
+              // Apply the manually selected coordinates.
+              activeRow.latitude = lat;
+              activeRow.longitude = lon;
+
+              // Invalidate previous geographic review.
+              activeRow.distinct_review = false;
+              activeRow.server_candidates = [];
+              activeRow.creation_status = "";
+              activeRow.create_error = "";
+              activeRow.selection_touched = false;
+
+              bulkRefreshRowState(activeRow);
+              bulkSaveDraft();
+
+              try {
+                await bulkClassifyRegion(activeRow);
+                activeRow.error = "";
+              } catch (error) {
+                activeRow.error =
+                  error.message || "Region classification failed.";
+              }
+
+              bulkRefreshRowState(activeRow);
+              bulkRenderRows();
+            }
+          }
+        );
+
+        bulkCoordinateMap.setSites(
+          bulkExistingSites,
+          relatedIds
+        );
+      } catch (error) {
+        console.error("Unable to initialize bulk Site map.", error);
+
+        const message = document.createElement("div");
+        message.className = "save-message save-message-error";
+        message.textContent =
+          error.message || "Coordinate map unavailable.";
+        canvas.replaceWith(message);
+      }
+    }
+  }
   bulkUpdateSummary();
   bulkSaveDraft();
 }
@@ -2346,7 +2470,8 @@ async function bulkCreateSelected() {
     return;
   }
 
-
+  // Close any expanded coordinate map before bulk submission.
+  bulkOpenMapKey = null;
   bulkCreating =
     true;
 
@@ -2723,6 +2848,12 @@ function bulkClearAll() {
   if ((bulkRows.length || bulkInput.value.trim()) &&
       !window.confirm("Discard the current bulk Site draft?")) return;
 
+  if (bulkCoordinateMap) {
+    bulkCoordinateMap.destroy();
+    bulkCoordinateMap = null;
+  }
+
+  bulkOpenMapKey = null;
   bulkInput.value =
     "";
 

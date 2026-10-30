@@ -16,6 +16,125 @@ const locationSearchStatus = document.getElementById("location-search-status");
 const locationResults = document.getElementById("location-results");
 const siteIdSuggestion = document.getElementById("site-id-suggestion");
 const siteMatchPreview = document.getElementById("site-match-preview");
+const singleMapShell =
+  document.getElementById("site-coordinate-tools");
+const singleMapToggle =
+  document.getElementById("site-coordinate-toggle");
+const singleMapPanel =
+  document.getElementById("site-coordinate-panel");
+const singleMapCanvas =
+  document.getElementById("site-coordinate-canvas");
+const singleMapStatus =
+  document.getElementById("site-coordinate-status");
+
+let singleCoordinateMap = null;
+let singleMapSites = [];
+let singleMapSitesLoaded = false;
+let singleMapCandidateIds = [];
+
+function singleMapCoords() {
+  const lat = getSiteInput("latitude")?.value.trim() || "";
+  const lon = getSiteInput("longitude")?.value.trim() || "";
+
+  if (!lat || !lon) return null;
+
+  return CuratorCoordinateMap.valid(lat, lon)
+    ? [Number(lat), Number(lon)]
+    : null;
+}
+
+function syncSingleCoordinateMap() {
+  if (!singleCoordinateMap) return;
+
+  const coords = singleMapCoords();
+  if (coords) {
+    singleCoordinateMap.setPosition(coords[0], coords[1]);
+  }
+}
+
+singleMapToggle.addEventListener("click", async () => {
+  if (!editing) return;
+
+  if (!singleMapPanel.hidden) {
+    singleMapPanel.hidden = true;
+    singleMapToggle.textContent = "Show coordinate map";
+    return;
+  }
+
+  const coords = singleMapCoords();
+
+  if (!coords) {
+    singleMapStatus.textContent =
+      "Enter or look up valid latitude and longitude first.";
+    return;
+  }
+
+  singleMapPanel.hidden = false;
+  singleMapToggle.textContent = "Hide coordinate map";
+
+  try {
+    if (!singleCoordinateMap) {
+      singleCoordinateMap = CuratorCoordinateMap.create(
+        singleMapCanvas,
+        {
+          latitude: coords[0],
+          longitude: coords[1],
+
+          onPick(lat, lon) {
+            const latitudeInput = getSiteInput("latitude");
+            const longitudeInput = getSiteInput("longitude");
+
+            if (!latitudeInput || !longitudeInput) return;
+
+            latitudeInput.value = lat.toFixed(6);
+            longitudeInput.value = lon.toFixed(6);
+
+            // Runs existing duplicate and region checks.
+            longitudeInput.dispatchEvent(
+              new Event("change", { bubbles: true })
+            );
+          }
+        }
+      );
+    } else {
+      singleCoordinateMap.setPosition(coords[0], coords[1]);
+    }
+
+    singleCoordinateMap.refresh();
+
+    if (!singleMapSitesLoaded) {
+      const response = await fetch("/api/sites", {
+        headers: { accept: "application/json" }
+      });
+
+      const payload = await response.json();
+
+      if (!response.ok || !payload.ok ||
+          !Array.isArray(payload.sites)) {
+        throw new Error(
+          payload.error || "Unable to load existing Sites."
+        );
+      }
+
+      singleMapSites = payload.sites;
+      singleMapSitesLoaded = true;
+    }
+
+    singleCoordinateMap.setSites(
+      singleMapSites,
+      singleMapCandidateIds
+    );
+
+    singleMapStatus.textContent =
+      "Map ready. Blue = proposed location; red = existing Site.";
+  } catch (error) {
+    console.error("Coordinate map unavailable.", error);
+    singleMapStatus.textContent =
+      singleCoordinateMap
+        ? `Map usable, but comparison unavailable: ${error.message}`
+        : `Map unavailable: ${error.message}`;
+  }
+});
 
 let siteMatchPreviewSequence = 0;
 let siteMatchAckInput = null;
@@ -716,6 +835,12 @@ function addField(
       );
     }
 
+    if (["latitude", "longitude"].includes(fieldName)) {
+      input.addEventListener(
+        "change",
+        syncSingleCoordinateMap
+      );
+    }
     if (
       [
         "latitude",
@@ -774,6 +899,11 @@ function renderSite() {
   editButton.hidden = editing;
   cancelButton.hidden = !editing;
   saveButton.hidden = !editing;
+  singleMapShell.hidden = !editing;
+
+  if (editing) {
+    syncSingleCoordinateMap();
+  }
   if (!editing) {
     hideRegionSuggestion();
   }
@@ -1559,6 +1689,16 @@ async function refreshSuggestedSiteId() {
 function renderSiteCandidatePreview(candidates) {
   siteMatchPreview.replaceChildren();
   siteMatchAckInput = null;
+  singleMapCandidateIds = candidates
+    .map(candidate => candidate.site_pk)
+    .filter(id => id != null);
+
+  if (singleCoordinateMap) {
+    singleCoordinateMap.setSites(
+      singleMapSites,
+      singleMapCandidateIds
+    );
+  }
 
   const idCollision = candidates.some(
     candidate =>
@@ -1901,6 +2041,7 @@ async function applyLocationResult(
   }
 
   lastSuggestedSiteId = "";
+  syncSingleCoordinateMap();
 
   await refreshSuggestedSiteId();
   await refreshSiteMatchPreview();
