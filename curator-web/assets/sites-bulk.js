@@ -2145,7 +2145,7 @@ function bulkRenderRows() {
     );
 
     const canvas = bulkResultsElement.querySelector(
-      '[data-bulk-coordinate-canvas]'
+      '.site-map-panel:not([hidden]) [data-bulk-coordinate-canvas]'
     );
 
     if (activeRow && canvas) {
