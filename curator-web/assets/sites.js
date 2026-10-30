@@ -4,6 +4,18 @@ const searchInput = document.getElementById("site-search");
 const siteList = document.getElementById("site-list");
 const statusElement = document.getElementById("status");
 const siteCount = document.getElementById("site-count");
+// Remember the Sites search within the current browser tab.
+const SITE_SEARCH_KEY = "corrosion-atlas-sites-search";
+
+try {
+  const savedSearch = window.sessionStorage.getItem(SITE_SEARCH_KEY);
+
+  if (savedSearch !== null) {
+    searchInput.value = savedSearch;
+  }
+} catch (error) {
+  console.warn("Unable to restore Sites search.", error);
+}
 
 function normalise(value) {
   return String(value || "").trim().toLowerCase();
@@ -104,7 +116,7 @@ async function loadSites() {
     }
 
     allSites = payload.sites;
-    renderSites(allSites);
+    applySearch();  
   } catch (error) {
     console.error("Unable to load sites.", error);
 
@@ -116,6 +128,17 @@ async function loadSites() {
   }
 }
 
-searchInput.addEventListener("input", applySearch);
+searchInput.addEventListener("input", () => {
+  try {
+    window.sessionStorage.setItem(
+      SITE_SEARCH_KEY,
+      searchInput.value
+    );
+  } catch (error) {
+    console.warn("Unable to save Sites search.", error);
+  }
+
+  applySearch();
+});
 
 loadSites();
