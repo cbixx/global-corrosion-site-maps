@@ -5342,202 +5342,44 @@ async function handleLinkingOptions(
 }
 
 
-async function mergeSelectedSiteSummaries(
-  env,
-  siteIds
-) {
+async function mergeSelectedSiteSummaries(env, siteIds) {
   if (!siteIds.length) {
     return 0;
   }
 
-  const idFilter =
-    `in.(${siteIds.join(",")})`;
+  const endpoint = new URL(
+    "/rest/v1/rpc/ca_refresh_site_metadata",
+    env.SUPABASE_URL
+  );
 
+  const response = await fetch(endpoint, {
+    method: "POST",
+    headers: {
+      apikey: env.SUPABASE_SECRET_KEY,
+      authorization: `Bearer ${env.SUPABASE_SECRET_KEY}`,
+      "content-type": "application/json",
+      accept: "application/json"
+    },
+    body: JSON.stringify({
+      p_site_ids: [...new Set(siteIds.map(Number))]
+    })
+  });
 
-  const sitesEndpoint =
-    new URL(
-      "/rest/v1/sites",
-      env.SUPABASE_URL
+  if (!response.ok) {
+    const detail = await response.text();
+
+    console.error(
+      "Site metadata synchronization failed.",
+      response.status,
+      detail
     );
 
-  sitesEndpoint.searchParams.set(
-    "select",
-    "id,metal,exposure_period"
-  );
-
-  sitesEndpoint.searchParams.set(
-    "id",
-    idFilter
-  );
-
-
-  const linksEndpoint =
-    new URL(
-      "/rest/v1/site_sources",
-      env.SUPABASE_URL
-    );
-
-  linksEndpoint.searchParams.set(
-    "select",
-    "site_fk,metals,exposure_periods"
-  );
-
-  linksEndpoint.searchParams.set(
-    "site_fk",
-    idFilter
-  );
-
-
-  const headers = {
-    apikey:
-      env.SUPABASE_SECRET_KEY,
-
-    authorization:
-      `Bearer ${env.SUPABASE_SECRET_KEY}`,
-
-    accept:
-      "application/json",
-  };
-
-
-  const [
-    sitesResponse,
-    linksResponse,
-  ] = await Promise.all([
-    fetch(
-      sitesEndpoint,
-      { headers }
-    ),
-
-    fetch(
-      linksEndpoint,
-      { headers }
-    ),
-  ]);
-
-
-  if (
-    !sitesResponse.ok ||
-    !linksResponse.ok
-  ) {
     throw new Error(
-      "Unable to load Site metadata for summary merge."
+      `Site metadata synchronization failed (HTTP ${response.status}).`
     );
   }
 
-
-  const siteRows =
-    await sitesResponse.json();
-
-  const linkRows =
-    await linksResponse.json();
-
-
-  const linksBySite =
-    new Map();
-
-  for (const link of linkRows) {
-    const siteFk =
-      Number(link.site_fk);
-
-    if (
-      !linksBySite.has(siteFk)
-    ) {
-      linksBySite.set(
-        siteFk,
-        []
-      );
-    }
-
-    linksBySite
-      .get(siteFk)
-      .push(link);
-  }
-
-
-  let updatedCount = 0;
-
-  for (const site of siteRows) {
-    const siteId =
-      Number(site.id);
-
-    const links =
-      linksBySite.get(siteId) ||
-      [];
-
-
-    const mergedMetal =
-      mergeBulkMetadataValues(
-        site.metal || "",
-        ...links.map(
-          (link) =>
-            link.metals || ""
-        )
-      );
-
-
-    const mergedExposurePeriod =
-      mergeBulkMetadataValues(
-        site.exposure_period || "",
-        ...links.map(
-          (link) =>
-            link.exposure_periods || ""
-        )
-      );
-
-
-    const endpoint =
-      new URL(
-        "/rest/v1/sites",
-        env.SUPABASE_URL
-      );
-
-    endpoint.searchParams.set(
-      "id",
-      `eq.${siteId}`
-    );
-
-
-    const response =
-      await fetch(endpoint, {
-        method: "PATCH",
-
-        headers: {
-          apikey:
-            env.SUPABASE_SECRET_KEY,
-
-          authorization:
-            `Bearer ${env.SUPABASE_SECRET_KEY}`,
-
-          "content-type":
-            "application/json",
-
-          prefer:
-            "return=minimal",
-        },
-
-        body:
-          JSON.stringify({
-            metal:
-              mergedMetal,
-
-            exposure_period:
-              mergedExposurePeriod,
-          }),
-      });
-
-
-    if (!response.ok) {
-      throw new Error(
-        `Unable to update Site ${siteId} summary metadata.`
-      );
-    }
-
-    updatedCount += 1;
-  }
-
-
-  return updatedCount;
+  return Number(await response.json()) || 0;
 }
 
 
@@ -12918,80 +12760,6 @@ async function writeCorrosionObservation(
     null;
 }
 
-
-async function updateCorrosionLinkMetadata(
-  env,
-  linkUpdates
-) {
-  const headers = {
-    apikey:
-      env.SUPABASE_SECRET_KEY,
-
-    authorization:
-      `Bearer ${env.SUPABASE_SECRET_KEY}`,
-
-    "content-type":
-      "application/json",
-
-    accept:
-      "application/json",
-  };
-
-
-  for (
-    const update
-    of linkUpdates.values()
-  ) {
-    const endpoint =
-      new URL(
-        "/rest/v1/site_sources",
-        env.SUPABASE_URL
-      );
-
-
-    endpoint.searchParams.set(
-      "id",
-      `eq.${update.id}`
-    );
-
-
-    const response =
-      await fetch(
-        endpoint,
-        {
-          method:
-            "PATCH",
-
-          headers,
-
-          body:
-            JSON.stringify({
-              metals:
-                update.metals,
-
-              exposure_periods:
-                update.exposure_periods,
-            }),
-        }
-      );
-
-
-    if (!response.ok) {
-      console.error(
-        "Unable to update corrosion Site–Source metadata.",
-        response.status,
-        await response.text()
-      );
-
-
-      throw new Error(
-        "Corrosion observations were saved, but Site–Source metadata could not be updated."
-      );
-    }
-  }
-}
-
-
 async function handleCorrosionImportStatus(request, env) {
   if (!env.SUPABASE_URL || !env.SUPABASE_SECRET_KEY) {
     return Response.json(
@@ -13895,94 +13663,13 @@ async function handleCorrosionWorkbookImport(
     );
 
 
-
-    const touchedSiteIds =
-      new Set();
-
-    const linkUpdates =
-      new Map();
-
-
-    for (const operation of batchOperations) {
-      if (
-        !acceptedExcelRows.has(
-          Number(operation.excelRow)
+    const touchedSiteIds = new Set(
+      batchOperations
+        .filter(operation =>
+          acceptedExcelRows.has(Number(operation.excelRow))
         )
-      ) {
-        continue;
-      }
-
-      touchedSiteIds.add(
-
-
-        Number(
-          operation.site.id
-        )
-      );
-
-
-      const linkId =
-        Number(
-          operation.link.id
-        );
-
-
-      let linkUpdate =
-        linkUpdates.get(
-          linkId
-        );
-
-
-      if (!linkUpdate) {
-        linkUpdate = {
-          id:
-            linkId,
-
-          metals:
-            String(
-              operation
-                .link
-                .metals ||
-              ""
-            ),
-
-          exposure_periods:
-            String(
-              operation
-                .link
-                .exposure_periods ||
-              ""
-            ),
-        };
-      }
-
-
-      linkUpdate.metals =
-        mergeBulkMetadataValues(
-          linkUpdate.metals,
-
-          operation
-            .payload
-            .material
-        );
-
-
-      linkUpdate.exposure_periods =
-        mergeBulkMetadataValues(
-          linkUpdate
-            .exposure_periods,
-
-          operation
-            .payload
-            .exposure_period
-        );
-
-
-      linkUpdates.set(
-        linkId,
-        linkUpdate
-      );
-    }
+        .map(operation => Number(operation.site.id))
+    );
 
 
     /*
@@ -13995,17 +13682,9 @@ async function handleCorrosionWorkbookImport(
 
 
     try {
-      await updateCorrosionLinkMetadata(
-        env,
-        linkUpdates
-      );
-
-
       await mergeSelectedSiteSummaries(
         env,
-        [
-          ...touchedSiteIds,
-        ]
+        [...touchedSiteIds]
       );
 
     } catch (error) {
