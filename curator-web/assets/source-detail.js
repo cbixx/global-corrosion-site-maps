@@ -851,6 +851,26 @@ async function loadSource() {
   }
 }
 
+// Guard unsaved Source metadata when leaving or cancelling edits.
+let sourceDiscardApproved = false;
+
+function hasUnsavedSourceMetadata() {
+  if (!editing || !currentSource) return false;
+  return Object.keys(FIELD_LABELS).some(field => {
+    const input = fieldsElement.querySelector(`[data-field="${field}"]`);
+    if (!input) return false;
+    return String(input.value ?? "").trim() !==
+      String(currentSource[field] ?? "").trim();
+  });
+}
+
+window.addEventListener("beforeunload", event => {
+  if (!sourceDiscardApproved && hasUnsavedSourceMetadata()) {
+    event.preventDefault();
+    event.returnValue = "";
+  }
+});
+
 editButton.addEventListener(
   "click",
   async () => {
@@ -873,7 +893,10 @@ editButton.addEventListener(
 );
 
 cancelButton.addEventListener("click", () => {
+  if (hasUnsavedSourceMetadata() &&
+      !window.confirm("Discard unsaved Source changes?")) return;
   if (isNewSource()) {
+    sourceDiscardApproved = true;
     window.location.href = "/sources/";
     return;
   }

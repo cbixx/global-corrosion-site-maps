@@ -857,6 +857,26 @@ async function loadSite() {
   }
 }
 
+// Guard unsaved Site metadata when leaving or cancelling edits.
+let siteDiscardApproved = false;
+
+function hasUnsavedSiteMetadata() {
+  if (!editing || !currentSite) return false;
+  return Object.keys(FIELD_LABELS).some(field => {
+    const input = fieldsElement.querySelector(`[data-field="${field}"]`);
+    if (!input) return false;
+    return String(input.value ?? "").trim() !==
+      String(currentSite[field] ?? "").trim();
+  });
+}
+
+window.addEventListener("beforeunload", event => {
+  if (!siteDiscardApproved && hasUnsavedSiteMetadata()) {
+    event.preventDefault();
+    event.returnValue = "";
+  }
+});
+
 editButton.addEventListener(
   "click",
   async () => {
@@ -870,7 +890,10 @@ editButton.addEventListener(
 );
 
 cancelButton.addEventListener("click", () => {
+  if (hasUnsavedSiteMetadata() &&
+      !window.confirm("Discard unsaved Site changes?")) return;
   if (isNewSite()) {
+    siteDiscardApproved = true;
     window.location.href = "/sites/";
     return;
   }

@@ -105,6 +105,76 @@ const bulkSearchCache =
   new Map();
 
 
+const BULK_DRAFT_KEY = "corrosion-atlas-bulk-sites-draft-v2";
+
+function bulkSaveDraft() {
+  try {
+    if (!bulkInput.value.trim() && bulkRows.length === 0) {
+      sessionStorage.removeItem(BULK_DRAFT_KEY);
+      return;
+    }
+    sessionStorage.setItem(BULK_DRAFT_KEY, JSON.stringify({
+      version: 2,
+      input: bulkInput.value,
+      rows: bulkRows,
+      filter: bulkActiveFilter
+    }));
+  } catch (error) {
+    console.warn("Unable to save bulk Site draft.", error);
+  }
+}
+
+async function bulkRestoreDraft() {
+  let draft;
+  try {
+    draft = JSON.parse(sessionStorage.getItem(BULK_DRAFT_KEY) || "null");
+  } catch (error) {
+    console.warn("Bulk Site draft could not be read.", error);
+    return;
+  }
+  if (!draft || draft.version !== 2 || !Array.isArray(draft.rows) ||
+      draft.rows.length > BULK_SITE_LIMIT ||
+      !draft.rows.every(row => row && Array.isArray(row.results))) return;
+  bulkInput.value = String(draft.input || "");
+  bulkRows = draft.rows;
+  bulkActiveFilter = ["all", "ready", "review", "existing"].includes(draft.filter)
+    ? draft.filter : "all";
+  for (const row of bulkRows) {
+    if (row.creation_status === "creating") {
+      row.creation_status = "error";
+      row.create_error = "Submission was interrupted. Check whether the Site exists before retrying.";
+      row.selected = false;
+    }
+    if (row.state === "searching") {
+      row.state = "review";
+      row.error = "Analysis was interrupted; analyse this Site again.";
+      row.selected = false;
+    }
+  }
+  bulkResultsSection.hidden = bulkRows.length === 0;
+  if (bulkRows.length) {
+    bulkProgress.hidden = false;
+    bulkProgress.textContent = "Restored the previous bulk Site draft for this browser tab.";
+  }
+  for (const button of document.querySelectorAll("[data-bulk-filter]")) {
+    button.classList.toggle("sites-bulk-filter-active",
+      button.dataset.bulkFilter === bulkActiveFilter);
+  }
+  bulkRenderRows();
+  try {
+    await bulkLoadExistingSites();
+    for (const row of bulkRows) {
+      if (row.results?.length && !bulkCreationSucceeded(row) &&
+          row.state !== "searching" && !row.query_dirty) {
+        bulkRefreshRowState(row);
+      }
+    }
+    bulkRenderRows();
+  } catch (error) {
+    console.warn("Existing Site checks unavailable during draft restoration.", error);
+  }
+}
+
 function bulkNormalise(
   value
 ) {
@@ -464,89 +534,39 @@ async function bulkClassifyRegion(
 }
 
 
-function bulkFindExistingSite(
-  row
-) {
-  const rowLabel =
-    bulkNormalise(
-      row.site_label
+function bulkFindExistingSite(row) {
+  const rowLabel = bulkNormalise(row.site_label);
+  const rowCountry = bulkNormalise(row.country);
+  const candidates = bulkExistingSites.map(site => {
+    const siteLabel = bulkNormalise(site.site_label);
+    const siteCountry = bulkNormalise(
+      site.modern_country_location || site.administering_country
     );
-
-  const rowCountry =
-    bulkNormalise(
-      row.country
+    const distanceKm = bulkDistanceKm(
+      row.latitude, row.longitude, site.latitude, site.longitude
     );
-
-
-  let coordinateMatch =
-    null;
-
-
-  for (
-    const site
-    of bulkExistingSites
-  ) {
-    const siteLabel =
-      bulkNormalise(
-        site.site_label
-      );
-
-    const siteCountry =
-      bulkNormalise(
-        site.modern_country_location ||
-        site.administering_country
-      );
-
-
-    if (
-      rowLabel &&
-      siteLabel ===
-        rowLabel &&
-      (
-        !rowCountry ||
-        !siteCountry ||
-        siteCountry ===
-          rowCountry
-      )
-    ) {
-      return {
-        site,
-
-        reason:
-          "Same Site label and country",
-      };
-    }
-
-
-    const distance =
-      bulkDistanceKm(
-        row.latitude,
-        row.longitude,
-        site.latitude,
-        site.longitude
-      );
-
-
-    if (
-      distance <=
-      0.25
-    ) {
-      coordinateMatch = {
-        site,
-
-        reason:
-          `Existing Site within ${Math.round(
-            distance * 1000
-          )} m`,
-      };
-    }
-  }
-
-
-  return coordinateMatch;
+    return {
+      site, distanceKm,
+      sameName: Boolean(rowLabel && rowLabel === siteLabel &&
+        (!rowCountry || !siteCountry || siteCountry === rowCountry))
+    };
+  });
+  const sameNames = candidates.filter(x => x.sameName)
+    .sort((a, b) => a.distanceKm - b.distanceKm);
+  const nearest = candidates
+    .filter(x => x.distanceKm <= 0.25)
+    .sort((a, b) => a.distanceKm - b.distanceKm)[0] || sameNames[0];
+  if (!nearest) return null;
+  return {
+    site: nearest.site,
+    distance_m: Number.isFinite(nearest.distanceKm)
+      ? Math.round(nearest.distanceKm * 1000) : null,
+    reason: nearest.sameName
+      ? `Same Site label and country${Number.isFinite(nearest.distanceKm)
+          ? ` · ${Math.round(nearest.distanceKm * 1000)} m apart` : ""}`
+      : `Existing Site within ${Math.round(nearest.distanceKm * 1000)} m`
+  };
 }
-
-
 
 function bulkRefreshRowState(
   row
@@ -565,7 +585,7 @@ function bulkRefreshRowState(
 
 
   if (
-    row.existing_match
+    row.existing_match && !row.distinct_review
   ) {
     row.state =
       "existing";
@@ -637,6 +657,10 @@ async function bulkApplyCandidate(
   }
 
 
+  row.distinct_review = false;
+  row.server_candidates = [];
+  row.creation_status = "";
+  row.create_error = "";
   row.candidate_index =
     candidateIndex;
 
@@ -1070,6 +1094,14 @@ function bulkCreateTextInput(
       }
 
 
+      if (["site_label", "country", "latitude", "longitude"].includes(fieldName)) {
+        row.distinct_review = false;
+        row.server_candidates = [];
+        row.create_error = "";
+        row.creation_status = "";
+        row.selection_touched = false;
+      }
+
       const needsRegionRefresh =
         [
           "latitude",
@@ -1315,6 +1347,7 @@ function bulkRenderRow(
   queryInput.addEventListener("input", () => {
     row.query = queryInput.value;
     row.query_dirty = true;
+    bulkSaveDraft();
     row.state = "review";
     row.selected = false;
     row.selection_touched = false;
@@ -1876,6 +1909,52 @@ function bulkRenderRow(
   }
 
 
+  const reviewCandidates = Array.isArray(row.server_candidates)
+    ? row.server_candidates : [];
+  const hasCollision = reviewCandidates.some(
+    x => x.match_type === "SITE_ID_COLLISION");
+  if ((row.existing_match || reviewCandidates.length) &&
+      !bulkCreationSucceeded(row)) {
+    const review = document.createElement("div");
+    review.className = "sites-bulk-existing";
+    for (const candidate of reviewCandidates) {
+      const line = document.createElement("div");
+      const link = document.createElement("a");
+      link.href = `/sites/detail/?id=${encodeURIComponent(candidate.site_pk)}`;
+      link.target = "_blank";
+      link.rel = "noopener";
+      link.textContent = `${candidate.site_id} — ${candidate.site_label}`;
+      line.append(link);
+      if (candidate.distance_m != null) {
+        line.append(document.createTextNode(
+          ` · ${Number(candidate.distance_m).toFixed(1)} m away`));
+      }
+      review.append(line);
+    }
+    const label = document.createElement("label");
+    label.className = "bulk-checkbox-row";
+    const checkbox = document.createElement("input");
+    checkbox.type = "checkbox";
+    checkbox.checked = Boolean(row.distinct_review);
+    checkbox.disabled = bulkCreating || hasCollision;
+    const text = document.createElement("span");
+    text.textContent = hasCollision
+      ? "Site ID collision: use Create One to choose a different Site ID."
+      : "I reviewed the existing Site(s) and confirm this is a distinct exposure Site.";
+    checkbox.addEventListener("change", () => {
+      row.distinct_review = checkbox.checked;
+      row.selected = checkbox.checked;
+      row.selection_touched = true;
+      row.creation_status = "";
+      row.create_error = "";
+      bulkRefreshRowState(row);
+      bulkRenderRows();
+    });
+    label.append(checkbox, text);
+    review.append(label);
+    card.append(review);
+  }
+
   if (
     row.error &&
     row.results.length >
@@ -2006,6 +2085,7 @@ function bulkRenderRows() {
 
 
   bulkUpdateSummary();
+  bulkSaveDraft();
 }
 
 async function bulkSuggestSiteId(
@@ -2154,6 +2234,9 @@ async function bulkCreateRow(
 
               notes:
                 "",
+
+              geographic_review_acknowledged:
+                row.distinct_review === true,
             }),
         }
       );
@@ -2168,6 +2251,9 @@ async function bulkCreateRow(
       !payload.ok ||
       !payload.site
     ) {
+      row.server_candidates = Array.isArray(payload.candidates)
+        ? payload.candidates : [];
+      row.create_error_code = payload.code || "";
       throw new Error(
         payload.error ||
         "Unable to create Site."
@@ -2377,6 +2463,10 @@ async function bulkAnalyseSites() {
   }
 
 
+  if (bulkRows.some(row => row.results?.length &&
+      !bulkCreationSucceeded(row)) &&
+      !window.confirm("Replace the current reviewed Site batch with a new analysis?")) return;
+
   const parsed =
     bulkParseQueries();
 
@@ -2501,6 +2591,9 @@ async function bulkAnalyseSites() {
 
           create_error:
             "",
+
+          distinct_review: false,
+          server_candidates: [],
         })
       );
 
@@ -2627,6 +2720,8 @@ function bulkClearAll() {
     return;
   }
 
+  if ((bulkRows.length || bulkInput.value.trim()) &&
+      !window.confirm("Discard the current bulk Site draft?")) return;
 
   bulkInput.value =
     "";
@@ -2651,7 +2746,7 @@ function bulkClearAll() {
 
   bulkCreateMessage.textContent =
     "";
-
+  bulkSaveDraft();
 
   for (
     const button
@@ -2784,6 +2879,8 @@ bulkClearButton.addEventListener(
   bulkClearAll
 );
 
+bulkInput.addEventListener("input", bulkSaveDraft);
+
 
 for (
   const button
@@ -2820,3 +2917,4 @@ for (
 
 
 bulkInitialiseMode();
+bulkRestoreDraft();

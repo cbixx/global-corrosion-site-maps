@@ -370,6 +370,30 @@ async function loadOptions() {
 }
 
 
+// Track changes to an open observation form, not its browse filters.
+let environmentFormBaseline = null;
+const environmentInputs = [
+  siteInput, sourceInput, variableInput, valueInput, unitInput,
+  aggregationInput, periodStartInput, periodEndInput, dataSourceInput,
+  notesInput
+];
+
+function environmentFormSnapshot() {
+  return JSON.stringify(environmentInputs.map(input => input.value));
+}
+
+function environmentFormIsDirty() {
+  return !formPanel.hidden && environmentFormBaseline !== null &&
+    environmentFormSnapshot() !== environmentFormBaseline;
+}
+
+window.addEventListener("beforeunload", event => {
+  if (environmentFormIsDirty()) {
+    event.preventDefault();
+    event.returnValue = "";
+  }
+});
+
 function clearForm() {
   editingId = null;
 
@@ -393,6 +417,7 @@ function clearForm() {
 
 function openCreateForm() {
   clearForm();
+  environmentFormBaseline = environmentFormSnapshot();
 
   formTitle.textContent =
     "New environmental observation";
@@ -415,7 +440,10 @@ function openCreateForm() {
 }
 
 
-function closeForm() {
+function closeForm(force = false) {
+  if (!force && environmentFormIsDirty() &&
+      !window.confirm("Discard unsaved environmental observation?")) return;
+  environmentFormBaseline = null;
   formPanel.hidden =
     true;
 
@@ -505,6 +533,8 @@ function openEditForm(
     observation.notes ||
     "";
 
+
+  environmentFormBaseline = environmentFormSnapshot();
 
   formTitle.textContent =
     `Edit environmental observation #${observation.id}`;
@@ -1245,7 +1275,7 @@ async function saveObservation() {
     }
 
 
-    closeForm();
+    closeForm(true);
 
 
     actionMessage.textContent =
@@ -1309,7 +1339,7 @@ newButton.addEventListener(
 
 cancelButton.addEventListener(
   "click",
-  closeForm
+  () => closeForm()
 );
 
 

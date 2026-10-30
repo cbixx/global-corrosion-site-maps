@@ -98,6 +98,9 @@ const notesInput =
     "bulk-link-notes"
   );
 
+const perSourceMetadata = document.getElementById("per-source-metadata");
+const preserveExistingLinks = document.getElementById("preserve-existing-links");
+
 const updateSiteSummaryInput =
   document.getElementById(
     "update-site-summary"
@@ -221,9 +224,27 @@ function updateSelectionSummary() {
   previewElement.textContent =
     `This will create or update ${pairCount} ` +
     `Site–Source relationship` +
-    `${pairCount === 1 ? "" : "s"}.`;
+    `${pairCount === 1 ? "" : "s"}. ` +
+    (perSourceMetadata.checked
+      ? "Each Source's own metadata will be used. "
+      : "The same manual metadata will be applied to all relationships. ") +
+    (preserveExistingLinks.checked
+      ? "Existing relationships will remain unchanged."
+      : "Existing relationship metadata WILL BE OVERWRITTEN.");
 }
 
+
+function syncSourceMetadataMode() {
+  const perSource = perSourceMetadata.checked;
+  metalsInput.disabled = perSource;
+  exposurePeriodsInput.disabled = perSource;
+  metalsInput.title = perSource
+    ? "Each Source's registered metals will be used instead"
+    : "Shared values for every selected relationship";
+  exposurePeriodsInput.title = perSource
+    ? "Each Source's registered exposure periods will be used instead"
+    : "Shared values for every selected relationship";
+}
 
 function sourceSelectionChanged() {
   const selectedSources =
@@ -285,6 +306,7 @@ function sourceSelectionChanged() {
       true;
   }
 
+  syncSourceMetadataMode();
   updateSelectionSummary();
 }
 
@@ -591,6 +613,9 @@ function resetAfterSuccess() {
 
   updateSiteSummaryInput.checked =
     true;
+  perSourceMetadata.checked = true;
+  preserveExistingLinks.checked = true;
+  syncSourceMetadataMode();
 
   lastSourceSignature =
     "";
@@ -706,6 +731,12 @@ async function attachSelected() {
 
               update_site_summary:
                 updateSiteSummaryInput.checked,
+
+              metadata_mode:
+                perSourceMetadata.checked ? "per_source" : "shared",
+
+              preserve_existing:
+                preserveExistingLinks.checked,
             }),
         }
       );
@@ -782,6 +813,13 @@ async function attachSelected() {
   }
 }
 
+
+perSourceMetadata.addEventListener("change", () => {
+  syncSourceMetadataMode();
+  updateSelectionSummary();
+});
+preserveExistingLinks.addEventListener("change", updateSelectionSummary);
+syncSourceMetadataMode();
 
 siteFilter.addEventListener(
   "input",

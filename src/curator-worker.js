@@ -5723,6 +5723,40 @@ async function handleBulkSiteSourceLinks(
     ).trim();
 
 
+  // Source-specific metadata is resolved server-side; never reuse
+  // a union of materials/periods across unrelated publications.
+  const usePerSourceMetadata = payload.metadata_mode === "per_source";
+  const metadataBySource = new Map();
+
+  if (usePerSourceMetadata) {
+    const sourceEndpoint = new URL("/rest/v1/sources", env.SUPABASE_URL);
+    sourceEndpoint.searchParams.set("select", "id,metals,exposure_periods");
+    sourceEndpoint.searchParams.set("id", `in.(${sourceIds.join(",")})`);
+    const sourceResponse = await fetch(sourceEndpoint, {
+      headers: {
+        apikey: env.SUPABASE_SECRET_KEY,
+        authorization: `Bearer ${env.SUPABASE_SECRET_KEY}`,
+        accept: "application/json"
+      }
+    });
+    if (!sourceResponse.ok) {
+      console.error("Unable to load bulk Source metadata.",
+        sourceResponse.status, await sourceResponse.text());
+      return Response.json({ok: false, error:
+        "Unable to verify Source metadata. No relationships were saved."},
+        {status: 502});
+    }
+    const matchedSources = await sourceResponse.json();
+    for (const source of matchedSources) {
+      metadataBySource.set(Number(source.id), source);
+    }
+    if (sourceIds.some(id => !metadataBySource.has(id))) {
+      return Response.json({ok: false, error:
+        "At least one selected Source no longer exists. Refresh and retry."},
+        {status: 409});
+    }
+  }
+
   const rows = [];
 
   for (const siteFk of siteIds) {
@@ -5737,10 +5771,13 @@ async function handleBulkSiteSourceLinks(
         source_order:
           sourceOrder,
 
-        metals,
+        metals: usePerSourceMetadata
+          ? String(metadataBySource.get(sourceFk).metals || "").trim()
+          : metals,
 
-        exposure_periods:
-          exposurePeriods,
+        exposure_periods: usePerSourceMetadata
+          ? String(metadataBySource.get(sourceFk).exposure_periods || "").trim()
+          : exposurePeriods,
 
         notes,
       });
@@ -5774,8 +5811,9 @@ async function handleBulkSiteSourceLinks(
         "content-type":
           "application/json",
 
-        prefer:
-          "resolution=merge-duplicates,return=minimal",
+        prefer: payload.preserve_existing === true
+          ? "resolution=ignore-duplicates,return=minimal"
+          : "resolution=merge-duplicates,return=minimal",
       },
 
       body:
