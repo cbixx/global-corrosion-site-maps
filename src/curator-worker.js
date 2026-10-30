@@ -193,7 +193,18 @@ async function handleSourcesList(env) {
 
   endpoint.searchParams.set(
     "select",
-    "id,source_code,source_title,authors_or_organization,publication_year,source_kind,source_type,private_pdf_object_key"
+    [
+      "id",
+      "source_code",
+      "source_title",
+      "authors_or_organization",
+      "publication_year",
+      "source_kind",
+      "source_type",
+      "private_pdf_object_key",
+      "metals",
+      "exposure_periods"
+    ].join(",")
   );
 
   endpoint.searchParams.set("order", "source_code.asc");

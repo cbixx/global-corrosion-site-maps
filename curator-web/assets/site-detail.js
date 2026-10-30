@@ -1247,6 +1247,23 @@ addSourceLinkButton.addEventListener("click", () => {
   openLinkForm();
 });
 
+linkSource.addEventListener("change", () => {
+  // Do not overwrite an existing link while editing.
+  if (editingLink) return;
+
+  const selectedSource = sourceOptions.find(
+    source => String(source.id) === linkSource.value
+  );
+
+  linkMetalsControl.setValue(
+    selectedSource?.metals || ""
+  );
+
+  linkExposurePeriodsControl.setValue(
+    selectedSource?.exposure_periods || ""
+  );
+});
+
 cancelLinkButton.addEventListener("click", () => {
   closeLinkForm();
 });
