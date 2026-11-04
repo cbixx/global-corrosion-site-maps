@@ -34,7 +34,7 @@
     * Coordinate map geographic label language.
     * English uses Tracestrack; Local uses the original OSM tiles.
     */
-    const TRACESTRACK_KEY = "PASTE_YOUR_TRACESTRACK_KEY_HERE";
+    const TRACESTRACK_KEY = "63648847ebbef750acc10b5f78f0ec5e";
 
     const hasEnglishTiles = Boolean(
       TRACESTRACK_KEY &&
