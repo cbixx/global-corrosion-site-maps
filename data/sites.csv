@@ -40,6 +40,13 @@ AZ-005,Shamkir Hydroelectric Power Station,,41.039723120116,46.3865548865325,Aze
 AZ-006,Shamkirchay Hydroelectric Power Station,,40.9548868255468,46.1697834839508,Azerbaijan,,,"Inland, Temperate",1 year,Carbon steel St3,s079,,,,,,,,,,,
 AZ-007,Yenikend Hydroelectric Power Station,,40.9190461707567,46.2827731659032,Azerbaijan,,,"Inland, Temperate",1 year,Carbon steel St3,s080,,,,,,,,,,,
 AZ-008,Neft Daşları (Oil Rocks),,40.2501155,50.8420403,Azerbaijan,,,"Marine, Temperate",1 year,Carbon steel St20,s081,,,,,,,,,,,
+BD-001,"Padma (Dohar, Dhaka)",,23.527775,90.175444,Bangladesh,,,"Near-coastal, Temperate",1 year,Weathering steel,s085,,,,,,,,,,,
+BD-002,Padma (Mawa Old Ferry Ghat),,23.475442,90.2537,Bangladesh,,,"Coastal, Tropical",1 year,Weathering steel,s085,,,,,,,,,,,
+BD-003,"Hardinge Bridge (spans 5-6, Kushtia)",,24.067122,89.027336,Bangladesh,,,"Inland, Temperate",1 year,Weathering steel,s085,,,,,,,,,,,
+BD-004,"Hardinge Bridge (spans 10-11, Pabna)",,24.068553,89.032442,Bangladesh,,,"Inland, Temperate",1 year,Weathering steel,s085,,,,,,,,,,,
+BD-005,"Jamuna Bridge (Pier 2, Sirajganj)",,24.398761,89.754978,Bangladesh,,,"Inland, Temperate",1 year,Weathering steel,s085,,,,,,,,,,,
+BD-006,"Jamuna Bridge (Pier 47, Tangail)",,24.397244,89.799072,Bangladesh,,,"Inland, Temperate",1 year,Weathering steel,s085,,,,,,,,,,,
+BD-007,"Feni BA1 Atmospheric Corrosion Station (Sonagazi Upazila, Feni District)",,22.80029,91.35819,Bangladesh,,,"Coastal, Tropical",391 days,"Aluminium, Carbon steel, Copper, Zinc",s086,,,,,,,,,,,"Atmospheric corrosion exposure station installed on the rooftop of Dakkhin Char Darbesh Government Primary School, Sonagazi Upazila, Feni District, Bangladesh, as part of the World Bank/ESMAP Renewable Energy Resource Mapping programme. The corrosion station was designated BA1 and co-located with meteorological station BDFE2. Fraunhofer ISE evaluated the gravimetric corrosion losses of carbon steel, zinc, copper and aluminum following 391 days of unsheltered natural atmospheric exposure from June 6, 2017, to July 1, 2018. Specimens were mounted facing south at 45° inclination. Corrosion measurements followed ISO 9226:2012 and ISO 8407:2009."
 BE-001,Antwerp,City,51.2213,4.4051,Belgium,,,"Coastal, Urban, Cold, marine","1 year, 2 years, 4 years",Carbon steel,s013,,,,,,,,,,,
 BE-002,Ostend,"moderate zone, marine",51.2258565,2.919496,Belgium,,,"Coastal, Cold",1 year,Carbon steel,s020,,,,,,,,,,,"Source table places this under France but labels the site Ostende, Belgium."
 BG-001,Sofia,City,42.6977,23.3219,Bulgaria,,,"Inland, Urban, Temperate",1 year,"Carbon steel, Copper, Zinc",s014,s015,,,,,,,,,,
