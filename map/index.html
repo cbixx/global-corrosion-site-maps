@@ -1465,7 +1465,7 @@
       * English-labelled OSM-style basemap.
       * Requires a domain-restricted Tracestrack API key.
       */
-      const ENGLISH_TILE_KEY = "PASTE_YOUR_TRACESTRACK_KEY_HERE";
+      const ENGLISH_TILE_KEY = "63648847ebbef750acc10b5f78f0ec5e";
 
       function createEnglishBaseLayer() {
         return L.tileLayer(
@@ -1534,7 +1534,7 @@
 
     const englishBaseLayer =
       ENGLISH_TILE_KEY &&
-      ENGLISH_TILE_KEY !== "63648847ebbef750acc10b5f78f0ec5e"
+      ENGLISH_TILE_KEY !== "PASTE_YOUR_TRACESTRACK_KEY_HERE"
         ? createEnglishBaseLayer()
         : null;
 
