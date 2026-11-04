@@ -29,12 +29,163 @@
     const map = L.map(element, { scrollWheelZoom: false })
       .setView(position, 16);
 
-    L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      maxZoom: 19,
-      attribution:
-        '&copy; <a href="https://www.openstreetmap.org/copyright">' +
-        'OpenStreetMap</a> contributors'
-    }).addTo(map);
+
+    /*
+    * Coordinate map geographic label language.
+    * English uses Tracestrack; Local uses the original OSM tiles.
+    */
+    const TRACESTRACK_KEY = "PASTE_YOUR_TRACESTRACK_KEY_HERE";
+
+    const hasEnglishTiles = Boolean(
+      TRACESTRACK_KEY &&
+      TRACESTRACK_KEY !== "PASTE_YOUR_TRACESTRACK_KEY_HERE"
+    );
+
+    const localTileLayer = L.tileLayer(
+      "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+      {
+        maxZoom: 19,
+        attribution:
+          '&copy; <a href="https://www.openstreetmap.org/copyright">' +
+          'OpenStreetMap</a> contributors'
+      }
+    );
+
+    const englishTileLayer = hasEnglishTiles
+      ? L.tileLayer(
+          "https://tile.tracestrack.com/en/{z}/{x}/{y}@1x.png?key=" +
+            encodeURIComponent(TRACESTRACK_KEY),
+          {
+            maxZoom: 19,
+            attribution:
+              'Map tiles &copy; <a href="https://tracestrack.com/">' +
+              'Tracestrack</a>; data &copy; ' +
+              '<a href="https://www.openstreetmap.org/copyright">' +
+              'OpenStreetMap contributors</a>'
+          }
+        )
+      : null;
+
+    const storageKey = "corrosionCuratorMapLabels";
+
+    let savedLanguage = hasEnglishTiles ? "english" : "local";
+
+    try {
+      const stored = localStorage.getItem(storageKey);
+      if (stored === "english" || stored === "local") {
+        savedLanguage = stored;
+      }
+    } catch {
+      // Storage may be unavailable.
+    }
+
+    let activeTileLayer = null;
+
+    function setMapLanguage(language, persist = true) {
+      const useEnglish =
+        language === "english" && Boolean(englishTileLayer);
+
+      const nextLayer = useEnglish
+        ? englishTileLayer
+        : localTileLayer;
+
+      if (activeTileLayer !== nextLayer) {
+        if (activeTileLayer) {
+          map.removeLayer(activeTileLayer);
+        }
+
+        nextLayer.addTo(map);
+        nextLayer.bringToBack();
+        activeTileLayer = nextLayer;
+      }
+
+      const actualLanguage = useEnglish ? "english" : "local";
+
+      if (languageSelect) {
+        languageSelect.value = actualLanguage;
+      }
+
+      if (persist) {
+        try {
+          localStorage.setItem(storageKey, actualLanguage);
+        } catch {
+          // Storage may be unavailable.
+        }
+      }
+    }
+
+    /*
+    * Small language selector inside the map.
+    */
+    let languageSelect = null;
+
+    const languageControl = L.control({
+      position: "topright"
+    });
+
+    languageControl.onAdd = function () {
+      const container = L.DomUtil.create(
+        "div",
+        "leaflet-bar"
+      );
+
+      container.style.background = "#fff";
+      container.style.padding = "5px";
+      container.style.borderRadius = "5px";
+
+      languageSelect = document.createElement("select");
+      languageSelect.setAttribute(
+        "aria-label",
+        "Map label language"
+      );
+
+      languageSelect.style.padding = "5px";
+      languageSelect.style.fontSize = "12px";
+      languageSelect.style.maxWidth = "145px";
+
+      const englishOption = new Option(
+        "English labels",
+        "english"
+      );
+
+      const localOption = new Option(
+        "Local names",
+        "local"
+      );
+
+      if (!hasEnglishTiles) {
+        englishOption.disabled = true;
+      }
+
+      languageSelect.append(
+        englishOption,
+        localOption
+      );
+
+      container.appendChild(languageSelect);
+
+      L.DomEvent.disableClickPropagation(container);
+      L.DomEvent.disableScrollPropagation(container);
+
+      languageSelect.addEventListener("change", () => {
+        setMapLanguage(languageSelect.value);
+      });
+
+      return container;
+    };
+
+    languageControl.addTo(map);
+
+    if (englishTileLayer) {
+      englishTileLayer.on("tileerror", () => {
+        if (activeTileLayer === englishTileLayer) {
+          setMapLanguage("local", false);
+        }
+      });
+    }
+
+    setMapLanguage(savedLanguage, false);
+
 
     const proposed = L.marker(position, { draggable: true })
       .addTo(map);
