@@ -566,11 +566,12 @@
 
             <div class="control-group">
               <label class="control-label" for="baseMapSelect">
-                Basemap
+                Basemap and labels
               </label>
 
               <select id="baseMapSelect" class="control-select">
-                <option value="osm">OpenStreetMap</option>
+                <option value="english">English labels</option>
+                <option value="osm">Local names (OpenStreetMap)</option>
                 <option value="tianditu">Tianditu (天地图)</option>
               </select>
             </div>
@@ -1460,6 +1461,25 @@
       );
     }
 
+    /*
+      * English-labelled OSM-style basemap.
+      * Requires a domain-restricted Tracestrack API key.
+      */
+      const ENGLISH_TILE_KEY = "PASTE_YOUR_TRACESTRACK_KEY_HERE";
+
+      function createEnglishBaseLayer() {
+        return L.tileLayer(
+          "https://tile.tracestrack.com/en/{z}/{x}/{y}@1x.png?key=" +
+            encodeURIComponent(ENGLISH_TILE_KEY),
+          {
+            minZoom: 1,
+            maxZoom: 19,
+            attribution:
+              'Data: &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a>, ESA WorldCover; Maps &copy; <a href="https://tracestrack.com/">Tracestrack</a>'
+          }
+        );
+      }
+
 
     /*
     * Country mini-maps remain on OpenStreetMap.
@@ -1512,6 +1532,12 @@
     */
     const osmBaseLayer = createOsmBaseLayer();
 
+    const englishBaseLayer =
+      ENGLISH_TILE_KEY &&
+      ENGLISH_TILE_KEY !== "63648847ebbef750acc10b5f78f0ec5e"
+        ? createEnglishBaseLayer()
+        : null;
+
     let tiandituPublicLayer = null;
     let activeBaseLayer = osmBaseLayer;
 
@@ -1522,7 +1548,11 @@
     * corrosion or environmental overlays.
     */
     function setBasemap(mode, persist = true) {
+      const requestedEnglish = mode === "english";
       const requestedTianditu = mode === "tianditu";
+
+      const useEnglish =
+        requestedEnglish && Boolean(englishBaseLayer);
 
       const useTianditu =
         requestedTianditu && Boolean(TIANDITU_KEY);
@@ -1534,9 +1564,11 @@
         ]);
       }
 
-      const nextLayer = useTianditu
-        ? tiandituPublicLayer
-        : osmBaseLayer;
+      const nextLayer = useEnglish
+        ? englishBaseLayer
+        : useTianditu
+          ? tiandituPublicLayer
+          : osmBaseLayer;
 
       if (activeBaseLayer !== nextLayer) {
         map.removeLayer(activeBaseLayer);
@@ -1544,9 +1576,11 @@
         activeBaseLayer = nextLayer;
       }
 
-      const actualMode = useTianditu
-        ? "tianditu"
-        : "osm";
+      const actualMode = useEnglish
+        ? "english"
+        : useTianditu
+          ? "tianditu"
+          : "osm";
 
       const selector =
         document.getElementById("baseMapSelect");
@@ -1559,13 +1593,18 @@
         document.getElementById("basemapStatus");
 
       if (status) {
-        if (requestedTianditu && !TIANDITU_KEY) {
+        if (requestedEnglish && !englishBaseLayer) {
+          status.textContent =
+            "English basemap key unavailable. Using OpenStreetMap.";
+        } else if (requestedTianditu && !TIANDITU_KEY) {
           status.textContent =
             "Tianditu key unavailable. Using OpenStreetMap.";
         } else {
-          status.textContent = useTianditu
-            ? "Tianditu basemap active."
-            : "OpenStreetMap active.";
+          status.textContent = useEnglish
+            ? "English geographic labels active."
+            : useTianditu
+              ? "Tianditu basemap active."
+              : "OpenStreetMap local labels active.";
         }
       }
 
@@ -1584,17 +1623,35 @@
     /*
     * Restore the visitor's previous choice.
     */
-    let savedBasemap = "osm";
+    let savedBasemap = englishBaseLayer
+      ? "english"
+      : "osm";
 
     try {
       savedBasemap =
         localStorage.getItem("corrosionMapBasemap") ||
-        "osm";
+        savedBasemap;
     } catch {
       // Use default.
     }
 
     setBasemap(savedBasemap, false);
+
+    if (englishBaseLayer) {
+      englishBaseLayer.on("tileerror", function () {
+        if (activeBaseLayer === englishBaseLayer) {
+          setBasemap("osm", false);
+
+          const status =
+            document.getElementById("basemapStatus");
+
+          if (status) {
+            status.textContent =
+              "English map tiles unavailable. Showing local labels.";
+          }
+        }
+      });
+    }
 
 
     map.createPane('corrosionHeatPane');
