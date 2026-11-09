@@ -507,6 +507,17 @@ MX-001,Cuernavaca,,18.9331321,-99.2599579,Mexico,,,"Inland, Tropical","1 year, 4
 MX-002,Mexico City,,19.4326296,-99.1331785,Mexico,,,"Inland, Tropical","1 year, 4 years",Mild steel,s044,,,,,,,,,,,
 MX-003,San Luis Potosí City,,22.1516472,-100.9763993,Mexico,,,"Inland, Tropical","1 year, 4 years",Mild steel,s044,,,,,,,,,,,
 MX-004,Acapulco,,16.8680495,-99.8940182,Mexico,,,"Coastal, Tropical","1 year, 4 years","Aluminium, Copper, Mild steel, Zinc",s045,s073,,,,,,,,,,
+MY-001,Shah Alam,,3.0739429,101.5185278,Malaysia,,,"Near-coastal, Tropical",1 year,"Aluminium, Carbon steel, Copper, Mild steel",s113,,,,,,,,,,,
+MY-002,Putrajaya,,2.9384381,101.69223,Malaysia,,,"Near-coastal, Tropical",1 year,"Aluminium, Carbon steel, Copper, Mild steel",s113,,,,,,,,,,,
+MY-003,"Masjid, UPM",,3.0020259,101.717034,Malaysia,,,"Near-coastal, Tropical",1 year,"Aluminium, Carbon steel, Copper, Mild steel",s113,,,,,,,,,,,
+MY-004,"Faculty of Forestry and Environment, UPM",,3.00359250337078,101.708425149407,Malaysia,,,"Near-coastal, Tropical",1 year,"Aluminium, Carbon steel, Copper, Mild steel",s113,,,,,,,,,,,
+MY-005,Subang Jaya City Council,,3.0342324,101.6170345,Malaysia,,,"Near-coastal, Tropical",1 year,"Aluminium, Carbon steel, Copper, Mild steel",s113,,,,,,,,,,,
+MY-006,Lamut,,4.236,100.591862,Malaysia,,,"Marine, Tropical","1 year, 15 months, 18 months, 3 months, 6 months, 9 months",Mild steel,s114,,,,,,,,,,,
+MY-007,Kuala Lumpur,,3.1516964,101.6942371,Malaysia,,,"Near-coastal, Tropical","1 year, 2 years, 4 years","Carbon steel, Coated steel, Copper, Zinc",s115,s116,,,,,,,,,,
+MY-008,Tanah Rata,,4.4706932,101.3776891,Malaysia,,,"Inland, Tropical","1 year, 2 years, 4 years","Carbon steel, Coated steel, Copper, Zinc",s115,s116,,,,,,,,,,
+MY-009,"Boustead Shipyard, Lumut",,4.23712642873817,100.607587425848,Malaysia,,,"Marine, Tropical",2 years,Mild steel,s117,,,,,,,,,,,
+MY-010,UMP Football Field,,3.541721,103.121002039919,Malaysia,,,"Near-coastal, Tropical",1 month,"Aluminium, Copper, Zinc",s119,,,,,,,,,,,
+MY-011,"Kapar, Selangor",,3.1397,101.3678,Malaysia,,,"Coastal, Tropical",1 year,Coated steel,s120,,,,,,,,,,,
 NA-001,Walvis Bay,,-22.9557607,14.5071125,Namibia,,,"Coastal, Tropical","2 years, 20 years, 3 months, 4 years, 5 years","Copper, Mild steel, Zinc",s055,,,,,,,,,,,
 NG-001,"Abalamabie Road, Bonny Island",coastal town / industrial-influenced,4.4303132,7.2007614,Nigeria,,,"Coastal, Tropical","10 months, 12 months, 2 months, 4 months, 6 months, 8 months","Aluminium, Coated aluminum, Galvanized steel, Zinc",s026,,,,,,,,,,,"Source table site: Ablamabie, Bonny Island; approx. 5900 m from industrial area and 4900 m from shoreline."
 NG-002,"Finima, Bonny Island",coastal industrial,4.39685462,7.15982126,Nigeria,,,"Coastal, Tropical","10 months, 12 months, 2 months, 4 months, 6 months, 8 months","Aluminium, Coated aluminum, Galvanized steel, Zinc",s026,,,,,,,,,,,Approx. 3500 m from industrial area and 1700 m from shoreline.
