@@ -1,4 +1,13 @@
 ﻿site_id,site_label,site_type,latitude,longitude,modern_country_location,administering_country,former_entity,region_category,exposure_period,metal,source_1,source_2,source_3,source_4,source_5,source_6,source_7,source_8,source_9,source_10,source_11,notes
+AE-001,"Marina, Abu Dhabi",,24.4674113,54.6060743,United Arab Emirates,,,"Coastal, Temperate",1 year,"Carbon steel, Zinc",s149,,,,,,,,,,,
+AE-002,Al Wathbah,,24.2080343,54.7040621,United Arab Emirates,,,"Near-coastal, Temperate",1 year,"Carbon steel, Zinc",s149,,,,,,,,,,,
+AE-003,Jabal Hafeet,,24.0684952,55.7693411,United Arab Emirates,,,"Inland, Temperate",1 year,"Carbon steel, Zinc",s149,,,,,,,,,,,
+AE-004,Al Bateen,,24.4513839,54.3379658,United Arab Emirates,,,"Marine, Temperate",1 year,"Carbon steel, Zinc",s149,,,,,,,,,,,
+AE-005,Al Qlaa,,24.15,52.98,United Arab Emirates,,,"Near-coastal, Temperate",1 year,"Carbon steel, Zinc",s149,,,,,,,,,,,
+AE-006,DEWA (Dubai shoreline),,25.116067,55.145869,United Arab Emirates,,,"Coastal, Temperate",4 years,"Aluminium, Carbon steel, Copper, Stainless Steel, Zinc",s150,s152,,,,,,,,,,
+AE-007,Abu Dhabi,,24.4538352,54.3774014,United Arab Emirates,,,"Coastal, Temperate","1 year, Monthly",Carbon steel,s151,,,,,,,,,,,
+AE-008,Hidayath,,24.9844578,55.2125237,United Arab Emirates,,,"Near-coastal, Temperate",4 years,"Aluminium, Carbon steel, Copper, Zinc",s152,,,,,,,,,,,
+AE-009,Dubai (2km from sea),,24.966667,55.033333,United Arab Emirates,,,"Coastal, Temperate","1 year, 2 years, 4 years, 6 months, 6 years","Hot-dip galvanized steel, Zn-Al coated steel, Zn-Al-Mg coated steel, Zn-Al-Si coated steel",s153,s154,s155,s156,,,,,,,,
 AQ-AR-001,Carlini Base,antarctic desertic zone,-62.2379343,-58.6670078,Antarctica,Argentina,,"Marine, Antarctic, Extreme cold","1 month - 23 years, 1 year, 2 years, 3 years, 4 years","Aluminium, Carbon steel, Coated aluminum, Copper, Galvanized steel, Mild steel, Weathering steel, Zinc, Zn-Al coated steel",s020,s041,s045,s049,s076,,,,,,,Source label: Yubany/Jubany Base; current standard name is Carlini Base.
 AQ-AU-001,Macquarie Island,Sub-Antarctic Islands,-54.49,159.01,Sub-Antarctic Islands,Australia,,"Marine, Island, Rural, Sub-Antarctic, Cold, Island marine, rural","1 month, 1 year, 1-4 years, 2 years, 4 years, varies","Aluminum alloys, Cadmium, Carbon steel, Copper, Copper-bearing low-alloy carbon steel, Mild steel, Steel St3",s001,s074,,,,,,,,,,Table 3: longitude not given; elevation=7.5 m; distance_from_sea<1 km; corrosion_rate=222 µm/year.
 AQ-AU-002,Heard Island,Sub-Antarctic Islands,-53.1,73.5,Sub-Antarctic Islands,Australia,,"Coastal, Island, Rural, Sub-Antarctic, Cold, Island marine, rural","1 month, 1 year, 1-4 years, 2 years, 4 years, varies","Aluminum alloys, Cadmium, Carbon steel, Copper, Copper-bearing low-alloy carbon steel, Mild steel, Steel St3",s001,s074,,,,,,,,,,Table 3: longitude not given; elevation<10 m; distance_from_sea<1 km; corrosion_rate=55.30 µm/year.
@@ -165,9 +174,9 @@ Discussed as a site with very small interpolation error because surrounding site
 Discussed as one of the three C5 sites; source states it is located near a reservoir with high atmospheric relative humidity. Exact locality and coordinates are not provided."
 CN-002,Beijing,,39.9057136,116.3912972,China,,,"Inland, Temperate","1 year, 2 years, 3 months, 4 years","Ancient copper, Bronze, Carbon steel, Copper, Weathering steel",s049,s104,,,,,,,,,,
 CN-003,Qinghai,,36,96,China,,,"Inland, Temperate","1 year, 2 years",Weathering steel,s049,,,,,,,,,,,
-CN-004,Jiangjin,,29.3226898,106.260551,China,,,"Inland, Industrial, Temperate","1 year, 2 years",Weathering steel,s049,,,,,,,,,,,
-CN-005,Qingdao,,36.0663249,120.3777659,China,,,"Coastal, Temperate","1 year, 2 years",Weathering steel,s049,,,,,,,,,,,
-CN-006,Wanning City,,18.837778,110.2875,China,,,"Near-coastal, Tropical","1 year, 2 years",Weathering steel,s049,,,,,,,,,,,
+CN-004,Jiangjin,,29.3226898,106.260551,China,,,"Inland, Industrial, Temperate","1 year, 2 years, 4 years, 6 months, 6 years","Hot-dip galvanized steel, Weathering steel, Zn-Al coated steel, Zn-Al-Mg coated steel, Zn-Al-Si coated steel",s049,s153,s154,s155,s156,,,,,,,
+CN-005,Qingdao,,36.0663249,120.3777659,China,,,"Coastal, Temperate","1 year, 2 years, 4 years, 6 months, 6 years","Hot-dip galvanized steel, Weathering steel, Zn-Al coated steel, Zn-Al-Mg coated steel, Zn-Al-Si coated steel",s049,s153,s154,s155,s156,,,,,,,
+CN-006,Wanning City,,18.837778,110.2875,China,,,"Near-coastal, Tropical","1 year, 2 years, 4 years, 6 months, 6 years","Hot-dip galvanized steel, Weathering steel, Zn-Al coated steel, Zn-Al-Mg coated steel, Zn-Al-Si coated steel",s049,s153,s154,s155,s156,,,,,,,
 CN-007,Guangzhou,,23.1288429,113.2589581,China,,,"Near-coastal, Tropical","1 year, 2 years",Weathering steel,s049,,,,,,,,,,,
 CN-008,Wuhan,,30.578891,114.2921197,China,,,"Inland, Temperate","1 year, 2 years, 3 months, 4 years","Ancient copper, Bronze, Carbon steel, Copper, Weathering steel",s049,s104,,,,,,,,,,
 CN-009,"Hsinchu, Taiwan",,24.8066333,120.9686833,China,,,"Coastal, Temperate","1 year, 2 years","Carbon steel, Weathering steel",s049,,,,,,,,,,,
@@ -203,6 +212,7 @@ CZ-002,Kasperske Hory,Town,49.1429,13.5561,Czech Republic,,Czechoslovakia,"Inlan
 CZ-003,Kopisty,Industrial Locality,50.533,13.616,Czech Republic,,Czechoslovakia,"Inland, Industrial, Cold","1 year, 2 years, 4 years, 8 years, Annually","Aluminium, Carbon steel, Copper, Stainless Steel, Titanium, Weathering steel, Zinc",s009,s017,s018,s020,s049,s010,s011,s012,s013,s014,s015,
 CZ-005,Prague-Bechovice,"moderate zone, urban",50.0828923,14.5936437,Czech Republic,,Czechoslovakia,"Inland, Urban, Cold",1 year,Carbon steel,s020,,,,,,,,,,,Source label: Praha-Béchovice.
 CZ-006,Ústí nad Labem,,50.6603327,14.0381357,Czechia,,,"Inland, Cold","1 year, 2 years, 4 years, 8 years",Carbon steel,s049,,,,,,,,,,,
+CZ-007,Ostrava,,49.8354045,18.292978,Czechia,,,"Inland, Temperate","1 year, 2 years, 6 months",Hot-dip galvanized steel,s156,,,,,,,,,,,
 DE-001,Waldhof-Langenbrugge,Monitoring site,52.800867,10.75623,Germany,,,"Inland, Rural, Cold","1 year, 2 years, 4 years, 8 years, Annually","Aluminium, Carbon steel, Weathering steel, Zinc",s009,s010,s011,s012,s013,,,,,,,
 DE-002,Aschaffenburg,City,49.977,9.1521,Germany,,,"Inland, Urban, Temperate","1 year, 2 years, 4 years, 8 years, Annually","Aluminium, Carbon steel, Weathering steel, Zinc",s009,s010,s011,s012,,,,,,,,
 DE-003,Langenfeld-Reusrath,Rural,51.083864,6.921054,Germany,,,"Inland, Rural, Cold","1 year, 2 years, 4 years, 8 years, Annually","Aluminium, Carbon steel, Weathering steel, Zinc",s009,s010,s011,s012,s013,,,,,,,
@@ -239,7 +249,7 @@ ES-007,Barakaldo,"moderate zone, urban",43.2949177,-2.9887476,Spain,,,"Coastal, 
 ES-008,El Escorial,,40.5836411,-4.1281427,Spain,,,"Inland, Temperate","1 year, 10 years, 16 years, 2 years, 3 years, 4 years, 5 years, 6 years, 8 years","Aluminium, Copper, Mild steel, Zinc",s039,,,,,,,,,,,
 ES-009,Barcelona,,41.3825802,2.177073,Spain,,,"Coastal, Temperate","1 year, 10 years, 16 years, 2 years, 3 years, 4 years, 5 years, 6 years, 8 years","Aluminium, Copper, Mild steel, Zinc",s039,s045,,,,,,,,,,
 ES-010,Zaragoza,,41.6915847,-0.9101268,Spain,,,"Inland, Temperate","1 year, 10 years, 16 years, 2 years, 3 years, 4 years, 5 years, 6 years, 8 years","Aluminium, Copper, Mild steel, Zinc",s039,,,,,,,,,,,
-ES-011,Cádiz,,36.5297438,-6.2928976,Spain,,,"Marine, Temperate","1 year, 10 years, 16 years, 2 years, 3 years, 4 years, 5 years, 6 years, 8 years","Aluminium, Copper, Mild steel, Zinc",s039,,,,,,,,,,,
+ES-011,Cádiz,,36.5297438,-6.2928976,Spain,,,"Marine, Temperate","1 year, 10 years, 16 years, 2 years, 3 years, 4 years, 5 years, 6 months, 6 years, 8 years","Aluminium, Copper, Hot-dip galvanized steel, Mild steel, Zinc, Zn-Al coated steel, Zn-Al-Mg coated steel",s039,s155,s156,,,,,,,,,
 ES-012,Velilla del Río Carrión,,42.9328979,-4.8024457,Spain,,,"Inland, Temperate","1 year, 10 years, 16 years, 2 years, 3 years, 4 years, 5 years, 6 years, 8 years","Aluminium, Copper, Mild steel, Zinc",s039,,,,,,,,,,,
 ES-013,Alicante,,38.3436365,-0.4881708,Spain,,,"Marine, Temperate","1 year, 10 years, 16 years, 2 years, 3 years, 4 years, 5 years, 6 years, 8 years","Aluminium, Copper, Mild steel, Zinc",s039,,,,,,,,,,,
 ES-015,Naut Aran,,42.7000512,0.8720695,Spain,,,"Inland, Temperate","1 year, 4 years",Mild steel,s044,,,,,,,,,,,
@@ -272,6 +282,7 @@ FR-005,Saint-Remy-les-Landes,"moderate zone, marine",48.3126598,0.3866243,France
 FR-006,Salin-de-Giraud,"moderate zone, marine",43.4136059,4.7339545,France,,,"Coastal, Temperate",1 year,Carbon steel,s020,,,,,,,,,,,Source label: Salins de Giraud.
 FR-008,Auby,"moderate zone, heavy industrial",50.4136,3.06175,France,,,"Inland, Industrial, Cold",1 year,Carbon steel,s020,,,,,,,,,,,
 FR-009,Biarritz,"moderate zone, marine",43.4832523,-1.5592776,France,,,"Marine, Temperate",1 year,Carbon steel,s020,,,,,,,,,,,
+FR-010,Brest,,48.3912324,-4.4851141,France,,,"Marine, Temperate","1 year, 2 years, 4 years, 6 months, 6 years","Hot-dip galvanized steel, Zn-Al coated steel, Zn-Al-Mg coated steel, Zn-Al-Si coated steel",s153,s154,s155,s156,,,,,,,,
 GB-001,Lincoln Cathedral,Cathedral,53.234,-0.5417,United Kingdom,,,"Near-coastal, Island, Urban, Cold","1 year, 2 years, 4 years, 8 years, Annually","Aluminium, Carbon steel, Copper, Weathering steel, Zinc",s009,s010,s011,s012,s013,s014,s015,,,,,
 GB-002,Wells Cathedral,Cathedral,51.2107,-2.6475,United Kingdom,,,"Near-coastal, Island, Urban, Cold","1 year, 2 years, 4 years, 8 years, Annually","Aluminium, Carbon steel, Weathering steel, Zinc",s009,s010,s011,s012,,,,,,,,
 GB-003,Clatteringshaws Loch,Locality,55.066,-4.284,United Kingdom,,,"Near-coastal, Island, Rural, Cold","1 year, 2 years, 4 years, 8 years, Annually","Aluminium, Carbon steel, Weathering steel, Zinc",s009,s010,s011,s012,,,,,,,,
@@ -579,6 +590,7 @@ NL-001,Vlaardingen,Port city,51.9125,4.3417,Netherlands,,,"Near-coastal, Industr
 NL-002,Eibergen,Town,52.1,6.6612,Netherlands,,,"Inland, Urban, Cold","1 year, 2 years, 4 years, 8 years, Annually","Aluminium, Carbon steel, Weathering steel, Zinc",s009,s010,s011,s012,,,,,,,,
 NL-003,Vredepeel,Village,51.5383,5.8679,Netherlands,,,"Inland, Rural, Cold","1 year, 2 years, 4 years, 8 years, Annually","Aluminium, Carbon steel, Weathering steel, Zinc",s009,s010,s011,s012,,,,,,,,
 NL-004,Wijnandsrade,Village,50.9054,5.8836,Netherlands,,,"Inland, Rural, Cold","1 year, 2 years, 4 years, 8 years, Annually","Aluminium, Carbon steel, Weathering steel, Zinc",s009,s010,s011,s012,,,,,,,,
+NL-005,IJmuiden,,52.4574139,4.6116211,Netherlands,,,"Coastal, Cold","1 year, 2 years, 4 years, 6 months, 6 years","Hot-dip galvanized steel, Zn-Al coated steel, Zn-Al-Mg coated steel, Zn-Al-Si coated steel",s153,s154,s155,s156,,,,,,,,
 NO-001,Sandnes,Sub-arctic test site,67.13,16.07,Norway,,,"Near-coastal, Industrial, Sub-arctic, Extreme cold, industrial","1 month, 1 year, 2 years, 3 months","Aluminium, Carbon steel, Coated steel, Copper, Galvanized steel, Zinc",s004,,,,,,,,,,,"Table 7: one-year intervals 01.1984–01.1985, 01.1985–01.1986, 03.1986–03.1987, 03.1987–03.1988; steel=592,449,549,67 g/m²/year; zinc=60,46,50,3; copper=9.0,10.4,7.3,5.5."
 NO-002,Furulund,Sub-arctic test site,68.76,17.16,Norway,,,"Marine, Industrial, Sub-arctic, Extreme cold, industrial","1 month, 1 year, 2 years, 3 months","Aluminium, Carbon steel, Coated steel, Copper, Galvanized steel, Zinc",s004,,,,,,,,,,,"Table 7: steel=493,431,511,60 g/m²/year; zinc=60,50,43,3; copper=6.8,9.4,6.5,5.8."
 NO-003,Lomi,Sub-arctic test site,67.13,16.09,Norway,,,"Near-coastal, Industrial, Sub-arctic, Extreme cold, industrial","1 month, 1 year, 2 years, 3 months","Aluminium, Carbon steel, Coated steel, Copper, Galvanized steel, Zinc",s004,,,,,,,,,,,Table 7: steel=488 and 66 g/m²/year; zinc=33 and 4; copper=5.8 and 5.5. No coordinates given in the review.
@@ -739,8 +751,8 @@ SE-001,Stockholm South,City,59.312,18.083,Sweden,,,"Coastal, Urban, Cold","1 yea
 SE-002,Stockholm Centre,City,59.3293,18.0686,Sweden,,,"Coastal, Urban, Cold","1 year, 2 years, 4 years, 8 years, Annually","Aluminium, Carbon steel, Weathering steel, Zinc",s009,s010,s011,s012,,,,,,,,
 SE-003,Aspvreten,Rural monitoring site,58.8,17.383333,Sweden,,,"Marine, Rural, Cold","1 year, 2 years, 4 years, 8 years, Annually","Aluminium, Carbon steel, Copper, Stainless Steel, Titanium, Weathering steel, Zinc",s009,s017,s018,s010,s011,s012,s013,s014,s015,,,
 SE-004,Stockholm,"moderate zone, urban",59.3251172,18.0710935,Sweden,,,"Coastal, Urban, Cold","1 year, 2 years, 4 years, 8 years","Aluminium, Carbon steel, Stainless Steel, Titanium, Weathering steel, Zinc",s017,s018,s020,s049,,,,,,,,Source label: Stockholm-Vanadis.
-SE-005,"Kattesand, Bohus-Malmon","moderate zone, marine",58.3382594,11.3394872,Sweden,,,"Marine, Cold",1 year,Carbon steel,s020,,,,,,,,,,,"Source label: Bohus Malmon, Kattesand. Standard spelling may appear as Bohus-Malmön."
-SE-006,"Kvarnvik, Bohus-Malmon","moderate zone, marine - splash",58.45455858,16.26454571,Sweden,,,"Coastal, Cold","1 year, 2 years, 4 years, 8 years","Carbon steel, Weathering steel",s020,s049,,,,,,,,,,"Source label: Bohus Malmon, Kvarnvik. Standard spelling may appear as Bohus-Malmön."
+SE-005,"Kattesand, Bohus-Malmon","moderate zone, marine",58.3382594,11.3394872,Sweden,,,"Marine, Cold","1 year, 2 years, 4 years, 6 months, 6 years","Carbon steel, Hot-dip galvanized steel, Zn-Al coated steel, Zn-Al-Mg coated steel, Zn-Al-Si coated steel",s020,s153,s154,s155,s156,,,,,,,"Source label: Bohus Malmon, Kattesand. Standard spelling may appear as Bohus-Malmön."
+SE-006,"Kvarnvik, Bohus-Malmon","moderate zone, marine - splash",58.45455858,16.26454571,Sweden,,,"Coastal, Cold","1 year, 2 years, 4 years, 6 months, 6 years, 8 years","Carbon steel, Hot-dip galvanized steel, Weathering steel, Zn-Al coated steel, Zn-Al-Mg coated steel, Zn-Al-Si coated steel",s020,s049,s153,s154,s155,s156,,,,,,"Source label: Bohus Malmon, Kvarnvik. Standard spelling may appear as Bohus-Malmön."
 SE-007,Abisko,,68.3501695,18.8300059,Sweden,,,"Inland, Extreme cold",1 year,Ingot iron,s021,,,,,,,,,,,
 SE-008,"Ryda, Borås",,57.749188,12.9226036,Sweden,,,"Inland, Cold","1 year, 2 years, 4 years, 8 years",Carbon steel,s049,,,,,,,,,,,
 SE-009,Göteborgs Stad,,57.710083,11.9727685,Sweden,,,"Coastal, Cold","1 year, 2 years, 4 years, 8 years",Carbon steel,s049,,,,,,,,,,,
@@ -754,17 +766,19 @@ SG-002,St. John's Island,,1.2186709,103.8486344,Singapore,,,"Marine, Island, Tro
 SG-003,"SIMTech, Nanyang",,1.3487783,103.6828018,Singapore,,,"Coastal, Island, Tropical",1 year,"Aluminium, Carbon steel, Copper, Zinc",s139,,,,,,,,,,,
 SG-004,Southern Singapore (3 km inland),,1.297,103.776,Singapore,,,"Marine, Island, Tropical","1 month, 1 week, 3 months","Carbon steel, Mild steel",s140,,,,,,,,,,,
 SG-005,Offshore (2km south of mainland),,1.252,103.776,Singapore,,,"Marine, Island, Tropical","1 month, 1 week, 3 months","Carbon steel, Mild steel",s140,,,,,,,,,,,
+SG-006,Singapore,,1.357107,103.8194992,Singapore,,,"Coastal, Island, Tropical","1 year, 2 years, 4 years, 6 months, 6 years","Hot-dip galvanized steel, Zn-Al coated steel, Zn-Al-Mg coated steel, Zn-Al-Si coated steel",s153,s154,s155,s156,,,,,,,,
 SK-001,Zilina,,49.2234674,18.7393139,Slovakia,,,"Inland, Temperate","1 year, 4 years, 8 years","Aluminium, Carbon steel, Stainless Steel, Titanium, Weathering steel, Zinc",s017,s018,,,,,,,,,,
 SK-002,Hurbanovo,,47.8761227,18.198313,Slovakia,,Czechoslovakia,"Inland, Temperate","1 year, 2 years, 4 years, 8 years",Carbon steel,s049,,,,,,,,,,,
 TG-001,Lomé,,6.130419,1.215829,Togo,,,"Coastal, Tropical","3 months, 4 months",Aluminium,s060,,,,,,,,,,,
 TH-001,Chiang Rai,,19.9068867,99.8332739,Thailand,,,"Inland, Tropical",1 year,"Al-Zn coated steel, Carbon steel, Galvanized steel, Weathering steel",s088,s089,,,,,,,,,,
 TH-002,Khon Kaen Province,,16.6022387,102.6352933,Thailand,,,"Inland, Tropical",1 year,"Al-Zn coated steel, Carbon steel, Galvanized steel, Weathering steel",s088,s089,,,,,,,,,,
 TH-003,Pathum Thani Province,,14.048667,100.5640405,Thailand,,,"Near-coastal, Tropical",1 year,"Al-Zn coated steel, Carbon steel, Galvanized steel, Weathering steel",s088,s089,,,,,,,,,,
-TH-004,Bangkok,,13.7524938,100.4935089,Thailand,,,"Near-coastal, Tropical","1 year, 2 years","Al-Zn coated steel, Carbon steel, Coated steel, Copper, Galvanized steel, Weathering steel, Zinc",s088,s089,s126,s127,,,,,,,,
+TH-004,Bangkok,,13.7524938,100.4935089,Thailand,,,"Near-coastal, Tropical","1 year, 2 years, 4 years, 6 months, 6 years","Al-Zn coated steel, Carbon steel, Coated steel, Copper, Galvanized steel, Hot-dip galvanized steel, Weathering steel, Zinc, Zn-Al coated steel, Zn-Al-Mg coated steel, Zn-Al-Si coated steel",s088,s089,s126,s127,s153,s154,s155,s156,,,,
 TH-005,Chon Buri Province,,13.1857117,101.1210777,Thailand,,,"Near-coastal, Tropical",1 year,"Al-Zn coated steel, Carbon steel, Galvanized steel, Weathering steel",s088,s089,,,,,,,,,,
 TH-006,Rayong,,12.6817905,101.277765,Thailand,,,"Coastal, Tropical",1 year,"Al-Zn coated steel, Carbon steel, Galvanized steel, Weathering steel",s088,s089,,,,,,,,,,
 TH-007,"Phangnga, Phuket",,7.881271,98.397477,Thailand,,,"Coastal, Tropical",1 year,"Al-Zn coated steel, Carbon steel, Galvanized steel, Weathering steel",s088,s089,,,,,,,,,,
 TH-008,Phrapradaeng,,13.6576856,100.5336533,Thailand,,,"Coastal, Tropical","1 year, 2 years","Carbon steel, Coated steel, Copper, Zinc",s126,s127,,,,,,,,,,
+TH-009,Sattahip,,12.664099,100.9004188,Thailand,,,"Coastal, Tropical","1 year, 2 years, 6 months",Hot-dip galvanized steel,s156,,,,,,,,,,,
 TR-001,Sakarya,,40.6650867883597,30.5838539321681,Turkey,,,"Near-coastal, Temperate","1 year, 3 months, 6 months","Aluminium, Galvanized steel",s146,,,,,,,,,,,
 TR-002,Mersin (Station 2),,36.77793,34.58851,Turkey,,,"Marine, Temperate",2 years,"Aluminium, Brass, Carbon steel, Copper",s147,,,,,,,,,,,
 TR-003,Mersin (Station 3),,36.81577,34.58639,Turkey,,,"Coastal, Temperate",2 years,"Aluminium, Brass, Carbon steel, Copper",s147,,,,,,,,,,,
@@ -818,7 +832,7 @@ US-044,"Cleveland, Ohio",,41.4996574,-81.6936772,United States,,,"Inland, Temper
 US-045,"East Chicago, Indiana",,41.6397857,-87.4548466,United States,,,"Inland, Temperate","1 year, 2 years","Carbon steel, Zinc",s067,,,,,,,,,,,
 US-046,"Cape Kennedy, Florida",,28.4513556,-80.5283059,United States,,,"Marine, Temperate","1 year, 2 years","Carbon steel, Zinc",s067,,,,,,,,,,,
 US-047,"Brazos River, Texas",,33.1781032,-96.6181785,United States,,,"Inland, Temperate","1 year, 2 years","Carbon steel, Zinc",s067,,,,,,,,,,,
-US-049,Daytona Beach,,29.2108147,-81.0228331,United States,,,"Coastal, Temperate","1 year, 2 years","Carbon steel, Zinc",s067,,,,,,,,,,,
+US-049,Daytona Beach,,29.2108147,-81.0228331,United States,,,"Coastal, Temperate","1 year, 2 years, 4 years, 6 months, 6 years","Carbon steel, Hot-dip galvanized steel, Zinc, Zn-Al coated steel, Zn-Al-Mg coated steel, Zn-Al-Si coated steel",s067,s153,s154,s155,s156,,,,,,,
 US-050,"Birmingham, Alabama",,33.5206824,-86.8024326,United States,,,"Inland, Temperate","1 year, 1.9 years, 2 years",Carbon steel,s068,,,,,,,,,,,
 US-051,"Mobile, Alabama",,30.6913462,-88.0437509,United States,,,"Marine, Temperate","1 year, 1.9 years, 2 years",Carbon steel,s068,,,,,,,,,,,
 US-052,"Maricopa County, Arizona",,33.34883,-112.49123,United States,,,"Inland, Temperate","1 year, 1.9 years, 2 years",Carbon steel,s068,,,,,,,,,,,
