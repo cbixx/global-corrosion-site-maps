@@ -2355,6 +2355,8 @@ const COUNTRY_CODE_NAME_OVERRIDES = {
   "vietnam": "VN",
   "taiwan": "CN",
   "chinese taipei": "CN",
+  "turkey": "TR",
+  "türkiye": "TR",
 };
 
 let countryNameToCodeCache = null;
